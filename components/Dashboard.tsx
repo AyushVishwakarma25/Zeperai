@@ -235,9 +235,9 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     };
 
     return (
-      <div className="py-8">
+      <div className="py-2">
         <h1 className="text-3xl font-bold text-text-primary text-center">What are we creating today, {userName}?</h1>
-        <div className="max-w-3xl mx-auto mt-4 mb-8">
+        <div className="max-w-3xl mx-auto mt-4 mb-4">
             <FloatingActionBar 
                 prompt={floatingPrompt}
                 onPromptChange={onFloatingPromptChange}
@@ -293,39 +293,41 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 export const Dashboard: React.FC<DashboardProps> = (props) => {
     
     return (
-        <main className="relative w-full h-full overflow-y-auto">
+        <main className="relative w-full h-full flex flex-col overflow-hidden">
             <Header onOpenFeedbackModal={props.onOpenFeedbackModal} onOpenPricingModal={props.onOpenPricingModal} onToggleSidebar={props.onToggleSidebar} />
-            <div className="grid grid-cols-[1fr_minmax(0,64rem)_1fr]">
-                <div />
-                <div className="px-4 md:px-8 lg:px-12">
-                    {props.generatedImages.length > 0 ? (
-                        <MainContent 
-                            {...props}
-                            onStartNew={props.onClearGeneration}
-                        />
-                    ) : (
-                        <DashboardHome 
-                            onSelectMode={props.onSelectMode}
-                            onStartImageEdit={props.onStartImageEdit}
-                            onStartImageUpscale={props.onStartImageUpscale}
-                            onOpenContentGenerator={props.onOpenContentGenerator}
-                            floatingPrompt={props.floatingPrompt}
-                            onFloatingPromptChange={props.onFloatingPromptChange}
-                            floatingImagePreview={props.floatingImagePreview}
-                            onFloatingGenerate={props.onFloatingGenerate}
-                            onRemoveFloatingImage={props.onRemoveFloatingImage}
-                            onTriggerFloatingUpload={props.onTriggerFloatingUpload}
-                            isLoading={props.isLoading}
-                            userTier={props.userTier}
-                            onOpenPricingModal={props.onOpenPricingModal}
-                            isAdmin={props.isAdmin}
-                            userName={props.userName}
-                            onInternalImageDrop={props.onInternalImageDrop}
-                            onUpscale={props.onUpscale}
-                        />
-                    )}
+            <div className="flex-1 overflow-y-auto">
+                <div className="grid grid-cols-[1fr_minmax(0,64rem)_1fr]">
+                    <div />
+                    <div className="px-4 md:px-8 lg:px-12">
+                        {props.generatedImages.length > 0 ? (
+                            <MainContent 
+                                {...props}
+                                onStartNew={props.onClearGeneration}
+                            />
+                        ) : (
+                            <DashboardHome 
+                                onSelectMode={props.onSelectMode}
+                                onStartImageEdit={props.onStartImageEdit}
+                                onStartImageUpscale={props.onStartImageUpscale}
+                                onOpenContentGenerator={props.onOpenContentGenerator}
+                                floatingPrompt={props.floatingPrompt}
+                                onFloatingPromptChange={props.onFloatingPromptChange}
+                                floatingImagePreview={props.floatingImagePreview}
+                                onFloatingGenerate={props.onFloatingGenerate}
+                                onRemoveFloatingImage={props.onRemoveFloatingImage}
+                                onTriggerFloatingUpload={props.onTriggerFloatingUpload}
+                                isLoading={props.isLoading}
+                                userTier={props.userTier}
+                                onOpenPricingModal={props.onOpenPricingModal}
+                                isAdmin={props.isAdmin}
+                                userName={props.userName}
+                                onInternalImageDrop={props.onInternalImageDrop}
+                                onUpscale={props.onUpscale}
+                            />
+                        )}
+                    </div>
+                    <div />
                 </div>
-                <div />
             </div>
         </main>
     );

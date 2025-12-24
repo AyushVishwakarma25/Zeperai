@@ -266,234 +266,231 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
         </>
     );
     
-    // Two-column layout for all other modes
     return (
-      <>
-        <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
-            {/* LEFT ASSETS PANEL */}
-            <div className={`w-full ${mode === AppMode.Remix ? 'md:w-1/2' : 'md:w-1/3'} bg-slate-50 p-6 border-r border-slate-200 flex flex-col gap-6`}>
-                 {mode === AppMode.Remix ? (
-                    <>
-                        <SectionTitle title="REMIX ASSETS" />
+      <div className="flex-grow flex flex-col md:flex-row overflow-y-auto md:overflow-hidden scrollbar-thin">
+        {/* LEFT ASSETS PANEL */}
+        <div className={`w-full ${mode === AppMode.Remix ? 'md:w-1/2' : 'md:w-1/3'} bg-slate-50 p-4 md:p-6 border-b md:border-b-0 md:border-r border-slate-200 flex flex-col gap-6 shrink-0`}>
+             {mode === AppMode.Remix ? (
+                <>
+                    <SectionTitle title="REMIX ASSETS" />
+                    <ImageDropzone 
+                        id="remix-reference-image-upload"
+                        prompt="Upload Scene Image"
+                        previewUrl={remixReferenceImagePreview}
+                        onFileChange={(file) => onFileChange(file, 'remixReferenceImage', setRemixReferenceImagePreview, { maxWidth: 1024, maxHeight: 1024 })}
+                    />
+                    <ImageDropzone 
+                        id="remix-product-image-upload"
+                        prompt="Upload New Product (Cutout)"
+                        previewUrl={remixProductImagePreview}
+                        onFileChange={(file) => onFileChange(file, 'remixProductImage', setRemixProductImagePreview, { maxWidth: 1024, maxHeight: 1024, format: 'image/png' })}
+                    />
+                </>
+             ) : (
+                <>
+                    <div className="flex-1 flex flex-col">
+                        <SectionTitle title="ASSETS" />
                         <ImageDropzone 
-                            id="remix-reference-image-upload"
-                            prompt="Upload Scene Image"
-                            previewUrl={remixReferenceImagePreview}
-                            onFileChange={(file) => onFileChange(file, 'remixReferenceImage', setRemixReferenceImagePreview, { maxWidth: 1024, maxHeight: 1024 })}
+                            id="asset-upload-main"
+                            prompt={isFashion ? "Fabric or Garment" : "Upload Product Image"}
+                            previewUrl={frontProductImagePreview}
+                            onFileChange={(file) => onFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 2048, maxHeight: 2048, format: 'image/png' })}
+                            className="aspect-[4/5] md:aspect-square !h-auto flex-grow"
                         />
-                        <ImageDropzone 
-                            id="remix-product-image-upload"
-                            prompt="Upload New Product (Cutout)"
-                            previewUrl={remixProductImagePreview}
-                            onFileChange={(file) => onFileChange(file, 'remixProductImage', setRemixProductImagePreview, { maxWidth: 1024, maxHeight: 1024, format: 'image/png' })}
-                        />
-                    </>
-                 ) : (
-                    <>
+                    </div>
+                    {isAdCreative && (
                         <div className="flex-1 flex flex-col">
-                            <SectionTitle title="ASSETS" />
                             <ImageDropzone 
-                                id="asset-upload-main"
-                                prompt={isFashion ? "Fabric or Garment" : "Upload Product Image"}
-                                previewUrl={frontProductImagePreview}
-                                onFileChange={(file) => onFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 2048, maxHeight: 2048, format: 'image/png' })}
-                                className="aspect-square !h-auto flex-grow"
+                                id="logo-upload-main"
+                                prompt="Upload Brand Logo (Optional)"
+                                previewUrl={logoPreview}
+                                onFileChange={(file) => onFileChange(file, 'logoImage', setLogoPreview, { maxWidth: 512, maxHeight: 512, format: 'image/png' })}
+                                className="aspect-[4/5] md:aspect-square !h-auto flex-grow"
                             />
                         </div>
-                        {isAdCreative && (
-                            <div className="flex-1 flex flex-col">
-                                <ImageDropzone 
-                                    id="logo-upload-main"
-                                    prompt="Upload Brand Logo (Optional)"
-                                    previewUrl={logoPreview}
-                                    onFileChange={(file) => onFileChange(file, 'logoImage', setLogoPreview, { maxWidth: 512, maxHeight: 512, format: 'image/png' })}
-                                    className="aspect-square !h-auto flex-grow"
-                                />
-                            </div>
-                        )}
-                    </>
-                 )}
-            </div>
-
-            {/* RIGHT SETTINGS PANEL */}
-            <div className="flex-1 p-6 overflow-y-auto scrollbar-thin">
-                {mode === AppMode.Remix ? (
-                    <>
-                        <SectionTitle title="REMIX SETTINGS" />
-                        <FormTextArea
-                            label="Modification Prompt"
-                            id="remix-prompt"
-                            placeholder="e.g., Change the fruits to lemons and make the background blue. (Leave blank to auto-adapt)"
-                            rows={4}
-                            value={params.productDescription}
-                            onChange={e => handleParamChange('productDescription', e.target.value)}
-                        />
-                    </>
-                ) : (
-                    <>
-                        <SectionTitle title="CREATIVE SETTINGS" />
-                        <FormTextArea 
-                            label="Product Description"
-                            id="product-description"
-                            placeholder="e.g., A refreshing watermelon-flavored energy drink in a sleek can."
-                            value={params.productDescription}
-                            onChange={e => handleParamChange('productDescription', e.target.value)}
-                            rows={4}
-                            className="!mb-0"
-                        />
-                    </>
-                )}
-
-                {mode === AppMode.Influencer && (
-                     <>
-                        <SectionTitle title="INFLUENCER DETAILS" className="mt-6" />
-                        <Select label="Product Category" value={params.productCategory} onChange={e => handleParamChange('productCategory', e.target.value)}>
-                            {PRODUCT_CATEGORY_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                        </Select>
-                        <div className="grid grid-cols-2 gap-4 mt-4">
-                            <div>
-                                <label className="block text-sm font-medium text-text-primary mb-2">Gender</label>
-                                <div className="flex p-1 bg-slate-100 rounded-lg border border-slate-200">
-                                    {MODEL_GENDER_OPTIONS.map(opt => (
-                                        <button key={opt.value} onClick={() => handleParamChange('modelGender', opt.value)} className={`flex-1 py-1.5 rounded-md text-sm font-semibold flex items-center justify-center gap-2 ${params.modelGender === opt.value ? 'bg-primary text-white shadow-sm' : 'text-slate-700'}`}>
-                                            <Icon name={opt.icon} className="w-4 h-4" />
-                                            {opt.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <div>
-                               <label className="block text-sm font-medium text-text-primary mb-2">Skin Tone</label>
-                                <div className="flex space-x-2 items-center h-10">
-                                  {SKIN_TONE_OPTIONS.map(option => (
-                                      <button key={option.value} onClick={() => handleParamChange('skinTone', option.value)}
-                                          className={`w-8 h-8 rounded-full transition-all border-2 ${params.skinTone === option.value ? 'border-primary ring-2 ring-primary/20 scale-110' : 'border-slate-200 bg-clip-content p-0.5 hover:scale-105'}`}
-                                          style={{ backgroundColor: option.color }}
-                                      />
-                                  ))}
-                              </div>
-                            </div>
-                        </div>
-                        <div className="relative mt-4">
-                            <Select label="Model Persona" value={params.modelPersona} onChange={e => handleParamChange('modelPersona', e.target.value)}>
-                                {Object.keys(MODEL_PERSONA_OPTIONS).map(group => ( <optgroup key={group} label={group}> {MODEL_PERSONA_OPTIONS[group].map(opt => <option key={opt} value={opt}>{opt}</option>)} </optgroup> ))}
-                            </Select>
-                            <button onClick={() => onGenerateVariants('modelPersona')} className="absolute top-8 right-2 p-1 text-slate-400 hover:text-primary"><Icon name="sparkles" className="w-4 h-4"/></button>
-                        </div>
-                         <div className="relative mt-4">
-                            <Select label="Pose / Action" value={params.poseSuggestion} onChange={e => handleParamChange('poseSuggestion', e.target.value)}>
-                                {POSE_SUGGESTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </Select>
-                             <button onClick={() => onGenerateVariants('poseSuggestion')} className="absolute top-8 right-2 p-1 text-slate-400 hover:text-primary"><Icon name="sparkles" className="w-4 h-4"/></button>
-                        </div>
-                        <div className="mt-4">
-                             <label className="block text-sm font-medium text-text-primary mb-2">Outfit Type</label>
-                             <div className="grid grid-cols-4 gap-2">
-                                {CLOTHING_TYPE_OPTIONS.map(opt => (
-                                    <ControlButton key={opt.value} onClick={() => handleParamChange('clothingType', opt.value)} selected={params.clothingType === opt.value}>
-                                       <Icon name={opt.icon} className="w-4 h-4" /> <span>{opt.label}</span>
-                                    </ControlButton>
-                                ))}
-                             </div>
-                        </div>
-                        <div className="mt-4"><Select label="Background Style" value={params.backgroundStyle} onChange={e => handleParamChange('backgroundStyle', e.target.value)}>{backgroundOptions}</Select></div>
-                    </>
-                )}
-
-                {(mode === AppMode.Product || mode === AppMode.Amazon) && (
-                    <>
-                        <SectionTitle title="PHOTOSHOOT STYLE" className="mt-6" />
-                        <label className="block text-sm font-medium text-text-primary mb-2">Product Angles</label>
-                        <div className="grid grid-cols-3 gap-2">
-                            {ANGLE_OPTIONS.map(opt => ( 
-                                <ControlButton key={opt.value} onClick={() => handleAngleChange(opt.value)} selected={params.selectedAngles?.includes(opt.value)}> 
-                                    {opt.label} 
-                                </ControlButton> 
-                            ))}
-                        </div>
-                        <div className="mt-4"><Select label="Visual Style Preset" value={params.productStylePreset} onChange={e => handleParamChange('productStylePreset', e.target.value)}>{productStylePresetOptions()}</Select></div>
-                    </>
-                )}
-                
-                {isAdCreative && (
-                    <>
-                        <SectionTitle title="AD CREATIVE DETAILS" className="mt-6" />
-                        <div className="space-y-4">
-                            <Select label="Ad Layout" value={params.adLayout || ''} onChange={e => handleParamChange('adLayout', e.target.value)}>
-                                {AD_LAYOUT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                            </Select>
-                            <FormInput 
-                                label="Ad Title"
-                                id="ad-title"
-                                placeholder="e.g. Summer Sale 50% Off"
-                                value={params.adTitle || ''}
-                                onChange={e => handleParamChange('adTitle', e.target.value)}
-                            />
-                            <FormInput 
-                                label="Subheading"
-                                id="ad-subheading"
-                                placeholder="e.g. Limited time offer"
-                                value={params.adSubheading || ''}
-                                onChange={e => handleParamChange('adSubheading', e.target.value)}
-                            />
-                            <FormInput 
-                                label="CTA Button"
-                                id="ad-cta"
-                                placeholder="e.g. Shop Now"
-                                value={params.adCta || ''}
-                                onChange={e => handleParamChange('adCta', e.target.value)}
-                            />
-                        </div>
-                    </>
-                )}
-
-                {mode === AppMode.Festival && (
-                    <>
-                        <SectionTitle title="FESTIVAL THEME" className="mt-6" />
-                        <Select label="Festival Style" value={params.festivalStyle || ''} onChange={e => handleParamChange('festivalStyle', e.target.value)}>
-                            <option value="">Select a Festival</option>
-                            {FESTIVAL_STYLE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                        </Select>
-                    </>
-                )}
-
-                {isFashion && (
-                    <>
-                        <SectionTitle title="FASHION SHOOT DETAILS" className="mt-6" />
-                        <div className="grid grid-cols-2 gap-4">
-                            <Select label="Gender" value={params.fashionGender || FashionGender.Women} onChange={e => handleParamChange('fashionGender', e.target.value)}>
-                                {Object.values(FashionGender).map(g => <option key={g} value={g}>{g}</option>)}
-                            </Select>
-                            <Select label="Shoot Type" value={params.fashionShootType || FashionShootType.ModelShoot} onChange={e => handleParamChange('fashionShootType', e.target.value)}>
-                                {Object.values(FashionShootType).map(t => <option key={t} value={t}>{t}</option>)}
-                            </Select>
-                        </div>
-                        <div className="mt-4">
-                            <Select label="Category" value={params.fashionCategory || ''} onChange={e => handleParamChange('fashionCategory', e.target.value)}>
-                                <option value="">Select Category</option>
-                                {Object.keys(categories).map(c => <option key={c} value={c}>{c}</option>)}
-                            </Select>
-                        </div>
-                        {category && (
-                            <div className="mt-4">
-                                <Select label="Apparel Type" value={params.fashionSubCategory || ''} onChange={e => handleParamChange('fashionSubCategory', e.target.value)}>
-                                    <option value="">Select Apparel</option>
-                                    {subCategories.map(sc => <option key={sc} value={sc}>{sc}</option>)}
-                                </Select>
-                            </div>
-                        )}
-                        <div className="mt-4">
-                            <Select label="Regional Style (Optional)" value={params.regionalStyle || RegionalStyle.None} onChange={e => handleParamChange('regionalStyle', e.target.value)}>
-                                {Object.values(RegionalStyle).map(rs => <option key={rs} value={rs}>{rs}</option>)}
-                            </Select>
-                        </div>
-                    </>
-                )}
-                
-                {commonOutputSettings}
-            </div>
+                    )}
+                </>
+             )}
         </div>
-      </>
+
+        {/* RIGHT SETTINGS PANEL */}
+        <div className="flex-1 p-4 md:p-6 md:overflow-y-auto scrollbar-thin">
+            {mode === AppMode.Remix ? (
+                <>
+                    <SectionTitle title="REMIX SETTINGS" />
+                    <FormTextArea
+                        label="Modification Prompt"
+                        id="remix-prompt"
+                        placeholder="e.g., Change the fruits to lemons and make the background blue. (Leave blank to auto-adapt)"
+                        rows={4}
+                        value={params.productDescription}
+                        onChange={e => handleParamChange('productDescription', e.target.value)}
+                    />
+                </>
+            ) : (
+                <>
+                    <SectionTitle title="CREATIVE SETTINGS" />
+                    <FormTextArea 
+                        label="Product Description"
+                        id="product-description"
+                        placeholder="e.g., A refreshing watermelon-flavored energy drink in a sleek can."
+                        value={params.productDescription}
+                        onChange={e => handleParamChange('productDescription', e.target.value)}
+                        rows={4}
+                        className="!mb-0"
+                    />
+                </>
+            )}
+
+            {mode === AppMode.Influencer && (
+                 <>
+                    <SectionTitle title="INFLUENCER DETAILS" className="mt-6" />
+                    <Select label="Product Category" value={params.productCategory} onChange={e => handleParamChange('productCategory', e.target.value)}>
+                        {PRODUCT_CATEGORY_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </Select>
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label className="block text-sm font-medium text-text-primary mb-2">Gender</label>
+                            <div className="flex p-1 bg-slate-100 rounded-lg border border-slate-200">
+                                {MODEL_GENDER_OPTIONS.map(opt => (
+                                    <button key={opt.value} onClick={() => handleParamChange('modelGender', opt.value)} className={`flex-1 py-1.5 rounded-md text-sm font-semibold flex items-center justify-center gap-2 ${params.modelGender === opt.value ? 'bg-primary text-white shadow-sm' : 'text-slate-700'}`}>
+                                        <Icon name={opt.icon} className="w-4 h-4" />
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                           <label className="block text-sm font-medium text-text-primary mb-2">Skin Tone</label>
+                            <div className="flex space-x-2 items-center h-10">
+                              {SKIN_TONE_OPTIONS.map(option => (
+                                  <button key={option.value} onClick={() => handleParamChange('skinTone', option.value)}
+                                      className={`w-8 h-8 rounded-full transition-all border-2 ${params.skinTone === option.value ? 'border-primary ring-2 ring-primary/20 scale-110' : 'border-slate-200 bg-clip-content p-0.5 hover:scale-105'}`}
+                                      style={{ backgroundColor: option.color }}
+                                  />
+                              ))}
+                          </div>
+                        </div>
+                    </div>
+                    <div className="relative mt-4">
+                        <Select label="Model Persona" value={params.modelPersona} onChange={e => handleParamChange('modelPersona', e.target.value)}>
+                            {Object.keys(MODEL_PERSONA_OPTIONS).map(group => ( <optgroup key={group} label={group}> {MODEL_PERSONA_OPTIONS[group].map(opt => <option key={opt} value={opt}>{opt}</option>)} </optgroup> ))}
+                        </Select>
+                        <button onClick={() => onGenerateVariants('modelPersona')} className="absolute top-8 right-2 p-1 text-slate-400 hover:text-primary"><Icon name="sparkles" className="w-4 h-4"/></button>
+                    </div>
+                     <div className="relative mt-4">
+                        <Select label="Pose / Action" value={params.poseSuggestion} onChange={e => handleParamChange('poseSuggestion', e.target.value)}>
+                            {POSE_SUGGESTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </Select>
+                         <button onClick={() => onGenerateVariants('poseSuggestion')} className="absolute top-8 right-2 p-1 text-slate-400 hover:text-primary"><Icon name="sparkles" className="w-4 h-4"/></button>
+                    </div>
+                    <div className="mt-4">
+                         <label className="block text-sm font-medium text-text-primary mb-2">Outfit Type</label>
+                         <div className="grid grid-cols-4 gap-2">
+                            {CLOTHING_TYPE_OPTIONS.map(opt => (
+                                <ControlButton key={opt.value} onClick={() => handleParamChange('clothingType', opt.value)} selected={params.clothingType === opt.value}>
+                                   <Icon name={opt.icon} className="w-4 h-4" /> <span>{opt.label}</span>
+                                </ControlButton>
+                            ))}
+                         </div>
+                    </div>
+                    <div className="mt-4"><Select label="Background Style" value={params.backgroundStyle} onChange={e => handleParamChange('backgroundStyle', e.target.value)}>{backgroundOptions}</Select></div>
+                </>
+            )}
+
+            {(mode === AppMode.Product || mode === AppMode.Amazon) && (
+                <>
+                    <SectionTitle title="PHOTOSHOOT STYLE" className="mt-6" />
+                    <label className="block text-sm font-medium text-text-primary mb-2">Product Angles</label>
+                    <div className="grid grid-cols-3 gap-2">
+                        {ANGLE_OPTIONS.map(opt => ( 
+                            <ControlButton key={opt.value} onClick={() => handleAngleChange(opt.value)} selected={params.selectedAngles?.includes(opt.value)}> 
+                                {opt.label} 
+                            </ControlButton> 
+                        ))}
+                    </div>
+                    <div className="mt-4"><Select label="Visual Style Preset" value={params.productStylePreset} onChange={e => handleParamChange('productStylePreset', e.target.value)}>{productStylePresetOptions()}</Select></div>
+                </>
+            )}
+            
+            {isAdCreative && (
+                <>
+                    <SectionTitle title="AD CREATIVE DETAILS" className="mt-6" />
+                    <div className="space-y-4">
+                        <Select label="Ad Layout" value={params.adLayout || ''} onChange={e => handleParamChange('adLayout', e.target.value)}>
+                            {AD_LAYOUT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                        </Select>
+                        <FormInput 
+                            label="Ad Title"
+                            id="ad-title"
+                            placeholder="e.g. Summer Sale 50% Off"
+                            value={params.adTitle || ''}
+                            onChange={e => handleParamChange('adTitle', e.target.value)}
+                        />
+                        <FormInput 
+                            label="Subheading"
+                            id="ad-subheading"
+                            placeholder="e.g. Limited time offer"
+                            value={params.adSubheading || ''}
+                            onChange={e => handleParamChange('adSubheading', e.target.value)}
+                        />
+                        <FormInput 
+                            label="CTA Button"
+                            id="ad-cta"
+                            placeholder="e.g. Shop Now"
+                            value={params.adCta || ''}
+                            onChange={e => handleParamChange('adCta', e.target.value)}
+                        />
+                    </div>
+                </>
+            )}
+
+            {mode === AppMode.Festival && (
+                <>
+                    <SectionTitle title="FESTIVAL THEME" className="mt-6" />
+                    <Select label="Festival Style" value={params.festivalStyle || ''} onChange={e => handleParamChange('festivalStyle', e.target.value)}>
+                        <option value="">Select a Festival</option>
+                        {FESTIVAL_STYLE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </Select>
+                </>
+            )}
+
+            {isFashion && (
+                <>
+                    <SectionTitle title="FASHION SHOOT DETAILS" className="mt-6" />
+                    <div className="grid grid-cols-2 gap-4">
+                        <Select label="Gender" value={params.fashionGender || FashionGender.Women} onChange={e => handleParamChange('fashionGender', e.target.value)}>
+                            {Object.values(FashionGender).map(g => <option key={g} value={g}>{g}</option>)}
+                        </Select>
+                        <Select label="Shoot Type" value={params.fashionShootType || FashionShootType.ModelShoot} onChange={e => handleParamChange('fashionShootType', e.target.value)}>
+                            {Object.values(FashionShootType).map(t => <option key={t} value={t}>{t}</option>)}
+                        </Select>
+                    </div>
+                    <div className="mt-4">
+                        <Select label="Category" value={params.fashionCategory || ''} onChange={e => handleParamChange('fashionCategory', e.target.value)}>
+                            <option value="">Select Category</option>
+                            {Object.keys(categories).map(c => <option key={c} value={c}>{c}</option>)}
+                        </Select>
+                    </div>
+                    {category && (
+                        <div className="mt-4">
+                            <Select label="Apparel Type" value={params.fashionSubCategory || ''} onChange={e => handleParamChange('fashionSubCategory', e.target.value)}>
+                                <option value="">Select Apparel</option>
+                                {subCategories.map(sc => <option key={sc} value={sc}>{sc}</option>)}
+                            </Select>
+                        </div>
+                    )}
+                    <div className="mt-4">
+                        <Select label="Regional Style (Optional)" value={params.regionalStyle || RegionalStyle.None} onChange={e => handleParamChange('regionalStyle', e.target.value)}>
+                            {Object.values(RegionalStyle).map(rs => <option key={rs} value={rs}>{rs}</option>)}
+                        </Select>
+                    </div>
+                </>
+            )}
+            
+            {commonOutputSettings}
+        </div>
+      </div>
     );
   };
 

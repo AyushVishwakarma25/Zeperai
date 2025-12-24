@@ -182,7 +182,7 @@ const App: React.FC = () => {
   const [isVariantsLoading, setIsVariantsLoading] = useState(false);
   const [variantSuggestions, setVariantSuggestions] = useState<string[]>([]);
   const [variantError, setVariantError] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [isSavingDesign, setIsSavingDesign] = useState<string | null>(null); 
   
@@ -262,6 +262,8 @@ const App: React.FC = () => {
   }, []);
   
   const handleLoginSuccess = useCallback(async (session: AuthSession) => {
+      setIsSidebarOpen(false); // Collapse sidebar on login
+      setCurrentView(View.Dashboard); // Ensure view is dashboard
       setUserProfile(session.user);
       setUserTier(session.user.tier);
       setToast({ message: `Welcome back, ${session.user.name}!`, type: 'success' });
@@ -295,7 +297,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleRequireAuth = useCallback(() => {
-      if (!userProfile) {
+      if (!userProfile || userProfile.id === 'guest-user-id') {
           setIsAuthModalOpen(true);
           return false;
       }
@@ -348,7 +350,12 @@ const App: React.FC = () => {
   const handleOpenFeedbackModal = useCallback(() => setIsFeedbackModalOpen(true), []);
   const handleCloseFeedbackModal = useCallback(() => setIsFeedbackModalOpen(false), []);
 
-  const handleOpenPricingModal = useCallback(() => setIsPricingModalOpen(true), []);
+  const handleOpenPricingModal = useCallback(() => {
+    if (handleRequireAuth()) {
+        setIsPricingModalOpen(true);
+    }
+  }, [handleRequireAuth]);
+
   const handleClosePricingModal = useCallback(() => setIsPricingModalOpen(false), []);
 
   const handleOpenSupportModal = useCallback(() => setIsSupportModalOpen(true), []);
@@ -1070,7 +1077,7 @@ const App: React.FC = () => {
         onLogout={handleLogout}
       />
 
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden lg:ml-[92px]">
         {renderCurrentView()}
       </main>
 
