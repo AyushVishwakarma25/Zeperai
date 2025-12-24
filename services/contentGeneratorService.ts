@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { GenerateContentParams, CopyVariation, RewriteCopyParams, RewriteAction } from '../types';
 
@@ -17,7 +18,7 @@ export const generateMarketingCopy = async (params: GenerateContentParams): Prom
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-flash-latest',
+            model: 'gemini-3-flash-preview',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -43,9 +44,20 @@ export const generateMarketingCopy = async (params: GenerateContentParams): Prom
             },
         });
 
-        const result = JSON.parse(response.text.trim());
-        return result.copies as CopyVariation[];
+        const text = response.text?.trim();
+        if (!text) {
+          throw new Error("AI returned an empty response.");
+        }
+
+        try {
+            const result = JSON.parse(text);
+            return result.copies as CopyVariation[];
+        } catch (jsonError) {
+            console.error("Failed to parse AI JSON response:", text);
+            throw new Error("AI returned an invalid format. Please try again.");
+        }
     } catch (error) {
+        console.error("Error generating marketing copy:", error);
         throw new Error(`Failed to generate copy.`);
     }
 };
@@ -58,7 +70,7 @@ export const rewriteMarketingCopy = async (params: RewriteCopyParams): Promise<C
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-flash-latest',
+            model: 'gemini-3-flash-preview',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -74,8 +86,20 @@ export const rewriteMarketingCopy = async (params: RewriteCopyParams): Promise<C
                 },
             },
         });
-        return JSON.parse(response.text.trim()) as CopyVariation;
+        
+        const text = response.text?.trim();
+        if (!text) {
+          throw new Error("AI returned an empty response for rewrite.");
+        }
+
+        try {
+            return JSON.parse(text) as CopyVariation;
+        } catch (jsonError) {
+            console.error("Failed to parse AI JSON response for rewrite:", text);
+            throw new Error("AI returned an invalid format for rewrite. Please try again.");
+        }
     } catch (error) {
+        console.error("Error rewriting copy:", error);
         throw new Error(`Failed to rewrite copy.`);
     }
 };

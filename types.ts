@@ -1,9 +1,17 @@
 
 export enum AspectRatio {
-  Portrait = '9:16', // For Reels/Stories
-  PortraitPost = '4:5', // For Portrait Posts
-  Square = '1:1', // For Square Posts
-  Landscape = '16:9', // For Landscape Posts/Ads
+  Portrait = '9:16', 
+  PortraitPost = '4:5', 
+  Square = '1:1', 
+  Landscape = '16:9', 
+  FashionShopify = '2:3', 
+}
+
+export enum MarketplacePreset {
+  Amazon = 'Amazon',
+  Shopify = 'Shopify',
+  Flipkart = 'Flipkart',
+  None = 'None'
 }
 
 export enum AppMode {
@@ -11,13 +19,49 @@ export enum AppMode {
   Product = 'Product',
   AdCreative = 'AdCreative',
   Remix = 'Remix',
-  Imagen = 'Imagen',
   Fashion = 'Fashion',
   Amazon = 'Amazon',
   Banner = 'Banner',
   Youtube = 'Youtube',
   Copywriter = 'Copywriter',
   Festival = 'Festival',
+  Bulk = 'Bulk',
+}
+
+export enum FashionGender {
+  Women = 'Women',
+  Men = 'Men',
+  Kids = 'Kids'
+}
+
+export enum FashionBodyType {
+  Regular = 'Regular',
+  Petite = 'Petite',
+  PlusSize = 'Plus Size',
+  Tall = 'Tall'
+}
+
+export enum FashionAgeBracket {
+  Toddler = 'Toddler (2-4 yrs)',
+  Child = 'Child (5-10 yrs)',
+  Teen = 'Teen (11-16 yrs)'
+}
+
+export enum RegionalStyle {
+  None = 'Standard/Modern',
+  SouthIndian = 'South Indian (Temple/Silk)',
+  Punjabi = 'Punjabi (Patiala/Vibrant)',
+  Bengali = 'Bengali (Artistic/Traditional)',
+  Maharashtrian = 'Maharashtrian (Nauvari Style)',
+  Rajasthani = 'Rajasthani (Royal/Bandhani)'
+}
+
+export enum FashionShootType {
+  FabricOnly = 'Fabric Only (AI Draping)',
+  FullProduct = 'Full Product (Refine Scene)',
+  ModelShoot = 'Model Shoot (Wear Product)',
+  GhostMannequin = 'Ghost Mannequin (Apparel Only)',
+  LifestyleScene = 'Lifestyle Scene (Contextual)',
 }
 
 export enum View {
@@ -25,6 +69,19 @@ export enum View {
   MyDesigns = 'MyDesigns',
   Profile = 'Profile',
   Inspiration = 'Inspiration',
+}
+
+export interface BrandKit {
+  id?: string;
+  brandName: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  fonts: string;
+  voice: string;
+  description: string;
+  logoUrl?: string;
+  updatedAt?: number;
 }
 
 export enum AdLayout {
@@ -48,32 +105,9 @@ export enum SkinTone {
 
 export enum ClothingType {
     AISuggested = 'AI Suggested',
-    Traditional = 'Traditional Indian Wear',
-    Casual = 'Casual Wear',
-    Formal = 'Formal Wear',
-}
-
-export enum ModelPersona {
-  MinimalistShopper = 'Minimalist Shopper',
-  UrbanProfessional = 'Urban Professional',
-  CollegeStudent = 'College Student',
-  NewMom = 'New Mom',
-  YogaEnthusiast = 'Yoga Enthusiast',
-  EcoFriendlyAdvocate = 'Eco-Friendly Advocate',
-  AyurvedaHerbalBeliever = 'Ayurveda/Herbal Believer',
-  FitnessBuff = 'Fitness Buff',
-  StreetwearTrendsetter = 'Streetwear Trendsetter',
-  BohoChic = 'Boho Chic',
-  LuxuryMinimalist = 'Luxury Minimalist',
-  FestiveGlam = 'Festive Glam',
-  IndianBrideGroomLook = 'Indian Bride/Groom Look',
-  WesternCasual = 'Western Casual',
-  SeniorCitizen = 'Senior Citizen',
-  TeenInfluencer = 'Teen Influencer',
-  TravelerExplorer = 'Traveler/Explorer',
-  EntrepreneurLeader = 'Entrepreneur/Leader',
-  ArtistCreative = 'Artist/Creative',
-  HealthConsciousParent = 'Health-Conscious Parent',
+    Traditional = 'Traditional',
+    Casual = 'Casual',
+    Formal = 'Formal',
 }
 
 export enum OutfitChoice {
@@ -142,15 +176,32 @@ export interface StoryboardScene {
 export interface GenerateImageParams {
   appMode: AppMode;
   productDescription: string;
-  aspectRatio: AspectRatio;
+  aspectRatios: AspectRatio[];
   outputFormat: OutputFormat;
   resolutionQuality: ResolutionQuality;
   
+  // Fashion Studio Extensions
+  fashionGender?: FashionGender;
+  fashionShootType?: FashionShootType;
+  fashionCategory?: string;
+  fashionSubCategory?: string;
+  fashionBodyType?: FashionBodyType;
+  fashionAgeBracket?: FashionAgeBracket;
+  regionalStyle?: RegionalStyle;
+  modelLockId?: string;
+
+  // Marketplace & Fashion Extensions
+  marketplacePreset?: MarketplacePreset;
+  batchSize?: number;
+  hyperRealism?: boolean;
+
   // Product mode
   frontProductImage?: File;
+  bulkImages?: File[]; 
   backProductImage?: File;
   selectedAngles: string[];
   productStylePreset?: string;
+  festivalStyle?: string;
   backdropAndProps?: string;
   textPlacementSuggestion?: string;
   overlayText?: string;
@@ -202,14 +253,6 @@ export interface GeneratedImage {
   timestamp: number;
 }
 
-export interface UserActivity {
-  id: string;
-  user: string;
-  action: string;
-  imageUrl: string;
-  timestamp: number;
-}
-
 export interface EditImageParams {
   originalImageUrl: string;
   maskDataUrl: string;
@@ -218,23 +261,16 @@ export interface EditImageParams {
 }
 
 export interface GenerateCaptionParams {
-    imageUrl: string;
-    existingCaption: string;
-    tone: CaptionTone;
-    length: 'Short' | 'Medium' | 'Long';
-    platform: 'Instagram' | 'YouTube' | 'TikTok' | 'Ad Copy';
-    includeHashtags: boolean;
-    includeEmojis: boolean;
-    language: 'English' | 'Hindi' | 'Hinglish';
+  imageUrl: string;
+  existingCaption?: string;
+  tone: CaptionTone | string;
+  length: 'Short' | 'Medium' | 'Long';
+  platform: string;
+  language: string;
+  includeHashtags: boolean;
+  includeEmojis: boolean;
 }
 
-export interface ABTestSuggestion {
-  title: string;
-  description: string;
-  hypothesis: string;
-}
-
-// FIX: Add missing types for StrategyModal and CreativeBriefPanel
 export interface MoodBoard {
   concept: string;
   colors: { name?: string; hex: string }[];
@@ -250,13 +286,12 @@ export interface BrandAnalysis {
 
 export type BrandGuidelines = BrandAnalysis;
 
-export interface CreativeBrief {
-  personas: string[];
-  marketingAngles: string[];
-  sceneIdeas: string[];
+export interface ABTestSuggestion {
+  title: string;
+  description: string;
+  hypothesis: string;
 }
 
-// FIX: Add types for PRO_PRODUCT_STYLE_PRESETS to ensure type safety.
 export interface ProProductStylePreset {
   name: string;
   prompt: string;
@@ -267,13 +302,14 @@ export interface ProProductStyleCategory {
   presets: ProProductStylePreset[];
 }
 
-// Types for Standalone Ad Copywriter
+export enum ModelPersona {
+  AISuggested = 'AI Suggested',
+}
+
 export interface GenerateAdCopyParams {
   productDescription: string;
-  brandName?: string;
-  targetAudience?: string;
-  tone: 'Playful' | 'Professional' | 'Witty' | 'Bold' | 'Luxury';
-  platform: 'Instagram' | 'Facebook' | 'LinkedIn' | 'Twitter (X)';
+  tone: string;
+  platform: string;
   count: number;
 }
 
@@ -283,14 +319,13 @@ export interface AdCopy {
   cta: string;
 }
 
-// New Types for Content Generator
 export interface GenerateContentParams {
   context: string;
-  platform: 'Instagram' | 'Facebook' | 'Google Ads' | 'YouTube' | 'LinkedIn' | 'Website' | 'Email';
-  goal: 'Caption / Post' | 'Ad Headline' | 'Product Description' | 'Email Subject' | 'Short Script' | 'Call to Action (CTA)';
-  style: 'Storytelling' | 'Informative' | 'Conversational' | 'Persuasive' | 'Minimalist' | 'Luxury' | 'Trendy';
-  tone: 'Friendly' | 'Inspirational' | 'Humorous' | 'Serious' | 'Urgent' | 'Playful' | 'Professional';
-  language: 'English' | 'Hindi' | 'Spanish' | 'French';
+  platform: string;
+  goal: string;
+  style: string;
+  tone: string;
+  language: string;
   length: 'Short' | 'Medium' | 'Long';
   includeHashtags: boolean;
   includeEmojis: boolean;
@@ -306,16 +341,24 @@ export interface CopyVariation {
 }
 
 export enum RewriteAction {
-  Shorter = "Make it Shorter",
-  Humor = "Add Humor",
-  Luxury = "Make it Sound Luxury",
-  Simplify = "Simplify Tone",
-  AddHashtags = "Add Hashtags",
-  Translate = "Translate",
+  Shorter = 'Shorter',
+  Humor = 'Humor',
+  Luxury = 'Luxury',
+  Simplify = 'Simplify',
+  AddHashtags = 'AddHashtags',
+  Translate = 'Translate',
 }
 
 export interface RewriteCopyParams {
   copy: Omit<CopyVariation, 'isRewriting'>;
   action: RewriteAction;
-  language?: string; // For translation
+  language?: string;
+}
+
+export interface UserActivity {
+  id: string;
+  user: string;
+  action: string;
+  imageUrl: string;
+  timestamp: number;
 }

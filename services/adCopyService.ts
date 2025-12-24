@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { GenerateAdCopyParams, AdCopy } from '../types';
 
@@ -9,7 +10,7 @@ export const generateAdCopy = async (params: GenerateAdCopyParams): Promise<AdCo
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-flash-latest',
+            model: 'gemini-3-flash-preview',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -34,9 +35,20 @@ export const generateAdCopy = async (params: GenerateAdCopyParams): Promise<AdCo
             },
         });
 
-        const result = JSON.parse(response.text.trim());
-        return result.copies as AdCopy[];
+        const text = response.text?.trim();
+        if (!text) {
+          throw new Error("AI returned an empty response.");
+        }
+        
+        try {
+            const result = JSON.parse(text);
+            return result.copies as AdCopy[];
+        } catch (jsonError) {
+            console.error("Failed to parse AI JSON response:", text);
+            throw new Error("AI returned an invalid format. Please try again.");
+        }
     } catch (error) {
+        console.error("Error generating ad copy:", error);
         throw new Error(`Failed to generate ad copy.`);
     }
 };

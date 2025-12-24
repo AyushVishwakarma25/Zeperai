@@ -40,6 +40,7 @@ interface DashboardSidebarProps {
     onToggle: () => void; // For desktop collapse/expand
     onOpenContentGenerator: () => void;
     onOpenSupport: () => void;
+    onOpenBrandKit: () => void;
     isAdmin?: boolean;
     onToggleAdmin?: () => void;
     user: UserProfileData | null;
@@ -56,6 +57,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     onToggle, 
     onOpenContentGenerator, 
     onOpenSupport,
+    onOpenBrandKit,
     isAdmin = false,
     onToggleAdmin,
     user,
@@ -73,7 +75,6 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     { label: 'Youtube Thumbnail', mode: AppMode.Youtube },
     { label: 'Banner', mode: AppMode.Banner },
     { label: 'Remix', mode: AppMode.Remix },
-    { label: 'Imagen', mode: AppMode.Imagen },
   ];
 
   return (
@@ -97,7 +98,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       
       <nav className="flex-grow flex flex-col justify-between">
         <div className="space-y-1">
-            <NavItem icon="home" label="Home" active={currentView === View.Dashboard} onClick={() => { onSetView(View.Dashboard); onClose(); }} isOpen={isOpen} />
+            <NavItem icon="home" label="Home" active={currentView === View.Dashboard} onClick={() => onSetView(View.Dashboard)} isOpen={isOpen} />
             <div>
                 <button 
                     onClick={() => setIsModesOpen(!isModesOpen)}
@@ -116,7 +117,6 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                                 onClick={(e) => {
                                     e.preventDefault();
                                     onSelectMode(item.mode);
-                                    onClose();
                                 }}
                                 className="block text-sm py-1.5 px-3 rounded-lg text-text-secondary hover:bg-gray-100 hover:text-text-primary"
                             >
@@ -126,15 +126,16 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                     </div>
                 )}
             </div>
-            <NavItem icon="edit" label="AI Content Generator" onClick={() => { onOpenContentGenerator(); onClose(); }} isOpen={isOpen} />
-            <NavItem icon="folder" label="My Designs" active={currentView === View.MyDesigns} onClick={() => { onSetView(View.MyDesigns); onClose(); }} isOpen={isOpen} />
-            <NavItem icon="lightbulb" label="Inspiration" active={currentView === View.Inspiration} onClick={() => { onSetView(View.Inspiration); onClose(); }} isOpen={isOpen} />
+            <NavItem icon="edit" label="AI Content Generator" onClick={() => onOpenContentGenerator()} isOpen={isOpen} />
+            <NavItem icon="magic-wand" label="Brand Identity" onClick={() => onOpenBrandKit()} isOpen={isOpen} />
+            <NavItem icon="folder" label="My Designs" active={currentView === View.MyDesigns} onClick={() => onSetView(View.MyDesigns)} isOpen={isOpen} />
+            <NavItem icon="lightbulb" label="Inspiration" active={currentView === View.Inspiration} onClick={() => onSetView(View.Inspiration)} isOpen={isOpen} />
         </div>
         
         {/* Bottom Nav Items */}
         <div className="pt-4 border-t border-border-light space-y-1">
-             <NavItem icon="user" label="Profile" active={currentView === View.Profile} onClick={() => { onSetView(View.Profile); onClose(); }} isOpen={isOpen} />
-             <NavItem icon="headset" label="Support" onClick={() => { onOpenSupport(); onClose(); }} isOpen={isOpen} />
+             <NavItem icon="user" label="Profile" active={currentView === View.Profile} onClick={() => onSetView(View.Profile)} isOpen={isOpen} />
+             <NavItem icon="headset" label="Support" onClick={() => onOpenSupport()} isOpen={isOpen} />
              
              {onToggleAdmin && isOpen && user && (
                  <div className="px-4 py-2 mt-2">

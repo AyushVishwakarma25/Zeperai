@@ -1,0 +1,106 @@
+KRACKXAI STUDIO - PRODUCT DOCUMENTATION
+
+================================================================================
+1. USER FLOW
+================================================================================
+
+PHASE A: AUTHENTICATION & ONBOARDING
+1. Initial Landing: User arrives at the login page.
+2. Login/Signup: User authenticates via Supabase. New users receive 25 starting credits.
+3. Session Initialization: The app fetches user profile, credits, and existing designs.
+4. Dashboard Entry: User sees a personalized greeting and the main workspace.
+
+PHASE B: CREATIVE INITIATION
+1. Mode Discovery: User chooses a creative path (Influencer, Product, Remix, etc.) via:
+   - Sidebar navigation.
+   - Central Tool Cards.
+   - Quick Floating Action Bar.
+2. Asset Upload: User uploads a product image. Client-side processing ensures optimized dimensions.
+3. AI Contextualization: 
+   - Gemini analyzes the image + description.
+   - Detects ProductCategory (e.g., Skincare, Tech).
+   - Dynamically filters background and style options.
+4. Configuration: User selects camera angles, lighting presets, and model personas.
+
+PHASE C: GENERATION & REFINEMENT
+1. Generation: User triggers "Generate". The gemini-proxy Edge Function validates credits before calling Gemini 2.5 Flash.
+2. Review: Results appear in a grid. User can click any image for a detailed view.
+3. AI Enhancement:
+   - Content Writing: Generate platform-specific captions (Instagram, LinkedIn, etc.).
+   - A/B Testing: Get AI suggestions for variations to improve CTR.
+   - Upscaling: Enhance specific images to 4K resolution.
+   - Editing: Use the brush tool for inpainting or the crop tool for resizing.
+
+PHASE D: MANAGEMENT & DEPLOYMENT
+1. Saving: User bookmarks favorite designs. High-res versions are uploaded to Supabase Storage.
+2. Collection: Saved items move to the "My Designs" view.
+3. Deployment: User selects images and downloads a Deployment Package (CSV data + Zip images) for easy import into tools like Airtable or Shopify.
+
+================================================================================
+2. VISUAL WIREFRAME (STRUCTURAL LAYOUT)
+================================================================================
+
+[HEADER]
+_______________________________________________________________________________
+| [Logo] KrackXai Studio                   | [Feedback] [Launch Offer - 🐝]  |
+|__________________________________________|__________________________________|
+
+[MAIN LAYOUT]
+_______________________________________________________________________________
+|                |                                                            |
+| [SIDEBAR]      |  [WORKSPACE / DASHBOARD]                                   |
+|                |                                                            |
+| (Top Nav)      |  "What are we creating today, {User}?"                     |
+| [Home]         |                                                            |
+| [Modes v]      |  [--- FLOATING GENERATION BAR ---------------------------] |
+|   - Influencer |  | [Asset Icon] Describe your creation...    [Generate]   | |
+|   - Product    |  [-------------------------------------------------------] |
+|   - Fashion    |                                                            |
+| [AI Writer]    |  (Grid Categories)                                         |
+| [My Designs]   |  _____________    _____________    _____________           |
+| [Inspiration]  |  | [Ecommerce]|   | [Marketing] |   | [Other]     |          |
+|                |  | - Tool 1   |   | - Tool 1    |   | - Tool 1    |          |
+| (Divider)      |  | - Tool 2   |   | - Tool 2    |   | - Tool 2    |          |
+|                |  |____________|   |_____________|   |_____________|          |
+| (Bottom Nav)   |                                                            |
+| [Profile]      |  (Footer Row)                                              |
+| [Support]      |  [Recent Thumbnail 1] [Recent Thumbnail 2] [Recent 3]...     |
+| [Logout]       |                                                            |
+|________________|____________________________________________________________|
+
+[MODAL INTERFACE - CREATIVE SETTINGS]
+_______________________________________________________________________________
+| [X] Tool Name (e.g., Product Photoshoot)                                    |
+|-----------------------------------------------------------------------------|
+| [LEFT COLUMN - 35%]            | [RIGHT COLUMN - 65%]                       |
+| (Asset Management)             | (Configuration)                            |
+|                                |                                            |
+| [Dropzone: Main Image]         | [TextArea: Product Description]            |
+| [Dropzone: Brand Logo]         | [Select: Camera Angles]                    |
+|                                | [Select: Visual Style Preset]              |
+|                                | [Group: Aspect Ratio Selection]            |
+|                                | [Select: Output Format & Quality]          |
+|--------------------------------|--------------------------------------------|
+|                                | [BUTTON: Generate Photoshoot (1 Credit)]   |
+|________________________________|____________________________________________|
+
+================================================================================
+3. POSSIBLE IMPROVEMENTS
+================================================================================
+
+UX & WORKFLOW
+- Canvas-Based Workspace: Replace static grids with an infinite white-board canvas where users can arrange, resize, and group generated assets manually.
+- Drag-to-Remix: Allow dragging a generated result directly back into the "Reference Asset" slot to iterate on a specific style.
+- Dark Mode: A high-contrast theme for professional environments.
+
+AI & FEATURES
+- Video Generation: Integrate Veo 3.1 for cinemagraphs or product-in-motion videos (e.g., 360 spins).
+- Background Removal Service: A dedicated, fast pre-processing step for product isolation before sending to Gemini.
+- Brand Kit Persistence: A global "Brand Identity" section to store fonts, colors, and hex codes that auto-inject into every generation prompt.
+
+TECHNICAL SCALABILITY
+- Batch Processing: Upload a CSV/Folder of product images to generate 100+ creatives in one background job.
+- Social Webhooks: Add a "Post to Meta/LinkedIn" button that uses the generated caption and image via official APIs.
+- Team Collaboration: Shared folders and credit pools for agency teams.
+- Local History: IndexedDB implementation for caching results to reduce Supabase read requests.
+================================================================================

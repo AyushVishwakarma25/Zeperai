@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Icon } from './ui/Icon';
 import { AppMode, GenerateImageParams, GeneratedImage, GenerateCaptionParams } from '../types';
 import { MainContent } from './MainContent';
@@ -12,25 +12,64 @@ interface ToolCardProps {
   isWide?: boolean;
   isLocked?: boolean;
   onUnlock?: () => void;
+  onDrop?: (image: GeneratedImage) => void;
 }
 
-const ToolCard: React.FC<ToolCardProps> = ({ iconName, title, onClick, isWide, isLocked, onUnlock }) => (
-    <button
-        onClick={isLocked && onUnlock ? onUnlock : onClick}
-        className={`relative p-3 rounded-2xl bg-white/60 backdrop-blur-sm shadow-sm transition-all duration-300 cursor-pointer group w-full flex items-center ${isWide ? 'col-span-2 flex-row justify-start pl-4' : 'flex-col justify-center h-32'} ${isLocked ? 'opacity-90 hover:bg-slate-50 hover:ring-2 hover:ring-primary/20' : 'hover:bg-white/80 hover:shadow-md hover:scale-105'}`}
-    >
-        {isLocked && (
-            <div className="absolute top-2 right-2 bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center shadow-md z-10">
-                <Icon name="lock" className="w-3 h-3 mr-1" />
-                PRO
+const ToolCard: React.FC<ToolCardProps> = ({ iconName, title, onClick, isWide, isLocked, onUnlock, onDrop }) => {
+    const [isDraggingOver, setIsDraggingOver] = useState(false);
+
+    const handleDragOver = (e: React.DragEvent) => {
+        if (isLocked) return;
+        e.preventDefault();
+        setIsDraggingOver(true);
+    };
+
+    const handleDragLeave = () => {
+        setIsDraggingOver(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        if (isLocked) return;
+        e.preventDefault();
+        setIsDraggingOver(false);
+        const internalImageData = e.dataTransfer.getData('application/x-krackx-image');
+        if (internalImageData && onDrop) {
+            try {
+                const image = JSON.parse(internalImageData);
+                onDrop(image);
+            } catch (err) {
+                console.error("Failed to parse dropped image", err);
+            }
+        }
+    };
+
+    return (
+        <button
+            onClick={isLocked && onUnlock ? onUnlock : onClick}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`relative p-3 rounded-2xl bg-white/60 backdrop-blur-sm shadow-sm transition-all duration-300 cursor-pointer group w-full flex items-center ${isWide ? 'col-span-2 flex-row justify-start pl-4' : 'flex-col justify-center h-32'} ${isLocked ? 'opacity-90 hover:bg-slate-50 hover:ring-2 hover:ring-primary/20' : 'hover:bg-white/80 hover:shadow-md hover:scale-105'} ${isDraggingOver ? 'ring-2 ring-primary bg-primary/5 scale-105 z-10' : ''}`}
+        >
+            {isLocked && (
+                <div className="absolute top-2 right-2 bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center shadow-md z-10">
+                    <Icon name="lock" className="w-3 h-3 mr-1" />
+                    PRO
+                </div>
+            )}
+            <div className={`rounded-full bg-white/50 p-3 mb-2 flex items-center justify-center shadow-inner transition-all ${isWide ? 'mr-3 mb-0 w-12 h-12' : 'w-14 h-14'} ${isLocked ? 'grayscale opacity-70' : ''} ${isDraggingOver ? 'bg-primary text-white' : ''}`}>
+                 <Icon name={iconName} className={`w-8 h-8 transition-colors ${isDraggingOver ? 'text-white' : 'text-slate-700'}`} />
             </div>
-        )}
-        <div className={`rounded-full bg-white/50 p-3 mb-2 flex items-center justify-center shadow-inner ${isWide ? 'mr-3 mb-0 w-12 h-12' : 'w-14 h-14'} ${isLocked ? 'grayscale opacity-70' : ''}`}>
-             <Icon name={iconName} className="w-8 h-8 text-slate-700" />
-        </div>
-        <h4 className={`font-semibold text-sm ${isWide ? 'text-text-primary text-left' : 'text-text-primary text-center'}`}>{title}</h4>
-    </button>
-);
+            <h4 className={`font-semibold text-sm transition-colors ${isWide ? 'text-text-primary text-left' : 'text-text-primary text-center'} ${isDraggingOver ? 'text-primary' : ''}`}>{title}</h4>
+            
+            {isDraggingOver && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                     <div className="animate-ping absolute h-8 w-8 rounded-full bg-primary/20 opacity-75"></div>
+                </div>
+            )}
+        </button>
+    );
+};
 
 
 const VerticalCategoryCard: React.FC<{ title: string; children: React.ReactNode; className?: string; titleClassName?: string }> = ({ title, children, className, titleClassName = 'text-white' }) => (
@@ -66,7 +105,6 @@ interface DashboardProps {
   onOpenFeedbackModal: () => void;
   onOpenPricingModal: () => void;
   onToggleSidebar: () => void;
-  // Floating Action Bar Props
   floatingPrompt: string;
   onFloatingPromptChange: (value: string) => void;
   floatingImagePreview: string | null;
@@ -76,6 +114,8 @@ interface DashboardProps {
   onOpenContentGenerator: () => void;
   userTier?: 'Free' | 'Starter' | 'Standard' | 'Agency';
   isAdmin?: boolean;
+  userName?: string;
+  onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;
 }
 
 interface HeaderProps {
@@ -109,7 +149,6 @@ interface DashboardHomeProps {
   onStartImageEdit: () => void;
   onStartImageUpscale: () => void;
   onOpenContentGenerator: () => void;
-  // Generation Bar Props
   floatingPrompt: string;
   onFloatingPromptChange: (value: string) => void;
   floatingImagePreview: string | null;
@@ -120,6 +159,9 @@ interface DashboardHomeProps {
   userTier?: 'Free' | 'Starter' | 'Standard' | 'Agency';
   onOpenPricingModal: () => void;
   isAdmin?: boolean;
+  userName?: string;
+  onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;
+  onUpscale: (image: GeneratedImage) => void;
 }
 
 const DashboardHome: React.FC<DashboardHomeProps> = ({ 
@@ -136,16 +178,17 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     isLoading,
     userTier = 'Free', 
     onOpenPricingModal,
-    isAdmin = false
+    isAdmin = false,
+    userName = 'there',
+    onInternalImageDrop,
+    onUpscale
 }) => {
 
-    // Feature Locking Logic:
-    // If Admin: NO locks.
-    // If not Admin: Starter has locks on AI Writer & Upscale. Standard+ has no locks.
     const isProLocked = !isAdmin && (userTier === 'Free' || userTier === 'Starter');
 
     const ecommerceTools = [
         { id: AppMode.Product, title: 'Product Photoshoot', iconName: 'camera' },
+        { id: AppMode.Bulk, title: 'Batch Processing', iconName: 'stack' }, 
         { id: AppMode.Fashion, title: 'Fashion Photoshoot', iconName: 'shirt' }, 
         { id: AppMode.Amazon, title: 'Amazon Catalogue', iconName: 'shopping-bag', isWide: true },
     ];
@@ -157,13 +200,12 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     const otherTools = [
       { id: AppMode.Festival, title: 'Festival Shoot', iconName: 'lamp', isWide: true },
       { id: 'bg-remover', title: 'Background Remover', iconName: 'magic-wand', action: onStartImageEdit },
-      // Upscale is now a "Pro" feature in this pricing model example
       { 
           id: 'upscale', 
           title: 'Upscale Image', 
           iconName: 'trending-up', 
           action: onStartImageUpscale, 
-          isLocked: isProLocked // Lock upscale for Starter/Free
+          isLocked: isProLocked
       },
       { 
           id: 'ai-writer', 
@@ -171,7 +213,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
           iconName: 'pencil-sparkles', 
           action: onOpenContentGenerator, 
           isWide: true,
-          isLocked: isProLocked // Lock writer for Starter/Free
+          isLocked: isProLocked
       },
     ];
 
@@ -181,9 +223,20 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         }
     };
 
+    const handleInternalDrop = (image: GeneratedImage, toolId: string) => {
+        if (Object.values(AppMode).includes(toolId as AppMode)) {
+            onInternalImageDrop(image, toolId as AppMode);
+        } else if (toolId === 'bg-remover') {
+            onInternalImageDrop(image, AppMode.Remix);
+        // FIX: Dropping an image on 'upscale' should trigger the upscale action, not a mode change. AppMode.Imagen does not exist.
+        } else if (toolId === 'upscale') {
+            onUpscale(image);
+        }
+    };
+
     return (
       <div className="py-8">
-        <h1 className="text-3xl font-bold text-text-primary text-center">What are we creating today, Ayush?</h1>
+        <h1 className="text-3xl font-bold text-text-primary text-center">What are we creating today, {userName}?</h1>
         <div className="max-w-3xl mx-auto mt-4 mb-8">
             <FloatingActionBar 
                 prompt={floatingPrompt}
@@ -203,6 +256,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                         <ToolCard 
                             key={tool.id} 
                             onClick={() => handleToolClick(tool.id)} 
+                            onDrop={(img) => handleInternalDrop(img, tool.id)}
                             {...tool} 
                         />
                      ))}
@@ -212,6 +266,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                         <ToolCard 
                             key={tool.id} 
                             onClick={() => handleToolClick(tool.id)} 
+                            onDrop={(img) => handleInternalDrop(img, tool.id)}
                             {...tool} 
                         />
                     ))}
@@ -221,9 +276,10 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                         <ToolCard 
                             key={tool.id} 
                             onClick={tool.action ? tool.action : () => handleToolClick(tool.id)} 
+                            onDrop={(img) => handleInternalDrop(img, tool.id)}
                             {...tool} 
                             isLocked={tool.isLocked}
-                            onUnlock={onOpenPricingModal} // Pass the unlock handler
+                            onUnlock={onOpenPricingModal}
                         />
                     ))}
                 </VerticalCategoryCard>
@@ -239,16 +295,8 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
     return (
         <main className="relative w-full h-full overflow-y-auto">
             <Header onOpenFeedbackModal={props.onOpenFeedbackModal} onOpenPricingModal={props.onOpenPricingModal} onToggleSidebar={props.onToggleSidebar} />
-             {/* 
-                This is the new wrapper for stable centering. 
-                It uses a 3-column grid. The outer columns are flexible (1fr) and act as gutters.
-                The center column has a max width (64rem = max-w-5xl), ensuring the content within it doesn't shift 
-                when the parent container resizes due to the sidebar changing width.
-            */}
             <div className="grid grid-cols-[1fr_minmax(0,64rem)_1fr]">
-                <div /> {/* Left gutter */}
-                
-                {/* All content is now placed inside this center column */}
+                <div />
                 <div className="px-4 md:px-8 lg:px-12">
                     {props.generatedImages.length > 0 ? (
                         <MainContent 
@@ -271,11 +319,13 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
                             userTier={props.userTier}
                             onOpenPricingModal={props.onOpenPricingModal}
                             isAdmin={props.isAdmin}
+                            userName={props.userName}
+                            onInternalImageDrop={props.onInternalImageDrop}
+                            onUpscale={props.onUpscale}
                         />
                     )}
                 </div>
-
-                <div /> {/* Right gutter */}
+                <div />
             </div>
         </main>
     );

@@ -1,5 +1,7 @@
+
 import React from 'react';
 import type { GenerateImageParams } from '../../types';
+import { AspectRatio } from '../../types';
 import { Icon } from './Icon';
 
 interface LivePreviewProps {
@@ -8,7 +10,8 @@ interface LivePreviewProps {
 }
 
 export const LivePreview: React.FC<LivePreviewProps> = ({ params, productImageUrl }) => {
-  const { aspectRatio, backgroundStyle, modelGender, adTitle, overlayText } = params;
+  const { aspectRatios, backgroundStyle, modelGender, adTitle, overlayText } = params;
+  const aspectRatio = (aspectRatios && aspectRatios.length > 0) ? aspectRatios[0] : AspectRatio.PortraitPost;
 
   const getBackgroundColor = () => {
     if (!backgroundStyle || backgroundStyle === 'AI Suggested') return '#f1f5f9'; // slate-100

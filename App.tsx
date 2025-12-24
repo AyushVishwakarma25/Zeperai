@@ -1,16 +1,17 @@
 
 import React, { useState, useCallback, lazy, Suspense, useEffect, useRef } from 'react';
 import { MainContent } from './components/MainContent';
-import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams } from './types';
+import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit } from './types';
 import { generateImages, upscaleImage, editImage, generateCaption, generateVariantSuggestions, detectProductCategory, fileToBase64 } from './services/geminiService';
 import { userService, UserProfileData } from './services/userService';
 import { designService } from './services/designService'; 
 import { storageService } from './services/storageService'; 
 import { authService, AuthSession } from './services/authService';
+import { brandService } from './services/brandService';
 import { Spinner } from './components/ui/Spinner';
 import { AppMode, AspectRatio, OutputFormat, ModelGender, SkinTone, ClothingType, OutfitChoice, StylePreset, AdLayout, ResolutionQuality, ProductCategory, View } from './types';
-import { AI_SUGGESTED } from './constants';
-import { processImageFile } from './imageUtils';
+import { AI_SUGGESTED, FREE_TRIAL_LIMIT } from './constants';
+import { processImageFile, dataURLtoFile } from './imageUtils';
 import { DashboardSidebar } from './components/DashboardSidebar';
 import { Dashboard } from './components/Dashboard';
 import { CreativeModal } from './components/CreativeModal';
@@ -34,11 +35,31 @@ const ContentGenerator = lazy(() => import('./components/ContentGenerator'));
 const ProfilePage = lazy(() => import('./components/ProfilePage'));
 const ProfileEditModal = lazy(() => import('./components/ProfileEditModal'));
 const InspirationPage = lazy(() => import('./components/InspirationPage'));
+const BrandKitModal = lazy(() => import('./components/BrandKitModal'));
+
+const calculateGenerationCost = (params: GenerateImageParams): number => {
+    const numRatios = params.aspectRatios?.length || 0;
+    if (numRatios === 0) return 0;
+
+    let numVariants = 1;
+
+    if (params.appMode === AppMode.Bulk && params.bulkImages) {
+        numVariants = params.bulkImages.length;
+    } else if (params.appMode === AppMode.Product) {
+        numVariants = params.selectedAngles.length > 0 ? params.selectedAngles.length : 1;
+    } else if (params.appMode === AppMode.Fashion) {
+        numVariants = params.batchSize || 4; // Default batch for fashion
+    } else { // For other modes that support batching
+        numVariants = params.batchSize || 1;
+    }
+    
+    return numVariants * numRatios;
+};
 
 const initialParams: GenerateImageParams = {
   appMode: AppMode.Influencer,
   productDescription: '',
-  aspectRatio: AspectRatio.PortraitPost,
+  aspectRatios: [AspectRatio.PortraitPost],
   outputFormat: OutputFormat.JPEG,
   resolutionQuality: ResolutionQuality.Standard,
   selectedAngles: ['Front View'],
@@ -116,10 +137,10 @@ const fileToGeneratedImage = async (file: File): Promise<GeneratedImage> => {
 const getActionLabel = (mode: AppMode): string => {
     switch(mode) {
         case AppMode.Product: return 'Product Photoshoot';
+        case AppMode.Bulk: return 'Bulk Catalog processing';
         case AppMode.Influencer: return 'Influencer Campaign';
         case AppMode.AdCreative: return 'Ad Creative';
         case AppMode.Remix: return 'Image Remix';
-        case AppMode.Imagen: return 'Image Generation';
         case AppMode.Fashion: return 'Fashion Photoshoot';
         case AppMode.Amazon: return 'Amazon Catalogue';
         case AppMode.Banner: return 'Banner Design';
@@ -136,6 +157,7 @@ const App: React.FC = () => {
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [posterBoard, setPosterBoard] = useState<GeneratedImage[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [batchProgress, setBatchProgress] = useState<{current: number, total: number} | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<View>(View.Dashboard);
@@ -150,6 +172,8 @@ const App: React.FC = () => {
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [isContentGeneratorModalOpen, setIsContentGeneratorModalOpen] = useState(false);
+  const [isBrandKitModalOpen, setIsBrandKitModalOpen] = useState(false);
+  const [brandKit, setBrandKit] = useState<BrandKit | null>(null);
   const [abTestModalImage, setAbTestModalImage] = useState<GeneratedImage | null>(null);
   const [frontProductImagePreview, setFrontProductImagePreview] = useState<string | null>(null);
   const [remixReferenceImagePreview, setRemixReferenceImagePreview] = useState<string | null>(null);
@@ -167,6 +191,7 @@ const App: React.FC = () => {
   const [credits, setCredits] = useState(0); 
   const [totalCredits, setTotalCredits] = useState(100);
   const [userTier, setUserTier] = useState<'Free' | 'Starter' | 'Standard' | 'Agency'>('Starter');
+  const [freeGenerationsUsed, setFreeGenerationsUsed] = useState(0);
 
   // AUTH STATE
   const [userProfile, setUserProfile] = useState<UserProfileData | null>(null);
@@ -196,13 +221,15 @@ const App: React.FC = () => {
                 setUserTier(session.user.tier);
                 
                 // Fetch User Data if logged in
-                const [creditData, savedDesigns] = await Promise.all([
+                const [creditData, savedDesigns, userBrandKit] = await Promise.all([
                     userService.getCredits(),
-                    designService.getSavedDesigns()
+                    designService.getSavedDesigns(),
+                    brandService.getBrandKit()
                 ]);
                 setCredits(creditData.current);
                 setTotalCredits(creditData.total);
                 setPosterBoard(savedDesigns);
+                setBrandKit(userBrandKit);
             }
         } catch (err) {
             console.error("Failed to fetch initial data", err);
@@ -241,13 +268,15 @@ const App: React.FC = () => {
       
       // Reload user data
       try {
-          const [creditData, savedDesigns] = await Promise.all([
+          const [creditData, savedDesigns, userBrandKit] = await Promise.all([
                 userService.getCredits(),
-                designService.getSavedDesigns()
+                designService.getSavedDesigns(),
+                brandService.getBrandKit()
           ]);
           setCredits(creditData.current);
           setTotalCredits(creditData.total);
           setPosterBoard(savedDesigns);
+          setBrandKit(userBrandKit);
       } catch (e) {
           console.error("Failed to load user data after login", e);
       }
@@ -260,6 +289,7 @@ const App: React.FC = () => {
       setCredits(0); 
       setTotalCredits(0);
       setPosterBoard([]);
+      setBrandKit(null);
       setCurrentView(View.Dashboard);
       setToast({ message: "Logged out successfully", type: 'success' });
   }, []);
@@ -327,12 +357,29 @@ const App: React.FC = () => {
   const handleOpenContentGeneratorModal = useCallback(() => setIsContentGeneratorModalOpen(true), []);
   const handleCloseContentGeneratorModal = useCallback(() => setIsContentGeneratorModalOpen(false), []);
 
+  const handleOpenBrandKitModal = useCallback(() => {
+      if (!handleRequireAuth()) return;
+      setIsBrandKitModalOpen(true);
+  }, [handleRequireAuth]);
+
   // Centralized Error Handler
   const handleApiError = useCallback((err: unknown) => {
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error("API Error:", errorMessage);
+    // Better extraction of error message from complex objects
+    let errorMessage = 'An unexpected error occurred.';
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    } else if (typeof err === 'object' && err !== null) {
+      errorMessage = (err as any).message || (err as any).error_description || (err as any).error || JSON.stringify(err);
+    } else if (typeof err === 'string') {
+      errorMessage = err;
+    }
+
+    console.error("API Error Detail:", err);
     
-    if (errorMessage.includes('403') || errorMessage.includes('permission')) {
+    if (errorMessage.includes('deploy') || errorMessage.includes('invoke')) {
+        setToast({ message: "System initializing. Please ensure functions are deployed.", type: 'error' });
+        setError(errorMessage);
+    } else if (errorMessage.includes('403') || errorMessage.includes('permission')) {
         setToast({ message: "Access denied. Falling back to free model.", type: 'error' });
     } else {
         setError(errorMessage);
@@ -343,9 +390,7 @@ const App: React.FC = () => {
       if (isAdmin) return true; // Admins bypass credit check
       
       if (credits >= cost) {
-          // Optimistic local update
           setCredits(prev => prev - cost);
-          // Only sync with backend if user is logged in
           if (userProfile) {
               userService.deductCredits(cost).catch(e => {
                   console.error("Credit sync failed", e);
@@ -362,17 +407,15 @@ const App: React.FC = () => {
   const handleSelectMode = (tool: AppMode) => {
     setParams(prev => {
         const newParams: GenerateImageParams = { ...prev, appMode: tool };
-        if (tool === AppMode.Youtube) {
-            newParams.aspectRatio = AspectRatio.Landscape; // 16:9 for thumbnails
+        if (tool === AppMode.Youtube || tool === AppMode.Banner) {
+            newParams.aspectRatios = [AspectRatio.Landscape]; // 16:9
         }
         if (tool === AppMode.Fashion) {
             newParams.productCategory = ProductCategory.Fashion;
         }
         if (tool === AppMode.Amazon) {
             newParams.productStylePreset = 'E-commerce & Web|Classic White Background'; // Common for e-commerce
-        }
-        if (tool === AppMode.Banner) {
-            newParams.aspectRatio = AspectRatio.Landscape;
+            newParams.aspectRatios = [AspectRatio.Square];
         }
         return newParams;
     });
@@ -384,31 +427,47 @@ const App: React.FC = () => {
   }, []);
 
   const handleGenerate = useCallback(async (currentParams: GenerateImageParams, previewUrlOverride?: string) => {
-    // Determine cost: 1 credit per image generated (product mode can generate multiple)
-    const imageCount = currentParams.appMode === AppMode.Product ? currentParams.selectedAngles.length : 1;
-    const cost = imageCount * 1; 
+    const cost = calculateGenerationCost(currentParams);
+    const isFreeTier = userTier === 'Free';
+    const isStandardGeneration = currentParams.resolutionQuality === ResolutionQuality.Standard;
+    const remainingFree = FREE_TRIAL_LIMIT - freeGenerationsUsed;
+    const isFreeTrialGeneration = isFreeTier && isStandardGeneration && cost > 0 && cost <= remainingFree;
 
-    if (!checkAndDeductCredits(cost)) return;
+    if (!isFreeTrialGeneration) {
+        if (!checkAndDeductCredits(cost)) return;
+    }
 
     setIsLoading(true);
+    setBatchProgress(null);
     setError(null);
     setGeneratedImages([]);
     setActiveMode(null); // Close the panel on generation
     setCurrentView(View.Dashboard); // Ensure user sees the results
     setIsStoryboardResult(!!currentParams.storyboardScenes && currentParams.storyboardScenes.length > 0);
     try {
-      const results = await generateImages(currentParams, previewUrlOverride ?? frontProductImagePreview ?? undefined);
+      const results = await generateImages(
+          currentParams, 
+          brandKit,
+          previewUrlOverride ?? frontProductImagePreview ?? undefined,
+          (current, total) => setBatchProgress({ current, total })
+      );
       setGeneratedImages(results);
+
+      if (isFreeTrialGeneration) {
+          setFreeGenerationsUsed(prev => prev + cost);
+          setToast({ message: `${cost} free generation(s) used. ${remainingFree - cost} remaining.`, type: 'success' });
+      }
+
       setStoryboardSourceImage(null); // Clear storyboard after generation
     } catch (err) {
       handleApiError(err);
     } finally {
       setIsLoading(false);
-      // Clear floating bar after generation
+      setBatchProgress(null);
       setFloatingPrompt('');
       setFloatingImageFile(null);
     }
-  }, [frontProductImagePreview, handleApiError, checkAndDeductCredits]);
+  }, [userTier, freeGenerationsUsed, frontProductImagePreview, brandKit, handleApiError, checkAndDeductCredits]);
   
   const handleUpscale = useCallback(async (imageToUpscale: GeneratedImage) => {
     if (!checkAndDeductCredits(2)) return; // Upscale costs 2 credits
@@ -454,7 +513,6 @@ const App: React.FC = () => {
       setEditingImage(null); // Close modal on success
     } catch (err) {
       handleApiError(err);
-      // Keep the modal open on error so the user can try again
     } finally {
       setIsEditing(false);
     }
@@ -474,7 +532,6 @@ const App: React.FC = () => {
       setPosterBoard(prev => prev.map(updateImage));
       
       if (!imageFoundInLists && editingImage && editingImage.id === imageId) {
-          // This was a direct-edit image. Add it to the results.
           const newImage = { ...editingImage, imageUrl: newImageUrl, id: `gen-${Date.now()}` };
           setGeneratedImages(prev => [newImage, ...prev]);
       }
@@ -495,38 +552,26 @@ const App: React.FC = () => {
         imageUrl: imageToUpdate.imageUrl,
         existingCaption: imageToUpdate.caption,
       };
-      const result = await generateCaption(fullCaptionParams);
-
+      const result = await generateCaption(fullCaptionParams, brandKit);
       const updateImage = (img: GeneratedImage) => img.id === imageId ? { ...img, caption: result.caption, hashtags: result.hashtags } : img;
-      
       setGeneratedImages(prev => prev.map(updateImage));
       setPosterBoard(prev => prev.map(updateImage));
-
     } catch (err) {
       handleApiError(err);
     } finally {
       setGeneratingCaptionImageId(null);
     }
-  }, [generatedImages, posterBoard, handleApiError, checkAndDeductCredits]);
+  }, [generatedImages, posterBoard, brandKit, handleApiError, checkAndDeductCredits]);
 
-  // Persist Save to DesignService with Storage Upload
   const addToPosterBoard = useCallback(async (image: GeneratedImage) => {
-    // Require Authentication to save
     if (!handleRequireAuth()) return;
-
     if (!posterBoard.some(item => item.id === image.id)) {
       setIsSavingDesign(image.id);
       try {
-          // 1. Upload to Storage
           const fileName = `users/${userProfile?.id}/designs/${image.id}.png`;
           const publicUrl = await storageService.uploadImage(image.imageUrl, fileName);
-          
-          // 2. Update Image Object with Public URL
           const imageToSave = { ...image, imageUrl: publicUrl };
-
-          // 3. Save Record to Database
           const savedImage = await designService.saveDesign(imageToSave);
-          
           setPosterBoard(prev => [savedImage, ...prev]);
           setToast({ message: 'Design saved to My Designs!', type: 'success' });
       } catch (e: any) {
@@ -540,12 +585,9 @@ const App: React.FC = () => {
     }
   }, [posterBoard, userProfile, handleRequireAuth]);
 
-  // Persist Delete to DesignService with Storage Delete
   const removeFromPosterBoard = useCallback(async (imageId: string) => {
-    // Optimistic update
     const originalBoard = [...posterBoard];
     setPosterBoard(prev => prev.filter(item => item.id !== imageId));
-    
     try {
         await designService.deleteDesign(imageId);
         setToast({ message: 'Design removed.', type: 'success' });
@@ -605,7 +647,6 @@ const App: React.FC = () => {
     setQuickVariantsField(null);
   }, [quickVariantsField]);
 
-  // Debounced category detection
   const debouncedDetectProductCategory = useCallback(debounce(async (
       base64: string,
       mimeType: string,
@@ -649,14 +690,16 @@ const App: React.FC = () => {
                 frontProductImageRef.current = processedFile; // Store the actual file
                 const base64 = await fileToBase64(processedFile);
                 frontProductImageBase64Ref.current = base64; // Store base64 for later use
-                
-                // Trigger debounced detection
                 debouncedDetectProductCategory(base64, processedFile.type, params.productDescription);
                 
                 setParams(prev => ({
                     ...prev,
                     [paramName]: processedFile,
                 }));
+            } else if (paramName === 'remixReferenceImage') {
+                setParams(prev => ({ ...prev, [paramName]: processedFile }));
+            } else if (paramName === 'remixProductImage') {
+                setParams(prev => ({ ...prev, [paramName]: processedFile }));
             } else {
                 setParams(prev => ({ ...prev, [paramName]: processedFile, detectedCategory: undefined }));
             }
@@ -682,6 +725,41 @@ const App: React.FC = () => {
     }
   }, [params.productDescription, debouncedDetectProductCategory]);
 
+  const handleInternalImageDrop = useCallback(async (image: GeneratedImage, targetMode?: AppMode) => {
+      const finalMode = targetMode || AppMode.Remix;
+      handleSelectMode(finalMode);
+      try {
+          const fileName = `internal-${image.id}.png`;
+          const file = dataURLtoFile(image.imageUrl, fileName);
+          if (finalMode === AppMode.Remix) {
+              handleFileChange(file, 'remixReferenceImage', setRemixReferenceImagePreview, { maxWidth: 1024, maxHeight: 1024 });
+          } else {
+              handleFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 1024, maxHeight: 1024 });
+          }
+          setToast({ message: `Image loaded into ${finalMode} mode!`, type: 'success' });
+      } catch (err) {
+          console.error("Internal drop processing failed", err);
+          setToast({ message: "Failed to load dropped image.", type: 'error' });
+      }
+  }, [handleFileChange, handleSelectMode]);
+
+  useEffect(() => {
+    const handleKrackxDrop = (e: any) => {
+        const { id, image } = e.detail;
+        const fileName = `internal-${image.id}.png`;
+        const file = dataURLtoFile(image.imageUrl, fileName);
+        if (id === 'front-product-image-upload') {
+            handleFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 1024, maxHeight: 1024 });
+        } else if (id === 'remix-reference-image-upload') {
+            handleFileChange(file, 'remixReferenceImage', setRemixReferenceImagePreview, { maxWidth: 1024, maxHeight: 1024 });
+        } else if (id === 'remix-product-image-upload') {
+            handleFileChange(file, 'remixProductImage', setRemixProductImagePreview, { maxWidth: 1024, maxHeight: 1024, format: 'image/png' });
+        }
+    };
+    window.addEventListener('krackx-internal-image-drop', handleKrackxDrop);
+    return () => window.removeEventListener('krackx-internal-image-drop', handleKrackxDrop);
+  }, [handleFileChange, params.appMode]);
+
   useEffect(() => {
       if (frontProductImageRef.current && frontProductImageBase64Ref.current) {
           debouncedDetectProductCategory(
@@ -706,7 +784,6 @@ const App: React.FC = () => {
         console.error("Error processing image for editing:", error);
         setError(error instanceof Error ? error.message : 'Failed to process image.');
       }
-      // Reset input value to allow uploading the same file again
       if (imageEditInputRef.current) {
         imageEditInputRef.current.value = '';
       }
@@ -720,9 +797,7 @@ const App: React.FC = () => {
   const handleImageUpscaleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Upscale from file upload is also an action, let's deduct 2 credits
       if (!checkAndDeductCredits(2)) return;
-
       setIsLoading(true);
       setError(null);
       try {
@@ -734,7 +809,7 @@ const App: React.FC = () => {
             imageUrl: upscaledData.imageUrl,
             caption: `Upscaled: ${tempImage.caption}`,
             hashtags: upscaledData.hashtags,
-            timestamp: Date.now(), // Update timestamp for new activity
+            timestamp: Date.now(),
         };
         setGeneratedImages(prev => [newUpscaledImage, ...prev]);
       } catch (err) {
@@ -742,7 +817,6 @@ const App: React.FC = () => {
       } finally {
         setIsLoading(false);
       }
-      
       if (imageUpscaleInputRef.current) {
         imageUpscaleInputRef.current.value = '';
       }
@@ -783,16 +857,14 @@ const App: React.FC = () => {
 
   const handleFloatingGenerate = useCallback(() => {
       const generationParams: GenerateImageParams = {
-          ...initialParams, // Start with defaults
-          appMode: AppMode.Influencer, // Default to a flexible mode
+          ...initialParams,
+          appMode: AppMode.Influencer,
           productDescription: floatingPrompt,
           frontProductImage: floatingImageFile ?? undefined,
-          // You might want to carry over some global settings like aspect ratio if needed
-          aspectRatio: params.aspectRatio, 
+          aspectRatios: params.aspectRatios, 
           outputFormat: params.outputFormat,
           resolutionQuality: params.resolutionQuality,
       };
-      // Pass the floating image preview as an override so the result has a source image for comparison
       handleGenerate(generationParams, floatingImagePreview ?? undefined);
   }, [floatingPrompt, floatingImageFile, params, handleGenerate, floatingImagePreview]);
 
@@ -880,6 +952,8 @@ const App: React.FC = () => {
                     onOpenContentGenerator={handleOpenContentGeneratorModal}
                     isAdmin={isAdmin}
                     userTier={userTier}
+                    userName={userProfile?.name || 'there'}
+                    onInternalImageDrop={handleInternalImageDrop}
                 />
             );
     }
@@ -920,8 +994,20 @@ const App: React.FC = () => {
           <Spinner />
           {isLoading && (
             <>
-              <p className="text-white mt-4 text-lg">{isStoryboardResult ? "Generating your storyboard..." : "Generating your studio-quality photoshoot..."}</p>
-              <p className="text-muted-text mt-2 text-sm">{isStoryboardResult ? "Creating a cohesive visual story, scene by scene." : "This may take a moment. The AI is getting the lighting just right!"}</p>
+              <p className="text-white mt-4 text-lg">
+                  {batchProgress ? `Processing Catalog... (${batchProgress.current}/${batchProgress.total})` : (isStoryboardResult ? "Generating storyboard..." : "Generating studio-quality photoshoot...")}
+              </p>
+              {batchProgress && (
+                  <div className="w-64 h-2 bg-slate-700 rounded-full mt-4 overflow-hidden">
+                      <div 
+                        className="bg-primary h-full transition-all duration-300"
+                        style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                      />
+                  </div>
+              )}
+              <p className="text-muted-text mt-2 text-sm">
+                  {isStoryboardResult ? "Creating a cohesive visual story..." : "The AI is getting the lighting just right!"}
+              </p>
             </>
           )}
           {upscalingImageId && (
@@ -976,6 +1062,7 @@ const App: React.FC = () => {
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         onOpenContentGenerator={handleOpenContentGeneratorModal}
         onOpenSupport={handleOpenSupportModal}
+        onOpenBrandKit={handleOpenBrandKitModal}
         isAdmin={isAdmin}
         onToggleAdmin={() => setIsAdmin(!isAdmin)}
         user={userProfile}
@@ -1005,6 +1092,9 @@ const App: React.FC = () => {
           remixProductImagePreview={remixProductImagePreview}
           setRemixProductImagePreview={setRemixProductImagePreview}
           onGenerateVariants={handleOpenVariantsModal}
+          userTier={userTier}
+          onOpenPricingModal={handleOpenPricingModal}
+          freeGenerationsUsed={freeGenerationsUsed}
         />
       )}
       
@@ -1044,7 +1134,7 @@ const App: React.FC = () => {
             <ABTestModal
                 image={abTestModalImage}
                 onClose={() => setAbTestModalImage(null)}
-                onGenerate={() => { /* This might need adjustment if variants auto-generate */ }}
+                onGenerate={() => { }}
             />
         )}
 
@@ -1083,6 +1173,17 @@ const App: React.FC = () => {
           <ContentGenerator 
             onClose={handleCloseContentGeneratorModal} 
             onDeductCredits={checkAndDeductCredits}
+          />
+        )}
+
+        {isBrandKitModalOpen && (
+          <BrandKitModal 
+            initialKit={brandKit}
+            onClose={() => setIsBrandKitModalOpen(false)}
+            onSave={(newKit) => {
+              setBrandKit(newKit);
+              setToast({ message: "Brand identity updated and persisted!", type: "success" });
+            }}
           />
         )}
       </Suspense>

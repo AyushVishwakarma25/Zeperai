@@ -44,7 +44,22 @@ create table if not exists public.designs (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 4. Create Feedback Table
+-- 4. Create Brand Kits Table (NEW)
+create table if not exists public.brand_kits (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null unique,
+  brand_name text,
+  primary_color text,
+  secondary_color text,
+  accent_color text,
+  fonts text,
+  voice text,
+  description text,
+  logo_url text,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 5. Create Feedback Table
 create table if not exists public.feedback (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id),
@@ -54,22 +69,25 @@ create table if not exists public.feedback (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 5. Enable RLS
+-- 6. Enable RLS
 alter table public.profiles enable row level security;
 alter table public.user_credits enable row level security;
 alter table public.designs enable row level security;
+alter table public.brand_kits enable row level security;
 alter table public.feedback enable row level security;
 
--- 6. Policies
+-- 7. Policies
 create policy "Users can view own profile" on public.profiles for select using (auth.uid() = id);
 create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
 create policy "Users can view own credits" on public.user_credits for select using (auth.uid() = user_id);
 create policy "Users can view own designs" on public.designs for select using (auth.uid() = user_id);
 create policy "Users can insert own designs" on public.designs for insert with check (auth.uid() = user_id);
 create policy "Users can delete own designs" on public.designs for delete using (auth.uid() = user_id);
+create policy "Users can view own brand kit" on public.brand_kits for select using (auth.uid() = user_id);
+create policy "Users can upsert own brand kit" on public.brand_kits for all using (auth.uid() = user_id);
 create policy "Anyone can insert feedback" on public.feedback for insert with check (true);
 
--- 7. Trigger for New Users
+-- 8. Trigger for New Users
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -89,7 +107,7 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 8. STORAGE SETUP (Essential for saving designs)
+-- 9. STORAGE SETUP
 insert into storage.buckets (id, name, public)
 values ('designs', 'designs', true)
 on conflict (id) do nothing;
@@ -149,6 +167,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSkip = () => {
+    const guestSession: AuthSession = {
+        user: {
+            id: 'guest-user-id',
+            name: 'Guest User',
+            email: 'guest@krackxai.com',
+            role: 'Creator',
+            bio: 'Exploring the studio as a guest.',
+            location: 'The Cloud',
+            avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=guest`,
+            tier: 'Free',
+        },
+        token: 'guest-token',
+        expiresAt: Date.now() + (3600 * 1000), // Expires in 1 hour
+    };
+    onLoginSuccess(guestSession);
   };
 
   const handleCopySql = () => {
@@ -269,8 +305,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 >
                     {isSignUp ? 'Sign Up' : 'Sign In'}
                 </Button>
+                
+                <div className="relative flex py-2 items-center">
+                    <div className="flex-grow border-t border-slate-200"></div>
+                    <span className="flex-shrink mx-4 text-xs text-slate-400">OR</span>
+                    <div className="flex-grow border-t border-slate-200"></div>
+                </div>
 
-                <div className="text-center mt-6">
+                <Button
+                    type="button"
+                    onClick={handleSkip}
+                    fullWidth
+                    variant="secondary"
+                    className="!py-3 !text-sm"
+                >
+                    Continue as Guest
+                </Button>
+
+                <div className="text-center pt-4">
                     <p className="text-sm text-slate-600">
                         {isSignUp ? "Already have an account?" : "Don't have an account?"}
                         <button 
