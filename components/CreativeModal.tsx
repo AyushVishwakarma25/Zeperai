@@ -278,34 +278,36 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                         prompt="Upload Scene Image"
                         previewUrl={remixReferenceImagePreview}
                         onFileChange={(file) => onFileChange(file, 'remixReferenceImage', setRemixReferenceImagePreview, { maxWidth: 1024, maxHeight: 1024 })}
+                        className="aspect-[3/2] md:aspect-auto w-full md:flex-grow"
                     />
                     <ImageDropzone 
                         id="remix-product-image-upload"
                         prompt="Upload New Product (Cutout)"
                         previewUrl={remixProductImagePreview}
                         onFileChange={(file) => onFileChange(file, 'remixProductImage', setRemixProductImagePreview, { maxWidth: 1024, maxHeight: 1024, format: 'image/png' })}
+                        className="aspect-[3/2] md:aspect-auto w-full md:flex-grow"
                     />
                 </>
              ) : (
                 <>
-                    <div className="flex-1 flex flex-col">
+                    <div className="flex flex-col">
                         <SectionTitle title="ASSETS" />
                         <ImageDropzone 
                             id="asset-upload-main"
                             prompt={isFashion ? "Fabric or Garment" : "Upload Product Image"}
                             previewUrl={frontProductImagePreview}
                             onFileChange={(file) => onFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 2048, maxHeight: 2048, format: 'image/png' })}
-                            className="aspect-[4/5] md:aspect-square !h-auto flex-grow"
+                            className="aspect-[3/2] md:h-64 w-full"
                         />
                     </div>
                     {isAdCreative && (
-                        <div className="flex-1 flex flex-col">
+                        <div className="flex flex-col">
                             <ImageDropzone 
                                 id="logo-upload-main"
                                 prompt="Upload Brand Logo (Optional)"
                                 previewUrl={logoPreview}
                                 onFileChange={(file) => onFileChange(file, 'logoImage', setLogoPreview, { maxWidth: 512, maxHeight: 512, format: 'image/png' })}
-                                className="aspect-[4/5] md:aspect-square !h-auto flex-grow"
+                                className="h-32 md:h-auto md:aspect-square w-full md:flex-grow"
                             />
                         </div>
                     )}
