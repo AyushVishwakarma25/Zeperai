@@ -1,8 +1,7 @@
 
 import React, { useState } from 'react';
 import { Icon } from './ui/Icon';
-import { AppMode, GenerateImageParams, GeneratedImage, GenerateCaptionParams } from '../types';
-import { MainContent } from './MainContent';
+import { AppMode, GeneratedImage } from '../types';
 import { FloatingActionBar } from './FloatingActionBar';
 
 interface ToolCardProps {
@@ -84,23 +83,7 @@ const VerticalCategoryCard: React.FC<{ title: string; children: React.ReactNode;
 
 interface DashboardProps {
   onSelectMode: (tool: AppMode) => void;
-  generatedImages: GeneratedImage[];
-  onClearGeneration: () => void;
-  params: GenerateImageParams;
-  frontProductImagePreview: string | null;
-  isLoading: boolean;
-  error: string | null;
-  onAddToPosterBoard: (image: GeneratedImage) => void;
-  onUpscale: (image: GeneratedImage) => void;
-  upscalingImageId: string | null;
-  onStartEdit: (image: GeneratedImage) => void;
-  onSetStoryboardSource: (image: GeneratedImage) => void;
-  onSetZoomedImage: (image: GeneratedImage) => void;
-  isStoryboardResult: boolean;
-  onGenerateCaption: (imageId: string, params: Omit<GenerateCaptionParams, 'imageUrl' | 'existingCaption'>) => void;
-  generatingCaptionImageId: string | null;
-  onOpenABTestModal: (image: GeneratedImage) => void;
-  onStartImageEdit: () => void;
+  onStartImageEdit: (image?: GeneratedImage) => void;
   onStartImageUpscale: () => void;
   onOpenFeedbackModal: () => void;
   onOpenPricingModal: () => void;
@@ -116,6 +99,8 @@ interface DashboardProps {
   isAdmin?: boolean;
   userName?: string;
   onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;
+  isLoading: boolean;
+  onUpscale: (image: GeneratedImage) => void;
 }
 
 interface HeaderProps {
@@ -146,7 +131,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenFeedbackModal, onOpenPricingModal
 
 interface DashboardHomeProps {
   onSelectMode: (tool: AppMode) => void;
-  onStartImageEdit: () => void;
+  onStartImageEdit: (image?: GeneratedImage) => void;
   onStartImageUpscale: () => void;
   onOpenContentGenerator: () => void;
   floatingPrompt: string;
@@ -200,6 +185,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     const otherTools = [
       { id: AppMode.Festival, title: 'Festival Shoot', iconName: 'lamp', isWide: true },
       { id: 'bg-remover', title: 'Background Remover', iconName: 'magic-wand', action: onStartImageEdit },
+      /*
       { 
           id: 'upscale', 
           title: 'Upscale Image', 
@@ -207,6 +193,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
           action: onStartImageUpscale, 
           isLocked: isProLocked
       },
+      */
       { 
           id: 'ai-writer', 
           title: 'AI Writer', 
@@ -227,8 +214,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         if (Object.values(AppMode).includes(toolId as AppMode)) {
             onInternalImageDrop(image, toolId as AppMode);
         } else if (toolId === 'bg-remover') {
-            onInternalImageDrop(image, AppMode.Remix);
-        // FIX: Dropping an image on 'upscale' should trigger the upscale action, not a mode change. AppMode.Imagen does not exist.
+            onStartImageEdit(image);
         } else if (toolId === 'upscale') {
             onUpscale(image);
         }
@@ -299,32 +285,7 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
                 <div className="grid grid-cols-[1fr_minmax(0,64rem)_1fr]">
                     <div />
                     <div className="px-4 md:px-8 lg:px-12">
-                        {props.generatedImages.length > 0 ? (
-                            <MainContent 
-                                {...props}
-                                onStartNew={props.onClearGeneration}
-                            />
-                        ) : (
-                            <DashboardHome 
-                                onSelectMode={props.onSelectMode}
-                                onStartImageEdit={props.onStartImageEdit}
-                                onStartImageUpscale={props.onStartImageUpscale}
-                                onOpenContentGenerator={props.onOpenContentGenerator}
-                                floatingPrompt={props.floatingPrompt}
-                                onFloatingPromptChange={props.onFloatingPromptChange}
-                                floatingImagePreview={props.floatingImagePreview}
-                                onFloatingGenerate={props.onFloatingGenerate}
-                                onRemoveFloatingImage={props.onRemoveFloatingImage}
-                                onTriggerFloatingUpload={props.onTriggerFloatingUpload}
-                                isLoading={props.isLoading}
-                                userTier={props.userTier}
-                                onOpenPricingModal={props.onOpenPricingModal}
-                                isAdmin={props.isAdmin}
-                                userName={props.userName}
-                                onInternalImageDrop={props.onInternalImageDrop}
-                                onUpscale={props.onUpscale}
-                            />
-                        )}
+                        <DashboardHome {...props} />
                     </div>
                     <div />
                 </div>

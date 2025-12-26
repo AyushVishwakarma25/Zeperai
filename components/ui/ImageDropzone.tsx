@@ -83,12 +83,12 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
       onFileChange(null);
   }
 
-  const baseClasses = 'relative w-full h-full min-h-[10rem] bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center text-text-secondary transition-colors duration-200';
+  const baseClasses = 'relative w-full h-full min-h-[6rem] bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center text-text-secondary transition-colors duration-200';
   const draggingClasses = 'border-primary bg-primary/10 text-primary';
   const hoverClasses = 'hover:border-primary hover:text-primary';
 
   return (
-    <div className={`h-full ${className || ''}`}>
+    <div className={`${className || ''}`}>
       <input 
         id={id} 
         type="file" 

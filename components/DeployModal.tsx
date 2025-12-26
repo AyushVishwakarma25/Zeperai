@@ -1,38 +1,13 @@
+
 import React, { useCallback } from 'react';
 import type { GeneratedImage } from '../types';
-import { AppMode } from '../types';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
+import { generateFilename } from '../imageUtils';
 
 interface DeployModalProps {
   images: GeneratedImage[];
   onClose: () => void;
-}
-
-const generateFilenameFromImage = (image: GeneratedImage, index?: number): string => {
-    const extension = image.imageUrl.split(';')[0].split('/')[1] || 'png';
-    let namePart = `campaign-image-${index ?? image.id.substring(4, 10)}`;
-
-    if (image.params.appMode === AppMode.Product && image.params.productStylePreset) {
-        if (image.params.productStylePreset.includes('|')) {
-            namePart = image.params.productStylePreset.split('|')[1];
-        } else {
-            namePart = image.params.productStylePreset;
-        }
-    } else if (image.params.appMode === AppMode.Influencer && image.params.poseSuggestion) {
-        namePart = image.params.poseSuggestion;
-    } else if (image.params.productDescription) {
-        namePart = image.params.productDescription;
-    }
-
-    const sanitizedName = namePart
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '_')
-        .substring(0, 50);
-
-    return `${sanitizedName || 'image'}.${extension}`;
 }
 
 const DeployModal: React.FC<DeployModalProps> = ({ images, onClose }) => {
@@ -70,7 +45,7 @@ const DeployModal: React.FC<DeployModalProps> = ({ images, onClose }) => {
         images.forEach((image, index) => {
             const link = document.createElement('a');
             link.href = image.imageUrl;
-            link.download = generateFilenameFromImage(image, index + 1);
+            link.download = generateFilename(image, 'campaign', index + 1);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);

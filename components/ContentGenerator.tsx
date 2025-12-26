@@ -163,9 +163,9 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                 </button>
             </header>
 
-            <div className="flex-grow flex flex-col lg:flex-row overflow-hidden">
+            <div className="flex-grow flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 {/* Left Panel: Controls */}
-                <aside className="w-full lg:w-[26rem] flex-shrink-0 p-6 border-b lg:border-b-0 lg:border-r border-border-light overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 bg-slate-50/50">
+                <aside className="w-full lg:w-[26rem] flex-shrink-0 p-6 border-b lg:border-b-0 lg:border-r border-border-light lg:overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 bg-slate-50/50">
                     <p className="text-sm text-text-secondary mb-6">Instantly write marketing copy, captions, and more for your campaigns.</p>
                     
                     <div className="space-y-5">
@@ -264,7 +264,7 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                 </aside>
 
                 {/* Right Panel: Results */}
-                <main className="flex-1 p-8 overflow-y-auto bg-main">
+                <main className="flex-1 p-8 lg:overflow-y-auto bg-main">
                     {isLoading ? (
                         <div className="flex flex-col items-center justify-center h-full text-slate-500">
                             <Spinner />

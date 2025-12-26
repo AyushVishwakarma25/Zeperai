@@ -1,6 +1,7 @@
+
 import React, { useState, useCallback } from 'react';
 import type { GeneratedImage, GenerateCaptionParams } from '../types';
-import { CaptionTone, AppMode } from '../types';
+import { CaptionTone } from '../types';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 import { 
@@ -9,6 +10,7 @@ import {
     CAPTION_PLATFORM_OPTIONS,
     CAPTION_LANGUAGE_OPTIONS
 } from '../constants';
+import { generateFilename } from '../imageUtils';
 
 interface DetailPanelProps {
   image: GeneratedImage;
@@ -89,32 +91,6 @@ const SimpleSelect: React.FC<React.SelectHTMLAttributes<HTMLSelectElement> & {la
     </div>
 );
 
-const generateFilenameFromImage = (image: GeneratedImage): string => {
-    const extension = image.imageUrl.split(';')[0].split('/')[1] || 'png';
-    let namePart = `creative-workspace-${image.id.substring(4, 10)}`;
-
-    if (image.params.appMode === AppMode.Product && image.params.productStylePreset) {
-        if (image.params.productStylePreset.includes('|')) {
-            namePart = image.params.productStylePreset.split('|')[1];
-        } else {
-            namePart = image.params.productStylePreset;
-        }
-    } else if (image.params.appMode === AppMode.Influencer && image.params.poseSuggestion) {
-        namePart = image.params.poseSuggestion;
-    } else if (image.params.productDescription) {
-        namePart = image.params.productDescription;
-    }
-
-    const sanitizedName = namePart
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '_')
-        .substring(0, 50);
-
-    return `${sanitizedName || 'image'}.${extension}`;
-}
-
 
 export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGenerateCaption, generatingCaptionImageId, onOpenABTestModal }) => {
     const [isWriterOpen, setIsWriterOpen] = useState(true); // Default to open
@@ -135,7 +111,7 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
     const handleDownload = useCallback(() => {
         const link = document.createElement('a');
         link.href = image.imageUrl;
-        link.download = generateFilenameFromImage(image);
+        link.download = generateFilename(image, 'design');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

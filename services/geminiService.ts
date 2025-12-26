@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { AI_SUGGESTED } from '../constants';
+import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS } from '../constants';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis } from '../types';
 import { AspectRatio, AppMode, MarketplacePreset, FashionGender, FashionShootType, FashionBodyType, FashionAgeBracket, RegionalStyle, ProductCategory } from '../types';
 
@@ -45,44 +45,107 @@ const dataURLToParts = (dataURL: string) => {
 };
 
 const buildPromptParts = async (params: GenerateImageParams, brandKit?: BrandKit | null, activeImage?: File, pose?: string): Promise<any[]> => {
-    const { productDescription, appMode, marketplacePreset, hyperRealism, fashionGender, fashionShootType, fashionCategory, fashionSubCategory, fashionBodyType, fashionAgeBracket, regionalStyle, modelLockId } = params;
-    let parts: any[] = [];
+    const { 
+        productDescription, appMode, marketplacePreset, hyperRealism, 
+        fashionGender, fashionShootType, fashionCategory, fashionSubCategory, fashionBodyType, 
+        fashionAgeBracket, regionalStyle, modelLockId, productStylePreset,
+        modelGender, modelPersona, poseSuggestion, backgroundStyle, clothingType,
+        adLayout, adTitle, overlayText
+    } = params;
     
-    const imageToUse = activeImage || params.frontProductImage;
+    let parts: any[] = [];
+    const imageToUse = activeImage || params.frontProductImage || params.remixReferenceImage;
     if (imageToUse) {
         const base64 = await fileToBase64(imageToUse);
         parts.push({ inlineData: { data: base64, mimeType: imageToUse.type } });
     }
 
-    let corePrompt = `Professional high-end fashion e-commerce photography. Subject: the specific item/fabric in the provided image.`;
-
-    if (appMode === AppMode.Fashion) {
-        // FASHION STUDIO LOGIC v3
-        corePrompt += ` 
-        MODEL IDENTITY: Use the fixed persona [Seed ID: ${modelLockId || 'Standard'}]. Facial features, hair, and ethnic appearance must be identical to the brand model.
-        BODY SPECIFICATIONS: The model has a ${fashionBodyType || 'Regular'} body type. Adjust skeletal proportions and garment fit accordingly.
-        APPAREL: ${fashionSubCategory || 'garment'} in the category of ${fashionCategory}.
-        REGIONAL STYLING: ${regionalStyle !== RegionalStyle.None ? `Apply ${regionalStyle} aesthetic including specific drape techniques and cultural jewelry/styling.` : 'Standard modern styling.'}
-        SHOOT TYPE: ${fashionShootType}.
-        POSE: ${pose || 'Professional catalog pose'}.
-        FABRIC DRAPING: If the input is fabric, simulate its weight (GSM), texture, sheen, and fall as a ${fashionSubCategory} on the model's body.`;
-
-        if (fashionShootType === FashionShootType.GhostMannequin) {
-            corePrompt += ` Ghost mannequin effect: Model is invisible. Garment retains a perfectly full and worn shape with visible inner tags.`;
-        }
-
-        if (hyperRealism) {
-            corePrompt += ` TRIGGER HYPER-REALISM: Photorealistic 8K quality. Extreme skin pore detail, realistic fabric threading, professional studio lighting with soft contact shadows.`;
-        }
-        
-        if (marketplacePreset === MarketplacePreset.Amazon) {
-            corePrompt += ` COMPLIANCE: Amazon White Background Standard (RGB 255, 255, 255). No floating shadows. Centered subject. 85% frame filling.`;
-        } else if (marketplacePreset === MarketplacePreset.Shopify) {
-            corePrompt += ` COMPLIANCE: Shopify High-end Portrait. Refined contrast. Suitable for high-density mobile screens.`;
-        }
+    if (params.remixProductImage) {
+        const base64 = await fileToBase64(params.remixProductImage);
+        parts.push({ inlineData: { data: base64, mimeType: params.remixProductImage.type } });
     }
 
-    if (productDescription) corePrompt += ` ADDITIONAL STYLING: ${productDescription}.`;
+    let corePrompt = '';
+
+    switch (appMode) {
+        case AppMode.Product:
+        case AppMode.Amazon:
+        case AppMode.Festival:
+            let presetPrompt = "A professional studio shot of the [product]. The background is a clean, vibrant, single-color or soft gradient that matches the product's color palette. The lighting is bright and clean, making the product look fresh and appealing.";
+            
+            if (appMode === AppMode.Festival && params.festivalStyle) {
+                presetPrompt = `A festive photoshoot of the [product] with a theme of: ${params.festivalStyle}.`;
+            } else if (productStylePreset && productStylePreset !== AI_SUGGESTED) {
+                 const [category, presetName] = productStylePreset.split('|');
+                 const foundCategory = PRO_PRODUCT_STYLE_PRESETS.find(c => c.category === category);
+                 const foundPreset = foundCategory?.presets.find(p => p.name === presetName);
+                 if (foundPreset) {
+                     presetPrompt = foundPreset.prompt;
+                 }
+            }
+            corePrompt = presetPrompt.replace(/\[product\]/g, productDescription || 'product');
+            if (pose) { // pose variable now correctly holds the angle for this mode
+                corePrompt += ` Image must be a ${pose}.`;
+            }
+            break;
+
+        case AppMode.Influencer:
+             corePrompt = `Create a high-end influencer-style marketing image.
+            - Product: ${productDescription || 'the product in the image'}.
+            - Model: A ${modelGender} influencer with a ${modelPersona} persona.
+            - Pose: ${poseSuggestion || 'A natural, engaging pose'}.
+            - Outfit: The model is wearing ${clothingType} clothing.
+            - Scene: The background is ${backgroundStyle || 'a visually appealing setting'}.
+            The overall mood should be aspirational and authentic. Focus on photorealism.`;
+            break;
+
+        case AppMode.Fashion:
+            corePrompt = `Professional high-end fashion e-commerce photography. Subject: the specific item/fabric in the provided image.`;
+            corePrompt += ` 
+            MODEL IDENTITY: Use the fixed persona [Seed ID: ${modelLockId || 'Standard'}]. Facial features, hair, and ethnic appearance must be identical to the brand model.
+            BODY SPECIFICATIONS: The model has a ${fashionBodyType || 'Regular'} body type. Adjust skeletal proportions and garment fit accordingly.
+            APPAREL: ${fashionSubCategory || 'garment'} in the category of ${fashionCategory}.
+            REGIONAL STYLING: ${regionalStyle !== RegionalStyle.None ? `Apply ${regionalStyle} aesthetic including specific drape techniques and cultural jewelry/styling.` : 'Standard modern styling.'}
+            SHOOT TYPE: ${fashionShootType}.
+            POSE: ${pose || 'Professional catalog pose'}.
+            FABRIC DRAPING: If the input is fabric, simulate its weight (GSM), texture, sheen, and fall as a ${fashionSubCategory} on the model's body.`;
+            if (fashionShootType === FashionShootType.GhostMannequin) {
+                corePrompt += ` Ghost mannequin effect: Model is invisible. Garment retains a perfectly full and worn shape with visible inner tags.`;
+            }
+            if (hyperRealism) {
+                corePrompt += ` TRIGGER HYPER-REALISM: Photorealistic 8K quality. Extreme skin pore detail, realistic fabric threading, professional studio lighting with soft contact shadows.`;
+            }
+            break;
+
+        case AppMode.AdCreative:
+        case AppMode.Banner:
+        case AppMode.Youtube:
+            corePrompt = `Create a compelling ad creative for a "${productDescription}".
+            - Layout: ${adLayout || 'AI Suggested'}.
+            - Text: Use the title "${adTitle || overlayText || ''}".
+            - Scene: ${backgroundStyle || 'A background that complements the product.'}
+            The final image should be visually striking and optimized for online advertising.`;
+            break;
+        
+        case AppMode.Remix:
+            corePrompt = `Using the reference scene image and the new product cutout image, seamlessly integrate the new product into the scene. Adapt lighting, shadows, and reflections for a photorealistic result. Apply the following modification if provided: "${productDescription}". If no modification is provided, just perform the product replacement.`;
+            break;
+
+        default:
+            corePrompt = `Create a professional marketing image for: "${productDescription}". Use the provided image as the main subject. The style should be clean, modern, and high-quality.`;
+            break;
+    }
+
+    if (marketplacePreset === MarketplacePreset.Amazon) {
+        corePrompt += ` COMPLIANCE: Amazon White Background Standard (RGB 255, 255, 255). No floating shadows. Centered subject. 85% frame filling.`;
+    } else if (marketplacePreset === MarketplacePreset.Shopify) {
+        corePrompt += ` COMPLIANCE: Shopify High-end Portrait. Refined contrast. Suitable for high-density mobile screens.`;
+    }
+    
+    // BUG FIX: Inject brand voice if available
+    if (brandKit?.voice) {
+        corePrompt += `\n- Brand Voice: Adhere to a ${brandKit.voice} tone.`;
+    }
 
     return [{ text: corePrompt }, ...parts];
 };
@@ -117,7 +180,7 @@ const generateSingleImage = async (params: GenerateImageParams, aspectRatio: Asp
     return {
         id: `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         imageUrl,
-        caption: pose || params.fashionSubCategory || "Catalog Variation",
+        caption: pose || params.fashionSubCategory || "Creative Variation",
         hashtags: "",
         aspectRatio: aspectRatio,
         params,
@@ -136,9 +199,9 @@ export const generateImages = async (
     const aspectRatiosToGenerate = params.aspectRatios && params.aspectRatios.length > 0 ? params.aspectRatios : [AspectRatio.PortraitPost];
 
     const getJobCount = () => {
-        if (params.appMode === AppMode.Fashion) return params.batchSize || 1;
+        if (params.appMode === AppMode.Fashion) return params.batchSize || 4;
         if (params.appMode === AppMode.Bulk && params.bulkImages) return params.bulkImages.length;
-        if (params.appMode === AppMode.Product) return params.selectedAngles.length;
+        if (params.appMode === AppMode.Product) return params.selectedAngles.length > 0 ? params.selectedAngles.length : 1;
         return params.batchSize || 1;
     };
 
@@ -147,9 +210,8 @@ export const generateImages = async (
     let progressCounter = 0;
 
     for (const aspectRatio of aspectRatiosToGenerate) {
-        const batchSize = params.batchSize || 1;
-        
         if (params.appMode === AppMode.Fashion) {
+            const batchSize = params.batchSize || 4;
             const poses = getFashionPoses(batchSize, params.fashionGender, params.fashionSubCategory);
             for (let i = 0; i < batchSize; i++) {
                 progressCounter++;
@@ -164,11 +226,22 @@ export const generateImages = async (
                 const img = await generateSingleImage(params, aspectRatio, brandKit, params.bulkImages[i], undefined, sourceProductImageUrl);
                 allResults.push(img);
             }
+        } else if (params.appMode === AppMode.Product) {
+             const angles = params.selectedAngles.length > 0 ? params.selectedAngles : ['Front View'];
+             for (const angle of angles) {
+                progressCounter++;
+                if (onProgress) onProgress(progressCounter, totalGenerations);
+                const img = await generateSingleImage(params, aspectRatio, brandKit, undefined, angle, sourceProductImageUrl);
+                allResults.push(img);
+             }
         } else {
-            progressCounter++;
-            if (onProgress) onProgress(progressCounter, totalGenerations);
-            const img = await generateSingleImage(params, aspectRatio, brandKit, undefined, undefined, sourceProductImageUrl);
-            allResults.push(img);
+            const batchSize = params.batchSize || 1;
+            for (let i = 0; i < batchSize; i++) {
+                progressCounter++;
+                if (onProgress) onProgress(progressCounter, totalGenerations);
+                const img = await generateSingleImage(params, aspectRatio, brandKit, undefined, undefined, sourceProductImageUrl);
+                allResults.push(img);
+            }
         }
     }
 

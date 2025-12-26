@@ -3,8 +3,9 @@ import React, { useCallback } from 'react';
 import type { GeneratedImage } from '../types';
 import { Icon } from './ui/Icon';
 import { Button } from './ui/Button';
-import { View, AppMode } from '../types';
+import { View } from '../types';
 import { Spinner } from './ui/Spinner';
+import { generateFilename } from '../imageUtils';
 
 interface MyDesignsProps {
   images: GeneratedImage[];
@@ -30,32 +31,6 @@ const IconButton: React.FC<{icon: string, label: string, onClick: (e: React.Mous
     </button>
 );
 
-const generateFilenameFromImage = (image: GeneratedImage): string => {
-    const extension = image.imageUrl.split(';')[0].split('/')[1] || 'png';
-    let namePart = `design-${image.id.substring(4, 10)}`;
-
-    if (image.params.appMode === AppMode.Product && image.params.productStylePreset) {
-        if (image.params.productStylePreset.includes('|')) {
-            namePart = image.params.productStylePreset.split('|')[1];
-        } else {
-            namePart = image.params.productStylePreset;
-        }
-    } else if (image.params.appMode === AppMode.Influencer && image.params.poseSuggestion) {
-        namePart = image.params.poseSuggestion;
-    } else if (image.params.productDescription) {
-        namePart = image.params.productDescription;
-    }
-
-    const sanitizedName = namePart
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '_')
-        .substring(0, 50);
-
-    return `${sanitizedName || 'image'}.${extension}`;
-}
-
 export const MyDesigns: React.FC<MyDesignsProps> = ({ 
     images, onRemove, onDeploy, onSetView, onStartEdit, onUpscale, onSetZoomedImage, onSetStoryboardSource, upscalingImageId, onToggleSidebar
 }) => {
@@ -63,11 +38,16 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
   const handleDownload = useCallback((image: GeneratedImage) => {
       const link = document.createElement('a');
       link.href = image.imageUrl;
-      link.download = generateFilenameFromImage(image);
+      link.download = generateFilename(image, 'design');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
   }, []);
+  
+  const handleDragStart = (e: React.DragEvent, image: GeneratedImage) => {
+      e.dataTransfer.setData('application/x-krackx-image', JSON.stringify(image));
+      e.dataTransfer.effectAllowed = 'copy';
+  };
 
   return (
     <div className="w-full h-full bg-white flex flex-col">
@@ -108,7 +88,12 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
                     {images.map(image => {
                         const isUpscaling = upscalingImageId === image.id;
                         return (
-                            <div key={image.id} className="bg-white rounded-lg overflow-hidden shadow-md border border-slate-200 flex flex-col transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                            <div 
+                                key={image.id} 
+                                className="bg-white rounded-lg overflow-hidden shadow-md border border-slate-200 flex flex-col transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+                                draggable="true"
+                                onDragStart={(e) => handleDragStart(e, image)}
+                            >
                                 <div 
                                     className="relative cursor-zoom-in"
                                     onClick={() => !isUpscaling && onSetZoomedImage(image)}
@@ -126,7 +111,7 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
                                     <div className="flex items-center justify-around">
                                         <IconButton icon="film" label="Create Storyboard" onClick={(e) => { e.stopPropagation(); onSetStoryboardSource(image); }} disabled={isUpscaling} />
                                         <IconButton icon="edit" label="Edit" onClick={(e) => { e.stopPropagation(); onStartEdit(image); }} disabled={isUpscaling} />
-                                        <IconButton icon="sparkles" label="Upscale" onClick={(e) => { e.stopPropagation(); onUpscale(image); }} disabled={isUpscaling} />
+                                        {/* <IconButton icon="sparkles" label="Upscale" onClick={(e) => { e.stopPropagation(); onUpscale(image); }} disabled={isUpscaling} /> */}
                                         <IconButton icon="download" label="Download" onClick={(e) => { e.stopPropagation(); handleDownload(image); }} disabled={isUpscaling} />
                                         <IconButton icon="remove" label="Remove" onClick={(e) => { e.stopPropagation(); onRemove(image.id); }} disabled={isUpscaling} />
                                     </div>

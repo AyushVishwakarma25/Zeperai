@@ -1,5 +1,6 @@
 
-import type { AspectRatio } from './types';
+import type { AspectRatio, GeneratedImage } from './types';
+import { AppMode } from './types';
 
 export const processImageFile = (
   file: File, 
@@ -175,3 +176,33 @@ export const cropImageToAspectRatio = (
     img.onerror = (error) => reject(new Error(`Image loading for crop failed: ${error}`));
   });
 };
+
+/**
+ * Generates a descriptive filename for a downloaded image.
+ */
+export const generateFilename = (image: GeneratedImage, prefix?: string, index?: number): string => {
+    const extension = image.imageUrl.split(';')[0].split('/')[1] || 'png';
+    let namePart = 'design';
+
+    if (image.params.productDescription) {
+        namePart = image.params.productDescription;
+    } else if (image.params.appMode === AppMode.Product && image.params.productStylePreset) {
+        namePart = image.params.productStylePreset.includes('|')
+            ? image.params.productStylePreset.split('|')[1]
+            : image.params.productStylePreset;
+    } else if (image.params.appMode === AppMode.Influencer && image.params.poseSuggestion) {
+        namePart = image.params.poseSuggestion;
+    }
+
+    const sanitizedName = namePart
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+        .replace(/\s+/g, '-') // Replace spaces with dashes
+        .substring(0, 50);
+
+    const finalPrefix = prefix ? `${prefix}-` : '';
+    const finalIndex = index ? `-${index}` : '';
+
+    return `${finalPrefix}${sanitizedName}${finalIndex}.${extension}`;
+}

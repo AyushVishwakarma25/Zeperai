@@ -10,7 +10,7 @@ import { authService, AuthSession } from './services/authService';
 import { brandService } from './services/brandService';
 import { Spinner } from './components/ui/Spinner';
 import { AppMode, AspectRatio, OutputFormat, ModelGender, SkinTone, ClothingType, OutfitChoice, StylePreset, AdLayout, ResolutionQuality, ProductCategory, View } from './types';
-import { AI_SUGGESTED, FREE_TRIAL_LIMIT } from './constants';
+import { AI_SUGGESTED, FREE_TRIAL_LIMIT, LOADING_MESSAGES } from './constants';
 import { processImageFile, dataURLtoFile } from './imageUtils';
 import { DashboardSidebar } from './components/DashboardSidebar';
 import { Dashboard } from './components/Dashboard';
@@ -197,6 +197,11 @@ const App: React.FC = () => {
   const [userProfile, setUserProfile] = useState<UserProfileData | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isSessionChecked, setIsSessionChecked] = useState(false);
+  
+  // LOADING STATE
+  const [loadingMessages, setLoadingMessages] = useState<{title: string, subtext: string}>({ title: '', subtext: '' });
+  const generationModeRef = useRef<AppMode | null>(null);
+
 
   const frontProductImageRef = useRef<File | undefined>(undefined); 
   const frontProductImageBase64Ref = useRef<string | null>(null); 
@@ -208,6 +213,44 @@ const App: React.FC = () => {
   const [floatingImageFile, setFloatingImageFile] = useState<File | null>(null);
   const [floatingImagePreview, setFloatingImagePreview] = useState<string | null>(null);
   const floatingImageInputRef = useRef<HTMLInputElement>(null);
+
+  // --- LOADING MESSAGE LOGIC ---
+  useEffect(() => {
+    if (isLoading || isEditing) {
+      const mode = generationModeRef.current;
+      
+      const isAdMode = mode === AppMode.AdCreative || mode === AppMode.Banner || mode === AppMode.Youtube;
+      const messageSetKey = isAdMode ? AppMode.AdCreative : (mode && LOADING_MESSAGES[mode] ? mode : 'default');
+      const messages = LOADING_MESSAGES[messageSetKey];
+      
+      const progress = batchProgress ? (batchProgress.current / batchProgress.total) * 100 : -1; // -1 for single image
+      
+      let subtextPool;
+      if (progress === -1) {
+          subtextPool = messages.subtext.mid;
+      } else if (progress <= 30) {
+          subtextPool = messages.subtext.low;
+      } else if (progress <= 70) {
+          subtextPool = messages.subtext.mid;
+      } else {
+          subtextPool = messages.subtext.high;
+      }
+      const subtext = subtextPool[Math.floor(Math.random() * subtextPool.length)];
+
+      setLoadingMessages(prev => {
+        const isNewLoadingState = !prev.title && (isLoading || isEditing);
+        const title = isNewLoadingState
+            ? messages.title[Math.floor(Math.random() * messages.title.length)]
+            : prev.title;
+
+        return { title: title || 'Generating...', subtext };
+      });
+
+    } else {
+      // Reset when not loading
+      setLoadingMessages({ title: '', subtext: '' });
+    }
+  }, [isLoading, isEditing, batchProgress]);
 
   // --- INITIAL DATA FETCH ---
   useEffect(() => {
@@ -411,9 +454,39 @@ const App: React.FC = () => {
   }, [credits, isAdmin, userProfile]);
 
 
-  const handleSelectMode = (tool: AppMode) => {
+  const handleSelectMode = useCallback((tool: AppMode) => {
+    const prevMode = params.appMode;
     setParams(prev => {
-        const newParams: GenerateImageParams = { ...prev, appMode: tool };
+        let newParams: GenerateImageParams = { ...prev, appMode: tool };
+        
+        // --- CLEANUP STATE WHEN SWITCHING MODES ---
+        // Crucial: Clear all fashion parameters if not in Fashion mode
+        if (tool !== AppMode.Fashion) {
+            newParams.fashionGender = undefined;
+            newParams.fashionShootType = undefined;
+            newParams.fashionCategory = undefined;
+            newParams.fashionSubCategory = undefined;
+            newParams.fashionBodyType = undefined;
+            newParams.fashionAgeBracket = undefined;
+            newParams.regionalStyle = undefined;
+            newParams.modelLockId = undefined;
+        }
+
+        // If leaving Product Mode, reset product specific presets
+        if (prevMode === AppMode.Product && tool !== AppMode.Product) {
+            newParams.productStylePreset = AI_SUGGESTED;
+        }
+        
+        // Clear asset previews if they are not relevant for the new mode
+        if (tool !== AppMode.Remix && (prevMode === AppMode.Remix)) {
+            setRemixReferenceImagePreview(null);
+            setRemixProductImagePreview(null);
+        }
+        if (![AppMode.Product, AppMode.Influencer, AppMode.Fashion, AppMode.Amazon, AppMode.Festival].includes(tool) && frontProductImagePreview) {
+            setFrontProductImagePreview(null);
+        }
+
+        // Apply new defaults
         if (tool === AppMode.Youtube || tool === AppMode.Banner) {
             newParams.aspectRatios = [AspectRatio.Landscape]; // 16:9
         }
@@ -427,7 +500,7 @@ const App: React.FC = () => {
         return newParams;
     });
     setActiveMode(tool);
-  };
+  }, [params.appMode, frontProductImagePreview]);
   
   const handleParamChange = useCallback((param: keyof GenerateImageParams, value: any) => {
     setParams(prev => ({ ...prev, [param]: value }));
@@ -443,7 +516,8 @@ const App: React.FC = () => {
     if (!isFreeTrialGeneration) {
         if (!checkAndDeductCredits(cost)) return;
     }
-
+    
+    generationModeRef.current = currentParams.appMode;
     setIsLoading(true);
     setBatchProgress(null);
     setError(null);
@@ -466,13 +540,14 @@ const App: React.FC = () => {
       }
 
       setStoryboardSourceImage(null); // Clear storyboard after generation
+      // BUG FIX: Only clear floating bar on success
+      setFloatingPrompt('');
+      setFloatingImageFile(null);
     } catch (err) {
       handleApiError(err);
     } finally {
       setIsLoading(false);
       setBatchProgress(null);
-      setFloatingPrompt('');
-      setFloatingImageFile(null);
     }
   }, [userTier, freeGenerationsUsed, frontProductImagePreview, brandKit, handleApiError, checkAndDeductCredits]);
   
@@ -497,8 +572,12 @@ const App: React.FC = () => {
     }
   }, [handleApiError, checkAndDeductCredits]);
 
-  const handleStartEdit = useCallback((image: GeneratedImage) => {
-    setEditingImage(image);
+  const handleStartEdit = useCallback((image?: GeneratedImage) => {
+    if (image) {
+      setEditingImage(image);
+    } else {
+      imageEditInputRef.current?.click();
+    }
   }, []);
 
   const handleCloseEdit = useCallback(() => {
@@ -507,6 +586,7 @@ const App: React.FC = () => {
 
   const handleApplyEdit = useCallback(async (editParams: EditImageParams) => {
     if (!editingImage) return;
+    generationModeRef.current = editingImage.params.appMode;
     setIsEditing(true);
     setError(null);
     try {
@@ -777,10 +857,6 @@ const App: React.FC = () => {
       }
   }, [params.productDescription, debouncedDetectProductCategory]);
 
-  const handleStartImageEdit = useCallback(() => {
-    imageEditInputRef.current?.click();
-  }, []);
-
   const handleImageEditFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -805,27 +881,37 @@ const App: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       if (!checkAndDeductCredits(2)) return;
-      setIsLoading(true);
+      
+      // Removed global setIsLoading(true) to avoid blocking UI and allowing instant preview
       setError(null);
+      
       try {
+        // 1. Convert file to image object and display immediately
         const tempImage = await fileToGeneratedImage(file);
+        setGeneratedImages(prev => [tempImage, ...prev]);
+        setUpscalingImageId(tempImage.id); // Triggers loading overlay on the specific card
+
+        // 2. Perform Upscale
         const upscaledData = await upscaleImage(tempImage.imageUrl);
-        const newUpscaledImage: GeneratedImage = {
-            ...tempImage,
-            id: `gen-upscaled-${Date.now()}`,
-            imageUrl: upscaledData.imageUrl,
-            caption: `Upscaled: ${tempImage.caption}`,
-            hashtags: upscaledData.hashtags,
-            timestamp: Date.now(),
-        };
-        setGeneratedImages(prev => [newUpscaledImage, ...prev]);
+        
+        // 3. Update image with result
+        const updateImage = (img: GeneratedImage) => 
+            img.id === tempImage.id 
+            ? { ...img, imageUrl: upscaledData.imageUrl, caption: `Upscaled: ${tempImage.caption}`, hashtags: upscaledData.hashtags } 
+            : img;
+            
+        setGeneratedImages(prev => prev.map(updateImage));
+        // If user was on My Designs, update it there too just in case (though unlikely for new upload)
+        setPosterBoard(prev => prev.map(updateImage));
+
       } catch (err) {
         handleApiError(err);
+        // Optionally remove the failed temp image, but keeping it allows user to try again or see what failed
       } finally {
-        setIsLoading(false);
-      }
-      if (imageUpscaleInputRef.current) {
-        imageUpscaleInputRef.current.value = '';
+        setUpscalingImageId(null);
+        if (imageUpscaleInputRef.current) {
+            imageUpscaleInputRef.current.value = '';
+        }
       }
     }
   }, [handleApiError, checkAndDeductCredits]);
@@ -926,26 +1012,32 @@ const App: React.FC = () => {
             );
         case View.Dashboard:
         default:
+             if (generatedImages.length > 0) {
+              return (
+                <MainContent
+                  params={params}
+                  frontProductImagePreview={frontProductImagePreview}
+                  generatedImages={generatedImages}
+                  isLoading={isLoading}
+                  error={error}
+                  onAddToPosterBoard={addToPosterBoard}
+                  onUpscale={handleUpscale}
+                  upscalingImageId={upscalingImageId}
+                  onStartEdit={handleStartEdit}
+                  onSetStoryboardSource={handleSetStoryboardSource}
+                  onSetZoomedImage={handleSetZoomedImage}
+                  isStoryboardResult={isStoryboardResult}
+                  onGenerateCaption={handleGenerateCaption}
+                  generatingCaptionImageId={generatingCaptionImageId}
+                  onOpenABTestModal={setAbTestModalImage}
+                  onStartNew={() => setGeneratedImages([])}
+                />
+              );
+            }
             return (
                 <Dashboard 
                     onSelectMode={handleSelectMode}
-                    generatedImages={generatedImages}
-                    onClearGeneration={() => setGeneratedImages([])}
-                    params={params}
-                    frontProductImagePreview={frontProductImagePreview}
-                    isLoading={isLoading}
-                    error={error}
-                    onAddToPosterBoard={addToPosterBoard}
-                    onUpscale={handleUpscale}
-                    upscalingImageId={upscalingImageId}
-                    onStartEdit={handleStartEdit}
-                    onSetStoryboardSource={handleSetStoryboardSource}
-                    onSetZoomedImage={handleSetZoomedImage}
-                    isStoryboardResult={isStoryboardResult}
-                    onGenerateCaption={handleGenerateCaption}
-                    generatingCaptionImageId={generatingCaptionImageId}
-                    onOpenABTestModal={setAbTestModalImage}
-                    onStartImageEdit={handleStartImageEdit}
+                    onStartImageEdit={handleStartEdit}
                     onStartImageUpscale={handleStartImageUpscale}
                     onOpenFeedbackModal={handleOpenFeedbackModal}
                     onOpenPricingModal={handleOpenPricingModal}
@@ -961,6 +1053,8 @@ const App: React.FC = () => {
                     userTier={userTier}
                     userName={userProfile?.name || 'there'}
                     onInternalImageDrop={handleInternalImageDrop}
+                    isLoading={isLoading}
+                    onUpscale={handleUpscale}
                 />
             );
     }
@@ -995,46 +1089,32 @@ const App: React.FC = () => {
                 aria-hidden="true"
             />
         )}
-      {/* Global Modals & Loading Overlays */}
-      {(isLoading || upscalingImageId || isEditing || isSavingDesign) && (
+      {/* BUG FIX: Global overlay no longer shows for upscaling */}
+      {(isLoading || isEditing || isSavingDesign) && !upscalingImageId && (
         <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-[60]">
           <Spinner />
-          {isLoading && (
-            <>
-              <p className="text-white mt-4 text-lg">
-                  {batchProgress ? `Processing Catalog... (${batchProgress.current}/${batchProgress.total})` : (isStoryboardResult ? "Generating storyboard..." : "Generating studio-quality photoshoot...")}
-              </p>
-              {batchProgress && (
-                  <div className="w-64 h-2 bg-slate-700 rounded-full mt-4 overflow-hidden">
-                      <div 
-                        className="bg-primary h-full transition-all duration-300"
-                        style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
-                      />
+          <p className="text-white mt-4 text-lg text-center px-4">
+            { isSavingDesign
+                ? 'Saving Design...'
+                : (batchProgress ? `${loadingMessages.title} (${batchProgress.current}/${batchProgress.total})` : loadingMessages.title)
+            }
+          </p>
+          {batchProgress && !isSavingDesign && !isEditing && (
+              <div className="w-64 h-2 bg-slate-700 rounded-full mt-4 overflow-hidden">
+                  <div 
+                    className="h-full transition-all duration-300 bg-gradient-to-r from-cyan-400 to-primary relative overflow-hidden"
+                    style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                  >
+                    <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full"></div>
                   </div>
-              )}
-              <p className="text-muted-text mt-2 text-sm">
-                  {isStoryboardResult ? "Creating a cohesive visual story..." : "The AI is getting the lighting just right!"}
-              </p>
-            </>
+              </div>
           )}
-          {upscalingImageId && (
-            <>
-              <p className="text-white mt-4 text-lg">Upscaling to 4K...</p>
-              <p className="text-muted-text mt-2 text-sm">Enhancing details for a crystal-clear result.</p>
-            </>
-          )}
-           {isEditing && (
-            <>
-              <p className="text-white mt-4 text-lg">Applying your creative edits...</p>
-              <p className="text-muted-text mt-2 text-sm">The AI is blending your changes seamlessly.</p>
-            </>
-          )}
-          {isSavingDesign && (
-            <>
-              <p className="text-white mt-4 text-lg">Saving Design...</p>
-              <p className="text-muted-text mt-2 text-sm">Uploading high-resolution assets to storage.</p>
-            </>
-          )}
+          <p className="text-slate-400 mt-2 text-sm text-center px-4">
+            { isSavingDesign
+              ? 'Uploading high-resolution assets to storage.'
+              : loadingMessages.subtext
+            }
+          </p>
         </div>
       )}
       

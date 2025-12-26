@@ -68,6 +68,54 @@ export const MARKETPLACE_RULES: Record<MarketplacePreset, any> = {
   }
 };
 
+export const LOADING_MESSAGES: Record<string, { title: string[]; subtext: { low: string[]; mid: string[]; high: string[] } }> = {
+  [AppMode.Product]: {
+    title: ["Making the Product Look Expensive..."],
+    subtext: {
+      low: ["Calibrating the virtual studio..."],
+      mid: ["Adjusting lights like a perfectionist..."],
+      high: ["Adding the final high-end gloss..."],
+    },
+  },
+  [AppMode.Influencer]: {
+    title: [
+      "Influencer Energy Loading...",
+      "Making It Look Casually Perfect...",
+      "Creator Vibes in Progress...",
+      "That “Shot on iPhone” Feel...",
+      "Not an Ad. Promise.",
+    ],
+    subtext: {
+      low: ["Adding natural chaos (the good kind)..."],
+      mid: ["Less studio, more real life...", "Polishing without overdoing it..."],
+      high: ["Making it scroll-friendly...", "Authentic, but make it aesthetic..."],
+    },
+  },
+  [AppMode.AdCreative]: { // Used for Banner and Youtube as well
+    title: [
+      "Cooking the Ad Creative...",
+      "Making Scrolls Stop...",
+      "Turning Views into Clicks...",
+      "Performance Mode Activated...",
+      "Building a Thumb-Stopping Visual...",
+    ],
+    subtext: {
+      low: ["Balancing brand and drama..."],
+      mid: ["Keeping it bold, not loud...", "Framing for conversions..."],
+      high: ["Making sure the CTA pops...", "Designed to be noticed..."],
+    },
+  },
+  // Fallback for other modes
+  default: {
+    title: ["Generating studio-quality photoshoot..."],
+    subtext: {
+      low: ["Warming up the AI models..."],
+      mid: ["The AI is getting the lighting just right..."],
+      high: ["Applying the finishing touches..."],
+    },
+  },
+};
+
 export const PRODUCT_CATEGORY_OPTIONS = [
   { label: 'Generic', value: ProductCategory.Generic },
   { label: 'Skincare', value: ProductCategory.Skincare },

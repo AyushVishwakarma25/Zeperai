@@ -93,6 +93,21 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
 }) => {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
+  // BUG FIX: Cleanup blob URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      const cleanup = (url: string | null, setter: React.Dispatch<React.SetStateAction<string | null>>) => {
+        if (url && url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      };
+      cleanup(frontProductImagePreview, setFrontProductImagePreview);
+      cleanup(remixReferenceImagePreview, setRemixReferenceImagePreview);
+      cleanup(remixProductImagePreview, setRemixProductImagePreview);
+      cleanup(logoPreview, setLogoPreview);
+    };
+  }, [frontProductImagePreview, remixReferenceImagePreview, remixProductImagePreview, logoPreview, setFrontProductImagePreview, setRemixReferenceImagePreview, setRemixProductImagePreview]);
+
   const handleParamChange = useCallback((param: keyof GenerateImageParams, value: any) => {
     onParamsChange(prev => ({ ...prev, [param]: value }));
   }, [onParamsChange]);

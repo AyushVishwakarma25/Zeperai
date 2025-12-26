@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { GeneratedImage, EditImageParams } from '../types';
 import { Button } from './ui/Button';
@@ -40,6 +41,7 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
   const [replacementPreview, setReplacementPreview] = useState<string | null>(null);
   const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 });
   const [isCursorOnCanvas, setIsCursorOnCanvas] = useState(false);
+  const [showReplacement, setShowReplacement] = useState(false);
   
   // Crop state
   const cropContainerRef = useRef<HTMLDivElement>(null);
@@ -85,8 +87,17 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
     window.addEventListener('resize', setupCanvasAndCrop);
     return () => window.removeEventListener('resize', setupCanvasAndCrop);
   }, [image.imageUrl, clearCanvas, resetCrop]);
+  
+  // BUG FIX: Cleanup blob URL on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (replacementPreview) {
+        URL.revokeObjectURL(replacementPreview);
+      }
+    };
+  }, [replacementPreview]);
 
-  const getCropCoords = (e: React.MouseEvent) => {
+  const getCropCoords = (e: React.MouseEvent | React.PointerEvent) => {
     const container = cropContainerRef.current;
     if (!container) return { x: 0, y: 0 };
     const rect = container.getBoundingClientRect();
@@ -96,7 +107,7 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
     };
   };
 
-  const getCanvasCoords = (e: React.MouseEvent) => {
+  const getCanvasCoords = (e: React.MouseEvent | React.PointerEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
@@ -106,18 +117,23 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
     };
   };
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const startDrawing = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
     setIsDrawing(true);
     lastPointRef.current = getCanvasCoords(e);
   };
   
-  const stopDrawing = () => {
+  const stopDrawing = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.currentTarget.releasePointerCapture(e.pointerId);
     setIsDrawing(false);
     lastPointRef.current = null;
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
+    // Prevent default touch actions like scrolling when drawing
+    e.preventDefault(); 
+    
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!ctx || !lastPointRef.current) return;
@@ -181,16 +197,18 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
   }
 
   // --- CROP LOGIC ---
-  const handleCropMouseDown = (e: React.MouseEvent, handle: string) => {
+  const handleCropPointerDown = (e: React.PointerEvent, handle: string) => {
     e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
     setDraggingHandle(handle);
     const { x, y } = getCropCoords(e);
     dragStartRef.current = { mouseX: x, mouseY: y, crop };
   };
 
-  const handleCropMouseMove = (e: React.MouseEvent) => {
+  const handleCropPointerMove = (e: React.PointerEvent) => {
     if (!draggingHandle) return;
     e.stopPropagation();
+    e.preventDefault(); // Prevent scrolling while cropping
     const { x: mouseX, y: mouseY } = getCropCoords(e);
     const { mouseX: startX, mouseY: startY, crop: startCrop } = dragStartRef.current;
     let newCrop = { ...startCrop };
@@ -256,7 +274,10 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
     setCrop(newCrop);
   };
   
-  const handleCropMouseUp = () => setDraggingHandle(null);
+  const handleCropPointerUp = (e: React.PointerEvent) => {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+      setDraggingHandle(null);
+  };
 
   const handleSetAspectRatio = (ratio: string) => {
     setCropAspectRatio(ratio);
@@ -316,41 +337,42 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
       <div className="bg-main w-full max-w-5xl h-[90vh] rounded-2xl shadow-xl flex flex-col overflow-hidden">
-        <header className="p-4 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
+        <header className="p-4 border-b border-slate-200 flex justify-between items-center flex-shrink-0 bg-white z-20">
             <h2 className="text-xl font-bold text-slate-800">Edit Photoshoot</h2>
             <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
                 <Icon name="close" className="w-5 h-5"/>
             </button>
         </header>
-        <div className="flex-grow flex flex-col lg:flex-row overflow-hidden">
+        
+        {/* Main Content Area - Scrollable on mobile, fixed layout on desktop */}
+        <div className="flex-grow flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
+            {/* Image Canvas Area - Added extra padding on mobile to allow scrolling around the canvas */}
             <main 
                 ref={cropContainerRef}
-                className="flex-1 flex flex-col items-center justify-center p-4 bg-slate-100 overflow-auto relative"
-                onMouseMove={mode === 'crop' ? handleCropMouseMove : undefined}
-                onMouseUp={mode === 'crop' ? handleCropMouseUp : undefined}
-                onMouseLeave={mode === 'crop' ? handleCropMouseUp : undefined}
+                className="relative flex-shrink-0 min-h-[40vh] lg:flex-1 lg:h-full bg-slate-100 flex flex-col items-center justify-center py-8 lg:py-4 px-4 lg:overflow-auto"
+                onPointerMove={mode === 'crop' ? handleCropPointerMove : undefined}
+                onPointerUp={mode === 'crop' ? handleCropPointerUp : undefined}
+                onPointerLeave={mode === 'crop' ? handleCropPointerUp : undefined}
             >
-                <div className="relative">
+                <div className="relative shadow-lg touch-none">
                     <img 
                       ref={imageRef} 
                       src={image.imageUrl} 
                       alt="Editing" 
-                      className="max-w-full max-h-[75vh] lg:max-h-[80vh] object-contain select-none"
+                      className="max-w-full max-h-[60vh] lg:max-h-[80vh] object-contain select-none pointer-events-none"
                       crossOrigin="anonymous"
                     />
                     {mode === 'inpaint' && (
                       <>
                         <canvas
                           ref={canvasRef}
-                          className="absolute top-0 left-0 cursor-none"
-                          onMouseDown={startDrawing}
-                          onMouseUp={stopDrawing}
-                          onMouseLeave={() => {
-                            setIsCursorOnCanvas(false);
-                            stopDrawing();
-                          }}
-                          onMouseEnter={() => setIsCursorOnCanvas(true)}
-                          onMouseMove={(e) => {
+                          className="absolute top-0 left-0 cursor-crosshair touch-none"
+                          onPointerDown={startDrawing}
+                          onPointerUp={stopDrawing}
+                          onPointerLeave={stopDrawing}
+                          onPointerEnter={() => setIsCursorOnCanvas(true)}
+                          onPointerOut={() => setIsCursorOnCanvas(false)}
+                          onPointerMove={(e) => {
                             setCursorPos(getCanvasCoords(e));
                             draw(e);
                           }}
@@ -372,9 +394,9 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
                         <div className="absolute inset-0" style={{ pointerEvents: draggingHandle ? 'auto' : 'none' }}>
                              <div className="absolute inset-0 bg-black/50" style={{ clipPath: `polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ${crop.x}px ${crop.y}px, ${crop.x}px ${crop.y + crop.height}px, ${crop.x + crop.width}px ${crop.y + crop.height}px, ${crop.x + crop.width}px ${crop.y}px, ${crop.x}px ${crop.y}px)` }} />
                              <div 
-                                className="absolute border-2 border-white/80 cursor-move" 
+                                className="absolute border-2 border-white/80 cursor-move touch-none" 
                                 style={{ left: crop.x, top: crop.y, width: crop.width, height: crop.height, pointerEvents: 'auto' }}
-                                onMouseDown={(e) => handleCropMouseDown(e, 'move')}
+                                onPointerDown={(e) => handleCropPointerDown(e, 'move')}
                              >
                                  {cropHandles.map(handle => {
                                      const getHandleStyle = () => {
@@ -390,15 +412,18 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
                                              default: return {};
                                          }
                                      };
-                                     return <div key={handle} onMouseDown={(e) => handleCropMouseDown(e, handle)} className="absolute w-3 h-3 bg-white rounded-full border border-slate-400" style={getHandleStyle()} />;
+                                     return <div key={handle} onPointerDown={(e) => handleCropPointerDown(e, handle)} className="absolute w-4 h-4 bg-white rounded-full border border-slate-400 touch-none" style={getHandleStyle()} />;
                                  })}
                              </div>
                         </div>
                     )}
                 </div>
+                <p className="text-xs text-slate-400 mt-2 lg:hidden">Scroll outside image to move page</p>
             </main>
-            <aside className="w-full lg:w-80 bg-white p-6 flex flex-col justify-between overflow-y-auto flex-shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200">
-                <div>
+
+            {/* Sidebar Controls Area */}
+            <aside className="flex-shrink-0 w-full lg:w-80 bg-white flex flex-col border-t lg:border-t-0 lg:border-l border-slate-200 lg:h-full z-10">
+                <div className="p-6 flex-grow lg:overflow-y-auto">
                     <div className="p-1 bg-slate-200 rounded-lg flex space-x-1 mb-6">
                         <TabButton active={mode === 'inpaint'} onClick={() => setMode('inpaint')}>Inpaint</TabButton>
                         <TabButton active={mode === 'crop'} onClick={() => setMode('crop')}>Crop & Resize</TabButton>
@@ -421,31 +446,64 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
                                     <Button onClick={clearCanvas} fullWidth variant="secondary">Clear Mask</Button>
                                 </div>
                             </div>
+                            
                             <div>
                                 <label htmlFor="edit-prompt" className="block text-sm font-medium text-slate-600 mb-2">2. Describe your edit</label>
-                                <textarea id="edit-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., Change the color to blue" className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-sm" rows={3} />
+                                <textarea id="edit-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., Change the color to blue" className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-sm" rows={4} />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-600 mb-2">3. Upload replacement (optional)</label>
-                                <ImageDropzone id="replacement-upload" previewUrl={replacementPreview} onFileChange={handleFileSelected} prompt="Upload Object/Style" />
+
+                            <Button onClick={handleApplyInpaint} fullWidth isLoading={isEditing}>
+                                Generate Edit
+                            </Button>
+
+                            <div className="border-t border-slate-200 pt-5">
+                                {!showReplacement ? (
+                                    <Button variant="secondary" fullWidth onClick={() => setShowReplacement(true)}>
+                                        <Icon name="swap" className="w-4 h-4 mr-2" />
+                                        Replace Object (Optional)
+                                    </Button>
+                                ) : (
+                                    <div>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <label className="block text-sm font-medium text-slate-600">3. Upload replacement</label>
+                                            <button onClick={() => setShowReplacement(false)} className="text-xs text-slate-500 hover:text-red-500 font-semibold">
+                                                Cancel
+                                            </button>
+                                        </div>
+                                        <ImageDropzone 
+                                            id="replacement-upload" 
+                                            previewUrl={replacementPreview} 
+                                            onFileChange={handleFileSelected} 
+                                            prompt="Upload Object/Style" 
+                                            className="aspect-[4/1] lg:aspect-[3/2]"
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (
                         <div className="space-y-6">
                              <Button onClick={resetCrop} fullWidth variant="secondary">Reset Crop</Button>
+                             <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-2">Aspect Ratio</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button onClick={() => handleSetAspectRatio('free')} className={`p-2 text-xs font-semibold rounded-lg border transition-colors ${cropAspectRatio === 'free' ? 'bg-primary text-white border-primary shadow-md' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'}`}>Free</button>
+                                    <button onClick={() => handleSetAspectRatio('1:1')} className={`p-2 text-xs font-semibold rounded-lg border transition-colors ${cropAspectRatio === '1:1' ? 'bg-primary text-white border-primary shadow-md' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'}`}>1:1 Square</button>
+                                    <button onClick={() => handleSetAspectRatio('4:5')} className={`p-2 text-xs font-semibold rounded-lg border transition-colors ${cropAspectRatio === '4:5' ? 'bg-primary text-white border-primary shadow-md' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'}`}>4:5 Portrait</button>
+                                    <button onClick={() => handleSetAspectRatio('16:9')} className={`p-2 text-xs font-semibold rounded-lg border transition-colors ${cropAspectRatio === '16:9' ? 'bg-primary text-white border-primary shadow-md' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'}`}>16:9 Wide</button>
+                                </div>
+                             </div>
                         </div>
                     )}
                 </div>
-                <div className="mt-6">
-                    {mode === 'inpaint' ? (
-                        <Button onClick={handleApplyInpaint} fullWidth isLoading={isEditing}>
-                            Generate Edit
-                        </Button>
-                    ) : (
+                
+                {/* Footer Action Button */}
+                <div className="p-4 border-t border-slate-200 bg-slate-50 lg:sticky lg:bottom-0 z-20">
+                    {mode === 'crop' ? (
                         <Button onClick={handleApplyCrop} fullWidth>
                             Apply Crop
                         </Button>
-                    )}
+                    ) : null}
                 </div>
             </aside>
         </div>

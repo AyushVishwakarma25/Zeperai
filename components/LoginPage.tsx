@@ -5,10 +5,6 @@ import { Icon } from './ui/Icon';
 import { FormInput } from './ui/Form';
 import { authService, AuthSession } from '../services/authService';
 
-interface LoginPageProps {
-  onLoginSuccess: (session: AuthSession) => void;
-}
-
 const DB_SETUP_SQL = `-- Run this in your Supabase SQL Editor to fix Database & Storage errors
 
 -- 1. Create Profiles Table
@@ -128,6 +124,10 @@ create policy "Users can delete own images"
   on storage.objects for delete
   using ( bucket_id = 'designs' and auth.uid() = owner );
 `;
+
+interface LoginPageProps {
+  onLoginSuccess: (session: AuthSession) => void;
+}
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [isSignUp, setIsSignUp] = useState(false);
