@@ -1,6 +1,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import type { GenerateImageParams, GeneratedImage, BrandKit, StoryboardScene, ProProductStyleCategory } from '../types';
+// Fix: Add SavedModel to type imports
+import type { GenerateImageParams, GeneratedImage, BrandKit, StoryboardScene, ProProductStyleCategory, SavedModel } from '../types';
 import { 
   AspectRatio, AppMode, OutputFormat, MarketplacePreset, 
   FashionGender, FashionShootType, FashionBodyType, 
@@ -58,6 +59,8 @@ interface CreativeModalProps {
   userTier: 'Free' | 'Starter' | 'Standard' | 'Agency';
   onOpenPricingModal: () => void;
   freeGenerationsUsed: number;
+  // Fix: Add savedModels prop to the interface
+  savedModels: SavedModel[];
 }
 
 const SectionTitle: React.FC<{ title: string; className?: string }> = ({ title, className }) => (
@@ -89,24 +92,22 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
     remixReferenceImagePreview, setRemixReferenceImagePreview,
     remixProductImagePreview, setRemixProductImagePreview,
     onGenerateVariants, storyboardSourceImage, onClearStoryboardSource,
-    userTier, onOpenPricingModal, freeGenerationsUsed
+    userTier, onOpenPricingModal, freeGenerationsUsed,
+    // Fix: Destructure savedModels from props
+    savedModels
 }) => {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
-  // BUG FIX: Cleanup blob URLs on unmount to prevent memory leaks
+  // BUG FIX: Cleanup blob URL for local state (logoPreview) on unmount to prevent memory leaks.
+  // The previous implementation was incorrectly cleaning up URLs managed by the parent component,
+  // which caused image previews to break when reopening the modal.
   useEffect(() => {
     return () => {
-      const cleanup = (url: string | null, setter: React.Dispatch<React.SetStateAction<string | null>>) => {
-        if (url && url.startsWith('blob:')) {
-          URL.revokeObjectURL(url);
-        }
-      };
-      cleanup(frontProductImagePreview, setFrontProductImagePreview);
-      cleanup(remixReferenceImagePreview, setRemixReferenceImagePreview);
-      cleanup(remixProductImagePreview, setRemixProductImagePreview);
-      cleanup(logoPreview, setLogoPreview);
+      if (logoPreview && logoPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(logoPreview);
+      }
     };
-  }, [frontProductImagePreview, remixReferenceImagePreview, remixProductImagePreview, logoPreview, setFrontProductImagePreview, setRemixReferenceImagePreview, setRemixProductImagePreview]);
+  }, [logoPreview]);
 
   const handleParamChange = useCallback((param: keyof GenerateImageParams, value: any) => {
     onParamsChange(prev => ({ ...prev, [param]: value }));
@@ -389,6 +390,30 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                           </div>
                         </div>
                     </div>
+                    {/* Fix: Add UI for selecting new or existing model */}
+                    <div className="mt-4">
+                        <label className="block text-sm font-medium text-text-primary mb-2">Model Source</label>
+                        <div className="flex p-1 bg-slate-100 rounded-lg border border-slate-200">
+                            <button onClick={() => handleParamChange('modelSourceOption', 'new')} className={`flex-1 py-1.5 rounded-md text-sm font-semibold ${params.modelSourceOption === 'new' ? 'bg-primary text-white shadow-sm' : 'text-slate-700'}`}>
+                                New Model
+                            </button>
+                            <button onClick={() => handleParamChange('modelSourceOption', 'existing')} className={`flex-1 py-1.5 rounded-md text-sm font-semibold ${params.modelSourceOption === 'existing' ? 'bg-primary text-white shadow-sm' : 'text-slate-700'}`}>
+                                Existing Model
+                            </button>
+                        </div>
+                    </div>
+                    {params.modelSourceOption === 'existing' && (
+                        <div className="mt-4">
+                            <Select label="Select Saved Model" value={params.modelSeedId || ''} onChange={e => handleParamChange('modelSeedId', e.target.value)} disabled={savedModels.length === 0}>
+                                <option value="">Select a model</option>
+                                {savedModels.length > 0 ? (
+                                    savedModels.map(model => <option key={model.id} value={model.id}>{model.name}</option>)
+                                ) : (
+                                    <option value="" disabled>No saved models found</option>
+                                )}
+                            </Select>
+                        </div>
+                    )}
                     <div className="relative mt-4">
                         <Select label="Model Persona" value={params.modelPersona} onChange={e => handleParamChange('modelPersona', e.target.value)}>
                             {Object.keys(MODEL_PERSONA_OPTIONS).map(group => ( <optgroup key={group} label={group}> {MODEL_PERSONA_OPTIONS[group].map(opt => <option key={opt} value={opt}>{opt}</option>)} </optgroup> ))}

@@ -173,6 +173,14 @@ export interface StoryboardScene {
   focusOnProduct: boolean;
 }
 
+export interface SavedModel {
+  id: string;
+  user_id: string;
+  name: string;
+  thumbnail_url: string;
+  created_at: string;
+}
+
 export interface GenerateImageParams {
   appMode: AppMode;
   productDescription: string;
@@ -227,6 +235,8 @@ export interface GenerateImageParams {
   backgroundStyle?: string;
   storyboardSourceImageUrl?: string;
   storyboardScenes?: StoryboardScene[];
+  modelSourceOption?: 'new' | 'existing';
+  modelSeedId?: string;
 
   // Ad Creative mode
   logoImage?: File;

@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, lazy, Suspense, useEffect, useRef } from 'react';
 import { MainContent } from './components/MainContent';
-import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit } from './types';
+import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, SavedModel } from './types';
 import { generateImages, upscaleImage, editImage, generateCaption, generateVariantSuggestions, detectProductCategory, fileToBase64 } from './services/geminiService';
 import { userService, UserProfileData } from './services/userService';
 import { designService } from './services/designService'; 
@@ -88,6 +88,7 @@ const initialParams: GenerateImageParams = {
   adAvailability: '',
   remixReferenceImage: undefined,
   remixProductImage: undefined,
+  modelSourceOption: 'new',
 };
 
 // Debounce utility (simple in-file implementation for this app structure)
@@ -185,6 +186,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [isSavingDesign, setIsSavingDesign] = useState<string | null>(null); 
+  const [savedModels, setSavedModels] = useState<SavedModel[]>([]);
   
   // ADMIN & CREDITS STATE
   const [isAdmin, setIsAdmin] = useState(true);
@@ -264,15 +266,17 @@ const App: React.FC = () => {
                 setUserTier(session.user.tier);
                 
                 // Fetch User Data if logged in
-                const [creditData, savedDesigns, userBrandKit] = await Promise.all([
+                const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
                     userService.getCredits(),
                     designService.getSavedDesigns(),
-                    brandService.getBrandKit()
+                    brandService.getBrandKit(),
+                    userService.getSavedModels()
                 ]);
                 setCredits(creditData.current);
                 setTotalCredits(creditData.total);
                 setPosterBoard(savedDesigns);
                 setBrandKit(userBrandKit);
+                setSavedModels(models);
             }
         } catch (err) {
             console.error("Failed to fetch initial data", err);
@@ -313,15 +317,17 @@ const App: React.FC = () => {
       
       // Reload user data
       try {
-          const [creditData, savedDesigns, userBrandKit] = await Promise.all([
+          const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
                 userService.getCredits(),
                 designService.getSavedDesigns(),
-                brandService.getBrandKit()
+                brandService.getBrandKit(),
+                userService.getSavedModels()
           ]);
           setCredits(creditData.current);
           setTotalCredits(creditData.total);
           setPosterBoard(savedDesigns);
           setBrandKit(userBrandKit);
+          setSavedModels(models);
       } catch (e) {
           console.error("Failed to load user data after login", e);
       }
@@ -335,6 +341,7 @@ const App: React.FC = () => {
       setTotalCredits(0);
       setPosterBoard([]);
       setBrandKit(null);
+      setSavedModels([]);
       setCurrentView(View.Dashboard);
       setToast({ message: "Logged out successfully", type: 'success' });
   }, []);
@@ -497,6 +504,10 @@ const App: React.FC = () => {
             newParams.productStylePreset = 'E-commerce & Web|Classic White Background'; // Common for e-commerce
             newParams.aspectRatios = [AspectRatio.Square];
         }
+        if (tool === AppMode.Influencer) {
+            newParams.modelSourceOption = 'new';
+        }
+
         return newParams;
     });
     setActiveMode(tool);
@@ -525,14 +536,29 @@ const App: React.FC = () => {
     setActiveMode(null); // Close the panel on generation
     setCurrentView(View.Dashboard); // Ensure user sees the results
     setIsStoryboardResult(!!currentParams.storyboardScenes && currentParams.storyboardScenes.length > 0);
+    
+    let modelSeedUrl: string | undefined = undefined;
+    if (currentParams.appMode === AppMode.Influencer && currentParams.modelSourceOption === 'existing' && currentParams.modelSeedId) {
+        modelSeedUrl = savedModels.find(m => m.id === currentParams.modelSeedId)?.thumbnail_url;
+    }
+
     try {
       const results = await generateImages(
           currentParams, 
           brandKit,
           previewUrlOverride ?? frontProductImagePreview ?? undefined,
-          (current, total) => setBatchProgress({ current, total })
+          (current, total) => setBatchProgress({ current, total }),
+          modelSeedUrl
       );
       setGeneratedImages(results);
+
+      // If a new model was generated, save it
+      if (currentParams.appMode === AppMode.Influencer && currentParams.modelSourceOption === 'new' && results.length > 0) {
+          const modelName = `${currentParams.modelGender} Model #${Math.floor(1000 + Math.random() * 9000)}`;
+          const newModels = await userService.saveModel(modelName, results[0].imageUrl, savedModels);
+          setSavedModels(newModels);
+          setToast({ message: `New Model "${modelName}" has been saved!`, type: 'success' });
+      }
 
       if (isFreeTrialGeneration) {
           setFreeGenerationsUsed(prev => prev + cost);
@@ -549,7 +575,7 @@ const App: React.FC = () => {
       setIsLoading(false);
       setBatchProgress(null);
     }
-  }, [userTier, freeGenerationsUsed, frontProductImagePreview, brandKit, handleApiError, checkAndDeductCredits]);
+  }, [userTier, freeGenerationsUsed, frontProductImagePreview, brandKit, handleApiError, checkAndDeductCredits, savedModels]);
   
   const handleUpscale = useCallback(async (imageToUpscale: GeneratedImage) => {
     if (!checkAndDeductCredits(2)) return; // Upscale costs 2 credits
@@ -1145,6 +1171,7 @@ const App: React.FC = () => {
         onSetView={handleSetView}
         currentView={currentView}
         isOpen={isSidebarOpen}
+        onOpen={() => setIsSidebarOpen(true)}
         onClose={() => setIsSidebarOpen(false)}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         onOpenContentGenerator={handleOpenContentGeneratorModal}
@@ -1182,6 +1209,7 @@ const App: React.FC = () => {
           userTier={userTier}
           onOpenPricingModal={handleOpenPricingModal}
           freeGenerationsUsed={freeGenerationsUsed}
+          savedModels={savedModels}
         />
       )}
       

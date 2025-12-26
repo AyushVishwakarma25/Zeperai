@@ -31,8 +31,9 @@ interface DashboardSidebarProps {
     onSetView: (view: View) => void;
     currentView: View;
     isOpen: boolean;
-    onClose: () => void; // For mobile overlay closing
-    onToggle: () => void; // For desktop collapse/expand
+    onOpen: () => void;
+    onClose: () => void;
+    onToggle: () => void;
     onOpenContentGenerator: () => void;
     onOpenSupport: () => void;
     onOpenBrandKit: () => void;
@@ -48,6 +49,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     onSetView, 
     currentView, 
     isOpen, 
+    onOpen,
     onClose, 
     onToggle, 
     onOpenContentGenerator, 
@@ -101,6 +103,8 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 
       {/* Sidebar Container */}
       <aside 
+        onMouseEnter={onOpen}
+        onMouseLeave={onClose}
         className={`
             fixed inset-y-0 left-0 z-50
             h-screen bg-white border-r border-border-light shadow-sm

@@ -44,7 +44,7 @@ const dataURLToParts = (dataURL: string) => {
     return { data, mimeType };
 };
 
-const buildPromptParts = async (params: GenerateImageParams, brandKit?: BrandKit | null, activeImage?: File, pose?: string): Promise<any[]> => {
+const buildPromptParts = async (params: GenerateImageParams, brandKit?: BrandKit | null, activeImage?: File, pose?: string, modelSeedUrl?: string): Promise<any[]> => {
     const { 
         productDescription, appMode, marketplacePreset, hyperRealism, 
         fashionGender, fashionShootType, fashionCategory, fashionSubCategory, fashionBodyType, 
@@ -54,6 +54,20 @@ const buildPromptParts = async (params: GenerateImageParams, brandKit?: BrandKit
     } = params;
     
     let parts: any[] = [];
+
+    // Add model seed image first if it exists
+    if (modelSeedUrl) {
+        const response = await fetch(modelSeedUrl);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>(resolve => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+        });
+        const { data, mimeType } = dataURLToParts(dataUrl);
+        parts.push({ inlineData: { data, mimeType } });
+    }
+
     const imageToUse = activeImage || params.frontProductImage || params.remixReferenceImage;
     if (imageToUse) {
         const base64 = await fileToBase64(imageToUse);
@@ -90,7 +104,11 @@ const buildPromptParts = async (params: GenerateImageParams, brandKit?: BrandKit
             break;
 
         case AppMode.Influencer:
-             corePrompt = `Create a high-end influencer-style marketing image.
+             corePrompt = `Create a high-end influencer-style marketing image.`;
+             if (modelSeedUrl) {
+                corePrompt += `\n- CRITICAL INSTRUCTION: The model in the generated image must be the *exact same person* as in the provided reference seed image. Replicate all facial features, ethnicity, and hair style precisely.`;
+             }
+             corePrompt += `
             - Product: ${productDescription || 'the product in the image'}.
             - Model: A ${modelGender} influencer with a ${modelPersona} persona.
             - Pose: ${poseSuggestion || 'A natural, engaging pose'}.
@@ -150,9 +168,9 @@ const buildPromptParts = async (params: GenerateImageParams, brandKit?: BrandKit
     return [{ text: corePrompt }, ...parts];
 };
 
-const generateSingleImage = async (params: GenerateImageParams, aspectRatio: AspectRatio, brandKit?: BrandKit | null, activeImage?: File, pose?: string, sourceProductImageUrl?: string): Promise<GeneratedImage> => {
+const generateSingleImage = async (params: GenerateImageParams, aspectRatio: AspectRatio, brandKit?: BrandKit | null, activeImage?: File, pose?: string, sourceProductImageUrl?: string, modelSeedUrl?: string): Promise<GeneratedImage> => {
     const ai = getAI();
-    const contents = await buildPromptParts(params, brandKit, activeImage, pose);
+    const contents = await buildPromptParts(params, brandKit, activeImage, pose, modelSeedUrl);
     
     let aspectRatioConfig: "1:1" | "3:4" | "4:3" | "9:16" | "16:9" = "1:1";
     if (aspectRatio === AspectRatio.Portrait) aspectRatioConfig = "9:16";
@@ -193,7 +211,8 @@ export const generateImages = async (
     params: GenerateImageParams, 
     brandKit?: BrandKit | null,
     sourceProductImageUrl?: string,
-    onProgress?: (current: number, total: number) => void
+    onProgress?: (current: number, total: number) => void,
+    modelSeedUrl?: string
 ): Promise<GeneratedImage[]> => {
     const allResults: GeneratedImage[] = [];
     const aspectRatiosToGenerate = params.aspectRatios && params.aspectRatios.length > 0 ? params.aspectRatios : [AspectRatio.PortraitPost];
@@ -216,14 +235,14 @@ export const generateImages = async (
             for (let i = 0; i < batchSize; i++) {
                 progressCounter++;
                 if (onProgress) onProgress(progressCounter, totalGenerations);
-                const img = await generateSingleImage(params, aspectRatio, brandKit, undefined, poses[i], sourceProductImageUrl);
+                const img = await generateSingleImage(params, aspectRatio, brandKit, undefined, poses[i], sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
             }
         } else if (params.appMode === AppMode.Bulk && params.bulkImages) {
             for (let i = 0; i < params.bulkImages.length; i++) {
                 progressCounter++;
                 if (onProgress) onProgress(progressCounter, totalGenerations);
-                const img = await generateSingleImage(params, aspectRatio, brandKit, params.bulkImages[i], undefined, sourceProductImageUrl);
+                const img = await generateSingleImage(params, aspectRatio, brandKit, params.bulkImages[i], undefined, sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
             }
         } else if (params.appMode === AppMode.Product) {
@@ -231,7 +250,7 @@ export const generateImages = async (
              for (const angle of angles) {
                 progressCounter++;
                 if (onProgress) onProgress(progressCounter, totalGenerations);
-                const img = await generateSingleImage(params, aspectRatio, brandKit, undefined, angle, sourceProductImageUrl);
+                const img = await generateSingleImage(params, aspectRatio, brandKit, undefined, angle, sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
              }
         } else {
@@ -239,7 +258,7 @@ export const generateImages = async (
             for (let i = 0; i < batchSize; i++) {
                 progressCounter++;
                 if (onProgress) onProgress(progressCounter, totalGenerations);
-                const img = await generateSingleImage(params, aspectRatio, brandKit, undefined, undefined, sourceProductImageUrl);
+                const img = await generateSingleImage(params, aspectRatio, brandKit, undefined, undefined, sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
             }
         }

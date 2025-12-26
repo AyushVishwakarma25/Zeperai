@@ -1,11 +1,14 @@
-import React, { useState, useCallback } from 'react';
+
+import React, { useState, useCallback, useEffect } from 'react';
 import { Icon } from './ui/Icon';
 import { Button } from './ui/Button';
 import { FormInput, FormTextArea } from './ui/Form';
 import { ImageDropzone } from './ui/ImageDropzone';
 import { processImageFile } from '../imageUtils';
+import { storageService } from '../services/storageService';
 
 interface UserProfile {
+  id: string;
   name: string;
   role: string;
   bio: string;
@@ -27,42 +30,62 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, onClose, onSa
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user.avatarUrl);
   const [isSaving, setIsSaving] = useState(false);
 
+  useEffect(() => {
+    // Cleanup blob URL on unmount to prevent memory leaks
+    return () => {
+        if (avatarPreview && avatarPreview.startsWith('blob:')) {
+            URL.revokeObjectURL(avatarPreview);
+        }
+    }
+  }, [avatarPreview]);
+
+
   const handleFileChange = useCallback(async (file: File | null) => {
+    // Revoke previous blob URL if it exists to prevent memory leaks
+    if (avatarPreview && avatarPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(avatarPreview);
+    }
+
     if (file) {
       try {
         const processedFile = await processImageFile(file, { maxWidth: 512, maxHeight: 512, format: 'image/png' });
         setAvatarFile(processedFile);
-        
-        // Create a URL for preview
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setAvatarPreview(reader.result as string);
-        };
-        reader.readAsDataURL(processedFile);
-
+        setAvatarPreview(URL.createObjectURL(processedFile));
       } catch (error) {
         console.error("Error processing avatar image:", error);
+        setAvatarFile(null);
+        setAvatarPreview(user.avatarUrl); // Revert to original on error
       }
     } else {
       setAvatarFile(null);
-      setAvatarPreview(null);
+      setAvatarPreview(user.avatarUrl); // Revert to original if file is removed
     }
-  }, []);
+  }, [avatarPreview, user.avatarUrl]);
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     setIsSaving(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+        let finalAvatarUrl = user.avatarUrl;
+        // If a new file was selected, upload it to storage
+        if (avatarFile) {
+            const fileName = `users/${user.id}/avatar.png`;
+            finalAvatarUrl = await storageService.uploadImage(avatarFile, fileName);
+        }
+
         const newData: Partial<UserProfile> = {
           name,
           bio,
+          avatarUrl: finalAvatarUrl,
         };
-        if (avatarPreview && avatarPreview !== user.avatarUrl) {
-          newData.avatarUrl = avatarPreview;
-        }
+        
         onSave(newData);
-        setIsSaving(false);
-    }, 1000);
+        // The parent component (`App.tsx`) handles closing the modal.
+        
+    } catch (err) {
+        console.error("Failed to save profile:", err);
+        // In a real app, you would show an error toast here.
+        setIsSaving(false); // Make sure loading state is turned off on error
+    }
   };
 
   return (

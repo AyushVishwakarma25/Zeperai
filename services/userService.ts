@@ -1,5 +1,7 @@
 
 import { supabase } from './supabaseClient';
+import { storageService } from './storageService';
+import type { SavedModel } from '../types';
 
 export interface UserProfileData {
   id: string;
@@ -146,5 +148,55 @@ export const userService = {
   async checkSession(): Promise<boolean> {
     const { data } = await supabase.auth.getSession();
     return !!data.session;
-  }
+  },
+
+  // --- Saved Model Management ---
+  async getSavedModels(): Promise<SavedModel[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from('saved_models')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.warn("Could not fetch saved models:", error.message);
+      return [];
+    }
+    return data;
+  },
+
+  async saveModel(name: string, imageUrl: string, currentModels: SavedModel[]): Promise<SavedModel[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated");
+
+    // Enforce max 10 models
+    if (currentModels.length >= 10) {
+        const oldestModel = currentModels[currentModels.length - 1];
+        await this.deleteModel(oldestModel.id);
+    }
+
+    // Upload thumbnail to storage
+    const thumbnailFileName = `users/${user.id}/models/thumb_${Date.now()}.png`;
+    const thumbnailUrl = await storageService.uploadImage(imageUrl, thumbnailFileName);
+    
+    const { data, error } = await supabase
+        .from('saved_models')
+        .insert({ name, thumbnail_url: thumbnailUrl, user_id: user.id })
+        .select()
+        .single();
+
+    if (error) throw error;
+    
+    // Return fresh list
+    return this.getSavedModels();
+  },
+
+  async deleteModel(modelId: string): Promise<void> {
+    // Also delete from storage if needed, for now just DB
+    const { error } = await supabase.from('saved_models').delete().eq('id', modelId);
+    if (error) throw error;
+  },
 };
