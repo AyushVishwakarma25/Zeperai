@@ -2,7 +2,7 @@
 import React, { useState, useCallback, lazy, Suspense, useEffect, useRef } from 'react';
 import { MainContent } from './components/MainContent';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, SavedModel } from './types';
-import { generateImages, upscaleImage, editImage, generateCaption, generateVariantSuggestions, detectProductCategory, fileToBase64 } from './services/geminiService';
+import { generateImages, editImage, generateCaption, generateVariantSuggestions, detectProductCategory, fileToBase64, removeBackground } from './services/geminiService';
 import { userService, UserProfileData } from './services/userService';
 import { designService } from './services/designService'; 
 import { storageService } from './services/storageService'; 
@@ -10,7 +10,7 @@ import { authService, AuthSession } from './services/authService';
 import { brandService } from './services/brandService';
 import { Spinner } from './components/ui/Spinner';
 import { AppMode, AspectRatio, OutputFormat, ModelGender, SkinTone, ClothingType, OutfitChoice, StylePreset, AdLayout, ResolutionQuality, ProductCategory, View } from './types';
-import { AI_SUGGESTED, FREE_TRIAL_LIMIT, LOADING_MESSAGES } from './constants';
+import { AI_SUGGESTED, FREE_TRIAL_LIMIT, LOADING_MESSAGES, STORAGE_LIMITS } from './constants';
 import { processImageFile, dataURLtoFile } from './imageUtils';
 import { DashboardSidebar } from './components/DashboardSidebar';
 import { Dashboard } from './components/Dashboard';
@@ -37,7 +37,7 @@ const ProfileEditModal = lazy(() => import('./components/ProfileEditModal'));
 const InspirationPage = lazy(() => import('./components/InspirationPage'));
 const BrandKitModal = lazy(() => import('./components/BrandKitModal'));
 
-const calculateGenerationCost = (params: GenerateImageParams): number => {
+const calculateGenerationCost = (params: GenerateImageParams, userTier: string): number => {
     const numRatios = params.aspectRatios?.length || 0;
     if (numRatios === 0) return 0;
 
@@ -53,7 +53,15 @@ const calculateGenerationCost = (params: GenerateImageParams): number => {
         numVariants = params.batchSize || 1;
     }
     
-    return numVariants * numRatios;
+    let baseCost = numVariants * numRatios;
+
+    // Apply High Quality Multiplier (4x) only if the user is on a tier that actually supports/uses the Pro model
+    const isProTier = userTier === 'Standard' || userTier === 'Agency';
+    if (params.resolutionQuality === ResolutionQuality.High && isProTier) {
+        baseCost *= 4;
+    }
+
+    return baseCost;
 };
 
 const initialParams: GenerateImageParams = {
@@ -143,7 +151,6 @@ const getActionLabel = (mode: AppMode): string => {
         case AppMode.AdCreative: return 'Ad Creative';
         case AppMode.Remix: return 'Image Remix';
         case AppMode.Fashion: return 'Fashion Photoshoot';
-        case AppMode.Amazon: return 'Amazon Catalogue';
         case AppMode.Banner: return 'Banner Design';
         case AppMode.Youtube: return 'YouTube Thumbnail';
         case AppMode.Festival: return 'Festival Post';
@@ -154,6 +161,7 @@ const getActionLabel = (mode: AppMode): string => {
 
 const App: React.FC = () => {
   const [activeMode, setActiveMode] = useState<AppMode | null>(null);
+  const [lastActiveMode, setLastActiveMode] = useState<AppMode | null>(null);
   const [params, setParams] = useState<GenerateImageParams>(initialParams);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [posterBoard, setPosterBoard] = useState<GeneratedImage[]>([]);
@@ -162,8 +170,8 @@ const App: React.FC = () => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<View>(View.Dashboard);
-  const [upscalingImageId, setUpscalingImageId] = useState<string | null>(null);
   const [editingImage, setEditingImage] = useState<GeneratedImage | null>(null);
+  const [editModalInitialTab, setEditModalInitialTab] = useState<'inpaint' | 'crop' | 'background'>('inpaint');
   const [zoomedImage, setZoomedImage] = useState<GeneratedImage | null>(null);
   const [storyboardSourceImage, setStoryboardSourceImage] = useState<GeneratedImage | null>(null);
   const [isStoryboardResult, setIsStoryboardResult] = useState<boolean>(false);
@@ -208,7 +216,6 @@ const App: React.FC = () => {
   const frontProductImageRef = useRef<File | undefined>(undefined); 
   const frontProductImageBase64Ref = useRef<string | null>(null); 
   const imageEditInputRef = useRef<HTMLInputElement>(null);
-  const imageUpscaleInputRef = useRef<HTMLInputElement>(null);
 
   // Floating Action Bar State
   const [floatingPrompt, setFloatingPrompt] = useState('');
@@ -265,18 +272,28 @@ const App: React.FC = () => {
                 setUserProfile(session.user);
                 setUserTier(session.user.tier);
                 
-                // Fetch User Data if logged in
-                const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
-                    userService.getCredits(),
-                    designService.getSavedDesigns(),
-                    brandService.getBrandKit(),
-                    userService.getSavedModels()
-                ]);
-                setCredits(creditData.current);
-                setTotalCredits(creditData.total);
-                setPosterBoard(savedDesigns);
-                setBrandKit(userBrandKit);
-                setSavedModels(models);
+                // Fetch User Data if logged in AND not a guest
+                // Guest ID 'guest-user-id' is set in LoginPage.tsx
+                if (session.user.id !== 'guest-user-id') {
+                    const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
+                        userService.getCredits(),
+                        designService.getSavedDesigns(),
+                        brandService.getBrandKit(),
+                        userService.getSavedModels()
+                    ]);
+                    setCredits(creditData.current);
+                    setTotalCredits(creditData.total);
+                    setPosterBoard(savedDesigns);
+                    setBrandKit(userBrandKit);
+                    setSavedModels(models);
+                } else {
+                    // Initialize Guest Defaults
+                    setCredits(25);
+                    setTotalCredits(25);
+                    setPosterBoard([]);
+                    setBrandKit(null);
+                    setSavedModels([]);
+                }
             }
         } catch (err) {
             console.error("Failed to fetch initial data", err);
@@ -315,21 +332,29 @@ const App: React.FC = () => {
       setUserTier(session.user.tier);
       setToast({ message: `Welcome back, ${session.user.name}!`, type: 'success' });
       
-      // Reload user data
-      try {
-          const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
-                userService.getCredits(),
-                designService.getSavedDesigns(),
-                brandService.getBrandKit(),
-                userService.getSavedModels()
-          ]);
-          setCredits(creditData.current);
-          setTotalCredits(creditData.total);
-          setPosterBoard(savedDesigns);
-          setBrandKit(userBrandKit);
-          setSavedModels(models);
-      } catch (e) {
-          console.error("Failed to load user data after login", e);
+      // Reload user data - Skip if guest
+      if (session.user.id !== 'guest-user-id') {
+          try {
+              const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
+                    userService.getCredits(),
+                    designService.getSavedDesigns(),
+                    brandService.getBrandKit(),
+                    userService.getSavedModels()
+              ]);
+              setCredits(creditData.current);
+              setTotalCredits(creditData.total);
+              setPosterBoard(savedDesigns);
+              setBrandKit(userBrandKit);
+              setSavedModels(models);
+          } catch (e) {
+              console.error("Failed to load user data after login", e);
+          }
+      } else {
+          setCredits(25);
+          setTotalCredits(25);
+          setPosterBoard([]);
+          setBrandKit(null);
+          setSavedModels([]);
       }
   }, []);
 
@@ -346,6 +371,7 @@ const App: React.FC = () => {
       setToast({ message: "Logged out successfully", type: 'success' });
   }, []);
 
+  // ... (rest of the component)
   const handleRequireAuth = useCallback(() => {
       if (!userProfile || userProfile.id === 'guest-user-id') {
           setIsAuthModalOpen(true);
@@ -373,7 +399,7 @@ const App: React.FC = () => {
         .map(img => ({
             id: img.id,
             user: userProfile?.name || 'Guest',
-            action: getActionLabel(img.params.appMode),
+            action: getActionLabel(img.params?.appMode || AppMode.Product), // Fallback if params undefined
             imageUrl: img.imageUrl,
             timestamp: img.timestamp
         }));
@@ -448,7 +474,7 @@ const App: React.FC = () => {
       
       if (credits >= cost) {
           setCredits(prev => prev - cost);
-          if (userProfile) {
+          if (userProfile && userProfile.id !== 'guest-user-id') {
               userService.deductCredits(cost).catch(e => {
                   console.error("Credit sync failed", e);
               });
@@ -460,8 +486,18 @@ const App: React.FC = () => {
       return false;
   }, [credits, isAdmin, userProfile]);
 
+  const refundCredits = useCallback((amount: number) => {
+      if (isAdmin) return;
+      setCredits(prev => prev + amount);
+      if (userProfile && userProfile.id !== 'guest-user-id') {
+          // Negative deduction acts as a refund in our service logic
+          userService.deductCredits(-amount).catch(e => console.error("Refund failed", e));
+      }
+  }, [isAdmin, userProfile]);
+
 
   const handleSelectMode = useCallback((tool: AppMode) => {
+    setLastActiveMode(tool);
     const prevMode = params.appMode;
     setParams(prev => {
         let newParams: GenerateImageParams = { ...prev, appMode: tool };
@@ -489,7 +525,7 @@ const App: React.FC = () => {
             setRemixReferenceImagePreview(null);
             setRemixProductImagePreview(null);
         }
-        if (![AppMode.Product, AppMode.Influencer, AppMode.Fashion, AppMode.Amazon, AppMode.Festival].includes(tool) && frontProductImagePreview) {
+        if (![AppMode.Product, AppMode.Influencer, AppMode.Fashion, AppMode.Festival].includes(tool) && frontProductImagePreview) {
             setFrontProductImagePreview(null);
         }
 
@@ -499,10 +535,6 @@ const App: React.FC = () => {
         }
         if (tool === AppMode.Fashion) {
             newParams.productCategory = ProductCategory.Fashion;
-        }
-        if (tool === AppMode.Amazon) {
-            newParams.productStylePreset = 'E-commerce & Web|Classic White Background'; // Common for e-commerce
-            newParams.aspectRatios = [AspectRatio.Square];
         }
         if (tool === AppMode.Influencer) {
             newParams.modelSourceOption = 'new';
@@ -518,7 +550,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleGenerate = useCallback(async (currentParams: GenerateImageParams, previewUrlOverride?: string) => {
-    const cost = calculateGenerationCost(currentParams);
+    const cost = calculateGenerationCost(currentParams, userTier);
     const isFreeTier = userTier === 'Free';
     const isStandardGeneration = currentParams.resolutionQuality === ResolutionQuality.Standard;
     const remainingFree = FREE_TRIAL_LIMIT - freeGenerationsUsed;
@@ -545,6 +577,7 @@ const App: React.FC = () => {
     try {
       const results = await generateImages(
           currentParams, 
+          userTier,
           brandKit,
           previewUrlOverride ?? frontProductImagePreview ?? undefined,
           (current, total) => setBatchProgress({ current, total }),
@@ -555,9 +588,12 @@ const App: React.FC = () => {
       // If a new model was generated, save it
       if (currentParams.appMode === AppMode.Influencer && currentParams.modelSourceOption === 'new' && results.length > 0) {
           const modelName = `${currentParams.modelGender} Model #${Math.floor(1000 + Math.random() * 9000)}`;
-          const newModels = await userService.saveModel(modelName, results[0].imageUrl, savedModels);
-          setSavedModels(newModels);
-          setToast({ message: `New Model "${modelName}" has been saved!`, type: 'success' });
+          // Only save model to DB if real user
+          if (userProfile && userProfile.id !== 'guest-user-id') {
+              const newModels = await userService.saveModel(modelName, results[0].imageUrl, savedModels);
+              setSavedModels(newModels);
+              setToast({ message: `New Model "${modelName}" has been saved!`, type: 'success' });
+          }
       }
 
       if (isFreeTrialGeneration) {
@@ -570,39 +606,41 @@ const App: React.FC = () => {
       setFloatingPrompt('');
       setFloatingImageFile(null);
     } catch (err) {
+      // Refund if generation fails completely
+      if (!isFreeTrialGeneration && !isAdmin) {
+          refundCredits(cost);
+          setToast({ message: "Generation failed. Credits refunded.", type: 'success' });
+      }
       handleApiError(err);
     } finally {
       setIsLoading(false);
       setBatchProgress(null);
     }
-  }, [userTier, freeGenerationsUsed, frontProductImagePreview, brandKit, handleApiError, checkAndDeductCredits, savedModels]);
+  }, [userTier, freeGenerationsUsed, frontProductImagePreview, brandKit, handleApiError, checkAndDeductCredits, savedModels, isAdmin, refundCredits, userProfile]);
   
-  const handleUpscale = useCallback(async (imageToUpscale: GeneratedImage) => {
-    if (!checkAndDeductCredits(2)) return; // Upscale costs 2 credits
-
-    setUpscalingImageId(imageToUpscale.id);
-    setError(null);
-    try {
-        const upscaledData = await upscaleImage(imageToUpscale.imageUrl);
-        const updateImage = (img: GeneratedImage) => 
-            img.id === imageToUpscale.id 
-            ? { ...img, imageUrl: upscaledData.imageUrl, caption: upscaledData.caption, hashtags: upscaledData.hashtags } 
-            : img;
-        setGeneratedImages(prev => prev.map(updateImage));
-        setPosterBoard(prev => prev.map(updateImage));
-    } catch (err) {
-        handleApiError(err);
-        setUpscalingImageId(null);
-    } finally {
-        setUpscalingImageId(null);
-    }
-  }, [handleApiError, checkAndDeductCredits]);
-
-  const handleStartEdit = useCallback((image?: GeneratedImage) => {
+  const handleStartEdit = useCallback((image?: GeneratedImage, initialMode: 'inpaint' | 'crop' | 'background' = 'inpaint') => {
     if (image) {
       setEditingImage(image);
+      setEditModalInitialTab(initialMode);
     } else {
-      imageEditInputRef.current?.click();
+      // If we are starting "Background Removal" mode with no image, create a dummy placeholder
+      // This allows the EditModal to open and show the Upload box instead of the file picker
+      if (initialMode === 'background') {
+          const dummyImage: GeneratedImage = {
+              id: 'new-bg-removal',
+              imageUrl: '', // Empty URL signals "Upload Mode" to EditModal
+              caption: 'Background Removal',
+              hashtags: '',
+              aspectRatio: AspectRatio.Square,
+              params: initialParams,
+              timestamp: Date.now()
+          };
+          setEditingImage(dummyImage);
+          setEditModalInitialTab(initialMode);
+      } else {
+          setEditModalInitialTab(initialMode);
+          imageEditInputRef.current?.click();
+      }
     }
   }, []);
 
@@ -612,7 +650,12 @@ const App: React.FC = () => {
 
   const handleApplyEdit = useCallback(async (editParams: EditImageParams) => {
     if (!editingImage) return;
-    generationModeRef.current = editingImage.params.appMode;
+    
+    // Deduct 1 credit for edit
+    if (!checkAndDeductCredits(1)) return;
+
+    // Safeguard: Ensure params exists before accessing appMode
+    generationModeRef.current = editingImage.params?.appMode || AppMode.Product;
     setIsEditing(true);
     setError(null);
     try {
@@ -625,31 +668,89 @@ const App: React.FC = () => {
       setPosterBoard(prev => prev.map(updateImage));
       setEditingImage(null); // Close modal on success
     } catch (err) {
+      refundCredits(1); // Refund on failure
       handleApiError(err);
     } finally {
       setIsEditing(false);
     }
-  }, [editingImage, handleApiError]);
+  }, [editingImage, handleApiError, checkAndDeductCredits, refundCredits]);
 
-  const handleImageUpdate = useCallback((imageId: string, newImageUrl: string) => {
-      let imageFoundInLists = false;
-      const updateImage = (img: GeneratedImage) => {
-          if (img.id === imageId) {
-              imageFoundInLists = true;
-              return { ...img, imageUrl: newImageUrl };
-          }
-          return img;
-      };
-
-      setGeneratedImages(prev => prev.map(updateImage));
-      setPosterBoard(prev => prev.map(updateImage));
+  // REFACTORED: Use functional update to avoid stale closures and manage state transitions cleanly
+  const handleImageUpdate = useCallback((imageId: string, newImageUrl: string, sourceImageUrl?: string) => {
+      setGeneratedImages(prev => prev.map(img => 
+          img.id === imageId ? { ...img, imageUrl: newImageUrl } : img
+      ));
+      setPosterBoard(prev => prev.map(img => 
+          img.id === imageId ? { ...img, imageUrl: newImageUrl } : img
+      ));
       
-      if (!imageFoundInLists && editingImage && editingImage.id === imageId) {
-          const newImage = { ...editingImage, imageUrl: newImageUrl, id: `gen-${Date.now()}` };
-          setGeneratedImages(prev => [newImage, ...prev]);
-      }
-      setEditingImage(null); // Close modal
-  }, [editingImage]);
+      setEditingImage(prev => {
+          // Normal case: update current editing image if ID matches
+          if (prev && prev.id === imageId) {
+               return { ...prev, imageUrl: newImageUrl, sourceProductImageUrl: sourceImageUrl || prev.sourceProductImageUrl };
+          }
+          // Special case: Background Remover Flow
+          // If the placeholder ID matches, we need to promote it to a real generated image
+          if (prev && imageId === 'new-bg-removal' && prev.id === 'new-bg-removal') {
+               const newId = `gen-${Date.now()}`;
+               const newImage = { 
+                   ...prev, 
+                   id: newId, 
+                   imageUrl: newImageUrl,
+                   sourceProductImageUrl: sourceImageUrl // Persist the original uploaded image as source
+               };
+               
+               // IMPORTANT: Must also add to generatedImages so it persists if modal closes
+               setGeneratedImages(g => [newImage, ...g]);
+               
+               return newImage;
+          }
+          return prev;
+      });
+  }, []);
+
+  const handleRemoveBackground = useCallback(async () => {
+    if (!editingImage) return;
+    
+    // Credit Logic: Deduct 1 credit for background removal
+    if (!checkAndDeductCredits(1)) return;
+
+    // Safeguard: Ensure params exists before accessing appMode
+    generationModeRef.current = editingImage.params?.appMode || AppMode.Product;
+    setIsEditing(true);
+    try {
+        const parts = editingImage.imageUrl.split(',');
+        // Extract base64 and mime type
+        let base64 = parts[1];
+        let mimeType = 'image/png';
+        if (parts[0].includes(';')) {
+            mimeType = parts[0].split(':')[1].split(';')[0];
+        }
+        
+        // Keep a copy of original for "Compare" feature
+        // If image was just uploaded, imageUrl is the original. 
+        // If it's already a result, we might lose original unless we tracked it. 
+        // Since this is usually the first action, imageUrl IS the source.
+        const originalSource = editingImage.imageUrl;
+
+        // Ensure base64 string doesn't have headers if they exist in parts[1] (unlikely with split(','))
+        // NOW returns an object { data, mimeType }
+        const result = await removeBackground(base64, mimeType);
+        
+        if (!result.data) throw new Error("Failed to generate background removal result.");
+
+        // Construct using the RETURNED mimeType from the API (e.g. image/png)
+        const newImageUrl = `data:${result.mimeType};base64,${result.data}`;
+        
+        handleImageUpdate(editingImage.id, newImageUrl, originalSource);
+        setToast({ message: "Background removed successfully", type: 'success' });
+    } catch (err) {
+        refundCredits(1); // Refund on failure
+        handleApiError(err);
+    } finally {
+        setIsEditing(false);
+    }
+  }, [editingImage, checkAndDeductCredits, refundCredits, handleApiError, handleImageUpdate]);
 
   const handleGenerateCaption = useCallback(async (imageId: string, captionParams: Omit<GenerateCaptionParams, 'imageUrl' | 'existingCaption'>) => {
     if (!checkAndDeductCredits(1)) return; // Caption generation costs 1 credit
@@ -670,17 +771,34 @@ const App: React.FC = () => {
       setGeneratedImages(prev => prev.map(updateImage));
       setPosterBoard(prev => prev.map(updateImage));
     } catch (err) {
+      refundCredits(1);
       handleApiError(err);
     } finally {
       setGeneratingCaptionImageId(null);
     }
-  }, [generatedImages, posterBoard, brandKit, handleApiError, checkAndDeductCredits]);
+  }, [generatedImages, posterBoard, brandKit, handleApiError, checkAndDeductCredits, refundCredits]);
 
   const addToPosterBoard = useCallback(async (image: GeneratedImage) => {
     if (!handleRequireAuth()) return;
+
+    // --- NEW: Storage Limit Check ---
+    const limit = STORAGE_LIMITS[userTier] || 10;
+    if (posterBoard.length >= limit) {
+        setToast({ message: `Storage full! Free plan is limited to ${limit} designs. Upgrade to save more.`, type: 'error' });
+        setIsPricingModalOpen(true);
+        return;
+    }
+
     if (!posterBoard.some(item => item.id === image.id)) {
       setIsSavingDesign(image.id);
       try {
+          // If Guest, just save to local state
+          if (userProfile?.id === 'guest-user-id') {
+              setPosterBoard(prev => [image, ...prev]);
+              setToast({ message: 'Design saved locally (Guest Mode)', type: 'success' });
+              return;
+          }
+
           const fileName = `users/${userProfile?.id}/designs/${image.id}.png`;
           const publicUrl = await storageService.uploadImage(image.imageUrl, fileName);
           const imageToSave = { ...image, imageUrl: publicUrl };
@@ -696,11 +814,18 @@ const App: React.FC = () => {
     } else {
       setToast({ message: 'Design already saved.', type: 'success' });
     }
-  }, [posterBoard, userProfile, handleRequireAuth]);
+  }, [posterBoard, userProfile, handleRequireAuth, userTier]);
 
   const removeFromPosterBoard = useCallback(async (imageId: string) => {
     const originalBoard = [...posterBoard];
     setPosterBoard(prev => prev.filter(item => item.id !== imageId));
+    
+    // If Guest, no DB call needed
+    if (userProfile?.id === 'guest-user-id') {
+        setToast({ message: 'Design removed.', type: 'success' });
+        return;
+    }
+
     try {
         await designService.deleteDesign(imageId);
         setToast({ message: 'Design removed.', type: 'success' });
@@ -708,12 +833,14 @@ const App: React.FC = () => {
         setPosterBoard(originalBoard); // Revert on failure
         setToast({ message: 'Failed to delete design.', type: 'error' });
     }
-  }, [posterBoard]);
+  }, [posterBoard, userProfile]);
 
   const handleSetStoryboardSource = useCallback((image: GeneratedImage) => {
     setStoryboardSourceImage(image);
-    setParams(prev => ({...prev, ...image.params})); // Load params from source image
-    setActiveMode(image.params.appMode); // Re-open the panel for storyboard
+    // Safe guard against missing params in older images
+    const mergedParams = { ...initialParams, ...(image.params || {}) };
+    setParams(prev => ({...prev, ...mergedParams})); 
+    setActiveMode(image.params?.appMode || AppMode.Product); 
   }, []);
 
   const handleClearStoryboardSource = useCallback(() => {
@@ -739,6 +866,8 @@ const App: React.FC = () => {
   }, []);
 
   const handleOpenVariantsModal = useCallback(async (field: 'modelPersona' | 'poseSuggestion') => {
+    if (!checkAndDeductCredits(1)) return; // Deduct 1 credit for Idea Generation
+
     setQuickVariantsField(field);
     setIsVariantsLoading(true);
     setVariantError(null);
@@ -747,11 +876,12 @@ const App: React.FC = () => {
       const suggestions = await generateVariantSuggestions(params.productDescription, field);
       setVariantSuggestions(suggestions);
     } catch (err) {
+      refundCredits(1); // Refund on failure
       setVariantError(err instanceof Error ? err.message : 'An unknown error occurred.');
     } finally {
       setIsVariantsLoading(false);
     }
-  }, [params.productDescription]);
+  }, [params.productDescription, checkAndDeductCredits, refundCredits]);
 
   const handleSelectVariant = useCallback((suggestion: string) => {
     if (quickVariantsField) {
@@ -899,49 +1029,6 @@ const App: React.FC = () => {
     }
   }, []);
   
-  const handleStartImageUpscale = useCallback(() => {
-    imageUpscaleInputRef.current?.click();
-  }, []);
-
-  const handleImageUpscaleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!checkAndDeductCredits(2)) return;
-      
-      // Removed global setIsLoading(true) to avoid blocking UI and allowing instant preview
-      setError(null);
-      
-      try {
-        // 1. Convert file to image object and display immediately
-        const tempImage = await fileToGeneratedImage(file);
-        setGeneratedImages(prev => [tempImage, ...prev]);
-        setUpscalingImageId(tempImage.id); // Triggers loading overlay on the specific card
-
-        // 2. Perform Upscale
-        const upscaledData = await upscaleImage(tempImage.imageUrl);
-        
-        // 3. Update image with result
-        const updateImage = (img: GeneratedImage) => 
-            img.id === tempImage.id 
-            ? { ...img, imageUrl: upscaledData.imageUrl, caption: `Upscaled: ${tempImage.caption}`, hashtags: upscaledData.hashtags } 
-            : img;
-            
-        setGeneratedImages(prev => prev.map(updateImage));
-        // If user was on My Designs, update it there too just in case (though unlikely for new upload)
-        setPosterBoard(prev => prev.map(updateImage));
-
-      } catch (err) {
-        handleApiError(err);
-        // Optionally remove the failed temp image, but keeping it allows user to try again or see what failed
-      } finally {
-        setUpscalingImageId(null);
-        if (imageUpscaleInputRef.current) {
-            imageUpscaleInputRef.current.value = '';
-        }
-      }
-    }
-  }, [handleApiError, checkAndDeductCredits]);
-
   // --- Floating Action Bar Logic ---
   useEffect(() => {
       if (!floatingImageFile) {
@@ -987,6 +1074,11 @@ const App: React.FC = () => {
       handleGenerate(generationParams, floatingImagePreview ?? undefined);
   }, [floatingPrompt, floatingImageFile, params, handleGenerate, floatingImagePreview]);
 
+  const handleReturnToSettings = useCallback(() => {
+    setGeneratedImages([]);
+    setActiveMode(lastActiveMode);
+  }, [lastActiveMode]);
+
 
   const renderCurrentView = () => {
     const onToggleSidebar = () => setIsSidebarOpen(p => !p);
@@ -998,10 +1090,8 @@ const App: React.FC = () => {
                         onDeploy={handleOpenDeployModal}
                         onSetView={handleSetView}
                         onStartEdit={handleStartEdit}
-                        onUpscale={handleUpscale}
                         onSetZoomedImage={handleSetZoomedImage}
                         onSetStoryboardSource={handleSetStoryboardSource}
-                        upscalingImageId={upscalingImageId}
                         onToggleSidebar={onToggleSidebar}
                    />;
         case View.Profile:
@@ -1047,24 +1137,25 @@ const App: React.FC = () => {
                   isLoading={isLoading}
                   error={error}
                   onAddToPosterBoard={addToPosterBoard}
-                  onUpscale={handleUpscale}
-                  upscalingImageId={upscalingImageId}
                   onStartEdit={handleStartEdit}
                   onSetStoryboardSource={handleSetStoryboardSource}
                   onSetZoomedImage={handleSetZoomedImage}
                   isStoryboardResult={isStoryboardResult}
                   onGenerateCaption={handleGenerateCaption}
                   generatingCaptionImageId={generatingCaptionImageId}
-                  onOpenABTestModal={setAbTestModalImage}
-                  onStartNew={() => setGeneratedImages([])}
+                  onOpenABTestModal={(image) => {
+                      if (checkAndDeductCredits(2)) {
+                          setAbTestModalImage(image);
+                      }
+                  }}
+                  onReturnToSettings={handleReturnToSettings}
                 />
               );
             }
             return (
                 <Dashboard 
                     onSelectMode={handleSelectMode}
-                    onStartImageEdit={handleStartEdit}
-                    onStartImageUpscale={handleStartImageUpscale}
+                    onStartImageEdit={(img) => handleStartEdit(img, img ? undefined : 'background')}
                     onOpenFeedbackModal={handleOpenFeedbackModal}
                     onOpenPricingModal={handleOpenPricingModal}
                     onToggleSidebar={onToggleSidebar}
@@ -1080,7 +1171,6 @@ const App: React.FC = () => {
                     userName={userProfile?.name || 'there'}
                     onInternalImageDrop={handleInternalImageDrop}
                     isLoading={isLoading}
-                    onUpscale={handleUpscale}
                 />
             );
     }
@@ -1116,7 +1206,7 @@ const App: React.FC = () => {
             />
         )}
       {/* BUG FIX: Global overlay no longer shows for upscaling */}
-      {(isLoading || isEditing || isSavingDesign) && !upscalingImageId && (
+      {(isLoading || isEditing || isSavingDesign) && (
         <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-[60]">
           <Spinner />
           <p className="text-white mt-4 text-lg text-center px-4">
@@ -1153,13 +1243,6 @@ const App: React.FC = () => {
       />
       <input
         type="file"
-        ref={imageUpscaleInputRef}
-        className="hidden"
-        accept="image/*"
-        onChange={handleImageUpscaleFileChange}
-      />
-      <input
-        type="file"
         ref={floatingImageInputRef}
         className="hidden"
         accept="image/*"
@@ -1169,7 +1252,7 @@ const App: React.FC = () => {
       <DashboardSidebar 
         onSelectMode={handleSelectMode} 
         onSetView={handleSetView}
-        onStartImageEdit={() => handleStartEdit()}
+        onStartImageEdit={() => handleStartEdit(undefined, 'background')}
         currentView={currentView}
         isOpen={isSidebarOpen}
         onOpen={() => setIsSidebarOpen(true)}
@@ -1227,8 +1310,10 @@ const App: React.FC = () => {
             image={editingImage}
             onClose={handleCloseEdit}
             onApplyEdit={handleApplyEdit}
+            onRemoveBackground={handleRemoveBackground}
             onImageUpdate={handleImageUpdate}
             isEditing={isEditing}
+            initialTab={editModalInitialTab}
           />
         )}
 
@@ -1251,6 +1336,7 @@ const App: React.FC = () => {
                 image={abTestModalImage}
                 onClose={() => setAbTestModalImage(null)}
                 onGenerate={() => { }}
+                onApiError={() => refundCredits(2)}
             />
         )}
 
@@ -1289,6 +1375,8 @@ const App: React.FC = () => {
           <ContentGenerator 
             onClose={handleCloseContentGeneratorModal} 
             onDeductCredits={checkAndDeductCredits}
+            onRefundCredits={refundCredits}
+            userId={userProfile?.id}
           />
         )}
 

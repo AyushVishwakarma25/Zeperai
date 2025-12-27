@@ -37,7 +37,9 @@ export const userService = {
     
     if (error) {
         // If the table doesn't exist or row is missing, just log warning and return null (fallback will handle it)
-        console.warn('Failed to load user profile from DB:', error.message || error);
+        if (error.code !== '42P01') { // 42P01 is table missing
+             console.warn('Failed to load user profile from DB:', error.message || error);
+        }
         return null;
     }
 
@@ -99,8 +101,9 @@ export const userService = {
         .single();
 
     if (error) {
-        // Fallback or record might not exist yet
-        console.warn('Failed to load credits:', error.message || error);
+        if (error.code !== '42P01') {
+             console.warn('Failed to load credits:', error.message || error);
+        }
         return { current: 0, total: 0 };
     }
 
@@ -162,7 +165,10 @@ export const userService = {
       .order('created_at', { ascending: false });
     
     if (error) {
-      console.warn("Could not fetch saved models:", error.message);
+      // 42P01: relation does not exist (table missing)
+      if (error.code !== '42P01') {
+          console.warn("Could not fetch saved models:", error.message);
+      }
       return [];
     }
     return data;

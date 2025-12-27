@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import type { GeneratedImage } from '../../types';
 import { AppMode } from '../../types';
@@ -28,15 +29,15 @@ const generateFilenameFromImage = (image: GeneratedImage): string => {
     const extension = image.imageUrl.split(';')[0].split('/')[1] || 'png';
     let namePart = `influencer-studio-${image.id.substring(4, 10)}`;
 
-    if (image.params.appMode === AppMode.Product && image.params.productStylePreset) {
+    if (image.params?.appMode === AppMode.Product && image.params.productStylePreset) {
         if (image.params.productStylePreset.includes('|')) {
             namePart = image.params.productStylePreset.split('|')[1];
         } else {
             namePart = image.params.productStylePreset;
         }
-    } else if (image.params.appMode === AppMode.Influencer && image.params.poseSuggestion) {
+    } else if (image.params?.appMode === AppMode.Influencer && image.params.poseSuggestion) {
         namePart = image.params.poseSuggestion;
-    } else if (image.params.productDescription) {
+    } else if (image.params?.productDescription) {
         namePart = image.params.productDescription;
     }
 

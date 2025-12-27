@@ -10,8 +10,10 @@ interface EditModalProps {
   image: GeneratedImage;
   onClose: () => void;
   onApplyEdit: (params: EditImageParams) => Promise<void>;
-  onImageUpdate: (imageId: string, newImageUrl: string) => void;
+  onRemoveBackground: () => Promise<void>;
+  onImageUpdate: (imageId: string, newImageUrl: string, sourceImageUrl?: string) => void;
   isEditing: boolean;
+  initialTab?: 'inpaint' | 'crop' | 'background';
 }
 
 const TabButton: React.FC<{ active: boolean, onClick: () => void, children: React.ReactNode }> = ({ active, onClick, children }) => (
@@ -27,8 +29,17 @@ const TabButton: React.FC<{ active: boolean, onClick: () => void, children: Reac
 
 const MIN_CROP_SIZE = 20; // Minimum crop dimension in pixels
 
-const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onImageUpdate, isEditing }) => {
-  const [mode, setMode] = useState<'inpaint' | 'crop'>('inpaint');
+const EditModal: React.FC<EditModalProps> = ({ 
+    image, 
+    onClose, 
+    onApplyEdit, 
+    onRemoveBackground,
+    onImageUpdate, 
+    isEditing,
+    initialTab = 'inpaint'
+}) => {
+  const [mode, setMode] = useState<'inpaint' | 'crop' | 'background'>(initialTab);
+  const [showOriginalBg, setShowOriginalBg] = useState(false);
 
   // Inpaint state
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -50,6 +61,21 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
   const [draggingHandle, setDraggingHandle] = useState<string | null>(null);
   const dragStartRef = useRef({ mouseX: 0, mouseY: 0, crop: { x: 0, y: 0, width: 0, height: 0 } });
 
+  // Update internal state if prop changes (e.g. background removal finished)
+  useEffect(() => {
+      // Always update if image.imageUrl is present. 
+      // If it's empty (placeholder), keep current state or set to null if explicitly cleared.
+      if (image.imageUrl) {
+          // Reset tool states when image changes
+          setPrompt('');
+          setReplacementImage(null);
+          if (replacementPreview) URL.revokeObjectURL(replacementPreview);
+          setReplacementPreview(null);
+          setShowReplacement(false);
+          // Don't reset mode, keep user on same tool
+          setShowOriginalBg(false);
+      }
+  }, [image.imageUrl, replacementPreview]); // replacementPreview in dep array to satisfy linter for cleanup, logically OK
 
   const clearCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -67,28 +93,48 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
   }, []);
 
   useEffect(() => {
+    // Only setup canvas if in inpaint mode and we have an image
+    if (mode !== 'inpaint' || !image.imageUrl) return;
+
     const canvas = canvasRef.current;
     const img = imageRef.current;
     if (!canvas || !img) return;
 
-    const setupCanvasAndCrop = () => {
+    const setupCanvas = () => {
       const { width, height } = img.getBoundingClientRect();
-      canvas.width = width;
-      canvas.height = height;
-      clearCanvas();
-      resetCrop();
+      // Ensure dimensions are valid
+      if (width > 0 && height > 0) {
+          canvas.width = width;
+          canvas.height = height;
+          clearCanvas();
+      }
     };
 
-    img.onload = setupCanvasAndCrop;
     if (img.complete) {
-      setupCanvasAndCrop();
+        setupCanvas();
+    } else {
+        img.onload = setupCanvas;
     }
     
-    window.addEventListener('resize', setupCanvasAndCrop);
-    return () => window.removeEventListener('resize', setupCanvasAndCrop);
-  }, [image.imageUrl, clearCanvas, resetCrop]);
+    window.addEventListener('resize', setupCanvas);
+    return () => window.removeEventListener('resize', setupCanvas);
+  }, [mode, image.imageUrl, clearCanvas]);
+
+  useEffect(() => {
+      // Only setup crop if in crop mode and we have an image
+      if (mode !== 'crop' || !image.imageUrl) return;
+      
+      const img = imageRef.current;
+      if (!img) return;
+
+      if (img.complete) {
+          resetCrop();
+      } else {
+          img.onload = resetCrop;
+      }
+  }, [mode, image.imageUrl, resetCrop]);
   
-  // BUG FIX: Cleanup blob URL on unmount to prevent memory leaks
+  // Cleanup replacement blob URL
   useEffect(() => {
     return () => {
       if (replacementPreview) {
@@ -96,6 +142,24 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
       }
     };
   }, [replacementPreview]);
+
+  const handleMainFileUpload = useCallback(async (file: File | null) => {
+      if (file) {
+          try {
+              const processedFile = await processImageFile(file, { maxWidth: 2048, maxHeight: 2048 });
+              const reader = new FileReader();
+              reader.readAsDataURL(processedFile);
+              reader.onload = () => {
+                  const result = reader.result as string;
+                  // Update the parent component with the new image so "editingImage" is valid
+                  // The uploaded image is both the current image and the source for compare feature.
+                  onImageUpdate(image.id, result, result);
+              };
+          } catch (e) {
+              console.error("Failed to process uploaded image", e);
+          }
+      }
+  }, [image.id, onImageUpdate]);
 
   const getCropCoords = (e: React.MouseEvent | React.PointerEvent) => {
     const container = cropContainerRef.current;
@@ -172,6 +236,7 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
   }, []);
 
   const handleApplyInpaint = () => {
+    if (!image.imageUrl) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const context = canvas.getContext('2d');
@@ -305,6 +370,7 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
   };
   
   const handleApplyCrop = () => {
+    if (!image.imageUrl) return;
     const img = imageRef.current;
     if (!img) return;
 
@@ -332,6 +398,16 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
     onImageUpdate(image.id, dataUrl);
   };
 
+  const handleDownload = () => {
+      if (!image.imageUrl) return;
+      const link = document.createElement('a');
+      link.href = image.imageUrl;
+      link.download = `edited-image-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+  };
+
   const cropHandles = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight', 'top', 'bottom', 'left', 'right'];
 
   const handleOverlayClick = () => {
@@ -344,6 +420,20 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
       }
   };
 
+  const getModalTitle = () => {
+      switch(mode) {
+          case 'background': return 'Background Remover';
+          case 'crop': return 'Crop & Resize';
+          case 'inpaint': return 'Magic Editor';
+          default: return 'Edit Photoshoot';
+      }
+  }
+
+  // Decide which image to show
+  const displayImage = (mode === 'background' && showOriginalBg && image.sourceProductImageUrl) 
+      ? image.sourceProductImageUrl 
+      : image.imageUrl;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4" onClick={handleOverlayClick}>
       <div 
@@ -351,7 +441,7 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
         onClick={(e) => e.stopPropagation()}
       >
         <header className="p-4 border-b border-slate-200 flex justify-between items-center flex-shrink-0 bg-white z-20">
-            <h2 className="text-xl font-bold text-slate-800">Edit Photoshoot</h2>
+            <h2 className="text-xl font-bold text-slate-800">{getModalTitle()}</h2>
             <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
                 <Icon name="close" className="w-5 h-5"/>
             </button>
@@ -362,87 +452,114 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
             {/* Image Canvas Area - Added extra padding on mobile to allow scrolling around the canvas */}
             <main 
                 ref={cropContainerRef}
-                className="relative flex-shrink-0 min-h-[40vh] lg:flex-1 lg:h-full bg-slate-100 flex flex-col items-center justify-center py-8 lg:py-4 px-4 lg:overflow-auto"
+                className={`relative flex-shrink-0 min-h-[40vh] lg:flex-1 lg:h-full bg-slate-100 flex flex-col items-center justify-center lg:overflow-auto ${mode === 'background' ? 'bg-[url("https://www.transparenttextures.com/patterns/cubes.png")]' : ''}`}
                 onPointerMove={mode === 'crop' ? handleCropPointerMove : undefined}
                 onPointerUp={mode === 'crop' ? handleCropPointerUp : undefined}
                 onPointerLeave={mode === 'crop' ? handleCropPointerUp : undefined}
             >
-                <div className="relative shadow-lg touch-none">
-                    <img 
-                      ref={imageRef} 
-                      src={image.imageUrl} 
-                      alt="Editing" 
-                      className="max-w-full max-h-[60vh] lg:max-h-[80vh] object-contain select-none pointer-events-none"
-                      crossOrigin="anonymous"
-                    />
-                    {mode === 'inpaint' && (
-                      <>
-                        <canvas
-                          ref={canvasRef}
-                          className="absolute top-0 left-0 cursor-crosshair touch-none"
-                          onPointerDown={startDrawing}
-                          onPointerUp={stopDrawing}
-                          onPointerLeave={stopDrawing}
-                          onPointerEnter={() => setIsCursorOnCanvas(true)}
-                          onPointerOut={() => setIsCursorOnCanvas(false)}
-                          onPointerMove={(e) => {
-                            setCursorPos(getCanvasCoords(e));
-                            draw(e);
-                          }}
+                {displayImage ? (
+                    <div className="relative shadow-lg touch-none py-8 px-4">
+                        <img 
+                          ref={imageRef} 
+                          src={displayImage} 
+                          alt="Editing" 
+                          className="max-w-full max-h-[60vh] lg:max-h-[80vh] object-contain select-none pointer-events-none"
+                          crossOrigin="anonymous"
                         />
-                        {isCursorOnCanvas && (
-                          <div
-                            className="absolute rounded-full border-2 border-white bg-black/30 pointer-events-none -translate-x-1/2 -translate-y-1/2"
-                            style={{
-                                left: cursorPos.x,
-                                top: cursorPos.y,
-                                width: brushSize,
-                                height: brushSize,
-                            }}
-                          />
+                        {mode === 'background' && image.sourceProductImageUrl && (
+                            <div className="absolute top-2 right-6 bg-black/70 text-white text-xs px-2 py-1 rounded backdrop-blur-sm pointer-events-none">
+                                {showOriginalBg ? 'Original' : 'Result'}
+                            </div>
                         )}
-                      </>
-                    )}
-                    {mode === 'crop' && (
-                        <div className="absolute inset-0" style={{ pointerEvents: draggingHandle ? 'auto' : 'none' }}>
-                             <div className="absolute inset-0 bg-black/50" style={{ clipPath: `polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ${crop.x}px ${crop.y}px, ${crop.x}px ${crop.y + crop.height}px, ${crop.x + crop.width}px ${crop.y + crop.height}px, ${crop.x + crop.width}px ${crop.y}px, ${crop.x}px ${crop.y}px)` }} />
-                             <div 
-                                className="absolute border-2 border-white/80 cursor-move touch-none" 
-                                style={{ left: crop.x, top: crop.y, width: crop.width, height: crop.height, pointerEvents: 'auto' }}
-                                onPointerDown={(e) => handleCropPointerDown(e, 'move')}
-                             >
-                                 {cropHandles.map(handle => {
-                                     const getHandleStyle = () => {
-                                         switch (handle) {
-                                             case 'topLeft': return { top: -6, left: -6, cursor: 'nwse-resize' };
-                                             case 'topRight': return { top: -6, right: -6, cursor: 'nesw-resize' };
-                                             case 'bottomLeft': return { bottom: -6, left: -6, cursor: 'nesw-resize' };
-                                             case 'bottomRight': return { bottom: -6, right: -6, cursor: 'nwse-resize' };
-                                             case 'top': return { top: -6, left: '50%', transform: 'translateX(-50%)', cursor: 'ns-resize' };
-                                             case 'bottom': return { bottom: -6, left: '50%', transform: 'translateX(-50%)', cursor: 'ns-resize' };
-                                             case 'left': return { top: '50%', left: -6, transform: 'translateY(-50%)', cursor: 'ew-resize' };
-                                             case 'right': return { top: '50%', right: -6, transform: 'translateY(-50%)', cursor: 'ew-resize' };
-                                             default: return {};
-                                         }
-                                     };
-                                     return <div key={handle} onPointerDown={(e) => handleCropPointerDown(e, handle)} className="absolute w-4 h-4 bg-white rounded-full border border-slate-400 touch-none" style={getHandleStyle()} />;
-                                 })}
-                             </div>
+                        {mode === 'inpaint' && (
+                          <>
+                            <canvas
+                              ref={canvasRef}
+                              className="absolute top-0 left-0 cursor-crosshair touch-none"
+                              style={{ top: 32, left: 16 }} // Compensate for padding if needed, though usually we calc rect
+                              onPointerDown={startDrawing}
+                              onPointerUp={stopDrawing}
+                              onPointerLeave={stopDrawing}
+                              onPointerEnter={() => setIsCursorOnCanvas(true)}
+                              onPointerOut={() => setIsCursorOnCanvas(false)}
+                              onPointerMove={(e) => {
+                                setCursorPos(getCanvasCoords(e));
+                                draw(e);
+                              }}
+                            />
+                            {isCursorOnCanvas && (
+                              <div
+                                className="absolute rounded-full border-2 border-white bg-black/30 pointer-events-none -translate-x-1/2 -translate-y-1/2"
+                                style={{
+                                    left: cursorPos.x + 16, // Padding offset hack if rect isn't perfect, ideally rect handles it
+                                    top: cursorPos.y + 32,
+                                    width: brushSize,
+                                    height: brushSize,
+                                }}
+                              />
+                            )}
+                          </>
+                        )}
+                        {mode === 'crop' && (
+                            <div className="absolute inset-0" style={{ top: 32, bottom: 32, pointerEvents: draggingHandle ? 'auto' : 'none' }}>
+                                 <div className="absolute inset-0 bg-black/50" style={{ clipPath: `polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ${crop.x}px ${crop.y}px, ${crop.x}px ${crop.y + crop.height}px, ${crop.x + crop.width}px ${crop.y + crop.height}px, ${crop.x + crop.width}px ${crop.y}px, ${crop.x}px ${crop.y}px)` }} />
+                                 <div 
+                                    className="absolute border-2 border-white/80 cursor-move touch-none" 
+                                    style={{ left: crop.x, top: crop.y, width: crop.width, height: crop.height, pointerEvents: 'auto' }}
+                                    onPointerDown={(e) => handleCropPointerDown(e, 'move')}
+                                 >
+                                     {cropHandles.map(handle => {
+                                         const getHandleStyle = () => {
+                                             switch (handle) {
+                                                 case 'topLeft': return { top: -6, left: -6, cursor: 'nwse-resize' };
+                                                 case 'topRight': return { top: -6, right: -6, cursor: 'nesw-resize' };
+                                                 case 'bottomLeft': return { bottom: -6, left: -6, cursor: 'nesw-resize' };
+                                                 case 'bottomRight': return { bottom: -6, right: -6, cursor: 'nwse-resize' };
+                                                 case 'top': return { top: -6, left: '50%', transform: 'translateX(-50%)', cursor: 'ns-resize' };
+                                                 case 'bottom': return { bottom: -6, left: '50%', transform: 'translateX(-50%)', cursor: 'ns-resize' };
+                                                 case 'left': return { top: '50%', left: -6, transform: 'translateY(-50%)', cursor: 'ew-resize' };
+                                                 case 'right': return { top: '50%', right: -6, transform: 'translateY(-50%)', cursor: 'ew-resize' };
+                                                 default: return {};
+                                             }
+                                         };
+                                         return <div key={handle} onPointerDown={(e) => handleCropPointerDown(e, handle)} className="absolute w-4 h-4 bg-white rounded-full border border-slate-400 touch-none" style={getHandleStyle()} />;
+                                     })}
+                                 </div>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="w-full h-full p-8 flex items-center justify-center">
+                        <div className="w-full max-w-md aspect-square bg-white rounded-xl shadow-sm">
+                            <ImageDropzone 
+                                id="editor-upload" 
+                                prompt="Upload an image to edit" 
+                                previewUrl={null} 
+                                onFileChange={handleMainFileUpload} 
+                                className="w-full h-full border-2 border-dashed border-slate-300 rounded-xl hover:border-primary/50 transition-colors"
+                            />
                         </div>
-                    )}
-                </div>
-                <p className="text-xs text-slate-400 mt-2 lg:hidden">Scroll outside image to move page</p>
+                    </div>
+                )}
+                {image.imageUrl && <p className="text-xs text-slate-400 mt-2 lg:hidden text-center pb-4">Scroll outside image to move page</p>}
             </main>
 
             {/* Sidebar Controls Area */}
             <aside className="flex-shrink-0 w-full lg:w-80 bg-white flex flex-col border-t lg:border-t-0 lg:border-l border-slate-200 lg:h-full z-10">
                 <div className="p-6 flex-grow lg:overflow-y-auto">
-                    <div className="p-1 bg-slate-200 rounded-lg flex space-x-1 mb-6">
+                    <div className="p-1 bg-slate-100 rounded-lg flex space-x-1 mb-6 overflow-x-auto">
                         <TabButton active={mode === 'inpaint'} onClick={() => setMode('inpaint')}>Inpaint</TabButton>
-                        <TabButton active={mode === 'crop'} onClick={() => setMode('crop')}>Crop & Resize</TabButton>
+                        <TabButton active={mode === 'crop'} onClick={() => setMode('crop')}>Crop</TabButton>
+                        <TabButton active={mode === 'background'} onClick={() => setMode('background')}>Remove BG</TabButton>
                     </div>
 
-                    {mode === 'inpaint' ? (
+                    {!image.imageUrl && (
+                        <div className="text-center p-4 bg-slate-50 rounded-lg text-slate-500 text-sm">
+                            Upload an image on the left to start editing.
+                        </div>
+                    )}
+
+                    {image.imageUrl && mode === 'inpaint' && (
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-sm font-semibold text-black mb-2">1. Brush the area to change</label>
@@ -462,7 +579,7 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
                             
                             <div>
                                 <label htmlFor="edit-prompt" className="block text-sm font-semibold text-black mb-2">2. Describe your edit</label>
-                                <textarea id="edit-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., Change the color to blue" className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-sm" rows={4} />
+                                <textarea id="edit-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., Change the color to blue" className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-sm text-slate-900" rows={4} />
                             </div>
 
                             <Button onClick={handleApplyInpaint} fullWidth isLoading={isEditing}>
@@ -494,7 +611,9 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
                                 )}
                             </div>
                         </div>
-                    ) : (
+                    )}
+                    
+                    {image.imageUrl && mode === 'crop' && (
                         <div className="space-y-6">
                              <Button onClick={resetCrop} fullWidth variant="secondary">Reset Crop</Button>
                              <div>
@@ -508,16 +627,54 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
                              </div>
                         </div>
                     )}
+
+                    {image.imageUrl && mode === 'background' && (
+                        <div className="space-y-6 flex flex-col justify-start pt-2">
+                            <div className="text-center p-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <Icon name="magic-wand" className="w-8 h-8 text-primary" />
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-800 mb-2">Instant Removal</h3>
+                                <p className="text-sm text-slate-500 mb-6">
+                                    Automatically detect and isolate the main subject. This action costs 1 Credit.
+                                </p>
+                                <Button onClick={onRemoveBackground} fullWidth isLoading={isEditing}>
+                                    Remove Background (1 Credit)
+                                </Button>
+                                
+                                {image.sourceProductImageUrl && (
+                                    <div className="mt-4">
+                                        <Button 
+                                            onClick={() => setShowOriginalBg(!showOriginalBg)} 
+                                            fullWidth 
+                                            variant="secondary"
+                                            className="mb-2"
+                                        >
+                                            <Icon name="swap" className="w-4 h-4 mr-2" />
+                                            {showOriginalBg ? 'Show Result' : 'Compare Original'}
+                                        </Button>
+                                    </div>
+                                )}
+
+                                <div className="mt-4 pt-4 border-t border-slate-200">
+                                    <Button onClick={handleDownload} fullWidth variant="secondary">
+                                        <Icon name="download" className="w-4 h-4 mr-2" />
+                                        Download Image
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
                 
-                {/* Footer Action Button */}
-                <div className="p-4 border-t border-slate-200 bg-slate-50 lg:sticky lg:bottom-0 z-20">
-                    {mode === 'crop' ? (
+                {/* Footer Action Button for Crop Mode */}
+                {image.imageUrl && mode === 'crop' && (
+                    <div className="p-4 border-t border-slate-200 bg-slate-50 lg:sticky lg:bottom-0 z-20">
                         <Button onClick={handleApplyCrop} fullWidth>
                             Apply Crop
                         </Button>
-                    ) : null}
-                </div>
+                    </div>
+                )}
             </aside>
         </div>
       </div>

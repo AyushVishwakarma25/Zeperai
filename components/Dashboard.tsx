@@ -90,7 +90,6 @@ const VerticalCategoryCard: React.FC<{ title: string; children: React.ReactNode;
 interface DashboardProps {
   onSelectMode: (tool: AppMode) => void;
   onStartImageEdit: (image?: GeneratedImage) => void;
-  onStartImageUpscale: () => void;
   onOpenFeedbackModal: () => void;
   onOpenPricingModal: () => void;
   onToggleSidebar: () => void;
@@ -106,7 +105,6 @@ interface DashboardProps {
   userName?: string;
   onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;
   isLoading: boolean;
-  onUpscale: (image: GeneratedImage) => void;
 }
 
 interface HeaderProps {
@@ -138,7 +136,6 @@ const Header: React.FC<HeaderProps> = ({ onOpenFeedbackModal, onOpenPricingModal
 interface DashboardHomeProps {
   onSelectMode: (tool: AppMode) => void;
   onStartImageEdit: (image?: GeneratedImage) => void;
-  onStartImageUpscale: () => void;
   onOpenContentGenerator: () => void;
   floatingPrompt: string;
   onFloatingPromptChange: (value: string) => void;
@@ -152,13 +149,11 @@ interface DashboardHomeProps {
   isAdmin?: boolean;
   userName?: string;
   onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;
-  onUpscale: (image: GeneratedImage) => void;
 }
 
 const DashboardHome: React.FC<DashboardHomeProps> = ({ 
     onSelectMode, 
     onStartImageEdit, 
-    onStartImageUpscale,
     onOpenContentGenerator,
     floatingPrompt,
     onFloatingPromptChange,
@@ -172,15 +167,13 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     isAdmin = false,
     userName = 'there',
     onInternalImageDrop,
-    onUpscale
 }) => {
 
     const isProLocked = !isAdmin && (userTier === 'Free' || userTier === 'Starter');
 
     const ecommerceTools = [
         { id: AppMode.Product, title: 'Product Photoshoot', iconName: 'camera' },
-        { id: AppMode.Fashion, title: 'Fashion Photoshoot', iconName: 'shirt' }, 
-        { id: AppMode.Amazon, title: 'Amazon Catalogue', iconName: 'shopping-bag' },
+        { id: AppMode.Fashion, title: 'Fashion Photoshoot', iconName: 'shirt' },
     ];
     const marketingTools = [
         { id: AppMode.AdCreative, title: 'Ads Generator', iconName: 'megaphone' },
@@ -210,8 +203,6 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             onInternalImageDrop(image, toolId as AppMode);
         } else if (toolId === 'bg-remover') {
             onStartImageEdit(image);
-        } else if (toolId === 'upscale') {
-            onUpscale(image);
         }
     };
 

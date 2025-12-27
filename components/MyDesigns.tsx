@@ -4,7 +4,6 @@ import type { GeneratedImage } from '../types';
 import { Icon } from './ui/Icon';
 import { Button } from './ui/Button';
 import { View } from '../types';
-import { Spinner } from './ui/Spinner';
 import { generateFilename } from '../imageUtils';
 
 interface MyDesignsProps {
@@ -13,10 +12,8 @@ interface MyDesignsProps {
   onDeploy: () => void;
   onSetView: (view: View) => void;
   onStartEdit: (image: GeneratedImage) => void;
-  onUpscale: (image: GeneratedImage) => void;
   onSetZoomedImage: (image: GeneratedImage) => void;
   onSetStoryboardSource: (image: GeneratedImage) => void;
-  upscalingImageId: string | null;
   onToggleSidebar: () => void;
 }
 
@@ -32,7 +29,7 @@ const IconButton: React.FC<{icon: string, label: string, onClick: (e: React.Mous
 );
 
 export const MyDesigns: React.FC<MyDesignsProps> = ({ 
-    images, onRemove, onDeploy, onSetView, onStartEdit, onUpscale, onSetZoomedImage, onSetStoryboardSource, upscalingImageId, onToggleSidebar
+    images, onRemove, onDeploy, onSetView, onStartEdit, onSetZoomedImage, onSetStoryboardSource, onToggleSidebar
 }) => {
 
   const handleDownload = useCallback((image: GeneratedImage) => {
@@ -86,7 +83,6 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
             <main className="flex-grow overflow-y-auto p-4 md:p-8">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                     {images.map(image => {
-                        const isUpscaling = upscalingImageId === image.id;
                         return (
                             <div 
                                 key={image.id} 
@@ -96,24 +92,17 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
                             >
                                 <div 
                                     className="relative cursor-zoom-in"
-                                    onClick={() => !isUpscaling && onSetZoomedImage(image)}
+                                    onClick={() => onSetZoomedImage(image)}
                                     style={{ aspectRatio: '4 / 5' }}
                                 >
                                     <img src={image.imageUrl} alt="Saved generation" className="w-full h-full object-cover" />
-                                    {isUpscaling && (
-                                        <div className="absolute inset-0 bg-black bg-opacity-60 flex flex-col items-center justify-center">
-                                            <Spinner />
-                                            <p className="text-white text-sm mt-2">Upscaling...</p>
-                                        </div>
-                                    )}
                                 </div>
                                 <div className="p-1 border-t border-slate-200 mt-auto">
                                     <div className="flex items-center justify-around">
-                                        <IconButton icon="film" label="Create Storyboard" onClick={(e) => { e.stopPropagation(); onSetStoryboardSource(image); }} disabled={isUpscaling} />
-                                        <IconButton icon="edit" label="Edit" onClick={(e) => { e.stopPropagation(); onStartEdit(image); }} disabled={isUpscaling} />
-                                        {/* <IconButton icon="sparkles" label="Upscale" onClick={(e) => { e.stopPropagation(); onUpscale(image); }} disabled={isUpscaling} /> */}
-                                        <IconButton icon="download" label="Download" onClick={(e) => { e.stopPropagation(); handleDownload(image); }} disabled={isUpscaling} />
-                                        <IconButton icon="remove" label="Remove" onClick={(e) => { e.stopPropagation(); onRemove(image.id); }} disabled={isUpscaling} />
+                                        <IconButton icon="film" label="Create Storyboard" onClick={(e) => { e.stopPropagation(); onSetStoryboardSource(image); }} />
+                                        <IconButton icon="edit" label="Edit" onClick={(e) => { e.stopPropagation(); onStartEdit(image); }} />
+                                        <IconButton icon="download" label="Download" onClick={(e) => { e.stopPropagation(); handleDownload(image); }} />
+                                        <IconButton icon="remove" label="Remove" onClick={(e) => { e.stopPropagation(); onRemove(image.id); }} />
                                     </div>
                                 </div>
                             </div>

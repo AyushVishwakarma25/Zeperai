@@ -4,6 +4,7 @@ import type { GeneratedImage, GenerateCaptionParams } from '../types';
 import { CaptionTone } from '../types';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
+import { Select } from './ui/Select';
 import { 
     CAPTION_TONE_OPTIONS, 
     CAPTION_LENGTH_OPTIONS, 
@@ -79,19 +80,6 @@ const Toggle: React.FC<{ label: string; enabled: boolean; onChange: (enabled: bo
   );
 };
 
-const SimpleSelect: React.FC<React.SelectHTMLAttributes<HTMLSelectElement> & {label: string}> = ({ label, children, ...props }) => (
-    <div>
-        <label className="block text-xs font-medium text-slate-500 mb-1">{label}</label>
-        <select 
-            className="w-full px-2 py-1.5 bg-slate-100 text-slate-800 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-            {...props}
-        >
-            {children}
-        </select>
-    </div>
-);
-
-
 export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGenerateCaption, generatingCaptionImageId, onOpenABTestModal }) => {
     const [isWriterOpen, setIsWriterOpen] = useState(true); // Default to open
     const [showOriginal, setShowOriginal] = useState(false);
@@ -162,20 +150,20 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
                 </button>
                 {isWriterOpen && (
                     <div className="mt-4 p-4 bg-slate-100 border border-slate-200 rounded-lg space-y-4">
-                         <SimpleSelect label="Tone" value={tone} onChange={e => setTone(e.target.value as CaptionTone)}>
+                         <Select label="Tone" value={tone} onChange={e => setTone(e.target.value as CaptionTone)}>
                             {CAPTION_TONE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                        </SimpleSelect>
+                        </Select>
                         <div className="grid grid-cols-2 gap-4">
-                            <SimpleSelect label="Length" value={length} onChange={e => setLength(e.target.value as any)}>
+                            <Select label="Length" value={length} onChange={e => setLength(e.target.value as any)}>
                                 {CAPTION_LENGTH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                            </SimpleSelect>
-                             <SimpleSelect label="Platform" value={platform} onChange={e => setPlatform(e.target.value as any)}>
+                            </Select>
+                             <Select label="Platform" value={platform} onChange={e => setPlatform(e.target.value as any)}>
                                 {CAPTION_PLATFORM_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                            </SimpleSelect>
+                            </Select>
                         </div>
-                        <SimpleSelect label="Language" value={language} onChange={e => setLanguage(e.target.value as any)}>
+                        <Select label="Language" value={language} onChange={e => setLanguage(e.target.value as any)}>
                             {CAPTION_LANGUAGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        </SimpleSelect>
+                        </Select>
                         <div className="pt-2 space-y-3">
                             <Toggle label="Include Hashtags" enabled={includeHashtags} onChange={setIncludeHashtags} />
                             <Toggle label="Include Emojis" enabled={includeEmojis} onChange={setIncludeEmojis} />

@@ -2,7 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS } from '../constants';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis } from '../types';
-import { AspectRatio, AppMode, MarketplacePreset, FashionGender, FashionShootType, FashionBodyType, FashionAgeBracket, RegionalStyle, ProductCategory } from '../types';
+import { AspectRatio, AppMode, MarketplacePreset, FashionGender, FashionShootType, FashionBodyType, FashionAgeBracket, RegionalStyle, ProductCategory, ResolutionQuality } from '../types';
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -83,7 +83,6 @@ const buildPromptParts = async (params: GenerateImageParams, brandKit?: BrandKit
 
     switch (appMode) {
         case AppMode.Product:
-        case AppMode.Amazon:
         case AppMode.Festival:
             let presetPrompt = "A professional studio shot of the [product]. The background is a clean, vibrant, single-color or soft gradient that matches the product's color palette. The lighting is bright and clean, making the product look fresh and appealing.";
             
@@ -131,7 +130,11 @@ const buildPromptParts = async (params: GenerateImageParams, brandKit?: BrandKit
                 corePrompt += ` Ghost mannequin effect: Model is invisible. Garment retains a perfectly full and worn shape with visible inner tags.`;
             }
             if (hyperRealism) {
-                corePrompt += ` TRIGGER HYPER-REALISM: Photorealistic 8K quality. Extreme skin pore detail, realistic fabric threading, professional studio lighting with soft contact shadows.`;
+                corePrompt += ` 
+                PHOTOGRAPHY SETTINGS: Shot on Sony A7R IV with 85mm G Master lens at f/2.8. 
+                LIGHTING: Cinematic studio lighting setup with softbox fill and rim lighting to separate subject from background. 
+                TEXTURES: Ultra-high definition texture rendering. Visible fabric weave, realistic skin pores, and subsurface scattering on skin. 
+                QUALITY: 8K resolution, octane render style, ray-traced reflections, sharp focus on the garment, creamy bokeh background.`;
             }
             break;
 
@@ -168,7 +171,16 @@ const buildPromptParts = async (params: GenerateImageParams, brandKit?: BrandKit
     return [{ text: corePrompt }, ...parts];
 };
 
-const generateSingleImage = async (params: GenerateImageParams, aspectRatio: AspectRatio, brandKit?: BrandKit | null, activeImage?: File, pose?: string, sourceProductImageUrl?: string, modelSeedUrl?: string): Promise<GeneratedImage> => {
+const generateSingleImage = async (
+    params: GenerateImageParams, 
+    aspectRatio: AspectRatio, 
+    userTier: 'Free' | 'Starter' | 'Standard' | 'Agency',
+    brandKit?: BrandKit | null, 
+    activeImage?: File, 
+    pose?: string, 
+    sourceProductImageUrl?: string, 
+    modelSeedUrl?: string
+): Promise<GeneratedImage> => {
     const ai = getAI();
     const contents = await buildPromptParts(params, brandKit, activeImage, pose, modelSeedUrl);
     
@@ -178,14 +190,36 @@ const generateSingleImage = async (params: GenerateImageParams, aspectRatio: Asp
     if (aspectRatio === AspectRatio.PortraitPost) aspectRatioConfig = "3:4";
     if (aspectRatio === AspectRatio.FashionShopify) aspectRatioConfig = "3:4";
 
+    // --- TIER-BASED MODEL SELECTION ---
+    const isProTier = userTier === 'Standard' || userTier === 'Agency';
+    const modelName = isProTier ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
+
+    const config: any = {
+        imageConfig: { aspectRatio: aspectRatioConfig },
+        // Add Safety Settings to reduce false positives in creative contexts
+        safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' }
+        ]
+    };
+
+    // Apply High Quality config if Pro Tier (2K resolution)
+    if (isProTier && params.resolutionQuality === ResolutionQuality.High) {
+        config.imageConfig.imageSize = '2K'; 
+    }
+
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
+        model: modelName,
         contents: { parts: contents },
-        config: { imageConfig: { aspectRatio: aspectRatioConfig } },
+        config: config,
     });
 
     let imageUrl = '';
-    const outParts = response.candidates?.[0]?.content?.parts || [];
+    const candidate = response.candidates?.[0];
+    const outParts = candidate?.content?.parts || [];
+    
     for (const part of outParts) {
         if (part.inlineData) {
             imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
@@ -193,7 +227,19 @@ const generateSingleImage = async (params: GenerateImageParams, aspectRatio: Asp
         }
     }
     
-    if (!imageUrl) throw new Error("AI output pipeline failure.");
+    if (!imageUrl) {
+        // Attempt to extract refusal message or safety reason for better debugging
+        const textPart = outParts.find(p => p.text)?.text;
+        if (textPart) {
+            throw new Error(`AI Model Refusal: ${textPart}`);
+        }
+        
+        if (candidate?.finishReason) {
+             throw new Error(`Generation stopped. Reason: ${candidate.finishReason}. This usually means the input image violated safety policies.`);
+        }
+
+        throw new Error("AI pipeline error: No image returned. Try a different prompt or image.");
+    }
 
     return {
         id: `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -209,6 +255,7 @@ const generateSingleImage = async (params: GenerateImageParams, aspectRatio: Asp
 
 export const generateImages = async (
     params: GenerateImageParams, 
+    userTier: 'Free' | 'Starter' | 'Standard' | 'Agency',
     brandKit?: BrandKit | null,
     sourceProductImageUrl?: string,
     onProgress?: (current: number, total: number) => void,
@@ -217,11 +264,32 @@ export const generateImages = async (
     const allResults: GeneratedImage[] = [];
     const aspectRatiosToGenerate = params.aspectRatios && params.aspectRatios.length > 0 ? params.aspectRatios : [AspectRatio.PortraitPost];
 
+    // --- ENFORCE BATCH LIMITS ---
+    let requestedBatchSize = params.batchSize || 1;
+    if (params.appMode === AppMode.Fashion && !params.batchSize) {
+        requestedBatchSize = 4; // Default for fashion
+    }
+
+    let maxAllowedBatch = 1;
+    if (userTier === 'Agency') maxAllowedBatch = 12;
+    else if (userTier === 'Standard') maxAllowedBatch = 4;
+    else maxAllowedBatch = 1;
+
+    // Special allowance for Fashion mode on lower tiers to make it usable, 
+    // but capping at 4 even for Starter if logic demands, currently defaulting strict structure.
+    const effectiveBatchSize = Math.min(requestedBatchSize, maxAllowedBatch);
+
     const getJobCount = () => {
-        if (params.appMode === AppMode.Fashion) return params.batchSize || 4;
-        if (params.appMode === AppMode.Bulk && params.bulkImages) return params.bulkImages.length;
-        if (params.appMode === AppMode.Product) return params.selectedAngles.length > 0 ? params.selectedAngles.length : 1;
-        return params.batchSize || 1;
+        if (params.appMode === AppMode.Fashion) return effectiveBatchSize;
+        if (params.appMode === AppMode.Bulk && params.bulkImages) return params.bulkImages.length; 
+        if (params.appMode === AppMode.Product) {
+             // Calculate effective angles based on tier limit
+             let allowedAnglesCount = 1;
+             if (userTier === 'Standard') allowedAnglesCount = 4;
+             if (userTier === 'Agency') allowedAnglesCount = 10;
+             return Math.min(params.selectedAngles.length, allowedAnglesCount) || 1;
+        }
+        return effectiveBatchSize;
     };
 
     const totalJobsPerRatio = getJobCount();
@@ -230,65 +298,51 @@ export const generateImages = async (
 
     for (const aspectRatio of aspectRatiosToGenerate) {
         if (params.appMode === AppMode.Fashion) {
-            const batchSize = params.batchSize || 4;
-            const poses = getFashionPoses(batchSize, params.fashionGender, params.fashionSubCategory);
-            for (let i = 0; i < batchSize; i++) {
+            const poses = getFashionPoses(effectiveBatchSize, params.fashionGender, params.fashionSubCategory);
+            for (let i = 0; i < effectiveBatchSize; i++) {
                 progressCounter++;
                 if (onProgress) onProgress(progressCounter, totalGenerations);
-                const img = await generateSingleImage(params, aspectRatio, brandKit, undefined, poses[i], sourceProductImageUrl, modelSeedUrl);
+                const img = await generateSingleImage(params, aspectRatio, userTier, brandKit, undefined, poses[i], sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
             }
         } else if (params.appMode === AppMode.Bulk && params.bulkImages) {
-            for (let i = 0; i < params.bulkImages.length; i++) {
+            // Bulk limits usually handled by UI but good to cap here too
+            const limit = Math.min(params.bulkImages.length, userTier === 'Agency' ? 50 : (userTier === 'Standard' ? 10 : 1));
+            for (let i = 0; i < limit; i++) {
                 progressCounter++;
                 if (onProgress) onProgress(progressCounter, totalGenerations);
-                const img = await generateSingleImage(params, aspectRatio, brandKit, params.bulkImages[i], undefined, sourceProductImageUrl, modelSeedUrl);
+                const img = await generateSingleImage(params, aspectRatio, userTier, brandKit, params.bulkImages[i], undefined, sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
             }
         } else if (params.appMode === AppMode.Product) {
-             const angles = params.selectedAngles.length > 0 ? params.selectedAngles : ['Front View'];
+             // Enforce Product Mode Angle Limits
+             let allowedAnglesCount = 1;
+             if (userTier === 'Standard') allowedAnglesCount = 4;
+             if (userTier === 'Agency') allowedAnglesCount = 10;
+             
+             let angles = params.selectedAngles.length > 0 ? params.selectedAngles : ['Front View'];
+             // Silently slice to the allowed limit to prevent backend overload/abuse
+             if (angles.length > allowedAnglesCount) {
+                 angles = angles.slice(0, allowedAnglesCount);
+             }
+
              for (const angle of angles) {
                 progressCounter++;
                 if (onProgress) onProgress(progressCounter, totalGenerations);
-                const img = await generateSingleImage(params, aspectRatio, brandKit, undefined, angle, sourceProductImageUrl, modelSeedUrl);
+                const img = await generateSingleImage(params, aspectRatio, userTier, brandKit, undefined, angle, sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
              }
         } else {
-            const batchSize = params.batchSize || 1;
-            for (let i = 0; i < batchSize; i++) {
+            for (let i = 0; i < effectiveBatchSize; i++) {
                 progressCounter++;
                 if (onProgress) onProgress(progressCounter, totalGenerations);
-                const img = await generateSingleImage(params, aspectRatio, brandKit, undefined, undefined, sourceProductImageUrl, modelSeedUrl);
+                const img = await generateSingleImage(params, aspectRatio, userTier, brandKit, undefined, undefined, sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
             }
         }
     }
 
     return allResults;
-};
-
-export const upscaleImage = async (imageUrl: string): Promise<{ imageUrl: string, caption: string, hashtags: string }> => {
-    const ai = getAI();
-    const { data, mimeType } = dataURLToParts(imageUrl);
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: { 
-            parts: [
-                { inlineData: { data, mimeType } }, 
-                { text: "Enhance to 4K resolution. Maintain exact original likeness but sharpen fabric textures and model skin clarity." }
-            ] 
-        }
-    });
-
-    let newUrl = imageUrl;
-    const parts = response.candidates?.[0]?.content?.parts || [];
-    for (const part of parts) {
-        if (part.inlineData) {
-            newUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-            break;
-        }
-    }
-    return { imageUrl: newUrl, caption: "4K Refined Master Output", hashtags: "#upscaled #commerce" };
 };
 
 export const editImage = async (params: EditImageParams): Promise<{ imageUrl: string }> => {
@@ -427,7 +481,7 @@ export const getABTestSuggestions = async (image: GeneratedImage) => {
     }
 };
 
-export const removeBackground = async (base64: string, mimeType: string) => {
+export const removeBackground = async (base64: string, mimeType: string): Promise<{ data: string, mimeType: string }> => {
     const ai = getAI();
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
@@ -435,9 +489,9 @@ export const removeBackground = async (base64: string, mimeType: string) => {
     });
     const outParts = response.candidates?.[0]?.content?.parts || [];
     for (const part of outParts) {
-        if (part.inlineData) return part.inlineData.data;
+        if (part.inlineData) return { data: part.inlineData.data, mimeType: part.inlineData.mimeType };
     }
-    return base64;
+    return { data: base64, mimeType }; // Fallback to original
 };
 
 export const generateMoodBoard = async (description: string): Promise<MoodBoard> => {

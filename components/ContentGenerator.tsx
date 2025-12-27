@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { generateMarketingCopy, rewriteMarketingCopy } from '../services/contentGeneratorService';
 import type { GenerateContentParams, CopyVariation, RewriteCopyParams } from '../types';
 import { RewriteAction } from '../types';
@@ -10,6 +10,9 @@ import { Spinner } from './ui/Spinner';
 import { Icon } from './ui/Icon';
 import { Toggle } from './ui/Toggle';
 import { SegmentedControl } from './ui/SegmentedControl';
+import { Toast } from './ui/Toast';
+
+const AI_WRITER_FREE_LIMIT = 10;
 
 const initialParams: GenerateContentParams = {
   context: '',
@@ -98,14 +101,18 @@ const ResultCard: React.FC<ResultCardProps> = ({ copy, index, onRewrite, support
 interface ContentGeneratorProps {
     onClose: () => void;
     onDeductCredits?: (cost: number) => boolean;
+    onRefundCredits?: (cost: number) => void;
+    userId?: string;
 }
 
-const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCredits }) => {
+const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCredits, onRefundCredits, userId }) => {
   const [params, setParams] = useState<GenerateContentParams>(initialParams);
   const [results, setResults] = useState<CopyVariation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rememberStyle, setRememberStyle] = useState(false);
+  const [freeUsageCount, setFreeUsageCount] = useState(0);
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   
   const languages = [
       {label: 'English', value: 'English'},
@@ -114,12 +121,39 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
       {label: 'French', value: 'French'},
   ];
 
+  // Initialize free usage count from local storage
+  useEffect(() => {
+      if (userId) {
+          const key = `ai_writer_usage_${userId}`;
+          const savedCount = localStorage.getItem(key);
+          if (savedCount) {
+              setFreeUsageCount(parseInt(savedCount, 10));
+          }
+      }
+  }, [userId]);
+
+  const incrementFreeUsage = () => {
+      if (userId) {
+          const newCount = freeUsageCount + 1;
+          setFreeUsageCount(newCount);
+          localStorage.setItem(`ai_writer_usage_${userId}`, newCount.toString());
+      }
+  };
+
   const handleParamChange = useCallback((param: keyof GenerateContentParams, value: any) => {
     setParams(prev => ({ ...prev, [param]: value }));
   }, []);
 
   const handleGenerate = async () => {
-    if (onDeductCredits && !onDeductCredits(2)) return; // Cost 2 credits
+    const isFree = freeUsageCount < AI_WRITER_FREE_LIMIT;
+    
+    // If not free, attempt to deduct credits
+    if (!isFree) {
+        if (onDeductCredits && !onDeductCredits(2)) return; // Cost 2 credits
+    } else {
+        // Optimistically increment usage for free trial visualization
+        // Actual increment happens on success
+    }
 
     setIsLoading(true);
     setError(null);
@@ -127,7 +161,14 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
     try {
       const adCopies = await generateMarketingCopy(params);
       setResults(adCopies);
+      
+      if (isFree) {
+          incrementFreeUsage();
+          setToast({ message: `Free Trial Used (${freeUsageCount + 1}/${AI_WRITER_FREE_LIMIT})`, type: 'success' });
+      }
     } catch (err) {
+      // Refund if it was a paid generation that failed
+      if (!isFree && onRefundCredits) onRefundCredits(2);
       setError(err instanceof Error ? err.message : 'An unknown error occurred.');
     } finally {
       setIsLoading(false);
@@ -135,20 +176,38 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
   };
 
   const handleRewrite = useCallback(async (index: number, rewriteParams: RewriteCopyParams) => {
-      // Rewrites might be free or cheaper, let's assume free for now to encourage refinement
+      // Rewrites also consume free trial or 1 credit
+      const isFree = freeUsageCount < AI_WRITER_FREE_LIMIT;
+
+      if (!isFree) {
+          if (onDeductCredits && !onDeductCredits(1)) return;
+      }
+
       setResults(prev => prev.map((copy, i) => i === index ? { ...copy, isRewriting: true } : copy));
       try {
           const rewrittenCopy = await rewriteMarketingCopy(rewriteParams);
           setResults(prev => prev.map((copy, i) => i === index ? { ...rewrittenCopy, isRewriting: false } : copy));
+          
+          if (isFree) {
+              incrementFreeUsage();
+              setToast({ message: `Free Trial Used (${freeUsageCount + 1}/${AI_WRITER_FREE_LIMIT})`, type: 'success' });
+          }
       } catch (err) {
+          if (!isFree && onRefundCredits) onRefundCredits(1);
           setError(err instanceof Error ? `Rewrite failed: ${err.message}` : 'An unknown error occurred during rewrite.');
-          // Reset loading state on error
           setResults(prev => prev.map((copy, i) => i === index ? { ...copy, isRewriting: false } : copy));
       }
-  }, []);
+  }, [onDeductCredits, onRefundCredits, freeUsageCount, userId]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4 animate-fade-in-scale-up" onClick={onClose}>
+        {toast && (
+            <Toast 
+                message={toast.message} 
+                type={toast.type} 
+                onClose={() => setToast(null)} 
+            />
+        )}
         <div 
             className="bg-white w-full max-w-6xl h-[90vh] rounded-2xl shadow-xl flex flex-col overflow-hidden"
             onClick={e => e.stopPropagation()}
@@ -157,6 +216,11 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                 <div className="flex items-center">
                     <Icon name="edit" className="w-6 h-6 mr-3 text-primary"/>
                     <h2 className="text-lg font-bold text-text-primary">AI Content Generator</h2>
+                    {freeUsageCount < AI_WRITER_FREE_LIMIT && (
+                        <span className="ml-3 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-full">
+                            Free Trial: {AI_WRITER_FREE_LIMIT - freeUsageCount} left
+                        </span>
+                    )}
                 </div>
                 <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
                     <Icon name="close" className="w-5 h-5"/>
@@ -258,7 +322,7 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                             className="!py-3 !text-base"
                         >
                             <Icon name="sparkles" className="w-5 h-5 mr-2" />
-                            Generate Content (2 Credits)
+                            {freeUsageCount < AI_WRITER_FREE_LIMIT ? 'Generate Content (Free)' : 'Generate Content (2 Credits)'}
                         </Button>
                     </div>
                 </aside>

@@ -184,13 +184,13 @@ export const generateFilename = (image: GeneratedImage, prefix?: string, index?:
     const extension = image.imageUrl.split(';')[0].split('/')[1] || 'png';
     let namePart = 'design';
 
-    if (image.params.productDescription) {
+    if (image.params?.productDescription) {
         namePart = image.params.productDescription;
-    } else if (image.params.appMode === AppMode.Product && image.params.productStylePreset) {
+    } else if (image.params?.appMode === AppMode.Product && image.params.productStylePreset) {
         namePart = image.params.productStylePreset.includes('|')
             ? image.params.productStylePreset.split('|')[1]
             : image.params.productStylePreset;
-    } else if (image.params.appMode === AppMode.Influencer && image.params.poseSuggestion) {
+    } else if (image.params?.appMode === AppMode.Influencer && image.params.poseSuggestion) {
         namePart = image.params.poseSuggestion;
     }
 

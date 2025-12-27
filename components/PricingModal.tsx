@@ -38,7 +38,6 @@ const pricingPlans = [
       '300 Credits monthly',
       'Unlock AI Copywriter ✍️',
       'Unlock Pro Models (Nano Banana)',
-      '4K Smart Upscaling',
       'Priority Generation Speed',
     ],
     highlight: true,
@@ -80,10 +79,6 @@ const CreditInfo = () => (
             </div>
             <div className="flex justify-between items-center border-b border-slate-200 pb-2">
                 <span>AI Copywriting</span> 
-                <span className="font-bold bg-white px-2 py-0.5 rounded border border-slate-200">2 Credits</span>
-            </div>
-            <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                <span>4K Upscale</span> 
                 <span className="font-bold bg-white px-2 py-0.5 rounded border border-slate-200">2 Credits</span>
             </div>
         </div>

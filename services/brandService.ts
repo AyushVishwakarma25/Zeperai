@@ -15,10 +15,10 @@ export const brandService = {
         .single();
 
       if (error) {
-          // PGRST116 is 'no rows found', which is fine.
-          // Other errors usually mean the table doesn't exist yet.
-          if (error.code !== 'PGRST116') {
-              console.warn('Brand kits table might be missing or inaccessible:', error.message);
+          // PGRST116: JSON object requested, multiple (or no) rows returned - Normal for new users
+          // 42P01: relation "public.brand_kits" does not exist - Normal before DB setup
+          if (error.code !== 'PGRST116' && error.code !== '42P01') {
+              console.warn('Brand kits fetch error:', error.message);
           }
           return null;
       }
@@ -65,7 +65,7 @@ export const brandService = {
       .single();
 
     if (error) {
-        if (error.message.includes('relation "public.brand_kits" does not exist')) {
+        if (error.message.includes('relation "public.brand_kits" does not exist') || error.code === '42P01') {
             throw new Error("Database setup incomplete. Please run the SQL setup script in your Supabase dashboard.");
         }
         throw error;

@@ -10,9 +10,10 @@ interface ABTestModalProps {
   image: GeneratedImage;
   onClose: () => void;
   onGenerate: (params: any) => void;
+  onApiError?: () => void;
 }
 
-const ABTestModal: React.FC<ABTestModalProps> = ({ image, onClose, onGenerate }) => {
+const ABTestModal: React.FC<ABTestModalProps> = ({ image, onClose, onGenerate, onApiError }) => {
     const [suggestions, setSuggestions] = useState<ABTestSuggestion[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -25,14 +26,16 @@ const ABTestModal: React.FC<ABTestModalProps> = ({ image, onClose, onGenerate })
                 const result = await getABTestSuggestions(image);
                 setSuggestions(result);
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+                const msg = err instanceof Error ? err.message : 'An unknown error occurred.';
+                setError(msg);
+                if (onApiError) onApiError();
             } finally {
                 setIsLoading(false);
             }
         };
 
         fetchSuggestions();
-    }, [image]);
+    }, [image]); // Intentionally omitting onApiError to avoid loop if it changes
     
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4" onClick={onClose}>

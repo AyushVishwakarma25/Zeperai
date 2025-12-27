@@ -2,7 +2,14 @@
 import { AspectRatio, ModelGender, StylePreset, SkinTone, ClothingType, AppMode, OutputFormat, AdLayout, ResolutionQuality, ProductCategory, MarketplacePreset, CaptionTone, FashionGender, ModelPersona, ProProductStyleCategory } from './types';
 
 export const AI_SUGGESTED = 'AI Suggested';
-export const FREE_TRIAL_LIMIT = 5;
+export const FREE_TRIAL_LIMIT = 8;
+
+export const STORAGE_LIMITS: Record<string, number> = {
+  'Free': 10,
+  'Starter': 50,
+  'Standard': 200,
+  'Agency': 10000, // Effectively unlimited
+};
 
 export const FASHION_MODEL_LOCKS = {
   [FashionGender.Women]: [

@@ -40,7 +40,7 @@ create table if not exists public.designs (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 4. Create Brand Kits Table (NEW)
+-- 4. Create Brand Kits Table
 create table if not exists public.brand_kits (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null unique,
@@ -55,7 +55,16 @@ create table if not exists public.brand_kits (
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 5. Create Feedback Table
+-- 5. Create Saved Models Table
+create table if not exists public.saved_models (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  name text not null,
+  thumbnail_url text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 6. Create Feedback Table
 create table if not exists public.feedback (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id),
@@ -65,25 +74,40 @@ create table if not exists public.feedback (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 6. Enable RLS
+-- 7. Enable RLS
 alter table public.profiles enable row level security;
 alter table public.user_credits enable row level security;
 alter table public.designs enable row level security;
 alter table public.brand_kits enable row level security;
+alter table public.saved_models enable row level security;
 alter table public.feedback enable row level security;
 
--- 7. Policies
+-- 8. Policies
+-- Profiles
 create policy "Users can view own profile" on public.profiles for select using (auth.uid() = id);
 create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
+
+-- Credits
 create policy "Users can view own credits" on public.user_credits for select using (auth.uid() = user_id);
+
+-- Designs
 create policy "Users can view own designs" on public.designs for select using (auth.uid() = user_id);
 create policy "Users can insert own designs" on public.designs for insert with check (auth.uid() = user_id);
 create policy "Users can delete own designs" on public.designs for delete using (auth.uid() = user_id);
+
+-- Brand Kits
 create policy "Users can view own brand kit" on public.brand_kits for select using (auth.uid() = user_id);
 create policy "Users can upsert own brand kit" on public.brand_kits for all using (auth.uid() = user_id);
+
+-- Saved Models
+create policy "Users can view own saved models" on public.saved_models for select using (auth.uid() = user_id);
+create policy "Users can insert own saved models" on public.saved_models for insert with check (auth.uid() = user_id);
+create policy "Users can delete own saved models" on public.saved_models for delete using (auth.uid() = user_id);
+
+-- Feedback
 create policy "Anyone can insert feedback" on public.feedback for insert with check (true);
 
--- 8. Trigger for New Users
+-- 9. Trigger for New Users
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -103,7 +127,7 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 9. STORAGE SETUP
+-- 10. STORAGE SETUP
 insert into storage.buckets (id, name, public)
 values ('designs', 'designs', true)
 on conflict (id) do nothing;
@@ -160,8 +184,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       const msg = err instanceof Error ? err.message : "Authentication failed";
       setError(msg);
       
-      // Check for common database setup errors
-      if (msg.includes("Database error saving new user") || msg.includes("relation") || msg.includes("trigger")) {
+      // Check for common database setup errors or missing relations
+      if (msg.includes("Database error") || msg.includes("relation") || msg.includes("trigger") || msg.includes("42P01")) {
           setShowSql(true);
       }
     } finally {

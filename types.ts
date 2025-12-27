@@ -20,7 +20,6 @@ export enum AppMode {
   AdCreative = 'AdCreative',
   Remix = 'Remix',
   Fashion = 'Fashion',
-  Amazon = 'Amazon',
   Banner = 'Banner',
   Youtube = 'Youtube',
   Copywriter = 'Copywriter',

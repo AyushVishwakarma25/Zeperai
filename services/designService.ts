@@ -27,7 +27,7 @@ export const designService = {
         caption: row.caption,
         hashtags: row.hashtags,
         aspectRatio: row.aspect_ratio,
-        params: row.params,
+        params: row.params || {}, // Ensure params is not null to prevent crashes
         timestamp: new Date(row.created_at).getTime(),
     }));
   },
