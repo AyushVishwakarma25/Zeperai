@@ -11,16 +11,16 @@ const NavItem: React.FC<{ icon: string; label: string; active?: boolean; onClick
         e.preventDefault();
         onClick?.();
     }}
-    className={`relative flex items-center w-full transition-colors duration-200 text-sm group font-semibold ${
-      isOpen ? 'px-4 py-3 rounded-lg' : 'h-12 w-12 mx-auto rounded-lg justify-center'
+    className={`relative flex items-center w-full transition-colors duration-200 text-sm group font-medium ${
+      isOpen ? 'px-4 py-3 rounded-lg' : 'h-12 w-12 mx-auto rounded-xl justify-center'
     } ${
       active 
         ? 'bg-primary text-white shadow-lg shadow-primary/40' 
-        : 'text-slate-600 hover:bg-slate-100'
+        : (isOpen ? 'text-slate-600 hover:bg-slate-100' : '')
     }`}
     title={!isOpen ? label : undefined}
   >
-    <Icon name={icon} className={`w-5 h-5 flex-shrink-0 transition-colors ${isOpen ? 'mr-4' : ''} ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}`} />
+    <Icon name={icon} className={`w-5 h-5 flex-shrink-0 transition-colors ${isOpen ? 'mr-4' : ''} ${active ? 'text-white' : `text-slate-400 ${isOpen ? 'group-hover:text-slate-600' : 'group-hover:text-primary'}`}`} />
     {isOpen && <span className="truncate">{label}</span>}
     {!isOpen && (
       <div className="absolute left-full top-1/2 -translate-y-1/2 ml-4 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap shadow-lg">
@@ -119,15 +119,6 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
             ${sidebarWidthClass}
         `}
       >
-        {/* Toggle Button (Desktop) */}
-        <button
-            onClick={onToggle}
-            className="hidden lg:flex absolute top-6 -right-4 z-10 w-8 h-8 bg-primary text-white rounded-full items-center justify-center hover:bg-primary-hover shadow-lg shadow-primary/30 transition-all duration-300 hover:scale-110"
-            aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
-        >
-            <Icon name="chevron-left" className={`w-4 h-4 transition-transform duration-300 ${!isOpen && 'rotate-180'}`} />
-        </button>
-
         {/* Header / Logo */}
         <div className={`flex-shrink-0 h-20 flex items-center ${isOpen ? 'px-6' : 'justify-center'}`}>
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center flex-shrink-0 shadow-glow-primary">
@@ -144,14 +135,13 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
             <div className="py-1">
                 <button 
                     onClick={() => isOpen && setIsModesOpen(!isModesOpen)}
-                    className={`relative flex items-center w-full transition-colors duration-200 text-sm group font-semibold text-slate-600 hover:bg-slate-100 ${
-                      isOpen ? 'px-4 py-3 rounded-lg' : 'h-12 w-12 mx-auto rounded-lg justify-center'
+                    className={`relative flex items-center w-full transition-colors duration-200 text-sm group font-medium ${
+                      isOpen ? 'text-slate-600 hover:bg-slate-100 px-4 py-3 rounded-lg' : 'h-12 w-12 mx-auto rounded-xl justify-center'
                     }`}
                     title={!isOpen ? "Creative Modes" : undefined}
                 >
-                    <Icon name="sparkles" className={`w-5 h-5 flex-shrink-0 ${isOpen ? 'mr-4' : ''} text-slate-400 group-hover:text-slate-600`} />
+                    <Icon name="sparkles" className={`w-5 h-5 flex-shrink-0 ${isOpen ? 'mr-4' : ''} text-slate-400 ${isOpen ? 'group-hover:text-slate-600' : 'group-hover:text-primary'}`} />
                     {isOpen && <span className="flex-1 text-left">Creative Modes</span>}
-                    {isOpen && <Icon name="chevron-down" className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isModesOpen ? 'rotate-180' : ''}`} />}
                 </button>
                 
                 {isModesOpen && isOpen && (
@@ -164,7 +154,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                                     else if (item.action) item.action();
                                     onClose(); 
                                 }}
-                                className="w-full pl-12 pr-4 py-2 text-sm font-semibold text-slate-500 hover:text-primary hover:bg-primary/10 rounded-md transition-colors text-left"
+                                className="w-full pl-12 pr-4 py-2.5 text-sm font-medium text-slate-600 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors text-left"
                             >
                                 {item.label}
                             </button>
@@ -186,11 +176,11 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
            {isUserMenuOpen && isOpen && (
               <div className="absolute bottom-full mb-2 w-[calc(100%-1rem)] left-2 bg-white rounded-xl shadow-lg border border-border-light p-1.5 z-10 animate-fade-in-scale-up">
                   <div className="space-y-1">
-                      <button onClick={() => handleMenuItemClick(() => onSetView(View.Profile))} className="w-full flex items-center px-3 py-2 text-sm font-semibold text-slate-700 rounded-lg hover:bg-slate-100 transition-colors text-left">
+                      <button onClick={() => handleMenuItemClick(() => onSetView(View.Profile))} className="w-full flex items-center px-3 py-2 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100 transition-colors text-left">
                           <Icon name="settings" className="w-5 h-5 mr-3 text-slate-400" />
                           <span>Account settings</span>
                       </button>
-                      <button onClick={() => handleMenuItemClick(onOpenSupport)} className="w-full flex items-center px-3 py-2 text-sm font-semibold text-slate-700 rounded-lg hover:bg-slate-100 transition-colors text-left">
+                      <button onClick={() => handleMenuItemClick(onOpenSupport)} className="w-full flex items-center px-3 py-2 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100 transition-colors text-left">
                           <Icon name="headset" className="w-5 h-5 mr-3 text-slate-400" />
                           <span>Help Center</span>
                       </button>
@@ -206,24 +196,33 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
           {user ? (
               <button 
                   onClick={() => isOpen && setIsUserMenuOpen(prev => !prev)}
-                  className={`flex items-center w-full p-2 rounded-xl transition-colors ${isOpen ? 'hover:bg-slate-100' : ''} ${!isOpen && 'justify-center'}`}
+                  className={`flex items-center w-full transition-colors duration-200 ${
+                      isOpen 
+                      ? 'px-4 py-2 rounded-lg bg-primary text-white shadow-lg shadow-primary/40' 
+                      : 'h-12 w-12 mx-auto rounded-xl justify-center bg-primary shadow-lg shadow-primary/40'
+                  }`}
                   disabled={!isOpen}
+                  title={!isOpen ? user.name : undefined}
               >
                   <img 
                       src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} 
                       alt="User" 
-                      className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 object-cover flex-shrink-0"
+                      className={`object-cover flex-shrink-0 rounded-full w-10 h-10 ${
+                          isOpen 
+                          ? 'border-2 border-white/50' 
+                          : ''
+                      }`}
                   />
                   
                   {isOpen && (
                       <div className="ml-3 min-w-0 flex-1 text-left">
-                          <p className="text-sm font-bold text-slate-800 truncate">{user.name}</p>
-                          <p className="text-xs text-slate-500 truncate">{user.role}</p>
+                          <p className="text-sm font-bold text-white truncate">{user.name}</p>
+                          <p className="text-xs text-white/80 truncate">{user.role}</p>
                       </div>
                   )}
                   
                   {isOpen && (
-                      <Icon name="dots-horizontal" className={`w-5 h-5 text-slate-400 ml-2`} />
+                      <Icon name="dots-horizontal" className={`w-5 h-5 text-white/80 ml-2`} />
                   )}
               </button>
           ) : (
