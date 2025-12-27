@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { SkinTone } from '../../types';
 
@@ -18,7 +19,7 @@ interface SkinToneSelectorProps {
 export const SkinToneSelector: React.FC<SkinToneSelectorProps> = ({ label, options, value, onChange, className }) => {
     return (
         <div className={className}>
-            <label className="block text-sm font-medium text-light-text mb-2">{label}</label>
+            <label className="block text-sm font-semibold text-black mb-2">{label}</label>
             <div className="flex space-x-3 items-center">
                 {options.map((option) => (
                     <button

@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 // Extend ButtonHTMLAttributes to allow standard props like key to be passed.
@@ -60,7 +61,7 @@ export function OptionGroup<T>({
 
   return (
     <div className={className}>
-      <label className="block text-sm font-medium text-text-primary mb-2">{label}</label>
+      <label className="block text-sm font-semibold text-black mb-2">{label}</label>
       <div className="flex space-x-2">
         {buttons}
       </div>

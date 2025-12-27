@@ -48,7 +48,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 animate-fade-in-scale-up">
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 animate-fade-in-scale-up" onClick={onClose}>
       {toast && (
           <Toast 
               message={toast.message} 

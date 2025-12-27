@@ -654,16 +654,16 @@ const App: React.FC = () => {
   const handleGenerateCaption = useCallback(async (imageId: string, captionParams: Omit<GenerateCaptionParams, 'imageUrl' | 'existingCaption'>) => {
     if (!checkAndDeductCredits(1)) return; // Caption generation costs 1 credit
 
-    const imageToUpdate = [...generatedImages, ...posterBoard].find(img => img.id === imageId);
-    if (!imageToUpdate) return;
+    const imageToUpscale = [...generatedImages, ...posterBoard].find(img => img.id === imageId);
+    if (!imageToUpscale) return;
     
     setGeneratingCaptionImageId(imageId);
     setError(null);
     try {
       const fullCaptionParams: GenerateCaptionParams = {
         ...captionParams,
-        imageUrl: imageToUpdate.imageUrl,
-        existingCaption: imageToUpdate.caption,
+        imageUrl: imageToUpscale.imageUrl,
+        existingCaption: imageToUpscale.caption,
       };
       const result = await generateCaption(fullCaptionParams, brandKit);
       const updateImage = (img: GeneratedImage) => img.id === imageId ? { ...img, caption: result.caption, hashtags: result.hashtags } : img;
@@ -1169,6 +1169,7 @@ const App: React.FC = () => {
       <DashboardSidebar 
         onSelectMode={handleSelectMode} 
         onSetView={handleSetView}
+        onStartImageEdit={() => handleStartEdit()}
         currentView={currentView}
         isOpen={isSidebarOpen}
         onOpen={() => setIsSidebarOpen(true)}

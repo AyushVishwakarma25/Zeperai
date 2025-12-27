@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface SegmentedControlOption {
@@ -22,7 +23,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
 }) => {
     return (
         <div className={className}>
-            <label className="block text-sm font-medium text-text-primary mb-2">{label}</label>
+            <label className="block text-sm font-semibold text-black mb-2">{label}</label>
             <div className="flex space-x-1 bg-gray-200/80 p-1 rounded-xl">
                 {options.map((option) => {
                     const isSelected = value === option.value;

@@ -334,9 +334,22 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
 
   const cropHandles = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight', 'top', 'bottom', 'left', 'right'];
 
+  const handleOverlayClick = () => {
+      if (prompt.trim() || replacementImage) {
+          if (window.confirm("You have unsaved edits. Are you sure you want to close?")) {
+              onClose();
+          }
+      } else {
+          onClose();
+      }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
-      <div className="bg-main w-full max-w-5xl h-[90vh] rounded-2xl shadow-xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4" onClick={handleOverlayClick}>
+      <div 
+        className="bg-main w-full max-w-5xl h-[90vh] rounded-2xl shadow-xl flex flex-col overflow-hidden" 
+        onClick={(e) => e.stopPropagation()}
+      >
         <header className="p-4 border-b border-slate-200 flex justify-between items-center flex-shrink-0 bg-white z-20">
             <h2 className="text-xl font-bold text-slate-800">Edit Photoshoot</h2>
             <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
@@ -432,7 +445,7 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
                     {mode === 'inpaint' ? (
                         <div className="space-y-6">
                             <div>
-                                <label className="block text-sm font-medium text-slate-600 mb-2">1. Brush the area to change</label>
+                                <label className="block text-sm font-semibold text-black mb-2">1. Brush the area to change</label>
                                 <div className="space-y-3">
                                     <div>
                                         <label className="text-xs text-slate-500">Brush Size</label>
@@ -448,7 +461,7 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
                             </div>
                             
                             <div>
-                                <label htmlFor="edit-prompt" className="block text-sm font-medium text-slate-600 mb-2">2. Describe your edit</label>
+                                <label htmlFor="edit-prompt" className="block text-sm font-semibold text-black mb-2">2. Describe your edit</label>
                                 <textarea id="edit-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., Change the color to blue" className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-sm" rows={4} />
                             </div>
 
@@ -465,7 +478,7 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
                                 ) : (
                                     <div>
                                         <div className="flex justify-between items-center mb-2">
-                                            <label className="block text-sm font-medium text-slate-600">3. Upload replacement</label>
+                                            <label className="block text-sm font-semibold text-black">3. Upload replacement</label>
                                             <button onClick={() => setShowReplacement(false)} className="text-xs text-slate-500 hover:text-red-500 font-semibold">
                                                 Cancel
                                             </button>
@@ -485,7 +498,7 @@ const EditModal: React.FC<EditModalProps> = ({ image, onClose, onApplyEdit, onIm
                         <div className="space-y-6">
                              <Button onClick={resetCrop} fullWidth variant="secondary">Reset Crop</Button>
                              <div>
-                                <label className="block text-sm font-medium text-slate-600 mb-2">Aspect Ratio</label>
+                                <label className="block text-sm font-semibold text-black mb-2">Aspect Ratio</label>
                                 <div className="grid grid-cols-2 gap-2">
                                     <button onClick={() => handleSetAspectRatio('free')} className={`p-2 text-xs font-semibold rounded-lg border transition-colors ${cropAspectRatio === 'free' ? 'bg-primary text-white border-primary shadow-md' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'}`}>Free</button>
                                     <button onClick={() => handleSetAspectRatio('1:1')} className={`p-2 text-xs font-semibold rounded-lg border transition-colors ${cropAspectRatio === '1:1' ? 'bg-primary text-white border-primary shadow-md' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'}`}>1:1 Square</button>

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
@@ -23,8 +24,11 @@ const QuickVariantsModal: React.FC<QuickVariantsModalProps> = ({
   const title = field === 'modelPersona' ? 'Model Persona Ideas' : 'Pose & Action Ideas';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
-      <div className="bg-main w-full max-w-md rounded-2xl shadow-xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div 
+        className="bg-main w-full max-w-md rounded-2xl shadow-xl flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
         <header className="p-4 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
           <div className="flex items-center">
             <Icon name="sparkles" className="w-6 h-6 mr-3 text-primary" />

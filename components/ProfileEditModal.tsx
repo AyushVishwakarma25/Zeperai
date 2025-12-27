@@ -88,9 +88,20 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, onClose, onSa
     }
   };
 
+  const handleOverlayClick = () => {
+      const hasChanges = name !== user.name || bio !== user.bio || avatarFile !== null;
+      if (hasChanges) {
+          if (window.confirm("You have unsaved changes. Are you sure you want to close?")) {
+              onClose();
+          }
+      } else {
+          onClose();
+      }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
-      <div className="bg-main w-full max-w-lg rounded-2xl shadow-xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4" onClick={handleOverlayClick}>
+      <div className="bg-main w-full max-w-lg rounded-2xl shadow-xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <header className="p-4 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
           <h2 className="text-xl font-bold text-slate-800">Edit Profile</h2>
           <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">

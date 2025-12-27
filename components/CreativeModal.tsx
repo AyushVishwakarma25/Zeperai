@@ -64,7 +64,7 @@ interface CreativeModalProps {
 }
 
 const SectionTitle: React.FC<{ title: string; className?: string }> = ({ title, className }) => (
-    <h3 className={`text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 ${className || ''}`}>{title}</h3>
+    <h3 className={`text-xs font-semibold text-black uppercase tracking-wider mb-3 ${className || ''}`}>{title}</h3>
 );
 
 const ControlButton: React.FC<{
@@ -249,7 +249,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
     const commonOutputSettings = (
         <>
             <SectionTitle title="OUTPUT SETTINGS" className="mt-6" />
-            <label className="block text-sm font-medium text-text-primary mb-2">Aspect Ratio</label>
+            <label className="block text-sm font-semibold text-black mb-2">Aspect Ratio</label>
             <div className="grid grid-cols-4 gap-2">
                 {ASPECT_RATIO_OPTIONS.map(opt => (
                     <ControlButton key={opt.value} onClick={() => handleAspectRatioChange(opt.value)} selected={params.aspectRatios?.includes(opt.value)}>
@@ -269,7 +269,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
 
             {mode !== AppMode.Product && (
                 <div className="mt-6">
-                    <label className="block text-sm font-medium text-text-primary mb-2">Batch Size</label>
+                    <label className="block text-sm font-semibold text-black mb-2">Batch Size</label>
                     <div className="grid grid-cols-4 gap-2">
                         {batchOptions.map(count => (
                             <ControlButton key={count} onClick={() => handleParamChange('batchSize', count)} selected={params.batchSize === count}>
@@ -368,7 +368,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                     </Select>
                     <div className="grid grid-cols-2 gap-4 mt-4">
                         <div>
-                            <label className="block text-sm font-medium text-text-primary mb-2">Gender</label>
+                            <label className="block text-sm font-semibold text-black mb-2">Gender</label>
                             <div className="flex p-1 bg-slate-100 rounded-lg border border-slate-200">
                                 {MODEL_GENDER_OPTIONS.map(opt => (
                                     <button key={opt.value} onClick={() => handleParamChange('modelGender', opt.value)} className={`flex-1 py-1.5 rounded-md text-sm font-semibold flex items-center justify-center gap-2 ${params.modelGender === opt.value ? 'bg-primary text-white shadow-sm' : 'text-slate-700'}`}>
@@ -379,7 +379,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                             </div>
                         </div>
                         <div>
-                           <label className="block text-sm font-medium text-text-primary mb-2">Skin Tone</label>
+                           <label className="block text-sm font-semibold text-black mb-2">Skin Tone</label>
                             <div className="flex space-x-2 items-center h-10">
                               {SKIN_TONE_OPTIONS.map(option => (
                                   <button key={option.value} onClick={() => handleParamChange('skinTone', option.value)}
@@ -392,7 +392,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                     </div>
                     {/* Fix: Add UI for selecting new or existing model */}
                     <div className="mt-4">
-                        <label className="block text-sm font-medium text-text-primary mb-2">Model Source</label>
+                        <label className="block text-sm font-semibold text-black mb-2">Model Source</label>
                         <div className="flex p-1 bg-slate-100 rounded-lg border border-slate-200">
                             <button onClick={() => handleParamChange('modelSourceOption', 'new')} className={`flex-1 py-1.5 rounded-md text-sm font-semibold ${params.modelSourceOption === 'new' ? 'bg-primary text-white shadow-sm' : 'text-slate-700'}`}>
                                 New Model
@@ -427,7 +427,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                          <button onClick={() => onGenerateVariants('poseSuggestion')} className="absolute top-8 right-2 p-1 text-slate-400 hover:text-primary"><Icon name="sparkles" className="w-4 h-4"/></button>
                     </div>
                     <div className="mt-4">
-                         <label className="block text-sm font-medium text-text-primary mb-2">Outfit Type</label>
+                         <label className="block text-sm font-semibold text-black mb-2">Outfit Type</label>
                          <div className="grid grid-cols-4 gap-2">
                             {CLOTHING_TYPE_OPTIONS.map(opt => (
                                 <ControlButton key={opt.value} onClick={() => handleParamChange('clothingType', opt.value)} selected={params.clothingType === opt.value}>
@@ -443,7 +443,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
             {(mode === AppMode.Product || mode === AppMode.Amazon) && (
                 <>
                     <SectionTitle title="PHOTOSHOOT STYLE" className="mt-6" />
-                    <label className="block text-sm font-medium text-text-primary mb-2">Product Angles</label>
+                    <label className="block text-sm font-semibold text-black mb-2">Product Angles</label>
                     <div className="grid grid-cols-3 gap-2">
                         {ANGLE_OPTIONS.map(opt => ( 
                             <ControlButton key={opt.value} onClick={() => handleAngleChange(opt.value)} selected={params.selectedAngles?.includes(opt.value)}> 

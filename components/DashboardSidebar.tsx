@@ -29,6 +29,7 @@ const NavItem: React.FC<{ icon: string; label: string; active?: boolean; onClick
 interface DashboardSidebarProps {
     onSelectMode: (mode: AppMode) => void;
     onSetView: (view: View) => void;
+    onStartImageEdit: () => void;
     currentView: View;
     isOpen: boolean;
     onOpen: () => void;
@@ -47,6 +48,7 @@ interface DashboardSidebarProps {
 export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ 
     onSelectMode, 
     onSetView, 
+    onStartImageEdit,
     currentView, 
     isOpen, 
     onOpen,
@@ -71,9 +73,9 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     { label: 'Fashion Photoshoot', mode: AppMode.Fashion },
     { label: 'Amazon Catalogue', mode: AppMode.Amazon },
     { label: 'Ad Creative', mode: AppMode.AdCreative },
-    { label: 'Youtube Thumbnail', mode: AppMode.Youtube },
-    { label: 'Banner', mode: AppMode.Banner },
+    { label: 'Festival Shoot', mode: AppMode.Festival },
     { label: 'Remix', mode: AppMode.Remix },
+    { label: 'Background Remover', action: onStartImageEdit },
   ];
 
   useEffect(() => {
@@ -89,6 +91,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const handleMenuItemClick = (action: () => void) => {
     action();
     setIsUserMenuOpen(false);
+    onClose();
   };
 
   const sidebarWidthClass = isOpen ? 'w-[260px]' : 'w-[92px]';
@@ -132,7 +135,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 
         {/* Navigation Scroll Area */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-200 py-2 px-2 space-y-1 flex flex-col">
-            <NavItem icon="home" label="Home" active={currentView === View.Dashboard} onClick={() => onSetView(View.Dashboard)} isOpen={isOpen} />
+            <NavItem icon="home" label="Home" active={currentView === View.Dashboard} onClick={() => { onSetView(View.Dashboard); onClose(); }} isOpen={isOpen} />
         
             {/* Creative Modes Group */}
             <div className="py-1">
@@ -147,10 +150,14 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 
                 {isModesOpen && isOpen && (
                     <div className="mt-1 space-y-0.5">
-                        {creativeModes.map(item => (
+                        {creativeModes.map((item, idx) => (
                             <button
-                                key={item.mode}
-                                onClick={() => onSelectMode(item.mode)}
+                                key={item.mode || `action-${idx}`}
+                                onClick={() => { 
+                                    if (item.mode) onSelectMode(item.mode);
+                                    else if (item.action) item.action();
+                                    onClose(); 
+                                }}
                                 className="w-full pl-12 pr-4 py-1.5 text-sm text-slate-500 hover:text-primary transition-colors text-left"
                             >
                                 {item.label}
@@ -160,10 +167,10 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 )}
             </div>
 
-            <NavItem icon="edit" label="AI Content Generator" onClick={() => onOpenContentGenerator()} isOpen={isOpen} />
-            <NavItem icon="magic-wand" label="Brand Identity" onClick={() => onOpenBrandKit()} isOpen={isOpen} />
-            <NavItem icon="folder" label="My Designs" active={currentView === View.MyDesigns} onClick={() => onSetView(View.MyDesigns)} isOpen={isOpen} />
-            <NavItem icon="lightbulb" label="Inspiration" active={currentView === View.Inspiration} onClick={() => onSetView(View.Inspiration)} isOpen={isOpen} />
+            <NavItem icon="edit" label="AI Content Generator" onClick={() => { onOpenContentGenerator(); onClose(); }} isOpen={isOpen} />
+            <NavItem icon="magic-wand" label="Brand Identity" onClick={() => { onOpenBrandKit(); onClose(); }} isOpen={isOpen} />
+            <NavItem icon="folder" label="My Designs" active={currentView === View.MyDesigns} onClick={() => { onSetView(View.MyDesigns); onClose(); }} isOpen={isOpen} />
+            <NavItem icon="lightbulb" label="Inspiration" active={currentView === View.Inspiration} onClick={() => { onSetView(View.Inspiration); onClose(); }} isOpen={isOpen} />
         </nav>
 
         {/* User Controls Footer */}

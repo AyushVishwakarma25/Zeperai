@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import type { GeneratedImage, ABTestSuggestion } from '../types';
 import { Button } from './ui/Button';
@@ -34,8 +35,11 @@ const ABTestModal: React.FC<ABTestModalProps> = ({ image, onClose, onGenerate })
     }, [image]);
     
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
-            <div className="bg-main w-full max-w-3xl h-[90vh] rounded-2xl shadow-xl flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div 
+                className="bg-main w-full max-w-3xl h-[90vh] rounded-2xl shadow-xl flex flex-col overflow-hidden"
+                onClick={e => e.stopPropagation()}
+            >
                 <header className="p-4 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
                     <div className="flex items-center">
                         <Icon name="variants" className="w-6 h-6 mr-3 text-primary" />

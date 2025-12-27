@@ -18,7 +18,7 @@ interface BrandKitModalProps {
 }
 
 const SectionTitle: React.FC<{ title: string; className?: string }> = ({ title, className }) => (
-    <h3 className={`text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 ${className || ''}`}>{title}</h3>
+    <h3 className={`text-xs font-semibold text-black uppercase tracking-wider mb-3 ${className || ''}`}>{title}</h3>
 );
 
 const ControlButton: React.FC<{
@@ -192,7 +192,7 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
             />
             
             <div className="mb-6">
-              <label className="block text-sm font-medium text-text-primary mb-2">Brand Colors</label>
+              <label className="block text-sm font-semibold text-black mb-2">Brand Colors</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                  <ColorInput label="Primary" id="primary-color" value={kit.primaryColor} onChange={value => setKit(prev => ({...prev, primaryColor: value}))} />
                  <ColorInput label="Secondary" id="secondary-color" value={kit.secondaryColor} onChange={value => setKit(prev => ({...prev, secondaryColor: value}))} />
@@ -218,7 +218,7 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
             />
             
             <div className="mb-6">
-              <label className="block text-sm font-medium text-text-primary mb-2">Brand Personality</label>
+              <label className="block text-sm font-semibold text-black mb-2">Brand Personality</label>
               <div className="flex flex-wrap gap-2">
                 {VOICE_OPTIONS.map(v => (
                   <ControlButton

@@ -42,13 +42,19 @@ const ToolCard: React.FC<ToolCardProps> = ({ iconName, title, onClick, isWide, i
         }
     };
 
+    // Grid layout logic:
+    // Wide cards: col-span-2
+    // Regular cards: standard grid cell
+    const spanClass = isWide ? 'col-span-2' : '';
+    const contentLayoutClass = isWide ? 'flex-row justify-start pl-4 h-24' : 'flex-col justify-center h-32';
+
     return (
         <button
             onClick={isLocked && onUnlock ? onUnlock : onClick}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`relative p-3 rounded-2xl bg-white/60 backdrop-blur-sm shadow-sm transition-all duration-300 cursor-pointer group w-full flex items-center ${isWide ? 'col-span-2 flex-row justify-start pl-4' : 'flex-col justify-center h-32'} ${isLocked ? 'opacity-90 hover:bg-slate-50 hover:ring-2 hover:ring-primary/20' : 'hover:bg-white/80 hover:shadow-md hover:scale-105'} ${isDraggingOver ? 'ring-2 ring-primary bg-primary/5 scale-105 z-10' : ''}`}
+            className={`relative p-3 rounded-2xl bg-white/60 backdrop-blur-sm shadow-sm transition-all duration-300 cursor-pointer group flex items-center w-full ${spanClass} ${contentLayoutClass} ${isLocked ? 'opacity-90 hover:bg-slate-50 hover:ring-2 hover:ring-primary/20' : 'hover:bg-white/80 hover:shadow-md hover:scale-[1.02]'} ${isDraggingOver ? 'ring-2 ring-primary bg-primary/5 scale-105 z-10' : ''}`}
         >
             {isLocked && (
                 <div className="absolute top-2 right-2 bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center shadow-md z-10">
@@ -72,7 +78,7 @@ const ToolCard: React.FC<ToolCardProps> = ({ iconName, title, onClick, isWide, i
 
 
 const VerticalCategoryCard: React.FC<{ title: string; children: React.ReactNode; className?: string; titleClassName?: string }> = ({ title, children, className, titleClassName = 'text-white' }) => (
-    <div className={`p-4 rounded-3xl flex flex-col ${className} shadow-lg border border-white/20`}>
+    <div className={`p-4 rounded-3xl flex flex-col ${className} shadow-lg border border-white/20 h-full`}>
         <h2 className={`text-xl font-bold mb-4 text-center ${titleClassName}`}>{title}</h2>
         <div className="grid grid-cols-2 gap-3">
             {children}
@@ -173,33 +179,22 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 
     const ecommerceTools = [
         { id: AppMode.Product, title: 'Product Photoshoot', iconName: 'camera' },
-        { id: AppMode.Bulk, title: 'Batch Processing', iconName: 'stack' }, 
         { id: AppMode.Fashion, title: 'Fashion Photoshoot', iconName: 'shirt' }, 
-        { id: AppMode.Amazon, title: 'Amazon Catalogue', iconName: 'shopping-bag', isWide: true },
+        { id: AppMode.Amazon, title: 'Amazon Catalogue', iconName: 'shopping-bag' },
     ];
     const marketingTools = [
         { id: AppMode.AdCreative, title: 'Ads Generator', iconName: 'megaphone' },
-        { id: AppMode.Youtube, title: 'Youtube Thumbnail', iconName: 'youtube-play' },
-        { id: AppMode.Banner, title: 'Banner', iconName: 'layout-banner', isWide: true },
+        { id: AppMode.Influencer, title: 'Influencer Campaign', iconName: 'user' },
+        { id: AppMode.Festival, title: 'Festival Shoot', iconName: 'lamp' },
+        { id: AppMode.Remix, title: 'Image Remix', iconName: 'swap' },
     ];
     const otherTools = [
-      { id: AppMode.Festival, title: 'Festival Shoot', iconName: 'lamp', isWide: true },
       { id: 'bg-remover', title: 'Background Remover', iconName: 'magic-wand', action: onStartImageEdit },
-      /*
-      { 
-          id: 'upscale', 
-          title: 'Upscale Image', 
-          iconName: 'trending-up', 
-          action: onStartImageUpscale, 
-          isLocked: isProLocked
-      },
-      */
       { 
           id: 'ai-writer', 
           title: 'AI Writer', 
           iconName: 'pencil-sparkles', 
           action: onOpenContentGenerator, 
-          isWide: true,
           isLocked: isProLocked
       },
     ];
@@ -236,7 +231,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
 
         <div className="p-4 rounded-3xl">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-fr">
                 <VerticalCategoryCard title="Ecommerce" className="bg-gradient-to-br from-blue-500 to-indigo-600 shadow-blue-200" titleClassName="text-white">
                      {ecommerceTools.map(tool => (
                         <ToolCard 

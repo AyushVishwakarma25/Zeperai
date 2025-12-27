@@ -161,7 +161,7 @@ export const Select: React.FC<SelectProps> = ({ label, children, value, onChange
             const optgroupProps = child.props as React.ComponentProps<'optgroup'>;
             return (
                 <div key={optgroupProps.label}>
-                    <div className="px-3 py-2 text-xs font-bold text-text-secondary uppercase tracking-wider select-none">{optgroupProps.label}</div>
+                    <div className="px-3 py-2 text-xs font-semibold text-black uppercase tracking-wider select-none bg-gray-50/50 border-b border-gray-100">{optgroupProps.label}</div>
                     {renderOptions(optgroupProps.children)}
                 </div>
             );
@@ -238,7 +238,7 @@ export const Select: React.FC<SelectProps> = ({ label, children, value, onChange
 
   return (
     <div className={`relative ${className}`} ref={selectRef}>
-      <label className="block text-sm font-medium text-text-primary mb-1">{label}</label>
+      <label className="block text-sm font-semibold text-black mb-1">{label}</label>
       <button
         ref={buttonRef}
         type="button"

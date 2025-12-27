@@ -106,7 +106,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 animate-fade-in-scale-up">
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 animate-fade-in-scale-up" onClick={onClose}>
       <div 
         className="bg-main w-full max-w-6xl rounded-2xl shadow-xl flex flex-col overflow-hidden relative max-h-[95vh]"
         onClick={e => e.stopPropagation()}

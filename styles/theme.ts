@@ -1,0 +1,52 @@
+
+export const theme = {
+  colors: {
+    primary: '#6A5AE0',
+    primaryHover: '#5A4AD8',
+    main: '#F9F9FB',
+    textPrimary: '#111827',
+    textSecondary: '#6B7280',
+    sidebarLight: '#FFFFFF',
+    borderLight: '#E5E7EB',
+    accentGreen: '#10B981',
+    containerPink: '#FCEEEE',
+    ecommerceBlack: '#111111',
+    marketingPurple: '#E1D4FA',
+    otherOrange: '#FDBA74',
+    white: '#FFFFFF',
+    black: '#000000',
+    red: '#EF4444',
+    slate50: '#F8FAFC',
+    slate100: '#F1F5F9',
+    slate200: '#E2E8F0',
+    slate300: '#CBD5E1',
+    slate400: '#94A3B8',
+    slate500: '#64748B',
+    slate600: '#475569',
+    slate700: '#334155',
+    slate800: '#1E293B',
+    slate900: '#0F172A',
+  },
+  borderRadius: {
+    xl: '0.75rem',
+    '2xl': '1rem',
+    '3xl': '1.5rem',
+    full: '9999px',
+  },
+  boxShadow: {
+    glowPrimary: '0 0 12px 2px rgba(106, 90, 224, 0.4)',
+    sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+    md: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+    xl: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+    '2xl': '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+  },
+  transitions: {
+    default: 'all 0.3s ease-in-out',
+    fast: 'all 0.15s ease-in-out',
+    spring: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+  },
+  fonts: {
+    sans: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+  }
+};
