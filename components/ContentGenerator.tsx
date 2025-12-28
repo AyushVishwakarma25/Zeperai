@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { generateMarketingCopy, rewriteMarketingCopy } from '../services/contentGeneratorService';
+import { generateMarketingCopy, rewriteMarketingCopy } from '../services/contentGenerator';
 import type { GenerateContentParams, CopyVariation, RewriteCopyParams } from '../types';
 import { RewriteAction } from '../types';
 import { FormInput, FormTextArea } from './ui/Form';
@@ -11,6 +11,7 @@ import { Icon } from './ui/Icon';
 import { Toggle } from './ui/Toggle';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { Toast } from './ui/Toast';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 const AI_WRITER_FREE_LIMIT = 10;
 
@@ -31,13 +32,19 @@ interface ResultCardProps {
     copy: CopyVariation,
     index: number,
     onRewrite: (index: number, params: RewriteCopyParams) => void,
+    isOnline: boolean
 }
 
-const RewriteButton: React.FC<{icon: string, label: string, onClick: () => void}> = ({ icon, label, onClick }) => (
+const RewriteButton: React.FC<{icon: string, label: string, onClick: () => void, disabled?: boolean}> = ({ icon, label, onClick, disabled }) => (
     <button 
         onClick={onClick} 
+        disabled={disabled}
         title={label} 
-        className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all shadow-sm"
+        className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all shadow-sm border ${
+            disabled 
+            ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed' 
+            : 'text-slate-600 bg-white border-slate-200 hover:bg-primary/5 hover:text-primary hover:border-primary/30'
+        }`}
     >
         <Icon name={icon} className="w-3.5 h-3.5" />
         <span>{label}</span>
@@ -50,7 +57,7 @@ const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     </span>
 );
 
-const ResultCard: React.FC<ResultCardProps> = ({ copy, index, onRewrite }) => {
+const ResultCard: React.FC<ResultCardProps> = ({ copy, index, onRewrite, isOnline }) => {
     const [copied, setCopied] = useState(false);
 
     const handleCopy = useCallback(() => {
@@ -76,7 +83,6 @@ const ResultCard: React.FC<ResultCardProps> = ({ copy, index, onRewrite }) => {
                 </div>
             )}
             
-            {/* Header */}
             <div className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-100">
                 <span className="text-xs font-bold text-slate-500 bg-slate-200/50 px-2 py-1 rounded-md">
                     Variation #{index + 1}
@@ -91,7 +97,6 @@ const ResultCard: React.FC<ResultCardProps> = ({ copy, index, onRewrite }) => {
                 </button>
             </div>
 
-            {/* Content Body */}
             <div className="p-6 space-y-5">
                 <div>
                     <SectionLabel>Headline</SectionLabel>
@@ -117,12 +122,11 @@ const ResultCard: React.FC<ResultCardProps> = ({ copy, index, onRewrite }) => {
                 </div>
             </div>
 
-            {/* Action Footer */}
             <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-start gap-2">
-                <RewriteButton icon="compress" label="Shorter" onClick={() => onRewrite(index, createRewriteParams(RewriteAction.Shorter))} />
-                <RewriteButton icon="laugh" label="Humor" onClick={() => onRewrite(index, createRewriteParams(RewriteAction.Humor))} />
-                <RewriteButton icon="gem" label="Luxury" onClick={() => onRewrite(index, createRewriteParams(RewriteAction.Luxury))} />
-                <RewriteButton icon="feather" label="Simplify" onClick={() => onRewrite(index, createRewriteParams(RewriteAction.Simplify))} />
+                <RewriteButton disabled={!isOnline} icon="compress" label="Shorter" onClick={() => onRewrite(index, createRewriteParams(RewriteAction.Shorter))} />
+                <RewriteButton disabled={!isOnline} icon="laugh" label="Humor" onClick={() => onRewrite(index, createRewriteParams(RewriteAction.Humor))} />
+                <RewriteButton disabled={!isOnline} icon="gem" label="Luxury" onClick={() => onRewrite(index, createRewriteParams(RewriteAction.Luxury))} />
+                <RewriteButton disabled={!isOnline} icon="feather" label="Simplify" onClick={() => onRewrite(index, createRewriteParams(RewriteAction.Simplify))} />
             </div>
         </div>
     );
@@ -136,6 +140,7 @@ interface ContentGeneratorProps {
 }
 
 const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCredits, onRefundCredits, userId }) => {
+  const isOnline = useNetworkStatus();
   const [params, setParams] = useState<GenerateContentParams>(initialParams);
   const [results, setResults] = useState<CopyVariation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -156,7 +161,6 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
       {label: 'German', value: 'German'},
   ];
 
-  // Initialize free usage count from local storage
   useEffect(() => {
       if (userId) {
           const key = `ai_writer_usage_${userId}`;
@@ -180,14 +184,14 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
   }, []);
 
   const handleGenerate = async () => {
+    if (!isOnline) {
+        setToast({ message: "You are offline.", type: 'error' });
+        return;
+    }
     const isFree = freeUsageCount < AI_WRITER_FREE_LIMIT;
     
-    // If not free, attempt to deduct credits
     if (!isFree) {
-        if (onDeductCredits && !onDeductCredits(2)) return; // Cost 2 credits
-    } else {
-        // Optimistically increment usage for free trial visualization
-        // Actual increment happens on success
+        if (onDeductCredits && !onDeductCredits(2)) return; 
     }
 
     setIsLoading(true);
@@ -202,7 +206,6 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
           setToast({ message: `Free Trial Used (${freeUsageCount + 1}/${AI_WRITER_FREE_LIMIT})`, type: 'success' });
       }
     } catch (err) {
-      // Refund if it was a paid generation that failed
       if (!isFree && onRefundCredits) onRefundCredits(2);
       setError(err instanceof Error ? err.message : 'An unknown error occurred.');
     } finally {
@@ -211,7 +214,11 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
   };
 
   const handleRewrite = useCallback(async (index: number, rewriteParams: RewriteCopyParams) => {
-      // Rewrites also consume free trial or 1 credit
+      if (!isOnline) {
+          setToast({ message: "You are offline.", type: 'error' });
+          return;
+      }
+      
       const isFree = freeUsageCount < AI_WRITER_FREE_LIMIT;
 
       if (!isFree) {
@@ -232,7 +239,7 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
           setError(err instanceof Error ? `Rewrite failed: ${err.message}` : 'An unknown error occurred during rewrite.');
           setResults(prev => prev.map((copy, i) => i === index ? { ...copy, isRewriting: false } : copy));
       }
-  }, [onDeductCredits, onRefundCredits, freeUsageCount, userId]);
+  }, [onDeductCredits, onRefundCredits, freeUsageCount, userId, isOnline]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4 animate-fade-in-scale-up" onClick={onClose}>
@@ -268,7 +275,6 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
             </header>
 
             <div className="flex-grow flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                {/* Left Panel: Controls */}
                 <aside className="w-full lg:w-[26rem] flex-shrink-0 p-6 border-b lg:border-b-0 lg:border-r border-border-light lg:overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 bg-slate-50/50">
                     
                     <div className="space-y-6">
@@ -356,18 +362,16 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                     <div className="mt-8 pt-4 border-t border-slate-200">
                         <Button
                             onClick={handleGenerate}
-                            disabled={isLoading}
+                            disabled={!isOnline || isLoading}
                             isLoading={isLoading}
                             fullWidth
                             className="!py-3 !text-base shadow-lg shadow-primary/20"
                         >
-                            <Icon name="sparkles" className="w-5 h-5 mr-2" />
-                            {freeUsageCount < AI_WRITER_FREE_LIMIT ? 'Generate Content (Free)' : 'Generate Content (2 Credits)'}
+                            {isOnline ? (freeUsageCount < AI_WRITER_FREE_LIMIT ? 'Generate Content (Free)' : 'Generate Content (2 Credits)') : 'Offline'}
                         </Button>
                     </div>
                 </aside>
 
-                {/* Right Panel: Results */}
                 <main className="flex-1 p-6 lg:p-10 lg:overflow-y-auto bg-slate-50/30">
                     {isLoading ? (
                         <div className="flex flex-col items-center justify-center h-full text-slate-500 animate-pulse">
@@ -399,6 +403,7 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                                     copy={copy} 
                                     index={index} 
                                     onRewrite={handleRewrite} 
+                                    isOnline={isOnline}
                                 />
                             ))}
                         </div>

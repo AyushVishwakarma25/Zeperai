@@ -2,8 +2,9 @@
 import React, { useState } from 'react';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
-import { feedbackService } from '../services/feedbackService';
+import { feedback } from '../services/feedback';
 import { Toast } from './ui/Toast';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 interface FeedbackModalProps {
   onClose: () => void;
@@ -18,12 +19,17 @@ const ratings = [
 ];
 
 const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
+  const isOnline = useNetworkStatus();
   const [selectedRating, setSelectedRating] = useState<number | null>(3); // Default to Good
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
   const handleSubmit = async () => {
+    if (!isOnline) {
+        setToast({ message: "You are offline.", type: 'error' });
+        return;
+    }
     if (selectedRating === null) {
         setToast({ message: "Please select a rating", type: 'error' });
         return;
@@ -32,11 +38,10 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
     setIsSubmitting(true);
     try {
         const ratingLabel = ratings[selectedRating].label;
-        await feedbackService.submitFeedback(ratingLabel, comment);
+        await feedback.submitFeedback(ratingLabel, comment);
         
         setToast({ message: "Thank you for your feedback!", type: 'success' });
         
-        // Close after a brief delay to show success state
         setTimeout(() => {
             setIsSubmitting(false);
             onClose();
@@ -116,12 +121,13 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
         <footer className="p-4 bg-slate-50 border-t border-slate-200">
           <Button 
             onClick={handleSubmit}
+            disabled={!isOnline || isSubmitting}
             isLoading={isSubmitting}
             variant="dark"
             fullWidth
             className="!py-3"
           >
-            {isSubmitting ? 'Sending...' : 'Submit Now'}
+            {isOnline ? (isSubmitting ? 'Sending...' : 'Submit Now') : 'Offline'}
           </Button>
         </footer>
       </div>

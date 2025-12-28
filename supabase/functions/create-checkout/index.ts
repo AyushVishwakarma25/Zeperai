@@ -1,4 +1,28 @@
 
+/**
+ * POST /create-checkout
+ *
+ * PURPOSE:
+ * - Initializes a Stripe Checkout Session for user subscriptions or credit top-ups.
+ * - Returns a redirect URL for the frontend.
+ *
+ * AUTH:
+ * - Required: Bearer Token (Supabase JWT) - implicitly validated via function invocation context in production, 
+ *   though this specific implementation parses manual body params for flexibility.
+ *
+ * BODY:
+ * {
+ *   priceId: string,  // Stripe Price ID (e.g. price_12345)
+ *   userId: string,   // Supabase User UUID
+ *   email: string,    // Customer Email
+ *   returnUrl: string // Frontend URL to redirect after success/cancel
+ * }
+ *
+ * ERRORS:
+ * - 400 Bad Request: Missing priceId or userId.
+ * - 500 Internal Server Error: Stripe API failure.
+ */
+
 import Stripe from "https://esm.sh/stripe@16.0.0?target=deno";
 
 declare const Deno: any;

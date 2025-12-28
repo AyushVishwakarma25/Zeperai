@@ -1,4 +1,26 @@
 
+/**
+ * POST /stripe-webhook
+ *
+ * PURPOSE:
+ * - Listens for asynchronous events from Stripe (e.g., checkout.session.completed).
+ * - Updates user credit balances in Supabase based on the purchased Price ID.
+ *
+ * AUTH:
+ * - Stripe Signature Verification via 'stripe-signature' header.
+ *
+ * BODY:
+ * - Raw text body (required for signature verification).
+ * - Parsed to JSON event object.
+ *
+ * EVENTS HANDLED:
+ * - checkout.session.completed: Adds credits to 'user_credits' table.
+ *
+ * ERRORS:
+ * - 400 Bad Request: Missing signature or invalid event structure.
+ * - 500 Internal Server Error: Database update failure.
+ */
+
 import Stripe from "https://esm.sh/stripe@16.0.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 

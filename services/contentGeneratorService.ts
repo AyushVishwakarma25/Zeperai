@@ -3,7 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { GenerateContentParams, CopyVariation, RewriteCopyParams, RewriteAction } from '../types';
 
 const getAI = () => {
-    const apiKey = import.meta.env.VITE_API_KEY || process.env.API_KEY;
+    const apiKey = process.env.API_KEY;
     if (!apiKey || apiKey === 'undefined' || apiKey === '') {
         throw new Error("API Key is missing. Please set VITE_API_KEY in your environment variables.");
     }

@@ -49,7 +49,7 @@ interface DashboardSidebarProps {
     onLogout: () => void;
 }
 
-export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ 
+const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({ 
     onSelectMode, 
     onSetView, 
     onStartImageEdit,
@@ -103,7 +103,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     <>
       {/* Mobile Overlay */}
       <div 
-        className={`fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-black/50 z-30 lg:hidden transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
 
@@ -112,7 +112,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
         onMouseEnter={onOpen}
         onMouseLeave={onClose}
         className={`
-            fixed inset-y-0 left-0 z-50
+            fixed inset-y-0 left-0 z-40
             h-screen bg-white border-r border-border-light shadow-sm
             flex flex-col transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)]
             ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -241,3 +241,5 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     </>
   );
 };
+
+export const DashboardSidebar = React.memo(DashboardSidebarComponent);

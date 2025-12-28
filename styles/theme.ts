@@ -9,10 +9,12 @@ export const theme = {
     sidebarLight: '#FFFFFF',
     borderLight: '#E5E7EB',
     accentGreen: '#10B981',
+    // Dashboard Accents
     containerPink: '#FCEEEE',
     ecommerceBlack: '#111111',
     marketingPurple: '#E1D4FA',
     otherOrange: '#FDBA74',
+    // Standard Palette
     white: '#FFFFFF',
     black: '#000000',
     red: '#EF4444',

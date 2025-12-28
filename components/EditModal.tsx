@@ -4,7 +4,8 @@ import type { GeneratedImage, EditImageParams } from '../types';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 import { ImageDropzone } from './ui/ImageDropzone';
-import { processImageFile } from '../imageUtils';
+import { processImageFile } from '../utils/images';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 interface EditModalProps {
   image: GeneratedImage;
@@ -27,7 +28,7 @@ const TabButton: React.FC<{ active: boolean, onClick: () => void, children: Reac
     </button>
 );
 
-const MIN_CROP_SIZE = 20; // Minimum crop dimension in pixels
+const MIN_CROP_SIZE = 20;
 
 const EditModal: React.FC<EditModalProps> = ({ 
     image, 
@@ -38,6 +39,7 @@ const EditModal: React.FC<EditModalProps> = ({
     isEditing,
     initialTab = 'inpaint'
 }) => {
+  const isOnline = useNetworkStatus();
   const [mode, setMode] = useState<'inpaint' | 'crop' | 'background'>(initialTab);
   const [showOriginalBg, setShowOriginalBg] = useState(false);
 
@@ -61,21 +63,16 @@ const EditModal: React.FC<EditModalProps> = ({
   const [draggingHandle, setDraggingHandle] = useState<string | null>(null);
   const dragStartRef = useRef({ mouseX: 0, mouseY: 0, crop: { x: 0, y: 0, width: 0, height: 0 } });
 
-  // Update internal state if prop changes (e.g. background removal finished)
   useEffect(() => {
-      // Always update if image.imageUrl is present. 
-      // If it's empty (placeholder), keep current state or set to null if explicitly cleared.
       if (image.imageUrl) {
-          // Reset tool states when image changes
           setPrompt('');
           setReplacementImage(null);
           if (replacementPreview) URL.revokeObjectURL(replacementPreview);
           setReplacementPreview(null);
           setShowReplacement(false);
-          // Don't reset mode, keep user on same tool
           setShowOriginalBg(false);
       }
-  }, [image.imageUrl, replacementPreview]); // replacementPreview in dep array to satisfy linter for cleanup, logically OK
+  }, [image.imageUrl, replacementPreview]);
 
   const clearCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -93,7 +90,6 @@ const EditModal: React.FC<EditModalProps> = ({
   }, []);
 
   useEffect(() => {
-    // Only setup canvas if in inpaint mode and we have an image
     if (mode !== 'inpaint' || !image.imageUrl) return;
 
     const canvas = canvasRef.current;
@@ -102,7 +98,6 @@ const EditModal: React.FC<EditModalProps> = ({
 
     const setupCanvas = () => {
       const { width, height } = img.getBoundingClientRect();
-      // Ensure dimensions are valid
       if (width > 0 && height > 0) {
           canvas.width = width;
           canvas.height = height;
@@ -121,7 +116,6 @@ const EditModal: React.FC<EditModalProps> = ({
   }, [mode, image.imageUrl, clearCanvas]);
 
   useEffect(() => {
-      // Only setup crop if in crop mode and we have an image
       if (mode !== 'crop' || !image.imageUrl) return;
       
       const img = imageRef.current;
@@ -134,7 +128,6 @@ const EditModal: React.FC<EditModalProps> = ({
       }
   }, [mode, image.imageUrl, resetCrop]);
   
-  // Cleanup replacement blob URL
   useEffect(() => {
     return () => {
       if (replacementPreview) {
@@ -151,8 +144,6 @@ const EditModal: React.FC<EditModalProps> = ({
               reader.readAsDataURL(processedFile);
               reader.onload = () => {
                   const result = reader.result as string;
-                  // Update the parent component with the new image so "editingImage" is valid
-                  // The uploaded image is both the current image and the source for compare feature.
                   onImageUpdate(image.id, result, result);
               };
           } catch (e) {
@@ -195,7 +186,6 @@ const EditModal: React.FC<EditModalProps> = ({
 
   const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
-    // Prevent default touch actions like scrolling when drawing
     e.preventDefault(); 
     
     const canvas = canvasRef.current;
@@ -236,6 +226,10 @@ const EditModal: React.FC<EditModalProps> = ({
   }, []);
 
   const handleApplyInpaint = () => {
+    if (!isOnline) {
+        alert("You are offline. Inpainting requires an internet connection.");
+        return;
+    }
     if (!image.imageUrl) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -261,7 +255,6 @@ const EditModal: React.FC<EditModalProps> = ({
     });
   }
 
-  // --- CROP LOGIC ---
   const handleCropPointerDown = (e: React.PointerEvent, handle: string) => {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -273,7 +266,7 @@ const EditModal: React.FC<EditModalProps> = ({
   const handleCropPointerMove = (e: React.PointerEvent) => {
     if (!draggingHandle) return;
     e.stopPropagation();
-    e.preventDefault(); // Prevent scrolling while cropping
+    e.preventDefault(); 
     const { x: mouseX, y: mouseY } = getCropCoords(e);
     const { mouseX: startX, mouseY: startY, crop: startCrop } = dragStartRef.current;
     let newCrop = { ...startCrop };
@@ -292,7 +285,6 @@ const EditModal: React.FC<EditModalProps> = ({
             newCrop.width -= dx; newCrop.x += dx;
             newCrop.height -= dy; newCrop.y += dy;
             break;
-        // ... more cases for each handle
         case 'topRight':
             newCrop.width += dx;
             newCrop.height -= dy; newCrop.y += dy;
@@ -319,7 +311,6 @@ const EditModal: React.FC<EditModalProps> = ({
             break;
     }
 
-    // Aspect ratio lock
     if (parsedRatio && draggingHandle !== 'move') {
         if (['topLeft', 'topRight', 'bottomLeft', 'bottomRight', 'right', 'left'].includes(draggingHandle)) {
             newCrop.height = newCrop.width / parsedRatio;
@@ -328,11 +319,9 @@ const EditModal: React.FC<EditModalProps> = ({
         }
     }
     
-    // Clamp dimensions
     newCrop.width = Math.max(MIN_CROP_SIZE, newCrop.width);
     newCrop.height = Math.max(MIN_CROP_SIZE, newCrop.height);
 
-    // Clamp position within image boundaries
     newCrop.x = Math.max(0, Math.min(newCrop.x, imgBounds.width - newCrop.width));
     newCrop.y = Math.max(0, Math.min(newCrop.y, imgBounds.height - newCrop.height));
 
@@ -429,7 +418,6 @@ const EditModal: React.FC<EditModalProps> = ({
       }
   }
 
-  // Decide which image to show
   const displayImage = (mode === 'background' && showOriginalBg && image.sourceProductImageUrl) 
       ? image.sourceProductImageUrl 
       : image.imageUrl;
@@ -447,9 +435,7 @@ const EditModal: React.FC<EditModalProps> = ({
             </button>
         </header>
         
-        {/* Main Content Area - Scrollable on mobile, fixed layout on desktop */}
         <div className="flex-grow flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
-            {/* Image Canvas Area - Added extra padding on mobile to allow scrolling around the canvas */}
             <main 
                 ref={cropContainerRef}
                 className={`relative flex-shrink-0 min-h-[40vh] lg:flex-1 lg:h-full bg-slate-100 flex flex-col items-center justify-center lg:overflow-auto ${mode === 'background' ? 'bg-[url("https://www.transparenttextures.com/patterns/cubes.png")]' : ''}`}
@@ -476,7 +462,7 @@ const EditModal: React.FC<EditModalProps> = ({
                             <canvas
                               ref={canvasRef}
                               className="absolute top-0 left-0 cursor-crosshair touch-none"
-                              style={{ top: 32, left: 16 }} // Compensate for padding if needed, though usually we calc rect
+                              style={{ top: 32, left: 16 }} 
                               onPointerDown={startDrawing}
                               onPointerUp={stopDrawing}
                               onPointerLeave={stopDrawing}
@@ -491,7 +477,7 @@ const EditModal: React.FC<EditModalProps> = ({
                               <div
                                 className="absolute rounded-full border-2 border-white bg-black/30 pointer-events-none -translate-x-1/2 -translate-y-1/2"
                                 style={{
-                                    left: cursorPos.x + 16, // Padding offset hack if rect isn't perfect, ideally rect handles it
+                                    left: cursorPos.x + 16,
                                     top: cursorPos.y + 32,
                                     width: brushSize,
                                     height: brushSize,
@@ -544,7 +530,6 @@ const EditModal: React.FC<EditModalProps> = ({
                 {image.imageUrl && <p className="text-xs text-slate-400 mt-2 lg:hidden text-center pb-4">Scroll outside image to move page</p>}
             </main>
 
-            {/* Sidebar Controls Area */}
             <aside className="flex-shrink-0 w-full lg:w-80 bg-white flex flex-col border-t lg:border-t-0 lg:border-l border-slate-200 lg:h-full z-10">
                 <div className="p-6 flex-grow lg:overflow-y-auto">
                     <div className="p-1 bg-slate-100 rounded-lg flex space-x-1 mb-6 overflow-x-auto">
@@ -582,8 +567,8 @@ const EditModal: React.FC<EditModalProps> = ({
                                 <textarea id="edit-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., Change the color to blue" className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-sm text-slate-900" rows={4} />
                             </div>
 
-                            <Button onClick={handleApplyInpaint} fullWidth isLoading={isEditing}>
-                                Generate Edit
+                            <Button onClick={handleApplyInpaint} disabled={!isOnline || isEditing} fullWidth isLoading={isEditing}>
+                                {isOnline ? 'Generate Edit' : 'Offline'}
                             </Button>
 
                             <div className="border-t border-slate-200 pt-5">
@@ -638,8 +623,8 @@ const EditModal: React.FC<EditModalProps> = ({
                                 <p className="text-sm text-slate-500 mb-6">
                                     Automatically detect and isolate the main subject. This action costs 1 Credit.
                                 </p>
-                                <Button onClick={onRemoveBackground} fullWidth isLoading={isEditing}>
-                                    Remove Background (1 Credit)
+                                <Button onClick={isOnline ? onRemoveBackground : undefined} disabled={!isOnline || isEditing} fullWidth isLoading={isEditing}>
+                                    {isOnline ? 'Remove Background (1 Credit)' : 'Offline'}
                                 </Button>
                                 
                                 {image.sourceProductImageUrl && (
@@ -667,7 +652,6 @@ const EditModal: React.FC<EditModalProps> = ({
                     )}
                 </div>
                 
-                {/* Footer Action Button for Crop Mode */}
                 {image.imageUrl && mode === 'crop' && (
                     <div className="p-4 border-t border-slate-200 bg-slate-50 lg:sticky lg:bottom-0 z-20">
                         <Button onClick={handleApplyCrop} fullWidth>

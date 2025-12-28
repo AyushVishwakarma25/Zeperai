@@ -1,11 +1,13 @@
+
 import React, { useState, useCallback } from 'react';
 import type { MoodBoard, BrandAnalysis, BrandGuidelines } from '../types';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 import { Spinner } from './ui/Spinner';
-import { generateMoodBoard, analyzeBrandLogo, fileToBase64 } from '../services/geminiService';
-import { processImageFile } from '../imageUtils';
+import { generateMoodBoard, analyzeBrandLogo, fileToBase64 } from '../services/gemini';
+import { processImageFile } from '../utils/images';
 import { ImageDropzone } from './ui/ImageDropzone';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 interface StrategyModalProps {
   onClose: () => void;
@@ -52,6 +54,7 @@ const TagList: React.FC<{ title: string; tags: string[] }> = ({ title, tags }) =
 );
 
 const StrategyModal: React.FC<StrategyModalProps> = ({ onClose, onApplyGuidelines }) => {
+    const isOnline = useNetworkStatus();
     const [activeTab, setActiveTab] = useState<'moodboard' | 'brand'>('moodboard');
     
     // Moodboard state
@@ -68,6 +71,7 @@ const StrategyModal: React.FC<StrategyModalProps> = ({ onClose, onApplyGuideline
     const [brandError, setBrandError] = useState<string | null>(null);
 
     const handleGenerateMoodboard = useCallback(async () => {
+        if (!isOnline) return;
         if (!moodboardInput.trim()) return;
         setIsGeneratingMoodboard(true);
         setMoodboardError(null);
@@ -80,23 +84,24 @@ const StrategyModal: React.FC<StrategyModalProps> = ({ onClose, onApplyGuideline
         } finally {
             setIsGeneratingMoodboard(false);
         }
-    }, [moodboardInput]);
+    }, [moodboardInput, isOnline]);
 
     const handleAnalyzeLogo = useCallback(async () => {
+        if (!isOnline) return;
         if (!logoFile) return;
         setIsAnalyzingLogo(true);
         setBrandError(null);
         setBrandAnalysisResult(null);
         try {
-            const base64 = await fileToBase64(logoFile); // Convert to base64 here
-            const result = await analyzeBrandLogo(base64, logoFile.type); // Pass base64 and mimeType
+            const base64 = await fileToBase64(logoFile); 
+            const result = await analyzeBrandLogo(base64, logoFile.type); 
             setBrandAnalysisResult(result);
         } catch (err) {
             setBrandError(err instanceof Error ? err.message : 'An unknown error occurred.');
         } finally {
             setIsAnalyzingLogo(false);
         }
-    }, [logoFile]);
+    }, [logoFile, isOnline]);
 
     const handleLogoFileChange = useCallback(async (file: File | null) => {
         setBrandAnalysisResult(null);
@@ -138,6 +143,13 @@ const StrategyModal: React.FC<StrategyModalProps> = ({ onClose, onApplyGuideline
                 </div>
 
                 <main className="flex-grow overflow-y-auto p-6">
+                    {!isOnline && (
+                        <div className="mb-4 bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center">
+                            <Icon name="close" className="w-4 h-4 mr-2" />
+                            Offline Mode: AI features unavailable.
+                        </div>
+                    )}
+
                     {activeTab === 'moodboard' && (
                         <div className="space-y-4">
                             <div>
@@ -150,9 +162,10 @@ const StrategyModal: React.FC<StrategyModalProps> = ({ onClose, onApplyGuideline
                                 placeholder="e.g., An organic, ayurvedic face cream for sensitive skin"
                                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-sm text-slate-800"
                                 rows={3}
+                                disabled={!isOnline}
                             />
-                            <Button onClick={handleGenerateMoodboard} disabled={isGeneratingMoodboard || !moodboardInput.trim()}>
-                                {isGeneratingMoodboard ? 'Generating...' : 'Generate Mood Board'}
+                            <Button onClick={handleGenerateMoodboard} disabled={!isOnline || isGeneratingMoodboard || !moodboardInput.trim()}>
+                                {isGeneratingMoodboard ? 'Generating...' : (isOnline ? 'Generate Mood Board' : 'Offline')}
                             </Button>
 
                             {isGeneratingMoodboard && <div className="flex justify-center p-8"><Spinner /></div>}
@@ -180,8 +193,8 @@ const StrategyModal: React.FC<StrategyModalProps> = ({ onClose, onApplyGuideline
                                 onFileChange={handleLogoFileChange}
                                 prompt="Upload Your Logo"
                             />
-                            <Button onClick={handleAnalyzeLogo} disabled={isAnalyzingLogo || !logoFile}>
-                                {isAnalyzingLogo ? 'Analyzing...' : 'Analyze Brand Logo'}
+                            <Button onClick={handleAnalyzeLogo} disabled={!isOnline || isAnalyzingLogo || !logoFile}>
+                                {isAnalyzingLogo ? 'Analyzing...' : (isOnline ? 'Analyze Brand Logo' : 'Offline')}
                             </Button>
 
                              {isAnalyzingLogo && <div className="flex justify-center p-8"><Spinner /></div>}

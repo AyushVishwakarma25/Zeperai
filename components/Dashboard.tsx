@@ -50,11 +50,13 @@ const ToolCard: React.FC<ToolCardProps> = ({ iconName, title, onClick, isWide, i
 
     return (
         <button
+            type="button"
             onClick={isLocked && onUnlock ? onUnlock : onClick}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`relative p-3 rounded-2xl bg-white/60 backdrop-blur-sm shadow-sm transition-all duration-300 cursor-pointer group flex items-center w-full ${spanClass} ${contentLayoutClass} ${isLocked ? 'opacity-90 hover:bg-slate-50 hover:ring-2 hover:ring-primary/20' : 'hover:bg-white/80 hover:shadow-md hover:scale-[1.02]'} ${isDraggingOver ? 'ring-2 ring-primary bg-primary/5 scale-105 z-10' : ''}`}
+            className={`relative p-3 rounded-2xl bg-white/60 backdrop-blur-sm shadow-sm transition-all duration-300 cursor-pointer group flex items-center w-full focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${spanClass} ${contentLayoutClass} ${isLocked ? 'opacity-90 hover:bg-slate-50 hover:ring-2 hover:ring-primary/20' : 'hover:bg-white/80 hover:shadow-md hover:scale-[1.02]'} ${isDraggingOver ? 'ring-2 ring-primary bg-primary/5 scale-105 z-10' : ''}`}
+            aria-label={isLocked ? `${title} (Locked)` : title}
         >
             {isLocked && (
                 <div className="absolute top-2 right-2 bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center shadow-md z-10">
@@ -262,8 +264,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 };
 
 
-export const Dashboard: React.FC<DashboardProps> = (props) => {
-    
+const DashboardComponent: React.FC<DashboardProps> = (props) => {
     return (
         <main className="relative w-full h-full flex flex-col overflow-hidden">
             <Header onOpenFeedbackModal={props.onOpenFeedbackModal} onOpenPricingModal={props.onOpenPricingModal} onToggleSidebar={props.onToggleSidebar} />
@@ -279,3 +280,5 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
         </main>
     );
 };
+
+export const Dashboard = React.memo(DashboardComponent);

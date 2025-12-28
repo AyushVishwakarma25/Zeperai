@@ -1,10 +1,30 @@
 
+/**
+ * FILE: ABTestModal.tsx
+ * 
+ * PURPOSE:
+ * - Generates and displays A/B testing ideas for an image.
+ * 
+ * FLOW:
+ * OnMount → /api/gemini/suggestions → Display List
+ * 
+ * INPUT:
+ * - image: GeneratedImage
+ * 
+ * OUTPUT:
+ * - List of suggestions (Title, Description, Hypothesis)
+ * 
+ * NOTES:
+ * - Offline protected (skips fetch).
+ */
+
 import React, { useState, useEffect, useCallback } from 'react';
 import type { GeneratedImage, ABTestSuggestion } from '../types';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 import { Spinner } from './ui/Spinner';
 import { getABTestSuggestions } from '../services/geminiService';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 interface ABTestModalProps {
   image: GeneratedImage;
@@ -14,11 +34,17 @@ interface ABTestModalProps {
 }
 
 const ABTestModal: React.FC<ABTestModalProps> = ({ image, onClose, onGenerate, onApiError }) => {
+    const isOnline = useNetworkStatus();
     const [suggestions, setSuggestions] = useState<ABTestSuggestion[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        if (!isOnline) {
+            setIsLoading(false);
+            return;
+        }
+
         const fetchSuggestions = async () => {
             setIsLoading(true);
             setError(null);
@@ -35,7 +61,7 @@ const ABTestModal: React.FC<ABTestModalProps> = ({ image, onClose, onGenerate, o
         };
 
         fetchSuggestions();
-    }, [image]); // Intentionally omitting onApiError to avoid loop if it changes
+    }, [image, isOnline]); 
     
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -63,9 +89,17 @@ const ABTestModal: React.FC<ABTestModalProps> = ({ image, onClose, onGenerate, o
                     </aside>
                     <main className="flex-1 p-6 overflow-y-auto">
                         <h3 className="font-semibold text-slate-800 mb-4">AI-Suggested Variants for Better Engagement</h3>
-                        {isLoading && <div className="flex justify-center items-center h-full"><Spinner /></div>}
-                        {error && <p className="text-red-500 text-sm">{error}</p>}
-                        {!isLoading && !error && (
+                        
+                        {!isOnline ? (
+                            <div className="flex flex-col items-center justify-center h-48 text-slate-500">
+                                <Icon name="close" className="w-10 h-10 mb-2 text-slate-300" />
+                                <p>Offline Mode: Cannot fetch AI suggestions.</p>
+                            </div>
+                        ) : isLoading ? (
+                            <div className="flex justify-center items-center h-full"><Spinner /></div>
+                        ) : error ? (
+                            <p className="text-red-500 text-sm">{error}</p>
+                        ) : (
                             <div className="space-y-4">
                                 {suggestions.map((suggestion, index) => (
                                     <div key={index} className="p-4 bg-white border border-slate-200 rounded-lg">

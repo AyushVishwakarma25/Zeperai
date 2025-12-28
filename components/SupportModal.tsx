@@ -19,7 +19,7 @@ export const SupportModal: React.FC<SupportModalProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-[100] flex items-center justify-center p-4 animate-fade-in-scale-up" onClick={onClose}>
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-[80] flex items-center justify-center p-4 animate-fade-in-scale-up" onClick={onClose}>
       <div 
         className="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden relative"
         onClick={e => e.stopPropagation()}

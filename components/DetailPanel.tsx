@@ -11,7 +11,7 @@ import {
     CAPTION_PLATFORM_OPTIONS,
     CAPTION_LANGUAGE_OPTIONS
 } from '../constants';
-import { generateFilename } from '../imageUtils';
+import { generateFilename } from '../utils/images';
 
 interface DetailPanelProps {
   image: GeneratedImage;
@@ -37,26 +37,6 @@ const SocialButton: React.FC<{ href: string; icon: string; label: string; onClic
     </a>
 )
 
-const CopyButton: React.FC<{ textToCopy: string, label: string }> = ({ textToCopy, label }) => {
-    const [copied, setCopied] = useState(false);
-    const handleCopy = useCallback(() => {
-        navigator.clipboard.writeText(textToCopy).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        });
-    }, [textToCopy]);
-
-    return (
-        <button 
-            onClick={handleCopy}
-            className="absolute top-2 right-2 p-1.5 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 hover:text-slate-900 transition-colors"
-            aria-label={label}
-        >
-            <Icon name={copied ? 'trust' : 'copy'} className="w-4 h-4" />
-        </button>
-    )
-}
-
 const Toggle: React.FC<{ label: string; enabled: boolean; onChange: (enabled: boolean) => void; }> = ({ label, enabled, onChange }) => {
   return (
     <label className="flex items-center justify-between cursor-pointer">
@@ -81,10 +61,9 @@ const Toggle: React.FC<{ label: string; enabled: boolean; onChange: (enabled: bo
 };
 
 export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGenerateCaption, generatingCaptionImageId, onOpenABTestModal }) => {
-    const [isWriterOpen, setIsWriterOpen] = useState(true); // Default to open
+    const [isWriterOpen, setIsWriterOpen] = useState(true); 
     const [showOriginal, setShowOriginal] = useState(false);
     
-    // AI Content Writer State
     const [tone, setTone] = useState<CaptionTone>(CaptionTone.Playful);
     const [length, setLength] = useState<'Short' | 'Medium' | 'Long'>('Medium');
     const [platform, setPlatform] = useState<'Instagram' | 'YouTube' | 'TikTok' | 'Ad Copy'>('Instagram');
@@ -227,13 +206,11 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
 
     return (
         <>
-            {/* Backdrop for mobile/tablet */}
             <div
                 className="fixed inset-0 bg-black/40 z-30 lg:hidden"
                 onClick={onClose}
                 aria-hidden="true"
             />
-             {/* The panel itself */}
             <aside className="fixed top-0 right-0 h-full w-full max-w-sm bg-white border-l border-slate-200 flex flex-col z-40 animate-slide-in-from-right-mobile lg:static lg:w-96 lg:max-w-none lg:h-auto lg:animate-slide-in">
                 {PanelContent}
             </aside>

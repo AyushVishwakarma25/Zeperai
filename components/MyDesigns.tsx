@@ -4,7 +4,7 @@ import type { GeneratedImage } from '../types';
 import { Icon } from './ui/Icon';
 import { Button } from './ui/Button';
 import { View } from '../types';
-import { generateFilename } from '../imageUtils';
+import { generateFilename } from '../utils/images';
 
 interface MyDesignsProps {
   images: GeneratedImage[];

@@ -1,9 +1,30 @@
 
+/**
+ * FILE: adCopyService.ts
+ *
+ * PURPOSE:
+ * - Generates marketing ad copy variations using Gemini text models.
+ *
+ * FLOW:
+ * UI (AdCopywriterPanel) → adCopyService → Gemini API → JSON Response → UI
+ *
+ * INPUT:
+ * - productDescription: string
+ * - tone: string
+ * - platform: string
+ *
+ * OUTPUT:
+ * - AdCopy[] (headline, body, cta)
+ *
+ * NOTES:
+ * - Enforces JSON schema for structured output.
+ */
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { GenerateAdCopyParams, AdCopy } from '../types';
 
 const getAI = () => {
-    const apiKey = import.meta.env.VITE_API_KEY || process.env.API_KEY;
+    const apiKey = process.env.API_KEY;
     if (!apiKey || apiKey === 'undefined' || apiKey === '') {
         throw new Error("API Key is missing. Please set VITE_API_KEY in your environment variables.");
     }
@@ -11,11 +32,17 @@ const getAI = () => {
 };
 
 export const generateAdCopy = async (params: GenerateAdCopyParams): Promise<AdCopy[]> => {
-    const ai = getAI();
+    // 1. Validate input
+    if (!params.productDescription) {
+        throw new Error("Product description is required.");
+    }
 
+    // 2. Prepare prompt / config
+    const ai = getAI();
     const prompt = `Generate ${params.count} ad copy variations for: ${params.productDescription}. Tone: ${params.tone}. Platform: ${params.platform}.`;
 
     try {
+        // 3. Call AI
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: prompt,
@@ -42,6 +69,7 @@ export const generateAdCopy = async (params: GenerateAdCopyParams): Promise<AdCo
             },
         });
 
+        // 4. Handle response
         const text = response.text?.trim();
         if (!text) {
           throw new Error("AI returned an empty response.");
@@ -49,6 +77,8 @@ export const generateAdCopy = async (params: GenerateAdCopyParams): Promise<AdCo
         
         try {
             const result = JSON.parse(text);
+            
+            // 5. Return safe output
             return result.copies as AdCopy[];
         } catch (jsonError) {
             console.error("Failed to parse AI JSON response:", text);

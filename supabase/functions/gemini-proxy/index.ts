@@ -1,4 +1,35 @@
 
+/**
+ * POST /gemini-proxy
+ *
+ * PURPOSE:
+ * - Acts as a secure gateway between the Frontend and Google Gemini API.
+ * - Enforces Authentication (Supabase JWT).
+ * - Enforces Business Logic (Credit Check & Deduction).
+ *
+ * AUTH:
+ * - Required: Bearer Token (Supabase JWT) in 'Authorization' header.
+ *
+ * RATE LIMIT:
+ * - Dependent on Supabase Edge Function limits and Google Gemini Quotas.
+ *
+ * BODY:
+ * {
+ *   action: "generateContent",
+ *   model: "gemini-3-flash-preview" | "gemini-2.5-flash-image",
+ *   params: {
+ *     contents: [{ parts: [...] }] 
+ *   },
+ *   config: { ...generationConfig }
+ * }
+ *
+ * ERRORS:
+ * - 401 Unauthorized: Invalid or missing JWT.
+ * - 402 Payment Required: Insufficient user credits.
+ * - 400 Bad Request: Invalid action or parameters.
+ * - 500 Internal Server Error: Gemini API failure or DB update failure.
+ */
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { GoogleGenAI } from "https://esm.sh/@google/genai@^1.19.0";
 

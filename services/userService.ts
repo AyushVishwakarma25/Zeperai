@@ -36,8 +36,11 @@ export const userService = {
         .single();
     
     if (error) {
-        // If the table doesn't exist or row is missing, just log warning and return null (fallback will handle it)
-        if (error.code !== '42P01') { // 42P01 is table missing
+        // If the table doesn't exist or row is missing, just return null (fallback will handle it)
+        // 42P01: relation does not exist
+        // 404: resource not found (table)
+        // PGRST116: no rows returned (user exists in auth but not profiles table yet)
+        if (error.code !== '42P01' && error.code !== '404' && error.code !== 'PGRST116' && (error as any).status !== 404) {
              console.warn('Failed to load user profile from DB:', error.message || error);
         }
         return null;
@@ -101,7 +104,8 @@ export const userService = {
         .single();
 
     if (error) {
-        if (error.code !== '42P01') {
+        // Silently fail if table missing
+        if (error.code !== '42P01' && error.code !== '404' && (error as any).status !== 404) {
              console.warn('Failed to load credits:', error.message || error);
         }
         return { current: 0, total: 0 };
@@ -166,7 +170,8 @@ export const userService = {
     
     if (error) {
       // 42P01: relation does not exist (table missing)
-      if (error.code !== '42P01') {
+      // 404: resource not found
+      if (error.code !== '42P01' && error.code !== '404' && (error as any).status !== 404) {
           console.warn("Could not fetch saved models:", error.message);
       }
       return [];

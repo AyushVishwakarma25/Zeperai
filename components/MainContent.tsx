@@ -6,6 +6,7 @@ import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 import { DetailPanel } from './DetailPanel';
 import { LivePreview } from './ui/LivePreview';
+import { Skeleton } from './ui/Skeleton';
 
 interface MainContentProps {
   params: GenerateImageParams;
@@ -44,7 +45,6 @@ const FashionReviewStudio: React.FC<{
 }> = ({ images, onSetZoomedImage, onAddToPosterBoard, onStartEdit }) => {
     const [activeIndex, setActiveIndex] = useState(0);
 
-    // BUG FIX: Reset index if it's out of bounds after images array changes.
     useEffect(() => {
       if (activeIndex >= images.length) {
         setActiveIndex(0);
@@ -87,7 +87,7 @@ const FashionReviewStudio: React.FC<{
     );
 };
 
-export const MainContent: React.FC<MainContentProps> = (props) => {
+const MainContentComponent: React.FC<MainContentProps> = (props) => {
   const [detailPanelImage, setDetailPanelImage] = useState<GeneratedImage | null>(null);
   
   // Safeguard against missing params in generatedImages
@@ -102,8 +102,6 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
     }
   }, [props.generatedImages, detailPanelImage]);
 
-  if (props.isLoading) return null;
-
   if (props.error) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-6 bg-white rounded-2xl shadow-sm border border-slate-100">
@@ -113,6 +111,36 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
           <Button onClick={props.onReturnToSettings} variant="secondary" className="mt-4 !rounded-lg !px-6 !py-2 !text-xs">Retry Shoot</Button>
       </div>
     );
+  }
+
+  // Display Skeleton Grid while loading initial images
+  if (props.isLoading && props.generatedImages.length === 0) {
+      return (
+        <div className="w-full h-full bg-white flex flex-col p-4 md:p-8">
+            <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center space-x-4">
+                    <Skeleton className="w-8 h-8 rounded-full" />
+                    <div>
+                        <Skeleton className="w-48 h-6 mb-2" />
+                        <Skeleton className="w-32 h-4" />
+                    </div>
+                </div>
+                <Skeleton className="w-40 h-10" />
+            </div>
+            <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-6">
+                {[...Array(8)].map((_, i) => (
+                    <div key={i} className="mb-6 break-inside-avoid">
+                        <Skeleton className="w-full aspect-[4/5] rounded-xl" />
+                        <div className="mt-2 flex justify-between px-2">
+                            <Skeleton className="w-8 h-8 rounded-full" />
+                            <Skeleton className="w-8 h-8 rounded-full" />
+                            <Skeleton className="w-8 h-8 rounded-full" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+      );
   }
 
   if (props.generatedImages.length === 0) {
@@ -182,3 +210,5 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
     </div>
   );
 };
+
+export const MainContent = React.memo(MainContentComponent);

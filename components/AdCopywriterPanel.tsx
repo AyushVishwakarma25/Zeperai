@@ -1,11 +1,13 @@
+
 import React, { useState, useCallback } from 'react';
-import { generateAdCopy } from '../services/adCopyService';
+import { generateAdCopy } from '../services/adCopy';
 import type { GenerateAdCopyParams, AdCopy } from '../types';
 import { FormTextArea } from './ui/Form';
 import { Select } from './ui/Select';
 import { Button } from './ui/Button';
 import { Spinner } from './ui/Spinner';
 import { Icon } from './ui/Icon';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 const initialParams: GenerateAdCopyParams = {
   productDescription: '',
@@ -15,6 +17,7 @@ const initialParams: GenerateAdCopyParams = {
 };
 
 export const AdCopywriterPanel: React.FC = () => {
+  const isOnline = useNetworkStatus();
   const [params, setParams] = useState<GenerateAdCopyParams>(initialParams);
   const [results, setResults] = useState<AdCopy[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -25,6 +28,7 @@ export const AdCopywriterPanel: React.FC = () => {
   }, []);
 
   const handleGenerate = async () => {
+    if (!isOnline) return;
     setIsLoading(true);
     setError(null);
     setResults([]);
@@ -90,11 +94,11 @@ export const AdCopywriterPanel: React.FC = () => {
         <div className="flex-shrink-0 pt-6">
             <Button
                 onClick={handleGenerate}
-                disabled={isLoading || !params.productDescription.trim()}
+                disabled={!isOnline || isLoading || !params.productDescription.trim()}
                 fullWidth
                 className="!py-3"
             >
-                {isLoading ? 'Generating...' : `Generate ${params.count} Copies`}
+                {isLoading ? 'Generating...' : (isOnline ? `Generate ${params.count} Copies` : 'Offline')}
             </Button>
         </div>
     </div>

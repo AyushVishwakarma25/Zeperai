@@ -17,7 +17,11 @@ export const designService = {
         .order('created_at', { ascending: false });
 
     if (error) {
-        console.error("Failed to load designs:", error.message || error);
+        // Silently fail if table missing or connection issue during init
+        if (error.code === '42P01' || error.code === '404' || (error as any).status === 404) {
+            return [];
+        }
+        console.warn("Failed to load designs:", error.message || error);
         return [];
     }
 
@@ -57,7 +61,12 @@ export const designService = {
         .select()
         .single();
     
-    if (error) throw error;
+    if (error) {
+        if (error.code === '42P01' || error.code === '404') {
+             throw new Error("Database table 'designs' is missing. Please run setup SQL.");
+        }
+        throw error;
+    }
 
     return {
         ...design,

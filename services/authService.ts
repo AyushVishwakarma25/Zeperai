@@ -1,4 +1,23 @@
 
+/**
+ * FILE: authService.ts
+ *
+ * PURPOSE:
+ * - Manages user authentication sessions via Supabase.
+ *
+ * FLOW:
+ * AuthModal → authService → Supabase Auth → Session/Profile → App State
+ *
+ * INPUT:
+ * - email, password, name
+ *
+ * OUTPUT:
+ * - AuthSession (user profile + token)
+ *
+ * NOTES:
+ * - Auto-maps Supabase User to local UserProfileData format.
+ */
+
 import { supabase } from './supabaseClient';
 import { UserProfileData, userService } from './userService';
 
@@ -32,11 +51,16 @@ export const authService = {
    * Check if there is an active session
    */
   async getSession(): Promise<AuthSession | null> {
+    // 1. Call Supabase
     const { data: { session }, error } = await supabase.auth.getSession();
+    
+    // 2. Handle Response
     if (error || !session) return null;
 
+    // 3. Transform Data
     const userProfile = await mapUserToProfile(session.user);
     
+    // 4. Return Safe Output
     return {
         user: userProfile,
         token: session.access_token,
@@ -48,16 +72,20 @@ export const authService = {
    * Sign In with Email and Password
    */
   async signInWithPassword(email: string, password: string): Promise<AuthSession> {
+    // 1. Call Supabase
     const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
     });
 
+    // 2. Handle Response
     if (error) throw error;
     if (!data.session) throw new Error("No session created");
 
+    // 3. Transform Data
     const userProfile = await mapUserToProfile(data.session.user);
 
+    // 4. Return Safe Output
     return {
         user: userProfile,
         token: data.session.access_token,
@@ -74,6 +102,7 @@ export const authService = {
    * Sign Up
    */
   async signUpWithPassword(name: string, email: string, password: string): Promise<AuthSession> {
+    // 1. Call Supabase
     const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -85,6 +114,7 @@ export const authService = {
         }
     });
 
+    // 2. Handle Response
     if (error) throw error;
     
     // Check if session exists (it might be null if email confirmation is required)
@@ -92,8 +122,10 @@ export const authService = {
         throw new Error("Signup successful! Please check your email to verify your account.");
     }
 
+    // 3. Transform Data
     const userProfile = await mapUserToProfile(data.session.user);
 
+    // 4. Return Safe Output
     return {
         user: userProfile,
         token: data.session.access_token,

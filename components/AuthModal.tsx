@@ -20,15 +20,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  const canSubmit = email.trim() !== '' && password.trim() !== '' && (!isSignUp || name.trim() !== '');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canSubmit || isLoading) return;
+
     setIsLoading(true);
     setError(null);
 
     try {
       let session;
       if (isSignUp) {
-        if (!name.trim()) throw new Error("Name is required");
         session = await authService.signUpWithPassword(name, email, password);
       } else {
         session = await authService.signInWithPassword(email, password);
@@ -43,7 +46,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 z-[100] flex items-center justify-center p-4 animate-fade-in-scale-up" onClick={onClose}>
+    <div className="fixed inset-0 bg-black bg-opacity-70 z-[80] flex items-center justify-center p-4 animate-fade-in-scale-up" onClick={onClose}>
       <div 
         className="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden relative"
         onClick={e => e.stopPropagation()}
@@ -108,6 +111,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
                 type="submit" 
                 fullWidth 
                 isLoading={isLoading} 
+                disabled={!canSubmit || isLoading}
                 className="!py-3 !text-base mt-2"
             >
                 {isSignUp ? 'Create Account' : 'Sign In'}

@@ -3,7 +3,7 @@ import React, { useCallback } from 'react';
 import type { GeneratedImage } from '../types';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
-import { generateFilename } from '../imageUtils';
+import { generateFilename } from '../utils/images';
 
 interface DeployModalProps {
   images: GeneratedImage[];
@@ -15,9 +15,9 @@ const DeployModal: React.FC<DeployModalProps> = ({ images, onClose }) => {
         const headers = ['ID', 'Caption', 'Hashtags', 'AspectRatio'];
         
         const sanitizeCsvField = (field: string) => {
-            let sanitized = field.replace(/"/g, '""'); // Escape double quotes
+            let sanitized = field.replace(/"/g, '""'); 
             if (sanitized.includes(',') || sanitized.includes('\n') || sanitized.includes('"')) {
-                sanitized = `"${sanitized}"`; // Enclose in double quotes if it contains a comma, newline, or quotes
+                sanitized = `"${sanitized}"`; 
             }
             return sanitized;
         };

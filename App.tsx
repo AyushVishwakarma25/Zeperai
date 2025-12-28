@@ -2,16 +2,18 @@
 import React, { useState, useCallback, lazy, Suspense, useEffect, useRef } from 'react';
 import { MainContent } from './components/MainContent';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, SavedModel } from './types';
-import { generateImages, editImage, generateCaption, generateVariantSuggestions, detectProductCategory, fileToBase64, removeBackground } from './services/geminiService';
-import { userService, UserProfileData } from './services/userService';
-import { designService } from './services/designService'; 
-import { storageService } from './services/storageService'; 
-import { authService, AuthSession } from './services/authService';
-import { brandService } from './services/brandService';
+import { generateImages, editImage, generateCaption, generateVariantSuggestions, detectProductCategory, fileToBase64, removeBackground } from './services/gemini';
+import { user as userService, UserProfileData } from './services/user';
+import { designs as designService } from './services/designs'; 
+import { storage as storageService } from './services/storage'; 
+import { auth as authService, AuthSession } from './services/auth';
+import { brand as brandService } from './services/brand';
 import { Spinner } from './components/ui/Spinner';
-import { AppMode, AspectRatio, OutputFormat, ModelGender, SkinTone, ClothingType, OutfitChoice, StylePreset, AdLayout, ResolutionQuality, ProductCategory, View } from './types';
-import { AI_SUGGESTED, FREE_TRIAL_LIMIT, LOADING_MESSAGES, STORAGE_LIMITS } from './constants';
-import { processImageFile, dataURLtoFile } from './imageUtils';
+import { AppMode, AspectRatio, ResolutionQuality, ProductCategory, View } from './types';
+import { AI_SUGGESTED, FREE_TRIAL_LIMIT, LOADING_MESSAGES, STORAGE_LIMITS, INITIAL_GENERATE_PARAMS } from './constants';
+import { processImageFile, dataURLtoFile, fileToGeneratedImage } from './utils/images';
+import { debounce, getActionLabel } from './utils/helpers';
+import { getModeConfiguration } from './utils/appModes';
 import { DashboardSidebar } from './components/DashboardSidebar';
 import { Dashboard } from './components/Dashboard';
 import { CreativeModal } from './components/CreativeModal';
@@ -21,6 +23,9 @@ import { Toast } from './components/ui/Toast';
 import { Button } from './components/ui/Button';
 import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { calculateGenerationCost } from './utils/costs';
 
 
 const EditModal = lazy(() => import('./components/EditModal'));
@@ -37,132 +42,17 @@ const ProfileEditModal = lazy(() => import('./components/ProfileEditModal'));
 const InspirationPage = lazy(() => import('./components/InspirationPage'));
 const BrandKitModal = lazy(() => import('./components/BrandKitModal'));
 
-const calculateGenerationCost = (params: GenerateImageParams, userTier: string): number => {
-    const numRatios = params.aspectRatios?.length || 0;
-    if (numRatios === 0) return 0;
-
-    let numVariants = 1;
-
-    if (params.appMode === AppMode.Bulk && params.bulkImages) {
-        numVariants = params.bulkImages.length;
-    } else if (params.appMode === AppMode.Product) {
-        numVariants = params.selectedAngles.length > 0 ? params.selectedAngles.length : 1;
-    } else if (params.appMode === AppMode.Fashion) {
-        numVariants = params.batchSize || 4; // Default batch for fashion
-    } else { // For other modes that support batching
-        numVariants = params.batchSize || 1;
-    }
-    
-    let baseCost = numVariants * numRatios;
-
-    // Apply High Quality Multiplier (4x) only if the user is on a tier that actually supports/uses the Pro model
-    const isProTier = userTier === 'Standard' || userTier === 'Agency';
-    if (params.resolutionQuality === ResolutionQuality.High && isProTier) {
-        baseCost *= 4;
-    }
-
-    return baseCost;
-};
-
-const initialParams: GenerateImageParams = {
-  appMode: AppMode.Influencer,
-  productDescription: '',
-  aspectRatios: [AspectRatio.PortraitPost],
-  outputFormat: OutputFormat.JPEG,
-  resolutionQuality: ResolutionQuality.Standard,
-  selectedAngles: ['Front View'],
-  productStylePreset: AI_SUGGESTED,
-  backdropAndProps: AI_SUGGESTED,
-  textPlacementSuggestion: AI_SUGGESTED,
-  overlayText: '',
-  fontStyle: AI_SUGGESTED,
-  isBold: false,
-  isItalic: false,
-  isUnderlined: false,
-  productCategory: ProductCategory.Generic,
-  modelGender: ModelGender.Female,
-  modelPersona: AI_SUGGESTED,
-  skinTone: SkinTone.Medium,
-  clothingType: ClothingType.AISuggested,
-  outfitChoice: OutfitChoice.AI,
-  stylePreset: StylePreset.AISuggested,
-  poseSuggestion: AI_SUGGESTED,
-  backgroundStyle: AI_SUGGESTED,
-  adLayout: AdLayout.TextRightImageLeft,
-  adTitle: '',
-  adSubheading: '',
-  adFeatures: '',
-  adCta: '',
-  adAvailability: '',
-  remixReferenceImage: undefined,
-  remixProductImage: undefined,
-  modelSourceOption: 'new',
-};
-
-// Debounce utility (simple in-file implementation for this app structure)
-function debounce<T extends (...args: any[]) => any>(func: T, delay: number): (...args: Parameters<T>) => void {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  return function(this: any, ...args: Parameters<T>) {
-    const context = this;
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-    timeout = setTimeout(() => func.apply(context, args), delay);
-  };
-}
-
-const fileToGeneratedImage = async (file: File): Promise<GeneratedImage> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => {
-            const imageUrl = reader.result as string;
-            const img = new Image();
-            img.onload = () => {
-                const ratio = img.width / img.height;
-                let standardAspectRatio: AspectRatio = AspectRatio.Square;
-                if (ratio > 1.33) standardAspectRatio = AspectRatio.Landscape; // 4:3 and wider
-                else if (ratio < 0.8) standardAspectRatio = AspectRatio.Portrait;   // 4:5 and taller
-                else if (ratio < 1) standardAspectRatio = AspectRatio.PortraitPost; // e.g. 4:5
-                
-                resolve({
-                    id: `edit-${Date.now()}`,
-                    imageUrl,
-                    caption: file.name,
-                    hashtags: '',
-                    aspectRatio: standardAspectRatio,
-                    params: initialParams,
-                    sourceProductImageUrl: imageUrl,
-                    timestamp: Date.now(),
-                });
-            };
-            img.onerror = reject;
-            img.src = imageUrl;
-        };
-        reader.onerror = reject;
-    });
-};
-
-const getActionLabel = (mode: AppMode): string => {
-    switch(mode) {
-        case AppMode.Product: return 'Product Photoshoot';
-        case AppMode.Bulk: return 'Bulk Catalog processing';
-        case AppMode.Influencer: return 'Influencer Campaign';
-        case AppMode.AdCreative: return 'Ad Creative';
-        case AppMode.Remix: return 'Image Remix';
-        case AppMode.Fashion: return 'Fashion Photoshoot';
-        case AppMode.Banner: return 'Banner Design';
-        case AppMode.Youtube: return 'YouTube Thumbnail';
-        case AppMode.Festival: return 'Festival Post';
-        default: return 'Generated Image';
-    }
-};
-
-
 const App: React.FC = () => {
+  const isOnline = useNetworkStatus();
+  
   const [activeMode, setActiveMode] = useState<AppMode | null>(null);
   const [lastActiveMode, setLastActiveMode] = useState<AppMode | null>(null);
-  const [params, setParams] = useState<GenerateImageParams>(initialParams);
+  
+  const [params, setParams] = useState<GenerateImageParams>(() => {
+      const saved = localStorage.getItem('krackx_last_params');
+      return saved ? { ...INITIAL_GENERATE_PARAMS, ...JSON.parse(saved) } : INITIAL_GENERATE_PARAMS;
+  });
+
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [posterBoard, setPosterBoard] = useState<GeneratedImage[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -196,44 +86,53 @@ const App: React.FC = () => {
   const [isSavingDesign, setIsSavingDesign] = useState<string | null>(null); 
   const [savedModels, setSavedModels] = useState<SavedModel[]>([]);
   
-  // ADMIN & CREDITS STATE
   const [isAdmin, setIsAdmin] = useState(true);
   const [credits, setCredits] = useState(0); 
   const [totalCredits, setTotalCredits] = useState(100);
   const [userTier, setUserTier] = useState<'Free' | 'Starter' | 'Standard' | 'Agency'>('Starter');
   const [freeGenerationsUsed, setFreeGenerationsUsed] = useState(0);
 
-  // AUTH STATE
   const [userProfile, setUserProfile] = useState<UserProfileData | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isSessionChecked, setIsSessionChecked] = useState(false);
   
-  // LOADING STATE
   const [loadingMessages, setLoadingMessages] = useState<{title: string, subtext: string}>({ title: '', subtext: '' });
   const generationModeRef = useRef<AppMode | null>(null);
-
+  
+  const isGeneratingRef = useRef(false);
 
   const frontProductImageRef = useRef<File | undefined>(undefined); 
   const frontProductImageBase64Ref = useRef<string | null>(null); 
   const imageEditInputRef = useRef<HTMLInputElement>(null);
 
-  // Floating Action Bar State
   const [floatingPrompt, setFloatingPrompt] = useState('');
   const [floatingImageFile, setFloatingImageFile] = useState<File | null>(null);
   const [floatingImagePreview, setFloatingImagePreview] = useState<string | null>(null);
   const floatingImageInputRef = useRef<HTMLInputElement>(null);
 
-  // --- LOADING MESSAGE LOGIC ---
+  useEffect(() => {
+      const { frontProductImage, bulkImages, backProductImage, customAvatarImage, outfitReferenceImage, logoImage, remixReferenceImage, remixProductImage, ...safeParams } = params;
+      localStorage.setItem('krackx_last_params', JSON.stringify(safeParams));
+  }, [params]);
+
+  useEffect(() => {
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+          if (generatedImages.length > 0 && !isSavingDesign) {
+              e.preventDefault();
+              e.returnValue = ''; 
+          }
+      };
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [generatedImages.length, isSavingDesign]);
+
   useEffect(() => {
     if (isLoading || isEditing) {
       const mode = generationModeRef.current;
-      
       const isAdMode = mode === AppMode.AdCreative || mode === AppMode.Banner || mode === AppMode.Youtube;
       const messageSetKey = isAdMode ? AppMode.AdCreative : (mode && LOADING_MESSAGES[mode] ? mode : 'default');
       const messages = LOADING_MESSAGES[messageSetKey];
-      
-      const progress = batchProgress ? (batchProgress.current / batchProgress.total) * 100 : -1; // -1 for single image
-      
+      const progress = batchProgress ? (batchProgress.current / batchProgress.total) * 100 : -1;
       let subtextPool;
       if (progress === -1) {
           subtextPool = messages.subtext.mid;
@@ -256,24 +155,17 @@ const App: React.FC = () => {
       });
 
     } else {
-      // Reset when not loading
       setLoadingMessages({ title: '', subtext: '' });
     }
   }, [isLoading, isEditing, batchProgress]);
 
-  // --- INITIAL DATA FETCH ---
   useEffect(() => {
     const fetchData = async () => {
         try {
-            // Check Session
             const session = await authService.getSession();
-            
             if (session) {
                 setUserProfile(session.user);
                 setUserTier(session.user.tier);
-                
-                // Fetch User Data if logged in AND not a guest
-                // Guest ID 'guest-user-id' is set in LoginPage.tsx
                 if (session.user.id !== 'guest-user-id') {
                     const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
                         userService.getCredits(),
@@ -287,7 +179,6 @@ const App: React.FC = () => {
                     setBrandKit(userBrandKit);
                     setSavedModels(models);
                 } else {
-                    // Initialize Guest Defaults
                     setCredits(25);
                     setTotalCredits(25);
                     setPosterBoard([]);
@@ -297,6 +188,7 @@ const App: React.FC = () => {
             }
         } catch (err) {
             console.error("Failed to fetch initial data", err);
+            setToast({ message: "Network error: Could not load user data.", type: 'error' });
         } finally {
             setIsSessionChecked(true);
         }
@@ -304,7 +196,6 @@ const App: React.FC = () => {
     fetchData();
   }, []);
 
-  // Check for Payment Success/Fail params
   useEffect(() => {
       const urlParams = new URLSearchParams(window.location.search);
       const paymentSuccess = urlParams.get('payment_success');
@@ -312,12 +203,10 @@ const App: React.FC = () => {
 
       if (paymentSuccess) {
           setToast({ message: "Payment Successful! Credits updated.", type: 'success' });
-          // Refresh credits
           userService.getCredits().then(data => {
               setCredits(data.current);
               setTotalCredits(data.total);
           });
-          // Clean URL
           window.history.replaceState({}, document.title, window.location.pathname);
       } else if (paymentCancelled) {
           setToast({ message: "Payment cancelled.", type: 'error' });
@@ -326,13 +215,12 @@ const App: React.FC = () => {
   }, []);
   
   const handleLoginSuccess = useCallback(async (session: AuthSession) => {
-      setIsSidebarOpen(false); // Collapse sidebar on login
-      setCurrentView(View.Dashboard); // Ensure view is dashboard
+      setIsSidebarOpen(false); 
+      setCurrentView(View.Dashboard); 
       setUserProfile(session.user);
       setUserTier(session.user.tier);
       setToast({ message: `Welcome back, ${session.user.name}!`, type: 'success' });
       
-      // Reload user data - Skip if guest
       if (session.user.id !== 'guest-user-id') {
           try {
               const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
@@ -348,6 +236,7 @@ const App: React.FC = () => {
               setSavedModels(models);
           } catch (e) {
               console.error("Failed to load user data after login", e);
+              setToast({ message: "Failed to sync account data. Please refresh.", type: 'error' });
           }
       } else {
           setCredits(25);
@@ -371,7 +260,6 @@ const App: React.FC = () => {
       setToast({ message: "Logged out successfully", type: 'success' });
   }, []);
 
-  // ... (rest of the component)
   const handleRequireAuth = useCallback(() => {
       if (!userProfile || userProfile.id === 'guest-user-id') {
           setIsAuthModalOpen(true);
@@ -388,7 +276,6 @@ const App: React.FC = () => {
       setCurrentView(view);
   }, [userProfile]);
 
-  // Calculate recent activity
   const recentActivity = React.useMemo(() => {
     const allImages = [...generatedImages, ...posterBoard];
     const uniqueImages = Array.from(new Map(allImages.map(img => [img.id, img])).values());
@@ -399,7 +286,7 @@ const App: React.FC = () => {
         .map(img => ({
             id: img.id,
             user: userProfile?.name || 'Guest',
-            action: getActionLabel(img.params?.appMode || AppMode.Product), // Fallback if params undefined
+            action: getActionLabel(img.params?.appMode || AppMode.Product), 
             imageUrl: img.imageUrl,
             timestamp: img.timestamp
         }));
@@ -411,7 +298,6 @@ const App: React.FC = () => {
   
   const handleUpdateProfile = useCallback(async (newProfileData: Partial<UserProfileData>) => {
       if (!userProfile) return;
-      // Optimistic update
       setUserProfile(prev => prev ? ({ ...prev, ...newProfileData }) : null);
       setIsProfileEditModalOpen(false);
       try {
@@ -445,9 +331,7 @@ const App: React.FC = () => {
       setIsBrandKitModalOpen(true);
   }, [handleRequireAuth]);
 
-  // Centralized Error Handler
   const handleApiError = useCallback((err: unknown) => {
-    // Better extraction of error message from complex objects
     let errorMessage = 'An unexpected error occurred.';
     if (err instanceof Error) {
       errorMessage = err.message;
@@ -462,15 +346,16 @@ const App: React.FC = () => {
     if (errorMessage.includes('deploy') || errorMessage.includes('invoke')) {
         setToast({ message: "System initializing. Please ensure functions are deployed.", type: 'error' });
         setError(errorMessage);
-    } else if (errorMessage.includes('403') || errorMessage.includes('permission')) {
-        setToast({ message: "Access denied. Falling back to free model.", type: 'error' });
+    } else if (errorMessage.includes('403') || errorMessage.includes('permission') || errorMessage.includes('API key')) {
+        setToast({ message: "Access denied. Check API Key.", type: 'error' });
+        setError(errorMessage);
     } else {
         setError(errorMessage);
     }
   }, []);
 
   const checkAndDeductCredits = useCallback((cost: number): boolean => {
-      if (isAdmin) return true; // Admins bypass credit check
+      if (isAdmin) return true; 
       
       if (credits >= cost) {
           setCredits(prev => prev - cost);
@@ -490,7 +375,6 @@ const App: React.FC = () => {
       if (isAdmin) return;
       setCredits(prev => prev + amount);
       if (userProfile && userProfile.id !== 'guest-user-id') {
-          // Negative deduction acts as a refund in our service logic
           userService.deductCredits(-amount).catch(e => console.error("Refund failed", e));
       }
   }, [isAdmin, userProfile]);
@@ -498,58 +382,35 @@ const App: React.FC = () => {
 
   const handleSelectMode = useCallback((tool: AppMode) => {
     setLastActiveMode(tool);
-    const prevMode = params.appMode;
     setParams(prev => {
-        let newParams: GenerateImageParams = { ...prev, appMode: tool };
-        
-        // --- CLEANUP STATE WHEN SWITCHING MODES ---
-        // Crucial: Clear all fashion parameters if not in Fashion mode
-        if (tool !== AppMode.Fashion) {
-            newParams.fashionGender = undefined;
-            newParams.fashionShootType = undefined;
-            newParams.fashionCategory = undefined;
-            newParams.fashionSubCategory = undefined;
-            newParams.fashionBodyType = undefined;
-            newParams.fashionAgeBracket = undefined;
-            newParams.regionalStyle = undefined;
-            newParams.modelLockId = undefined;
-        }
-
-        // If leaving Product Mode, reset product specific presets
-        if (prevMode === AppMode.Product && tool !== AppMode.Product) {
-            newParams.productStylePreset = AI_SUGGESTED;
-        }
-        
-        // Clear asset previews if they are not relevant for the new mode
-        if (tool !== AppMode.Remix && (prevMode === AppMode.Remix)) {
+        const updates = getModeConfiguration(tool, prev);
+        if (tool !== AppMode.Remix && prev.appMode === AppMode.Remix) {
             setRemixReferenceImagePreview(null);
             setRemixProductImagePreview(null);
         }
         if (![AppMode.Product, AppMode.Influencer, AppMode.Fashion, AppMode.Festival].includes(tool) && frontProductImagePreview) {
             setFrontProductImagePreview(null);
         }
-
-        // Apply new defaults
-        if (tool === AppMode.Youtube || tool === AppMode.Banner) {
-            newParams.aspectRatios = [AspectRatio.Landscape]; // 16:9
-        }
-        if (tool === AppMode.Fashion) {
-            newParams.productCategory = ProductCategory.Fashion;
-        }
-        if (tool === AppMode.Influencer) {
-            newParams.modelSourceOption = 'new';
-        }
-
-        return newParams;
+        return { ...prev, ...updates };
     });
     setActiveMode(tool);
-  }, [params.appMode, frontProductImagePreview]);
+  }, [frontProductImagePreview]);
   
   const handleParamChange = useCallback((param: keyof GenerateImageParams, value: any) => {
     setParams(prev => ({ ...prev, [param]: value }));
   }, []);
 
   const handleGenerate = useCallback(async (currentParams: GenerateImageParams, previewUrlOverride?: string) => {
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
+
+    if (!navigator.onLine) {
+        setToast({ message: "You are offline. Please check your internet connection.", type: 'error' });
+        setIsLoading(false);
+        isGeneratingRef.current = false;
+        return;
+    }
+
     const cost = calculateGenerationCost(currentParams, userTier);
     const isFreeTier = userTier === 'Free';
     const isStandardGeneration = currentParams.resolutionQuality === ResolutionQuality.Standard;
@@ -557,16 +418,19 @@ const App: React.FC = () => {
     const isFreeTrialGeneration = isFreeTier && isStandardGeneration && cost > 0 && cost <= remainingFree;
 
     if (!isFreeTrialGeneration) {
-        if (!checkAndDeductCredits(cost)) return;
+        if (!checkAndDeductCredits(cost)) {
+            isGeneratingRef.current = false; 
+            return;
+        }
     }
     
     generationModeRef.current = currentParams.appMode;
     setIsLoading(true);
     setBatchProgress(null);
     setError(null);
-    setGeneratedImages([]);
-    setActiveMode(null); // Close the panel on generation
-    setCurrentView(View.Dashboard); // Ensure user sees the results
+    
+    setActiveMode(null); 
+    setCurrentView(View.Dashboard); 
     setIsStoryboardResult(!!currentParams.storyboardScenes && currentParams.storyboardScenes.length > 0);
     
     let modelSeedUrl: string | undefined = undefined;
@@ -585,10 +449,8 @@ const App: React.FC = () => {
       );
       setGeneratedImages(results);
 
-      // If a new model was generated, save it
       if (currentParams.appMode === AppMode.Influencer && currentParams.modelSourceOption === 'new' && results.length > 0) {
           const modelName = `${currentParams.modelGender} Model #${Math.floor(1000 + Math.random() * 9000)}`;
-          // Only save model to DB if real user
           if (userProfile && userProfile.id !== 'guest-user-id') {
               const newModels = await userService.saveModel(modelName, results[0].imageUrl, savedModels);
               setSavedModels(newModels);
@@ -601,12 +463,10 @@ const App: React.FC = () => {
           setToast({ message: `${cost} free generation(s) used. ${remainingFree - cost} remaining.`, type: 'success' });
       }
 
-      setStoryboardSourceImage(null); // Clear storyboard after generation
-      // BUG FIX: Only clear floating bar on success
+      setStoryboardSourceImage(null); 
       setFloatingPrompt('');
       setFloatingImageFile(null);
     } catch (err) {
-      // Refund if generation fails completely
       if (!isFreeTrialGeneration && !isAdmin) {
           refundCredits(cost);
           setToast({ message: "Generation failed. Credits refunded.", type: 'success' });
@@ -615,6 +475,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
       setBatchProgress(null);
+      isGeneratingRef.current = false; 
     }
   }, [userTier, freeGenerationsUsed, frontProductImagePreview, brandKit, handleApiError, checkAndDeductCredits, savedModels, isAdmin, refundCredits, userProfile]);
   
@@ -623,16 +484,14 @@ const App: React.FC = () => {
       setEditingImage(image);
       setEditModalInitialTab(initialMode);
     } else {
-      // If we are starting "Background Removal" mode with no image, create a dummy placeholder
-      // This allows the EditModal to open and show the Upload box instead of the file picker
       if (initialMode === 'background') {
           const dummyImage: GeneratedImage = {
               id: 'new-bg-removal',
-              imageUrl: '', // Empty URL signals "Upload Mode" to EditModal
+              imageUrl: '', 
               caption: 'Background Removal',
               hashtags: '',
               aspectRatio: AspectRatio.Square,
-              params: initialParams,
+              params: INITIAL_GENERATE_PARAMS,
               timestamp: Date.now()
           };
           setEditingImage(dummyImage);
@@ -651,10 +510,8 @@ const App: React.FC = () => {
   const handleApplyEdit = useCallback(async (editParams: EditImageParams) => {
     if (!editingImage) return;
     
-    // Deduct 1 credit for edit
     if (!checkAndDeductCredits(1)) return;
 
-    // Safeguard: Ensure params exists before accessing appMode
     generationModeRef.current = editingImage.params?.appMode || AppMode.Product;
     setIsEditing(true);
     setError(null);
@@ -666,16 +523,15 @@ const App: React.FC = () => {
           : img;
       setGeneratedImages(prev => prev.map(updateImage));
       setPosterBoard(prev => prev.map(updateImage));
-      setEditingImage(null); // Close modal on success
+      setEditingImage(null); 
     } catch (err) {
-      refundCredits(1); // Refund on failure
+      refundCredits(1); 
       handleApiError(err);
     } finally {
       setIsEditing(false);
     }
   }, [editingImage, handleApiError, checkAndDeductCredits, refundCredits]);
 
-  // REFACTORED: Use functional update to avoid stale closures and manage state transitions cleanly
   const handleImageUpdate = useCallback((imageId: string, newImageUrl: string, sourceImageUrl?: string) => {
       setGeneratedImages(prev => prev.map(img => 
           img.id === imageId ? { ...img, imageUrl: newImageUrl } : img
@@ -685,24 +541,18 @@ const App: React.FC = () => {
       ));
       
       setEditingImage(prev => {
-          // Normal case: update current editing image if ID matches
           if (prev && prev.id === imageId) {
                return { ...prev, imageUrl: newImageUrl, sourceProductImageUrl: sourceImageUrl || prev.sourceProductImageUrl };
           }
-          // Special case: Background Remover Flow
-          // If the placeholder ID matches, we need to promote it to a real generated image
           if (prev && imageId === 'new-bg-removal' && prev.id === 'new-bg-removal') {
                const newId = `gen-${Date.now()}`;
                const newImage = { 
                    ...prev, 
                    id: newId, 
                    imageUrl: newImageUrl,
-                   sourceProductImageUrl: sourceImageUrl // Persist the original uploaded image as source
+                   sourceProductImageUrl: sourceImageUrl 
                };
-               
-               // IMPORTANT: Must also add to generatedImages so it persists if modal closes
                setGeneratedImages(g => [newImage, ...g]);
-               
                return newImage;
           }
           return prev;
@@ -712,40 +562,29 @@ const App: React.FC = () => {
   const handleRemoveBackground = useCallback(async () => {
     if (!editingImage) return;
     
-    // Credit Logic: Deduct 1 credit for background removal
     if (!checkAndDeductCredits(1)) return;
 
-    // Safeguard: Ensure params exists before accessing appMode
     generationModeRef.current = editingImage.params?.appMode || AppMode.Product;
     setIsEditing(true);
     try {
         const parts = editingImage.imageUrl.split(',');
-        // Extract base64 and mime type
         let base64 = parts[1];
         let mimeType = 'image/png';
         if (parts[0].includes(';')) {
             mimeType = parts[0].split(':')[1].split(';')[0];
         }
         
-        // Keep a copy of original for "Compare" feature
-        // If image was just uploaded, imageUrl is the original. 
-        // If it's already a result, we might lose original unless we tracked it. 
-        // Since this is usually the first action, imageUrl IS the source.
         const originalSource = editingImage.imageUrl;
-
-        // Ensure base64 string doesn't have headers if they exist in parts[1] (unlikely with split(','))
-        // NOW returns an object { data, mimeType }
         const result = await removeBackground(base64, mimeType);
         
         if (!result.data) throw new Error("Failed to generate background removal result.");
 
-        // Construct using the RETURNED mimeType from the API (e.g. image/png)
         const newImageUrl = `data:${result.mimeType};base64,${result.data}`;
         
         handleImageUpdate(editingImage.id, newImageUrl, originalSource);
         setToast({ message: "Background removed successfully", type: 'success' });
     } catch (err) {
-        refundCredits(1); // Refund on failure
+        refundCredits(1); 
         handleApiError(err);
     } finally {
         setIsEditing(false);
@@ -753,7 +592,7 @@ const App: React.FC = () => {
   }, [editingImage, checkAndDeductCredits, refundCredits, handleApiError, handleImageUpdate]);
 
   const handleGenerateCaption = useCallback(async (imageId: string, captionParams: Omit<GenerateCaptionParams, 'imageUrl' | 'existingCaption'>) => {
-    if (!checkAndDeductCredits(1)) return; // Caption generation costs 1 credit
+    if (!checkAndDeductCredits(1)) return; 
 
     const imageToUpscale = [...generatedImages, ...posterBoard].find(img => img.id === imageId);
     if (!imageToUpscale) return;
@@ -781,7 +620,6 @@ const App: React.FC = () => {
   const addToPosterBoard = useCallback(async (image: GeneratedImage) => {
     if (!handleRequireAuth()) return;
 
-    // --- NEW: Storage Limit Check ---
     const limit = STORAGE_LIMITS[userTier] || 10;
     if (posterBoard.length >= limit) {
         setToast({ message: `Storage full! Free plan is limited to ${limit} designs. Upgrade to save more.`, type: 'error' });
@@ -792,7 +630,6 @@ const App: React.FC = () => {
     if (!posterBoard.some(item => item.id === image.id)) {
       setIsSavingDesign(image.id);
       try {
-          // If Guest, just save to local state
           if (userProfile?.id === 'guest-user-id') {
               setPosterBoard(prev => [image, ...prev]);
               setToast({ message: 'Design saved locally (Guest Mode)', type: 'success' });
@@ -820,7 +657,6 @@ const App: React.FC = () => {
     const originalBoard = [...posterBoard];
     setPosterBoard(prev => prev.filter(item => item.id !== imageId));
     
-    // If Guest, no DB call needed
     if (userProfile?.id === 'guest-user-id') {
         setToast({ message: 'Design removed.', type: 'success' });
         return;
@@ -830,15 +666,14 @@ const App: React.FC = () => {
         await designService.deleteDesign(imageId);
         setToast({ message: 'Design removed.', type: 'success' });
     } catch (e) {
-        setPosterBoard(originalBoard); // Revert on failure
+        setPosterBoard(originalBoard); 
         setToast({ message: 'Failed to delete design.', type: 'error' });
     }
   }, [posterBoard, userProfile]);
 
   const handleSetStoryboardSource = useCallback((image: GeneratedImage) => {
     setStoryboardSourceImage(image);
-    // Safe guard against missing params in older images
-    const mergedParams = { ...initialParams, ...(image.params || {}) };
+    const mergedParams = { ...INITIAL_GENERATE_PARAMS, ...(image.params || {}) };
     setParams(prev => ({...prev, ...mergedParams})); 
     setActiveMode(image.params?.appMode || AppMode.Product); 
   }, []);
@@ -866,7 +701,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleOpenVariantsModal = useCallback(async (field: 'modelPersona' | 'poseSuggestion') => {
-    if (!checkAndDeductCredits(1)) return; // Deduct 1 credit for Idea Generation
+    if (!checkAndDeductCredits(1)) return; 
 
     setQuickVariantsField(field);
     setIsVariantsLoading(true);
@@ -876,7 +711,7 @@ const App: React.FC = () => {
       const suggestions = await generateVariantSuggestions(params.productDescription, field);
       setVariantSuggestions(suggestions);
     } catch (err) {
-      refundCredits(1); // Refund on failure
+      refundCredits(1); 
       setVariantError(err instanceof Error ? err.message : 'An unknown error occurred.');
     } finally {
       setIsVariantsLoading(false);
@@ -902,12 +737,17 @@ const App: React.FC = () => {
               productCategory: detectedCategory,
               detectedCategory: detectedCategory,
           }));
-      } catch (error) {
+      } catch (error: any) {
           console.error("Error detecting product category:", error);
-          setError(error instanceof Error ? error.message : 'Failed to detect product category.');
-          setParams(prev => ({ ...prev, productCategory: ProductCategory.Generic, detectedCategory: undefined })); // Fallback
+          const msg = error.message || 'Unknown error';
+          if (msg.includes('403') || msg.includes('401') || msg.includes('API key')) {
+              setToast({ message: "API Error: Please check your API key configuration.", type: 'error' });
+          } else if (msg.includes('429')) {
+              setToast({ message: "Rate limit reached. Please wait a moment.", type: 'error' });
+          }
+          setParams(prev => ({ ...prev, productCategory: ProductCategory.Generic, detectedCategory: undefined }));
       }
-  }, 500), []); // 500ms debounce
+  }, 500), []); 
 
   const handleFileChange = useCallback(async (
     file: File | null,
@@ -930,9 +770,9 @@ const App: React.FC = () => {
             previewSetter(previewUrl);
 
             if (paramName === 'frontProductImage') {
-                frontProductImageRef.current = processedFile; // Store the actual file
+                frontProductImageRef.current = processedFile; 
                 const base64 = await fileToBase64(processedFile);
-                frontProductImageBase64Ref.current = base64; // Store base64 for later use
+                frontProductImageBase64Ref.current = base64; 
                 debouncedDetectProductCategory(base64, processedFile.type, params.productDescription);
                 
                 setParams(prev => ({
@@ -1029,7 +869,6 @@ const App: React.FC = () => {
     }
   }, []);
   
-  // --- Floating Action Bar Logic ---
   useEffect(() => {
       if (!floatingImageFile) {
         if (floatingImagePreview) URL.revokeObjectURL(floatingImagePreview);
@@ -1062,8 +901,15 @@ const App: React.FC = () => {
   }, []);
 
   const handleFloatingGenerate = useCallback(() => {
+      if (isGeneratingRef.current) return;
+      
+      if (!isOnline) {
+          setToast({ message: "You are offline. Please check your internet connection.", type: 'error' });
+          return;
+      }
+
       const generationParams: GenerateImageParams = {
-          ...initialParams,
+          ...INITIAL_GENERATE_PARAMS,
           appMode: AppMode.Influencer,
           productDescription: floatingPrompt,
           frontProductImage: floatingImageFile ?? undefined,
@@ -1072,7 +918,7 @@ const App: React.FC = () => {
           resolutionQuality: params.resolutionQuality,
       };
       handleGenerate(generationParams, floatingImagePreview ?? undefined);
-  }, [floatingPrompt, floatingImageFile, params, handleGenerate, floatingImagePreview]);
+  }, [floatingPrompt, floatingImageFile, params, handleGenerate, floatingImagePreview, isOnline]);
 
   const handleReturnToSettings = useCallback(() => {
     setGeneratedImages([]);
@@ -1128,7 +974,7 @@ const App: React.FC = () => {
             );
         case View.Dashboard:
         default:
-             if (generatedImages.length > 0) {
+             if (generatedImages.length > 0 || isLoading || error) {
               return (
                 <MainContent
                   params={params}
@@ -1189,209 +1035,217 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="relative w-screen h-screen bg-main font-sans flex overflow-hidden">
-        {toast && (
-            <Toast 
-                message={toast.message} 
-                type={toast.type} 
-                onClose={() => setToast(null)} 
-            />
+    <ErrorBoundary>
+        {!isOnline && (
+            <div className="fixed top-0 left-0 w-full bg-red-500 text-white text-center py-1 text-sm z-[100] font-medium shadow-md">
+                You are offline. Features may be limited.
+            </div>
         )}
         
-        {isSidebarOpen && (
-            <div 
-                className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-                onClick={() => setIsSidebarOpen(false)}
-                aria-hidden="true"
-            />
+        <div className="relative w-screen h-screen bg-main font-sans flex overflow-hidden">
+            {toast && (
+                <Toast 
+                    message={toast.message} 
+                    type={toast.type} 
+                    onClose={() => setToast(null)} 
+                />
+            )}
+            
+            {isSidebarOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                    aria-hidden="true"
+                />
+            )}
+        {(isLoading || isEditing || isSavingDesign) && (
+            <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-60">
+            <Spinner />
+            <p className="text-white mt-4 text-lg text-center px-4">
+                { isSavingDesign
+                    ? 'Saving Design...'
+                    : (batchProgress ? `${loadingMessages.title} (${batchProgress.current}/${batchProgress.total})` : loadingMessages.title)
+                }
+            </p>
+            {batchProgress && !isSavingDesign && !isEditing && (
+                <div className="w-64 h-2 bg-slate-700 rounded-full mt-4 overflow-hidden">
+                    <div 
+                        className="h-full transition-all duration-300 bg-gradient-to-r from-cyan-400 to-primary relative overflow-hidden"
+                        style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                    >
+                        <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full"></div>
+                    </div>
+                </div>
+            )}
+            <p className="text-slate-400 mt-2 text-sm text-center px-4">
+                { isSavingDesign
+                ? 'Uploading high-resolution assets to storage.'
+                : loadingMessages.subtext
+                }
+            </p>
+            </div>
         )}
-      {/* BUG FIX: Global overlay no longer shows for upscaling */}
-      {(isLoading || isEditing || isSavingDesign) && (
-        <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-[60]">
-          <Spinner />
-          <p className="text-white mt-4 text-lg text-center px-4">
-            { isSavingDesign
-                ? 'Saving Design...'
-                : (batchProgress ? `${loadingMessages.title} (${batchProgress.current}/${batchProgress.total})` : loadingMessages.title)
-            }
-          </p>
-          {batchProgress && !isSavingDesign && !isEditing && (
-              <div className="w-64 h-2 bg-slate-700 rounded-full mt-4 overflow-hidden">
-                  <div 
-                    className="h-full transition-all duration-300 bg-gradient-to-r from-cyan-400 to-primary relative overflow-hidden"
-                    style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
-                  >
-                    <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full"></div>
-                  </div>
-              </div>
-          )}
-          <p className="text-slate-400 mt-2 text-sm text-center px-4">
-            { isSavingDesign
-              ? 'Uploading high-resolution assets to storage.'
-              : loadingMessages.subtext
-            }
-          </p>
-        </div>
-      )}
-      
-      <input
-        type="file"
-        ref={imageEditInputRef}
-        className="hidden"
-        accept="image/*"
-        onChange={handleImageEditFileChange}
-      />
-      <input
-        type="file"
-        ref={floatingImageInputRef}
-        className="hidden"
-        accept="image/*"
-        onChange={handleFloatingImageFileChange}
-       />
-      
-      <DashboardSidebar 
-        onSelectMode={handleSelectMode} 
-        onSetView={handleSetView}
-        onStartImageEdit={() => handleStartEdit(undefined, 'background')}
-        currentView={currentView}
-        isOpen={isSidebarOpen}
-        onOpen={() => setIsSidebarOpen(true)}
-        onClose={() => setIsSidebarOpen(false)}
-        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-        onOpenContentGenerator={handleOpenContentGeneratorModal}
-        onOpenSupport={handleOpenSupportModal}
-        onOpenBrandKit={handleOpenBrandKitModal}
-        isAdmin={isAdmin}
-        onToggleAdmin={() => setIsAdmin(!isAdmin)}
-        user={userProfile}
-        onLogin={() => setIsAuthModalOpen(true)}
-        onLogout={handleLogout}
-      />
-
-      <main className="flex-1 flex flex-col overflow-hidden lg:ml-[92px]">
-        {renderCurrentView()}
-      </main>
-
-      {activeMode && (
-        <CreativeModal
-          mode={activeMode}
-          onClose={() => setActiveMode(null)}
-          params={params}
-          onParamsChange={setParams}
-          onGenerate={handleGenerate}
-          isLoading={isLoading}
-          storyboardSourceImage={storyboardSourceImage}
-          onClearStoryboardSource={handleClearStoryboardSource}
-          onFileChange={handleFileChange}
-          frontProductImagePreview={frontProductImagePreview}
-          setFrontProductImagePreview={setFrontProductImagePreview}
-          remixReferenceImagePreview={remixReferenceImagePreview}
-          setRemixReferenceImagePreview={setRemixReferenceImagePreview}
-          remixProductImagePreview={remixProductImagePreview}
-          setRemixProductImagePreview={setRemixProductImagePreview}
-          onGenerateVariants={handleOpenVariantsModal}
-          userTier={userTier}
-          onOpenPricingModal={handleOpenPricingModal}
-          freeGenerationsUsed={freeGenerationsUsed}
-          savedModels={savedModels}
+        
+        <input
+            type="file"
+            ref={imageEditInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={handleImageEditFileChange}
         />
-      )}
-      
-      <Suspense fallback={null}>
-        {isAuthModalOpen && (
-            <AuthModal 
-                onClose={() => setIsAuthModalOpen(false)} 
-                onLoginSuccess={handleLoginSuccess}
-            />
-        )}
-
-        {editingImage && (
-          <EditModal 
-            image={editingImage}
-            onClose={handleCloseEdit}
-            onApplyEdit={handleApplyEdit}
-            onRemoveBackground={handleRemoveBackground}
-            onImageUpdate={handleImageUpdate}
-            isEditing={isEditing}
-            initialTab={editModalInitialTab}
-          />
-        )}
-
-        {zoomedImage && (
-          <ZoomModal 
-            image={zoomedImage}
-            onClose={handleClearZoomedImage}
-          />
-        )}
-
-        {isDeployModalOpen && (
-          <DeployModal 
-            images={posterBoard}
-            onClose={handleCloseDeployModal}
-          />
-        )}
-
-        {abTestModalImage && (
-            <ABTestModal
-                image={abTestModalImage}
-                onClose={() => setAbTestModalImage(null)}
-                onGenerate={() => { }}
-                onApiError={() => refundCredits(2)}
-            />
-        )}
-
-        {quickVariantsField && (
-          <QuickVariantsModal
-            field={quickVariantsField}
-            isLoading={isVariantsLoading}
-            suggestions={variantSuggestions}
-            error={variantError}
-            onClose={() => setQuickVariantsField(null)}
-            onSelect={handleSelectVariant}
-          />
-        )}
-
-        {isFeedbackModalOpen && (
-          <FeedbackModal onClose={handleCloseFeedbackModal} />
-        )}
-
-        {isPricingModalOpen && (
-          <PricingModal onClose={handleClosePricingModal} />
-        )}
+        <input
+            type="file"
+            ref={floatingImageInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={handleFloatingImageFileChange}
+        />
         
-        {isSupportModalOpen && (
-          <SupportModal onClose={handleCloseSupportModal} />
-        )}
-        
-        {isProfileEditModalOpen && userProfile && (
-          <ProfileEditModal
+        <DashboardSidebar 
+            onSelectMode={handleSelectMode} 
+            onSetView={handleSetView}
+            onStartImageEdit={() => handleStartEdit(undefined, 'background')}
+            currentView={currentView}
+            isOpen={isSidebarOpen}
+            onOpen={() => setIsSidebarOpen(true)}
+            onClose={() => setIsSidebarOpen(false)}
+            onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+            onOpenContentGenerator={handleOpenContentGeneratorModal}
+            onOpenSupport={handleOpenSupportModal}
+            onOpenBrandKit={handleOpenBrandKitModal}
+            isAdmin={isAdmin}
+            onToggleAdmin={() => setIsAdmin(!isAdmin)}
             user={userProfile}
-            onClose={handleCloseProfileEditModal}
-            onSave={handleUpdateProfile}
-          />
-        )}
+            onLogin={() => setIsAuthModalOpen(true)}
+            onLogout={handleLogout}
+        />
 
-        {isContentGeneratorModalOpen && (
-          <ContentGenerator 
-            onClose={handleCloseContentGeneratorModal} 
-            onDeductCredits={checkAndDeductCredits}
-            onRefundCredits={refundCredits}
-            userId={userProfile?.id}
-          />
-        )}
+        <main className="flex-1 flex flex-col overflow-hidden lg:ml-[92px]">
+            {renderCurrentView()}
+        </main>
 
-        {isBrandKitModalOpen && (
-          <BrandKitModal 
-            initialKit={brandKit}
-            onClose={() => setIsBrandKitModalOpen(false)}
-            onSave={(newKit) => {
-              setBrandKit(newKit);
-              setToast({ message: "Brand identity updated and persisted!", type: "success" });
-            }}
-          />
+        {activeMode && (
+            <CreativeModal
+            key={activeMode} 
+            mode={activeMode}
+            onClose={() => setActiveMode(null)}
+            params={params}
+            onParamsChange={setParams}
+            onGenerate={handleGenerate}
+            isLoading={isLoading}
+            storyboardSourceImage={storyboardSourceImage}
+            onClearStoryboardSource={handleClearStoryboardSource}
+            onFileChange={handleFileChange}
+            frontProductImagePreview={frontProductImagePreview}
+            setFrontProductImagePreview={setFrontProductImagePreview}
+            remixReferenceImagePreview={remixReferenceImagePreview}
+            setRemixReferenceImagePreview={setRemixReferenceImagePreview}
+            remixProductImagePreview={remixProductImagePreview}
+            setRemixProductImagePreview={setRemixProductImagePreview}
+            onGenerateVariants={handleOpenVariantsModal}
+            userTier={userTier}
+            onOpenPricingModal={handleOpenPricingModal}
+            freeGenerationsUsed={freeGenerationsUsed}
+            savedModels={savedModels}
+            />
         )}
-      </Suspense>
-    </div>
+        
+        <Suspense fallback={null}>
+            {isAuthModalOpen && (
+                <AuthModal 
+                    onClose={() => setIsAuthModalOpen(false)} 
+                    onLoginSuccess={handleLoginSuccess}
+                />
+            )}
+
+            {editingImage && (
+            <EditModal 
+                image={editingImage}
+                onClose={handleCloseEdit}
+                onApplyEdit={handleApplyEdit}
+                onRemoveBackground={handleRemoveBackground}
+                onImageUpdate={handleImageUpdate}
+                isEditing={isEditing}
+                initialTab={editModalInitialTab}
+            />
+            )}
+
+            {zoomedImage && (
+            <ZoomModal 
+                image={zoomedImage}
+                onClose={handleClearZoomedImage}
+            />
+            )}
+
+            {isDeployModalOpen && (
+            <DeployModal 
+                images={posterBoard}
+                onClose={handleCloseDeployModal}
+            />
+            )}
+
+            {abTestModalImage && (
+                <ABTestModal
+                    image={abTestModalImage}
+                    onClose={() => setAbTestModalImage(null)}
+                    onGenerate={() => { }}
+                    onApiError={() => refundCredits(2)}
+                />
+            )}
+
+            {quickVariantsField && (
+            <QuickVariantsModal
+                field={quickVariantsField}
+                isLoading={isVariantsLoading}
+                suggestions={variantSuggestions}
+                error={variantError}
+                onClose={() => setQuickVariantsField(null)}
+                onSelect={handleSelectVariant}
+            />
+            )}
+
+            {isFeedbackModalOpen && (
+            <FeedbackModal onClose={handleCloseFeedbackModal} />
+            )}
+
+            {isPricingModalOpen && (
+            <PricingModal onClose={handleClosePricingModal} />
+            )}
+            
+            {isSupportModalOpen && (
+            <SupportModal onClose={handleCloseSupportModal} />
+            )}
+            
+            {isProfileEditModalOpen && userProfile && (
+            <ProfileEditModal
+                user={userProfile}
+                onClose={handleCloseProfileEditModal}
+                onSave={handleUpdateProfile}
+            />
+            )}
+
+            {isContentGeneratorModalOpen && (
+            <ContentGenerator 
+                onClose={handleCloseContentGeneratorModal} 
+                onDeductCredits={checkAndDeductCredits}
+                onRefundCredits={refundCredits}
+                userId={userProfile?.id}
+            />
+            )}
+
+            {isBrandKitModalOpen && (
+            <BrandKitModal 
+                initialKit={brandKit}
+                onClose={() => setIsBrandKitModalOpen(false)}
+                onSave={(newKit) => {
+                setBrandKit(newKit);
+                setToast({ message: "Brand identity updated and persisted!", type: "success" });
+                }}
+            />
+            )}
+        </Suspense>
+        </div>
+    </ErrorBoundary>
   );
 };
 

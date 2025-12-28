@@ -5,10 +5,11 @@ import { Button } from './ui/Button';
 import { FormInput, FormTextArea } from './ui/Form';
 import { Select } from './ui/Select';
 import { ImageDropzone } from './ui/ImageDropzone';
-import { storageService } from '../services/storageService';
-import { brandService } from '../services/brandService';
+import { storage } from '../services/storage';
+import { brand } from '../services/brand';
 import type { BrandKit } from '../types';
-import { processImageFile } from '../imageUtils';
+import { processImageFile } from '../utils/images';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 interface BrandKitModalProps {
   onClose: () => void;
@@ -81,6 +82,7 @@ const GOOGLE_FONTS_LIBRARY = {
 };
 
 const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialKit }) => {
+  const isOnline = useNetworkStatus();
   const [loading, setLoading] = useState(false);
   const [kit, setKit] = useState<BrandKit>(initialKit || {
     brandName: '',
@@ -116,13 +118,17 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
 
 
   const handleSave = async () => {
+    if (!isOnline) {
+        alert("You must be online to save your Brand Kit.");
+        return;
+    }
     setLoading(true);
     try {
       let finalLogoUrl = kit.logoUrl;
       if (logoFile) {
         try {
             const fileName = `brand/logo-${Date.now()}.png`;
-            finalLogoUrl = await storageService.uploadImage(logoFile, fileName);
+            finalLogoUrl = await storage.uploadImage(logoFile, fileName);
         } catch (storageError) {
             console.warn("Storage service failed, using local blob URL for logo.", storageError);
             finalLogoUrl = logoPreview || undefined;
@@ -131,7 +137,7 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
       const updatedKit = { ...kit, logoUrl: finalLogoUrl };
       
       try {
-        const savedKit = await brandService.saveBrandKit(updatedKit);
+        const savedKit = await brand.saveBrandKit(updatedKit);
         onSave(savedKit);
       } catch (dbError) {
         console.warn("Database service failed, saving to app state only.", dbError);
@@ -159,8 +165,10 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
     setKit({ ...kit, voice: newVoices.join(', ') });
   };
 
+  const isValid = kit.brandName.trim() !== '';
+
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-4 lg:p-8" onClick={onClose}>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[80] flex items-center justify-center p-4 lg:p-8" onClick={onClose}>
       <div 
         className="bg-white w-full max-w-4xl h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in-scale-up"
         onClick={e => e.stopPropagation()}
@@ -277,8 +285,8 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
 
         <footer className="px-6 py-4 flex-shrink-0 flex justify-end items-center border-t border-slate-100 bg-white space-x-3">
           <Button variant="secondary" onClick={onClose} className="!text-sm">Cancel</Button>
-          <Button onClick={handleSave} isLoading={loading} className="!text-sm shadow-lg shadow-primary/20">
-            {loading ? 'Saving...' : 'Save Brand Identity'}
+          <Button onClick={handleSave} disabled={!isOnline || loading || !isValid} isLoading={loading} className="!text-sm shadow-lg shadow-primary/20">
+            {isOnline ? (loading ? 'Saving...' : 'Save Brand Identity') : 'Offline'}
           </Button>
         </footer>
       </div>

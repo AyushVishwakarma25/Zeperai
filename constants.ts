@@ -1,8 +1,43 @@
 
-import { AspectRatio, ModelGender, StylePreset, SkinTone, ClothingType, AppMode, OutputFormat, AdLayout, ResolutionQuality, ProductCategory, MarketplacePreset, CaptionTone, FashionGender, ModelPersona, ProProductStyleCategory } from './types';
+import { AspectRatio, ModelGender, StylePreset, SkinTone, ClothingType, AppMode, OutputFormat, AdLayout, ResolutionQuality, ProductCategory, MarketplacePreset, CaptionTone, FashionGender, ModelPersona, ProProductStyleCategory, GenerateImageParams, OutfitChoice } from './types';
 
 export const AI_SUGGESTED = 'AI Suggested';
 export const FREE_TRIAL_LIMIT = 8;
+
+export const INITIAL_GENERATE_PARAMS: GenerateImageParams = {
+  appMode: AppMode.Influencer,
+  productDescription: '',
+  aspectRatios: [AspectRatio.PortraitPost],
+  outputFormat: OutputFormat.JPEG,
+  resolutionQuality: ResolutionQuality.Standard,
+  selectedAngles: ['Front View'],
+  productStylePreset: AI_SUGGESTED,
+  backdropAndProps: AI_SUGGESTED,
+  textPlacementSuggestion: AI_SUGGESTED,
+  overlayText: '',
+  fontStyle: AI_SUGGESTED,
+  isBold: false,
+  isItalic: false,
+  isUnderlined: false,
+  productCategory: ProductCategory.Generic,
+  modelGender: ModelGender.Female,
+  modelPersona: AI_SUGGESTED,
+  skinTone: SkinTone.Medium,
+  clothingType: ClothingType.AISuggested,
+  outfitChoice: OutfitChoice.AI,
+  stylePreset: StylePreset.AISuggested,
+  poseSuggestion: AI_SUGGESTED,
+  backgroundStyle: AI_SUGGESTED,
+  adLayout: AdLayout.TextRightImageLeft,
+  adTitle: '',
+  adSubheading: '',
+  adFeatures: '',
+  adCta: '',
+  adAvailability: '',
+  remixReferenceImage: undefined,
+  remixProductImage: undefined,
+  modelSourceOption: 'new',
+};
 
 export const STORAGE_LIMITS: Record<string, number> = {
   'Free': 10,
