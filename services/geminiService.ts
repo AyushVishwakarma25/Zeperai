@@ -4,6 +4,9 @@ import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS } from '../constants';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis } from '../types';
 import { AspectRatio, AppMode, MarketplacePreset, FashionGender, FashionShootType, FashionBodyType, FashionAgeBracket, RegionalStyle, ProductCategory, ResolutionQuality } from '../types';
 
+// Helper to pause execution
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 const getAI = () => {
     // Priority: 1. Vite Env (Browser Standard), 2. Process Env (Defined in vite.config.ts)
     const apiKey = import.meta.env.VITE_API_KEY || process.env.API_KEY;
@@ -187,7 +190,8 @@ const generateSingleImage = async (
     activeImage?: File, 
     pose?: string, 
     sourceProductImageUrl?: string, 
-    modelSeedUrl?: string
+    modelSeedUrl?: string,
+    retryCount: number = 0
 ): Promise<GeneratedImage> => {
     const ai = getAI();
     const contents = await buildPromptParts(params, brandKit, activeImage, pose, modelSeedUrl);
@@ -218,47 +222,60 @@ const generateSingleImage = async (
         config.imageConfig.imageSize = '2K'; 
     }
 
-    const response = await ai.models.generateContent({
-        model: modelName,
-        contents: { parts: contents },
-        config: config,
-    });
+    try {
+        const response = await ai.models.generateContent({
+            model: modelName,
+            contents: { parts: contents },
+            config: config,
+        });
 
-    let imageUrl = '';
-    const candidate = response.candidates?.[0];
-    const outParts = candidate?.content?.parts || [];
-    
-    for (const part of outParts) {
-        if (part.inlineData) {
-            imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-            break;
-        }
-    }
-    
-    if (!imageUrl) {
-        // Attempt to extract refusal message or safety reason for better debugging
-        const textPart = outParts.find(p => p.text)?.text;
-        if (textPart) {
-            throw new Error(`AI Model Refusal: ${textPart}`);
+        let imageUrl = '';
+        const candidate = response.candidates?.[0];
+        const outParts = candidate?.content?.parts || [];
+        
+        for (const part of outParts) {
+            if (part.inlineData) {
+                imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                break;
+            }
         }
         
-        if (candidate?.finishReason) {
-             throw new Error(`Generation stopped. Reason: ${candidate.finishReason}. This usually means the input image violated safety policies.`);
+        if (!imageUrl) {
+            // Attempt to extract refusal message or safety reason for better debugging
+            const textPart = outParts.find(p => p.text)?.text;
+            if (textPart) {
+                throw new Error(`AI Model Refusal: ${textPart}`);
+            }
+            
+            if (candidate?.finishReason) {
+                 throw new Error(`Generation stopped. Reason: ${candidate.finishReason}. This usually means the input image violated safety policies.`);
+            }
+
+            throw new Error("AI pipeline error: No image returned. Try a different prompt or image.");
         }
 
-        throw new Error("AI pipeline error: No image returned. Try a different prompt or image.");
+        return {
+            id: `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            imageUrl,
+            caption: pose || params.fashionSubCategory || "Creative Variation",
+            hashtags: "",
+            aspectRatio: aspectRatio,
+            params,
+            sourceProductImageUrl,
+            timestamp: Date.now(),
+        };
+    } catch (error: any) {
+        // --- RETRY LOGIC FOR 429 TOO MANY REQUESTS ---
+        const isRateLimitError = error.message?.includes('429') || error.status === 429 || error.response?.status === 429;
+        
+        if (isRateLimitError && retryCount < 3) {
+            const delayTime = (retryCount + 1) * 3000; // 3s, 6s, 9s backoff
+            console.warn(`Rate limit hit (429). Retrying in ${delayTime}ms... (Attempt ${retryCount + 1}/3)`);
+            await wait(delayTime);
+            return generateSingleImage(params, aspectRatio, userTier, brandKit, activeImage, pose, sourceProductImageUrl, modelSeedUrl, retryCount + 1);
+        }
+        throw error;
     }
-
-    return {
-        id: `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        imageUrl,
-        caption: pose || params.fashionSubCategory || "Creative Variation",
-        hashtags: "",
-        aspectRatio: aspectRatio,
-        params,
-        sourceProductImageUrl,
-        timestamp: Date.now(),
-    };
 };
 
 export const generateImages = async (
@@ -283,15 +300,12 @@ export const generateImages = async (
     else if (userTier === 'Standard') maxAllowedBatch = 4;
     else maxAllowedBatch = 1;
 
-    // Special allowance for Fashion mode on lower tiers to make it usable, 
-    // but capping at 4 even for Starter if logic demands, currently defaulting strict structure.
     const effectiveBatchSize = Math.min(requestedBatchSize, maxAllowedBatch);
 
     const getJobCount = () => {
         if (params.appMode === AppMode.Fashion) return effectiveBatchSize;
         if (params.appMode === AppMode.Bulk && params.bulkImages) return params.bulkImages.length; 
         if (params.appMode === AppMode.Product) {
-             // Calculate effective angles based on tier limit
              let allowedAnglesCount = 1;
              if (userTier === 'Standard') allowedAnglesCount = 4;
              if (userTier === 'Agency') allowedAnglesCount = 10;
@@ -312,33 +326,34 @@ export const generateImages = async (
                 if (onProgress) onProgress(progressCounter, totalGenerations);
                 const img = await generateSingleImage(params, aspectRatio, userTier, brandKit, undefined, poses[i], sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
+                // THROTTLE: Add 2s delay between requests to respect rate limits
+                if (i < effectiveBatchSize - 1) await wait(2000); 
             }
         } else if (params.appMode === AppMode.Bulk && params.bulkImages) {
-            // Bulk limits usually handled by UI but good to cap here too
             const limit = Math.min(params.bulkImages.length, userTier === 'Agency' ? 50 : (userTier === 'Standard' ? 10 : 1));
             for (let i = 0; i < limit; i++) {
                 progressCounter++;
                 if (onProgress) onProgress(progressCounter, totalGenerations);
                 const img = await generateSingleImage(params, aspectRatio, userTier, brandKit, params.bulkImages[i], undefined, sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
+                await wait(2000); 
             }
         } else if (params.appMode === AppMode.Product) {
-             // Enforce Product Mode Angle Limits
              let allowedAnglesCount = 1;
              if (userTier === 'Standard') allowedAnglesCount = 4;
              if (userTier === 'Agency') allowedAnglesCount = 10;
              
              let angles = params.selectedAngles.length > 0 ? params.selectedAngles : ['Front View'];
-             // Silently slice to the allowed limit to prevent backend overload/abuse
              if (angles.length > allowedAnglesCount) {
                  angles = angles.slice(0, allowedAnglesCount);
              }
 
-             for (const angle of angles) {
+             for (let i = 0; i < angles.length; i++) {
                 progressCounter++;
                 if (onProgress) onProgress(progressCounter, totalGenerations);
-                const img = await generateSingleImage(params, aspectRatio, userTier, brandKit, undefined, angle, sourceProductImageUrl, modelSeedUrl);
+                const img = await generateSingleImage(params, aspectRatio, userTier, brandKit, undefined, angles[i], sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
+                await wait(2000);
              }
         } else {
             for (let i = 0; i < effectiveBatchSize; i++) {
@@ -346,6 +361,7 @@ export const generateImages = async (
                 if (onProgress) onProgress(progressCounter, totalGenerations);
                 const img = await generateSingleImage(params, aspectRatio, userTier, brandKit, undefined, undefined, sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
+                await wait(2000);
             }
         }
     }
