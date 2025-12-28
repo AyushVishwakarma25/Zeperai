@@ -147,6 +147,17 @@ create policy "Users can update own images"
 create policy "Users can delete own images"
   on storage.objects for delete
   using ( bucket_id = 'designs' and auth.uid() = owner );
+
+-- 11. BACKFILL EXISTING USERS (Crucial for connection)
+insert into public.profiles (id, email, name, avatar_url)
+select id, email, raw_user_meta_data->>'name', raw_user_meta_data->>'avatar_url'
+from auth.users
+where id not in (select id from public.profiles);
+
+insert into public.user_credits (user_id, current_balance, total_quota)
+select id, 25, 25
+from public.profiles
+where id not in (select user_id from public.user_credits);
 `;
 
 interface LoginPageProps {

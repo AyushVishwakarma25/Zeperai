@@ -355,7 +355,7 @@ export enum RewriteAction {
   Luxury = 'Luxury',
   Simplify = 'Simplify',
   AddHashtags = 'AddHashtags',
-  Translate = 'Translate',
+  // Translate removed
 }
 
 export interface RewriteCopyParams {

@@ -31,23 +31,30 @@ interface ResultCardProps {
     copy: CopyVariation,
     index: number,
     onRewrite: (index: number, params: RewriteCopyParams) => void,
-    supportedLanguages: {label: string, value: string}[],
 }
 
 const RewriteButton: React.FC<{icon: string, label: string, onClick: () => void}> = ({ icon, label, onClick }) => (
-    <button onClick={onClick} title={label} className="flex items-center space-x-1.5 px-2 py-1 text-xs text-slate-500 rounded-md hover:bg-slate-200 hover:text-primary transition-colors">
+    <button 
+        onClick={onClick} 
+        title={label} 
+        className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all shadow-sm"
+    >
         <Icon name={icon} className="w-3.5 h-3.5" />
         <span>{label}</span>
     </button>
 );
 
+const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 select-none">
+        {children}
+    </span>
+);
 
-const ResultCard: React.FC<ResultCardProps> = ({ copy, index, onRewrite, supportedLanguages }) => {
+const ResultCard: React.FC<ResultCardProps> = ({ copy, index, onRewrite }) => {
     const [copied, setCopied] = useState(false);
-    const [translateLang, setTranslateLang] = useState('Hindi');
 
     const handleCopy = useCallback(() => {
-        const textToCopy = `Headline: ${copy.headline}\n\nBody: ${copy.body}\n\nCTA: ${copy.cta}${copy.hashtags ? `\n\nHashtags: ${copy.hashtags}` : ''}`;
+        const textToCopy = `${copy.headline}\n\n${copy.body}\n\n${copy.cta}${copy.hashtags ? `\n\n${copy.hashtags}` : ''}`;
         navigator.clipboard.writeText(textToCopy).then(() => {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
@@ -57,42 +64,65 @@ const ResultCard: React.FC<ResultCardProps> = ({ copy, index, onRewrite, support
     const createRewriteParams = (action: RewriteAction): RewriteCopyParams => ({
         copy: { headline: copy.headline, body: copy.body, cta: copy.cta, hashtags: copy.hashtags },
         action,
-        language: action === RewriteAction.Translate ? translateLang : undefined,
     });
 
     return (
-        <div className={`bg-white p-4 rounded-xl border border-border-light relative transition-shadow hover:shadow-md ${copy.isRewriting ? 'opacity-50' : ''}`}>
+        <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden group ${copy.isRewriting ? 'opacity-70 pointer-events-none' : ''}`}>
             {copy.isRewriting && (
-                <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-xl z-10">
-                    <Spinner />
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center z-20">
+                    <div className="bg-white p-2 rounded-full shadow-lg">
+                        <Spinner />
+                    </div>
                 </div>
             )}
-            <button
-                onClick={handleCopy}
-                className="absolute top-3 right-3 p-1.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-primary transition-colors"
-                title="Copy content"
-            >
-                <Icon name={copied ? 'check-circle' : 'copy'} className="w-4 h-4" />
-            </button>
-            <h4 className="font-bold text-text-primary pr-8">{copy.headline}</h4>
-            <p className="text-sm text-text-secondary my-2">{copy.body}</p>
-            <p className="text-sm font-semibold text-primary">{copy.cta}</p>
-            {copy.hashtags && <p className="text-xs text-slate-400 mt-3">{copy.hashtags}</p>}
+            
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-100">
+                <span className="text-xs font-bold text-slate-500 bg-slate-200/50 px-2 py-1 rounded-md">
+                    Variation #{index + 1}
+                </span>
+                <button
+                    onClick={handleCopy}
+                    className={`p-1.5 rounded-lg transition-colors flex items-center gap-2 text-xs font-semibold ${copied ? 'bg-green-100 text-green-700' : 'text-slate-500 hover:bg-white hover:text-primary'}`}
+                    title="Copy content"
+                >
+                    <Icon name={copied ? 'check-circle' : 'copy'} className="w-4 h-4" />
+                    {copied ? 'Copied' : 'Copy'}
+                </button>
+            </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
+            {/* Content Body */}
+            <div className="p-6 space-y-5">
+                <div>
+                    <SectionLabel>Headline</SectionLabel>
+                    <h4 className="text-lg font-bold text-slate-800 leading-snug">{copy.headline}</h4>
+                </div>
+                
+                <div>
+                    <SectionLabel>Caption Body</SectionLabel>
+                    <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{copy.body}</p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <SectionLabel>Call to Action</SectionLabel>
+                        <p className="text-sm font-semibold text-primary">{copy.cta}</p>
+                    </div>
+                    {copy.hashtags && (
+                        <div className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <SectionLabel>Hashtags</SectionLabel>
+                            <p className="text-xs text-blue-500 font-medium leading-relaxed">{copy.hashtags}</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Action Footer */}
+            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-start gap-2">
                 <RewriteButton icon="compress" label="Shorter" onClick={() => onRewrite(index, createRewriteParams(RewriteAction.Shorter))} />
                 <RewriteButton icon="laugh" label="Humor" onClick={() => onRewrite(index, createRewriteParams(RewriteAction.Humor))} />
                 <RewriteButton icon="gem" label="Luxury" onClick={() => onRewrite(index, createRewriteParams(RewriteAction.Luxury))} />
                 <RewriteButton icon="feather" label="Simplify" onClick={() => onRewrite(index, createRewriteParams(RewriteAction.Simplify))} />
-                {!copy.hashtags && <RewriteButton icon="hashtag" label="Hashtags" onClick={() => onRewrite(index, createRewriteParams(RewriteAction.AddHashtags))} />}
-                <div className="flex items-center space-x-1 pl-2 border-l border-slate-200">
-                    <RewriteButton icon="translate" label="Translate" onClick={() => onRewrite(index, createRewriteParams(RewriteAction.Translate))} />
-                    <select value={translateLang} onChange={e => setTranslateLang(e.target.value)} className="bg-slate-100 text-xs rounded p-0.5 border-none focus:ring-0">
-                        {supportedLanguages.filter(l => l.value !== 'English').map(lang => (
-                             <option key={lang.value} value={lang.value}>{lang.label}</option>
-                        ))}
-                    </select>
-                </div>
             </div>
         </div>
     );
@@ -117,8 +147,13 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
   const languages = [
       {label: 'English', value: 'English'},
       {label: 'Hindi', value: 'Hindi'},
+      {label: 'Bengali', value: 'Bengali'},
+      {label: 'Marathi', value: 'Marathi'},
+      {label: 'Telugu', value: 'Telugu'},
+      {label: 'Tamil', value: 'Tamil'},
       {label: 'Spanish', value: 'Spanish'},
       {label: 'French', value: 'French'},
+      {label: 'German', value: 'German'},
   ];
 
   // Initialize free usage count from local storage
@@ -214,15 +249,20 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
         >
             <header className="p-4 flex-shrink-0 flex items-center justify-between border-b border-border-light">
                 <div className="flex items-center">
-                    <Icon name="edit" className="w-6 h-6 mr-3 text-primary"/>
-                    <h2 className="text-lg font-bold text-text-primary">AI Content Generator</h2>
+                    <div className="p-2 bg-primary/10 rounded-lg mr-3">
+                        <Icon name="edit" className="w-5 h-5 text-primary"/>
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold text-text-primary">AI Content Writer</h2>
+                        <p className="text-xs text-text-secondary">Generate converting copy in seconds</p>
+                    </div>
                     {freeUsageCount < AI_WRITER_FREE_LIMIT && (
-                        <span className="ml-3 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-full">
-                            Free Trial: {AI_WRITER_FREE_LIMIT - freeUsageCount} left
+                        <span className="ml-4 px-2.5 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200">
+                            {AI_WRITER_FREE_LIMIT - freeUsageCount} Free Credits Left
                         </span>
                     )}
                 </div>
-                <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
+                <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
                     <Icon name="close" className="w-5 h-5"/>
                 </button>
             </header>
@@ -230,25 +270,25 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
             <div className="flex-grow flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 {/* Left Panel: Controls */}
                 <aside className="w-full lg:w-[26rem] flex-shrink-0 p-6 border-b lg:border-b-0 lg:border-r border-border-light lg:overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 bg-slate-50/50">
-                    <p className="text-sm text-text-secondary mb-6">Instantly write marketing copy, captions, and more for your campaigns.</p>
                     
-                    <div className="space-y-5">
+                    <div className="space-y-6">
                         <FormTextArea
                             label="Product / Campaign Context"
                             id="copy-context"
-                            placeholder="e.g., Organic skincare brand launching a new Vitamin C serum."
+                            placeholder="e.g., Organic skincare brand launching a new Vitamin C serum for summer."
                             rows={4}
                             value={params.context}
                             onChange={e => handleParamChange('context', e.target.value)}
+                            className="bg-white"
                         />
                         
                         <div className="grid grid-cols-2 gap-4">
                             <Select label="Target Platform" value={params.platform} onChange={e => handleParamChange('platform', e.target.value)}>
                                 <option>Instagram</option>
                                 <option>Facebook</option>
-                                <option>Google Ads</option>
-                                <option>YouTube</option>
                                 <option>LinkedIn</option>
+                                <option>Twitter (X)</option>
+                                <option>YouTube</option>
                                 <option>Website</option>
                                 <option>Email</option>
                             </Select>
@@ -262,17 +302,16 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                             </Select>
                         </div>
 
-                        <Select label="Writing Style" value={params.style} onChange={e => handleParamChange('style', e.target.value)}>
-                            <option>Storytelling</option>
-                            <option>Informative</option>
-                            <option>Conversational</option>
-                            <option>Persuasive</option>
-                            <option>Minimalist</option>
-                            <option>Luxury</option>
-                            <option>Trendy</option>
-                        </Select>
-
                         <div className="grid grid-cols-2 gap-4">
+                            <Select label="Writing Style" value={params.style} onChange={e => handleParamChange('style', e.target.value)}>
+                                <option>Storytelling</option>
+                                <option>Informative</option>
+                                <option>Conversational</option>
+                                <option>Persuasive</option>
+                                <option>Minimalist</option>
+                                <option>Luxury</option>
+                                <option>Trendy</option>
+                            </Select>
                             <Select label="Tone of Voice" value={params.tone} onChange={e => handleParamChange('tone', e.target.value)}>
                                 <option>Friendly</option>
                                 <option>Inspirational</option>
@@ -282,10 +321,11 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                                 <option>Playful</option>
                                 <option>Professional</option>
                             </Select>
-                            <Select label="Language" value={params.language} onChange={e => handleParamChange('language', e.target.value)}>
-                                {languages.map(lang => <option key={lang.value} value={lang.value}>{lang.label}</option>)}
-                            </Select>
                         </div>
+
+                        <Select label="Output Language" value={params.language} onChange={e => handleParamChange('language', e.target.value)}>
+                            {languages.map(lang => <option key={lang.value} value={lang.value}>{lang.label}</option>)}
+                        </Select>
 
                         <SegmentedControl
                             label="Length Control"
@@ -297,29 +337,29 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                         <FormInput
                             label="Keywords (Optional)"
                             id="copy-keywords"
-                            placeholder="e.g., glowing skin, natural"
+                            placeholder="e.g., glowing skin, natural, discount"
                             value={params.keywords}
                             onChange={e => handleParamChange('keywords', e.target.value)}
+                            className="bg-white"
                         />
 
-                        <div className="p-4 bg-white rounded-lg space-y-3 border border-border-light">
-                            <h4 className="text-sm font-semibold text-text-primary">Smart Personalization</h4>
-                            <Toggle label="Remember Brand Voice" enabled={rememberStyle} onChange={setRememberStyle} />
-                        </div>
-
-                        <div className="p-4 bg-white rounded-lg space-y-3 border border-border-light">
-                            <Toggle label="Generate Hashtags" enabled={params.includeHashtags} onChange={val => handleParamChange('includeHashtags', val)} />
-                            <Toggle label="Suggest Emojis" enabled={params.includeEmojis} onChange={val => handleParamChange('includeEmojis', val)} />
+                        <div className="space-y-3">
+                            <div className="p-4 bg-white rounded-xl space-y-3 border border-border-light shadow-sm">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Smart Options</h4>
+                                <Toggle label="Remember Brand Voice" enabled={rememberStyle} onChange={setRememberStyle} />
+                                <Toggle label="Generate Hashtags" enabled={params.includeHashtags} onChange={val => handleParamChange('includeHashtags', val)} />
+                                <Toggle label="Suggest Emojis" enabled={params.includeEmojis} onChange={val => handleParamChange('includeEmojis', val)} />
+                            </div>
                         </div>
                     </div>
 
-                    <div className="mt-6">
+                    <div className="mt-8 pt-4 border-t border-slate-200">
                         <Button
                             onClick={handleGenerate}
                             disabled={isLoading}
                             isLoading={isLoading}
                             fullWidth
-                            className="!py-3 !text-base"
+                            className="!py-3 !text-base shadow-lg shadow-primary/20"
                         >
                             <Icon name="sparkles" className="w-5 h-5 mr-2" />
                             {freeUsageCount < AI_WRITER_FREE_LIMIT ? 'Generate Content (Free)' : 'Generate Content (2 Credits)'}
@@ -328,32 +368,48 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                 </aside>
 
                 {/* Right Panel: Results */}
-                <main className="flex-1 p-8 lg:overflow-y-auto bg-main">
+                <main className="flex-1 p-6 lg:p-10 lg:overflow-y-auto bg-slate-50/30">
                     {isLoading ? (
-                        <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                            <Spinner />
-                            <p className="mt-4 text-lg">Brewing up some fresh copy...</p>
-                            <p className="text-sm">The AI is putting on its creative hat!</p>
+                        <div className="flex flex-col items-center justify-center h-full text-slate-500 animate-pulse">
+                            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                                <Spinner />
+                            </div>
+                            <p className="mt-2 text-lg font-medium text-slate-800">Writing your copy...</p>
+                            <p className="text-sm">Optimizing for {params.platform} with {params.tone} tone.</p>
                         </div>
                     ) : error ? (
-                        <div className="flex flex-col items-center justify-center h-full text-red-500 bg-red-50 p-6 rounded-lg">
-                            <h3 className="text-xl font-semibold mb-2">Generation Failed</h3>
-                            <p>{error}</p>
+                        <div className="flex flex-col items-center justify-center h-full text-red-500 bg-red-50 p-8 rounded-2xl border border-red-100">
+                            <div className="bg-red-100 p-3 rounded-full mb-3">
+                                <Icon name="close" className="w-6 h-6 text-red-600" />
+                            </div>
+                            <h3 className="text-xl font-bold mb-2 text-red-700">Generation Failed</h3>
+                            <p className="text-center max-w-md">{error}</p>
                         </div>
                     ) : results.length > 0 ? (
-                        <div className="space-y-4">
+                        <div className="max-w-3xl mx-auto space-y-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-bold text-slate-700">Generated Results</h3>
+                                <span className="text-xs font-medium text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200">
+                                    {results.length} Variations
+                                </span>
+                            </div>
                             {results.map((copy, index) => (
-                            <ResultCard key={index} copy={copy} index={index} onRewrite={handleRewrite} supportedLanguages={languages} />
+                                <ResultCard 
+                                    key={index} 
+                                    copy={copy} 
+                                    index={index} 
+                                    onRewrite={handleRewrite} 
+                                />
                             ))}
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-center text-slate-500 p-6">
-                            <div className="p-6 bg-slate-200/60 rounded-full mb-6">
-                                <Icon name="lightbulb" className="w-16 h-16 text-primary" />
+                            <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                                <Icon name="edit" className="w-10 h-10 text-slate-300" />
                             </div>
-                            <h2 className="text-3xl font-bold text-slate-800 mb-2">Content Awaits</h2>
-                            <p className="max-w-xl">
-                                Fill in the details on the left, and let our AI generate compelling marketing copy for you in seconds.
+                            <h2 className="text-2xl font-bold text-slate-800 mb-2">Ready to Write?</h2>
+                            <p className="max-w-md text-slate-500 leading-relaxed">
+                                Enter your product details on the left sidebar. Our AI will generate high-conversion marketing copy tailored to your brand.
                             </p>
                         </div>
                     )}
