@@ -4,7 +4,15 @@ import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS } from '../constants';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis } from '../types';
 import { AspectRatio, AppMode, MarketplacePreset, FashionGender, FashionShootType, FashionBodyType, FashionAgeBracket, RegionalStyle, ProductCategory, ResolutionQuality } from '../types';
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAI = () => {
+    // Priority: 1. Vite Env (Browser Standard), 2. Process Env (Defined in vite.config.ts)
+    const apiKey = import.meta.env.VITE_API_KEY || process.env.API_KEY;
+    
+    if (!apiKey || apiKey === 'undefined' || apiKey === '') {
+        throw new Error("API Key is missing. Please set VITE_API_KEY in your environment variables.");
+    }
+    return new GoogleGenAI({ apiKey });
+};
 
 const getFashionPoses = (count: number, gender: string = 'Women', apparel?: string): string[] => {
     const poses = [
@@ -406,34 +414,47 @@ export const generateCaption = async (params: GenerateCaptionParams, brandKit: B
 };
 
 export const detectProductCategory = async (base64: string, mimeType: string, description: string): Promise<ProductCategory> => {
-    const ai = getAI();
-    const categoryList = Object.values(ProductCategory).join('", "');
-    const prompt = `Based on the image and this description: "${description}", classify the product into ONE of the following categories: ["${categoryList}"]. Respond with ONLY the category name.`;
-    
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: { parts: [{ inlineData: { data: base64, mimeType } }, { text: prompt }] }
-    });
-
-    const detected = response.text?.trim();
-
-    if (detected && Object.values(ProductCategory).includes(detected as ProductCategory)) {
-        return detected as ProductCategory;
-    }
-    
-    if (detected) {
-        const lowerDetected = detected.toLowerCase();
-        if (lowerDetected.includes('food') || lowerDetected.includes('beverage')) return ProductCategory.FoodAndBeverage;
-        if (lowerDetected.includes('tech') || lowerDetected.includes('gadget')) return ProductCategory.Tech;
-        if (lowerDetected.includes('fashion') || lowerDetected.includes('apparel')) return ProductCategory.Fashion;
-        if (lowerDetected.includes('home') || lowerDetected.includes('decor')) return ProductCategory.HomeDecor;
-        if (lowerDetected.includes('fitness') || lowerDetected.includes('nutrition')) return ProductCategory.Fitness;
-        if (lowerDetected.includes('skincare')) return ProductCategory.Skincare;
-        if (lowerDetected.includes('perfume')) return ProductCategory.Perfume;
-        if (lowerDetected.includes('herbal')) return ProductCategory.Herbal;
+    // GRACEFUL FALLBACK: If API key is completely missing or empty, skip without crashing.
+    const apiKey = import.meta.env.VITE_API_KEY || process.env.API_KEY;
+    if (!apiKey || apiKey === 'undefined' || apiKey === '') {
+        console.warn("Gemini API Key is missing. Skipping auto-categorization.");
+        return ProductCategory.Generic;
     }
 
-    return ProductCategory.Generic;
+    try {
+        const ai = getAI();
+        const categoryList = Object.values(ProductCategory).join('", "');
+        const prompt = `Based on the image and this description: "${description}", classify the product into ONE of the following categories: ["${categoryList}"]. Respond with ONLY the category name.`;
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: { parts: [{ inlineData: { data: base64, mimeType } }, { text: prompt }] }
+        });
+
+        const detected = response.text?.trim();
+
+        if (detected && Object.values(ProductCategory).includes(detected as ProductCategory)) {
+            return detected as ProductCategory;
+        }
+        
+        if (detected) {
+            const lowerDetected = detected.toLowerCase();
+            if (lowerDetected.includes('food') || lowerDetected.includes('beverage')) return ProductCategory.FoodAndBeverage;
+            if (lowerDetected.includes('tech') || lowerDetected.includes('gadget')) return ProductCategory.Tech;
+            if (lowerDetected.includes('fashion') || lowerDetected.includes('apparel')) return ProductCategory.Fashion;
+            if (lowerDetected.includes('home') || lowerDetected.includes('decor')) return ProductCategory.HomeDecor;
+            if (lowerDetected.includes('fitness') || lowerDetected.includes('nutrition')) return ProductCategory.Fitness;
+            if (lowerDetected.includes('skincare')) return ProductCategory.Skincare;
+            if (lowerDetected.includes('perfume')) return ProductCategory.Perfume;
+            if (lowerDetected.includes('herbal')) return ProductCategory.Herbal;
+        }
+
+        return ProductCategory.Generic;
+    } catch (error) {
+        // Log silently and return fallback to avoid interrupting user flow
+        console.warn("Failed to detect product category, falling back to Generic.", error);
+        return ProductCategory.Generic;
+    }
 };
 
 export const generateVariantSuggestions = async (description: string, field: string) => {

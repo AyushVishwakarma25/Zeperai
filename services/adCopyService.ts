@@ -2,9 +2,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { GenerateAdCopyParams, AdCopy } from '../types';
 
+const getAI = () => {
+    const apiKey = import.meta.env.VITE_API_KEY || process.env.API_KEY;
+    if (!apiKey || apiKey === 'undefined' || apiKey === '') {
+        throw new Error("API Key is missing. Please set VITE_API_KEY in your environment variables.");
+    }
+    return new GoogleGenAI({ apiKey });
+};
+
 export const generateAdCopy = async (params: GenerateAdCopyParams): Promise<AdCopy[]> => {
-    if (!process.env.API_KEY) throw new Error("API_KEY not set.");
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAI();
 
     const prompt = `Generate ${params.count} ad copy variations for: ${params.productDescription}. Tone: ${params.tone}. Platform: ${params.platform}.`;
 

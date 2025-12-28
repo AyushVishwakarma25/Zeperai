@@ -2,9 +2,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { GenerateContentParams, CopyVariation, RewriteCopyParams, RewriteAction } from '../types';
 
+const getAI = () => {
+    const apiKey = import.meta.env.VITE_API_KEY || process.env.API_KEY;
+    if (!apiKey || apiKey === 'undefined' || apiKey === '') {
+        throw new Error("API Key is missing. Please set VITE_API_KEY in your environment variables.");
+    }
+    return new GoogleGenAI({ apiKey });
+};
+
 export const generateMarketingCopy = async (params: GenerateContentParams): Promise<CopyVariation[]> => {
-    if (!process.env.API_KEY) throw new Error("API_KEY not set.");
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAI();
 
     const prompt = `
         You are an expert marketing copywriter. Generate 3 distinct variations of engaging copy.
@@ -63,8 +70,7 @@ export const generateMarketingCopy = async (params: GenerateContentParams): Prom
 };
 
 export const rewriteMarketingCopy = async (params: RewriteCopyParams): Promise<CopyVariation> => {
-    if (!process.env.API_KEY) throw new Error("API_KEY not set.");
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAI();
 
     const prompt = `Rewrite following copy with action "${params.action}":\n${JSON.stringify(params.copy)}`;
 
