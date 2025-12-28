@@ -73,11 +73,16 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
 
         {images.length === 0 ? (
             <div className="flex-grow flex flex-col items-center justify-center text-center text-text-secondary p-6">
-                <Icon name="bookmark" className="w-16 h-16 text-slate-300 mb-4"/>
-                <h3 className="text-xl font-semibold text-text-primary">Your design board is empty</h3>
-                <p className="max-w-md mt-2">
-                    Click the bookmark icon on any of your creations from the dashboard to save them here for future use and comparison.
+                <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6">
+                    <Icon name="bookmark" className="w-10 h-10 text-slate-400"/>
+                </div>
+                <h3 className="text-xl font-bold text-text-primary mb-2">No designs saved yet</h3>
+                <p className="max-w-md text-sm text-slate-500 mb-8">
+                    When you generate an image you love, click the <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-medium text-xs"><Icon name="bookmark" className="w-3 h-3 mr-1" /> Save</span> button to keep it here safe.
                 </p>
+                <Button onClick={() => onSetView(View.Dashboard)} className="shadow-lg shadow-primary/20">
+                    Create Your First Design
+                </Button>
             </div>
         ) : (
             <main className="flex-grow overflow-y-auto p-4 md:p-8">

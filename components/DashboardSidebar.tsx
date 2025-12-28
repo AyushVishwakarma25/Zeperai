@@ -113,7 +113,7 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
         onMouseLeave={onClose}
         className={`
             fixed inset-y-0 left-0 z-40
-            h-screen bg-white border-r border-border-light shadow-sm
+            h-[100dvh] lg:h-screen bg-white border-r border-border-light shadow-sm
             flex flex-col transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)]
             ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
             ${sidebarWidthClass}
@@ -128,7 +128,7 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
         </div>
 
         {/* Navigation Scroll Area */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-200 py-2 px-3 space-y-1 flex flex-col">
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-3 space-y-1 flex flex-col [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
             <NavItem icon="home" label="Home" active={currentView === View.Dashboard} onClick={() => { onSetView(View.Dashboard); onClose(); }} isOpen={isOpen} />
         
             {/* Creative Modes Group */}

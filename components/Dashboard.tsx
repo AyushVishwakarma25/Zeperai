@@ -46,8 +46,7 @@ const ToolCard: React.FC<ToolCardProps> = ({ iconName, title, onClick, isWide, i
     // Wide cards: col-span-2
     // Regular cards: standard grid cell
     const spanClass = isWide ? 'col-span-2' : '';
-    const contentLayoutClass = isWide ? 'flex-row justify-start pl-4 h-24' : 'flex-col justify-center h-32';
-
+    
     return (
         <button
             type="button"
@@ -55,7 +54,7 @@ const ToolCard: React.FC<ToolCardProps> = ({ iconName, title, onClick, isWide, i
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`relative p-3 rounded-2xl bg-white/60 backdrop-blur-sm shadow-sm transition-all duration-300 cursor-pointer group flex items-center w-full focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${spanClass} ${contentLayoutClass} ${isLocked ? 'opacity-90 hover:bg-slate-50 hover:ring-2 hover:ring-primary/20' : 'hover:bg-white/80 hover:shadow-md hover:scale-[1.02]'} ${isDraggingOver ? 'ring-2 ring-primary bg-primary/5 scale-105 z-10' : ''}`}
+            className={`relative p-4 rounded-2xl bg-white/60 backdrop-blur-sm shadow-sm transition-all duration-300 cursor-pointer group flex w-full focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${spanClass} ${isLocked ? 'opacity-90 hover:bg-slate-50 hover:ring-2 hover:ring-primary/20' : 'hover:bg-white/80 hover:shadow-md hover:scale-[1.02]'} ${isDraggingOver ? 'ring-2 ring-primary bg-primary/5 scale-105 z-10' : ''} ${isWide ? 'flex-row items-center h-auto min-h-[6rem]' : 'flex-col items-center text-center h-auto min-h-[8rem] justify-center'}`}
             aria-label={isLocked ? `${title} (Locked)` : title}
         >
             {isLocked && (
@@ -64,10 +63,14 @@ const ToolCard: React.FC<ToolCardProps> = ({ iconName, title, onClick, isWide, i
                     PRO
                 </div>
             )}
-            <div className={`rounded-full bg-white/50 p-3 mb-2 flex items-center justify-center shadow-inner transition-all ${isWide ? 'mr-3 mb-0 w-12 h-12' : 'w-14 h-14'} ${isLocked ? 'grayscale opacity-70' : ''} ${isDraggingOver ? 'bg-primary text-white' : ''}`}>
+            
+            <div className={`rounded-full bg-white/50 p-3 flex-shrink-0 flex items-center justify-center shadow-inner transition-all ${isWide ? 'mr-4 w-12 h-12' : 'mb-3 w-14 h-14'} ${isLocked ? 'grayscale opacity-70' : ''} ${isDraggingOver ? 'bg-primary text-white' : ''}`}>
                  <Icon name={iconName} className={`w-8 h-8 transition-colors ${isDraggingOver ? 'text-white' : 'text-slate-700'}`} />
             </div>
-            <h4 className={`font-semibold text-sm transition-colors ${isWide ? 'text-text-primary text-left' : 'text-text-primary text-center'} ${isDraggingOver ? 'text-primary' : ''}`}>{title}</h4>
+            
+            <div className={`flex flex-col ${isWide ? 'items-start text-left' : 'items-center text-center'}`}>
+                <h4 className={`font-bold text-sm text-text-primary ${isDraggingOver ? 'text-primary' : ''}`}>{title}</h4>
+            </div>
             
             {isDraggingOver && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -82,7 +85,7 @@ const ToolCard: React.FC<ToolCardProps> = ({ iconName, title, onClick, isWide, i
 const VerticalCategoryCard: React.FC<{ title: string; children: React.ReactNode; className?: string; titleClassName?: string }> = ({ title, children, className, titleClassName = 'text-white' }) => (
     <div className={`p-4 rounded-3xl flex flex-col ${className} shadow-lg border border-white/20 h-full`}>
         <h2 className={`text-xl font-bold mb-4 text-center ${titleClassName}`}>{title}</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 h-full content-start">
             {children}
         </div>
     </div>

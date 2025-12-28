@@ -1,21 +1,12 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import type { GenerateImageParams, GeneratedImage, SavedModel } from '../types';
-import { 
-  AspectRatio, AppMode, MarketplacePreset, 
-  FashionGender, ResolutionQuality 
-} from '../types';
-import { 
-  MARKETPLACE_RULES,
-  AD_LAYOUT_OPTIONS,
-  FESTIVAL_STYLE_OPTIONS,
-  FREE_TRIAL_LIMIT,
-} from '../constants';
+import { AspectRatio, AppMode, ResolutionQuality } from '../types';
+import { FREE_TRIAL_LIMIT } from '../constants';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 import { ImageDropzone } from './ui/ImageDropzone';
-import { Select } from './ui/Select';
-import { FormInput, FormTextArea } from './ui/Form';
+import { FormTextArea } from './ui/Form';
 import { calculateGenerationCost } from '../utils/costs';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { SectionTitle } from './modes/shared';
@@ -25,6 +16,9 @@ import { InfluencerControls } from './modes/InfluencerControls';
 import { ProductControls } from './modes/ProductControls';
 import { FashionControls } from './modes/FashionControls';
 import { CommonControls } from './modes/CommonControls';
+import { AdCreativeControls } from './modes/AdCreativeControls';
+import { FestivalControls } from './modes/FestivalControls';
+import { RemixControls } from './modes/RemixControls';
 
 interface CreativeModalProps {
   mode: AppMode;
@@ -218,24 +212,25 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                         </>
                     ) : (
                         <>
-                            <div className="flex flex-col">
+                            <div className={`flex flex-col ${isAdCreative ? 'flex-shrink-0' : ''}`}>
                                 <SectionTitle title="ASSETS" />
                                 <ImageDropzone 
                                     id="asset-upload-main"
                                     prompt={isFashion ? "Fabric or Garment" : "Upload Product Image"}
                                     previewUrl={frontProductImagePreview}
                                     onFileChange={(file) => onFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 2048, maxHeight: 2048, format: 'image/png' })}
-                                    className={`aspect-[3/2] md:h-64 w-full ${!frontProductImagePreview ? 'border-red-200 bg-red-50 animate-pulse' : ''}`}
+                                    className={`w-full ${isAdCreative ? 'h-48 sm:h-56' : 'aspect-[3/2] md:h-64'} ${!frontProductImagePreview ? 'border-red-200 bg-red-50 animate-pulse' : ''}`}
                                 />
                             </div>
                             {isAdCreative && (
-                                <div className="flex flex-col">
+                                <div className="flex flex-col mt-2">
+                                    <p className="text-xs font-semibold text-black mb-2 uppercase tracking-wider">Brand Logo</p>
                                     <ImageDropzone 
                                         id="logo-upload-main"
-                                        prompt="Upload Brand Logo (Optional)"
+                                        prompt="Upload Logo (Opt)"
                                         previewUrl={logoPreview}
                                         onFileChange={(file) => onFileChange(file, 'logoImage', setLogoPreview, { maxWidth: 512, maxHeight: 512, format: 'image/png' })}
-                                        className="h-32 md:h-auto md:aspect-square w-full md:flex-grow"
+                                        className="h-24 w-full"
                                     />
                                 </div>
                             )}
@@ -245,18 +240,12 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
 
                 {/* RIGHT SETTINGS PANEL */}
                 <div className="flex-1 p-4 md:p-6 md:overflow-y-auto scrollbar-thin">
+                    
                     {mode === AppMode.Remix ? (
-                        <>
-                            <SectionTitle title="REMIX SETTINGS" />
-                            <FormTextArea
-                                label="Modification Prompt"
-                                id="remix-prompt"
-                                placeholder="e.g., Change the fruits to lemons and make the background blue. (Leave blank to auto-adapt)"
-                                rows={4}
-                                value={params.productDescription}
-                                onChange={e => handleParamChange('productDescription', e.target.value)}
-                            />
-                        </>
+                        <RemixControls 
+                            params={params} 
+                            handleParamChange={handleParamChange} 
+                        />
                     ) : (
                         <>
                             <SectionTitle title="CREATIVE SETTINGS" />
@@ -290,46 +279,17 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                     )}
                     
                     {isAdCreative && (
-                        <>
-                            <SectionTitle title="AD CREATIVE DETAILS" className="mt-6" />
-                            <div className="space-y-4">
-                                <Select label="Ad Layout" value={params.adLayout || ''} onChange={e => handleParamChange('adLayout', e.target.value)}>
-                                    {AD_LAYOUT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                                </Select>
-                                <FormInput 
-                                    label="Ad Title"
-                                    id="ad-title"
-                                    placeholder="e.g. Summer Sale 50% Off"
-                                    value={params.adTitle || ''}
-                                    onChange={e => handleParamChange('adTitle', e.target.value)}
-                                    className={!params.adTitle ? 'border-red-300' : ''}
-                                />
-                                <FormInput 
-                                    label="Subheading"
-                                    id="ad-subheading"
-                                    placeholder="e.g. Limited time offer"
-                                    value={params.adSubheading || ''}
-                                    onChange={e => handleParamChange('adSubheading', e.target.value)}
-                                />
-                                <FormInput 
-                                    label="CTA Button"
-                                    id="ad-cta"
-                                    placeholder="e.g. Shop Now"
-                                    value={params.adCta || ''}
-                                    onChange={e => handleParamChange('adCta', e.target.value)}
-                                />
-                            </div>
-                        </>
+                        <AdCreativeControls 
+                            params={params}
+                            handleParamChange={handleParamChange}
+                        />
                     )}
 
                     {mode === AppMode.Festival && (
-                        <>
-                            <SectionTitle title="FESTIVAL THEME" className="mt-6" />
-                            <Select label="Festival Style" value={params.festivalStyle || ''} onChange={e => handleParamChange('festivalStyle', e.target.value)}>
-                                <option value="">Select a Festival</option>
-                                {FESTIVAL_STYLE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                            </Select>
-                        </>
+                        <FestivalControls 
+                            params={params}
+                            handleParamChange={handleParamChange}
+                        />
                     )}
 
                     {isFashion && (
