@@ -266,11 +266,24 @@ const generateSingleImage = async (
         };
     } catch (error: any) {
         // --- RETRY LOGIC FOR 429 TOO MANY REQUESTS ---
-        const isRateLimitError = error.message?.includes('429') || error.status === 429 || error.response?.status === 429;
+        console.warn("Gemini Generation Error:", error);
         
+        const errorMessage = error.message || error.toString();
+        // Check for 429 status or common rate limit messages
+        // Also catch generic "exception [object Object]" which often hides a fetch 429 error in the SDK
+        const isRateLimitError = 
+            errorMessage.includes('429') || 
+            errorMessage.includes('Too Many Requests') || 
+            errorMessage.includes('quota') ||
+            errorMessage.includes('exception [object Object] sending request') ||
+            error.status === 429 || 
+            error.response?.status === 429;
+        
+        // Retry up to 3 times with aggressive exponential backoff (6s, 12s, 18s)
+        // Image models have strict RPM (Requests Per Minute)
         if (isRateLimitError && retryCount < 3) {
-            const delayTime = (retryCount + 1) * 3000; // 3s, 6s, 9s backoff
-            console.warn(`Rate limit hit (429). Retrying in ${delayTime}ms... (Attempt ${retryCount + 1}/3)`);
+            const delayTime = (retryCount + 1) * 6000; 
+            console.warn(`Rate limit hit. Retrying in ${delayTime}ms... (Attempt ${retryCount + 1}/3)`);
             await wait(delayTime);
             return generateSingleImage(params, aspectRatio, userTier, brandKit, activeImage, pose, sourceProductImageUrl, modelSeedUrl, retryCount + 1);
         }
@@ -318,6 +331,10 @@ export const generateImages = async (
     const totalGenerations = aspectRatiosToGenerate.length * totalJobsPerRatio;
     let progressCounter = 0;
 
+    // THROTTLE: 5s delay between image generation requests to prevent hitting the strict 429 limit
+    // Image models often have a limit of 15 Requests Per Minute (1 req every 4 sec). We use 5s to be safe.
+    const REQUEST_DELAY = 5000;
+
     for (const aspectRatio of aspectRatiosToGenerate) {
         if (params.appMode === AppMode.Fashion) {
             const poses = getFashionPoses(effectiveBatchSize, params.fashionGender, params.fashionSubCategory);
@@ -326,8 +343,7 @@ export const generateImages = async (
                 if (onProgress) onProgress(progressCounter, totalGenerations);
                 const img = await generateSingleImage(params, aspectRatio, userTier, brandKit, undefined, poses[i], sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
-                // THROTTLE: Add 2s delay between requests to respect rate limits
-                if (i < effectiveBatchSize - 1) await wait(2000); 
+                if (i < effectiveBatchSize - 1) await wait(REQUEST_DELAY); 
             }
         } else if (params.appMode === AppMode.Bulk && params.bulkImages) {
             const limit = Math.min(params.bulkImages.length, userTier === 'Agency' ? 50 : (userTier === 'Standard' ? 10 : 1));
@@ -336,7 +352,7 @@ export const generateImages = async (
                 if (onProgress) onProgress(progressCounter, totalGenerations);
                 const img = await generateSingleImage(params, aspectRatio, userTier, brandKit, params.bulkImages[i], undefined, sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
-                await wait(2000); 
+                await wait(REQUEST_DELAY); 
             }
         } else if (params.appMode === AppMode.Product) {
              let allowedAnglesCount = 1;
@@ -353,7 +369,8 @@ export const generateImages = async (
                 if (onProgress) onProgress(progressCounter, totalGenerations);
                 const img = await generateSingleImage(params, aspectRatio, userTier, brandKit, undefined, angles[i], sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
-                await wait(2000);
+                // Ensure delay only if we are actually making another request
+                if (i < angles.length - 1) await wait(REQUEST_DELAY);
              }
         } else {
             for (let i = 0; i < effectiveBatchSize; i++) {
@@ -361,7 +378,7 @@ export const generateImages = async (
                 if (onProgress) onProgress(progressCounter, totalGenerations);
                 const img = await generateSingleImage(params, aspectRatio, userTier, brandKit, undefined, undefined, sourceProductImageUrl, modelSeedUrl);
                 allResults.push(img);
-                await wait(2000);
+                if (i < effectiveBatchSize - 1) await wait(REQUEST_DELAY);
             }
         }
     }
