@@ -1,8 +1,9 @@
-# KrackXai Studio Documentation
+
+# ZeperAi Studio Documentation
 
 ## 1. Introduction
 
-KrackXai Studio is an interactive AI-powered application designed to transform product images into studio-quality advertising graphics. It allows users to generate creatives with customizable models, outfits, poses, backgrounds, and ad copy, leveraging the power of Google's Gemini API.
+ZeperAi Studio is an interactive AI-powered application designed to transform product images into studio-quality advertising graphics. It allows users to generate creatives with customizable models, outfits, poses, backgrounds, and ad copy, leveraging the power of Google's Gemini API.
 
 ## 2. Project Structure
 

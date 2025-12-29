@@ -52,6 +52,12 @@ const FashionReviewStudio: React.FC<{
     
     const activeImage = images[activeIndex];
     
+    const handleDragStart = (e: React.DragEvent, image: GeneratedImage) => {
+        e.dataTransfer.setData('application/x-krackx-image', JSON.stringify(image));
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('text/plain', image.imageUrl); // For external apps
+    };
+    
     if (images.length === 0 || !activeImage) return null;
 
     return (
@@ -62,6 +68,8 @@ const FashionReviewStudio: React.FC<{
                     <button 
                         key={img.id}
                         onClick={() => setActiveIndex(idx)}
+                        draggable="true"
+                        onDragStart={(e) => handleDragStart(e, img)}
                         className={`relative flex-shrink-0 w-14 lg:w-16 h-20 lg:h-22 rounded-lg overflow-hidden border-2 transition-all duration-300 ${activeIndex === idx ? 'border-primary ring-2 ring-primary/10 shadow-md scale-105 z-10' : 'border-transparent hover:border-slate-300'}`}
                     >
                         <img src={img.imageUrl} className="w-full h-full object-cover" alt={`Pose ${idx + 1}`} />
@@ -73,7 +81,11 @@ const FashionReviewStudio: React.FC<{
             </div>
 
             {/* Stage View */}
-            <div className="flex-1 bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden flex flex-col relative group max-h-[calc(100vh-12rem)]">
+            <div 
+                className="flex-1 bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden flex flex-col relative group max-h-[calc(100vh-12rem)]"
+                draggable="true"
+                onDragStart={(e) => handleDragStart(e, activeImage)}
+            >
                 <div className="flex-1 relative bg-slate-50 flex items-center justify-center overflow-hidden min-h-[300px]">
                     {activeImage && <img src={activeImage.imageUrl} className="max-w-full max-h-full object-contain cursor-zoom-in transition-transform duration-1000 group-hover:scale-105" onClick={() => onSetZoomedImage(activeImage)} alt="Active variation"/>}
                 </div>
@@ -100,6 +112,12 @@ const MainContentComponent: React.FC<MainContentProps> = (props) => {
       }
     }
   }, [props.generatedImages, detailPanelImage]);
+
+  const handleDragStart = (e: React.DragEvent, image: GeneratedImage) => {
+      e.dataTransfer.setData('application/x-krackx-image', JSON.stringify(image));
+      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.setData('text/plain', image.imageUrl);
+  };
 
   if (props.error) {
     return (
@@ -159,7 +177,13 @@ const MainContentComponent: React.FC<MainContentProps> = (props) => {
                     <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-6 p-4 md:p-8">
                         {props.generatedImages.map((image) => {
                             return (
-                                <div key={image.id} className="bg-white rounded-lg overflow-hidden shadow-md border border-slate-200 flex flex-col transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group mb-6" style={{ breakInside: 'avoid' }}>
+                                <div 
+                                    key={image.id} 
+                                    className="bg-white rounded-lg overflow-hidden shadow-md border border-slate-200 flex flex-col transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group mb-6" 
+                                    style={{ breakInside: 'avoid' }}
+                                    draggable="true"
+                                    onDragStart={(e) => handleDragStart(e, image)}
+                                >
                                     <div className="relative w-full bg-slate-50 cursor-zoom-in overflow-hidden" onClick={() => props.onSetZoomedImage(image)}>
                                         <img src={image.imageUrl} className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105" alt="Result" />
                                     </div>

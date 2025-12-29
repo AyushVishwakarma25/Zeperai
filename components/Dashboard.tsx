@@ -63,6 +63,7 @@ interface DashboardProps {
   isAdmin?: boolean;
   userName?: string;
   onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;
+  onFloatingImageDrop: (file: File) => void;
   isLoading: boolean;
 }
 
@@ -102,6 +103,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
     onFloatingGenerate,
     onRemoveFloatingImage,
     onTriggerFloatingUpload,
+    onFloatingImageDrop,
     isLoading,
     userTier = 'Free', 
     onOpenPricingModal,
@@ -192,6 +194,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
                 onUploadClick={onTriggerFloatingUpload}
                 onRemoveImage={onRemoveFloatingImage}
                 onGenerate={onFloatingGenerate}
+                onImageDrop={onFloatingImageDrop}
                 isGenerating={isLoading}
             />
         </div>

@@ -1,4 +1,5 @@
-KRACKXAI STUDIO - PRODUCT DOCUMENTATION
+
+ZEPERAI STUDIO - PRODUCT DOCUMENTATION
 
 ================================================================================
 1. USER FLOW
@@ -42,7 +43,7 @@ PHASE D: MANAGEMENT & DEPLOYMENT
 
 [HEADER]
 _______________________________________________________________________________
-| [Logo] KrackXai Studio                   | [Feedback] [Launch Offer - 🐝]  |
+| [Logo] ZeperAi Studio                    | [Feedback] [Launch Offer - 🐝]  |
 |__________________________________________|__________________________________|
 
 [MAIN LAYOUT]

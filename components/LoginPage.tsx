@@ -51,6 +51,7 @@ create table if not exists public.brand_kits (
   fonts text,
   voice text,
   description text,
+  negative_constraints text,
   logo_url text,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );

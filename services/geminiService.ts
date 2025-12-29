@@ -186,7 +186,18 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
     }
 
     if (marketplacePreset === MarketplacePreset.Amazon) corePrompt += ` COMPLIANCE: Amazon White Background (RGB 255,255,255). No shadows.`;
-    if (brandKit?.voice) corePrompt += `\n- Brand Voice: ${brandKit.voice}.`;
+    
+    // Inject Brand Kit Identity
+    if (brandKit) {
+        corePrompt += `\n\nBRAND IDENTITY GUIDELINES:`;
+        if (brandKit.brandName) corePrompt += `\n- Brand Name: "${brandKit.brandName}"`;
+        if (brandKit.voice) corePrompt += `\n- Tone/Mood: ${brandKit.voice}`;
+        if (brandKit.primaryColor) corePrompt += `\n- Primary Color: ${brandKit.primaryColor} (Use for key elements/accents)`;
+        if (brandKit.secondaryColor) corePrompt += `\n- Secondary Color: ${brandKit.secondaryColor}`;
+        if (brandKit.fonts) corePrompt += `\n- Aesthetic Style: ${brandKit.fonts}`; // Maps fonts to general visual style
+        if (brandKit.description) corePrompt += `\n- Context: ${brandKit.description}`;
+        if (brandKit.negativeConstraints) corePrompt += `\n- STRICTLY AVOID: ${brandKit.negativeConstraints}`;
+    }
 
     return [{ text: corePrompt }, ...parts];
 }

@@ -1,7 +1,9 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Icon } from './ui/Icon';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { GeneratedImage } from '../types';
+import { dataURLtoFile } from '../utils/images';
 
 interface FloatingActionBarProps {
   prompt: string;
@@ -11,6 +13,7 @@ interface FloatingActionBarProps {
   onRemoveImage: () => void;
   onGenerate: () => void;
   isGenerating: boolean;
+  onImageDrop?: (file: File) => void;
 }
 
 export const FloatingActionBar: React.FC<FloatingActionBarProps> = ({
@@ -21,12 +24,56 @@ export const FloatingActionBar: React.FC<FloatingActionBarProps> = ({
   onRemoveImage,
   onGenerate,
   isGenerating,
+  onImageDrop
 }) => {
   const isOnline = useNetworkStatus();
+  const [isDragging, setIsDragging] = useState(false);
   const canGenerate = (prompt.trim() !== '' || imagePreviewUrl) && isOnline;
 
+  const handleDragOver = (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      
+      // Handle file drop
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          if (onImageDrop) onImageDrop(e.dataTransfer.files[0]);
+          return;
+      }
+
+      // Handle internal GeneratedImage drop
+      const data = e.dataTransfer.getData('application/x-krackx-image');
+      if (data && onImageDrop) {
+          try {
+              const image: GeneratedImage = JSON.parse(data);
+              const file = dataURLtoFile(image.imageUrl, `ref-${image.id}.png`);
+              onImageDrop(file);
+          } catch (err) {
+              console.error("Failed to process dropped image", err);
+          }
+      }
+  };
+
   return (
-    <div className={`bg-white/80 backdrop-blur-md rounded-2xl shadow-2xl p-2 border-2 ${isOnline ? 'border-primary/70' : 'border-gray-300 bg-gray-100'} flex flex-col sm:flex-row sm:items-center gap-2 transition-all duration-300`}>
+    <div 
+        className={`rounded-2xl shadow-2xl p-2 border-2 flex flex-col sm:flex-row sm:items-center gap-2 transition-all duration-300 ${
+            isOnline 
+            ? (isDragging ? 'border-primary bg-primary/10' : 'border-primary/70 bg-white/80 backdrop-blur-md') 
+            : 'border-gray-300 bg-gray-100'
+        }`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+    >
       
       {/* Input Group */}
       <div className="flex items-center flex-grow gap-2 min-w-0 w-full">
@@ -56,7 +103,7 @@ export const FloatingActionBar: React.FC<FloatingActionBarProps> = ({
           type="text"
           value={prompt}
           onChange={(e) => onPromptChange(e.target.value)}
-          placeholder={isOnline ? "Describe what you want to create..." : "Offline mode"}
+          placeholder={isOnline ? (isDragging ? "Drop image to start..." : "Describe what you want to create...") : "Offline mode"}
           disabled={!isOnline}
           className="flex-grow bg-transparent focus:outline-none text-slate-800 placeholder:text-slate-500 text-sm min-w-0 w-full disabled:cursor-not-allowed"
         />

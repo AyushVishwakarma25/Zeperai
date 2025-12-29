@@ -8,7 +8,11 @@ export const brand = {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      const { data, error } = await supabase.from('brand_kits').select('*').eq('user_id', user.id).single();
+      const { data, error } = await supabase
+        .from('brand_kits')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
 
       if (error) return null;
 
@@ -21,6 +25,7 @@ export const brand = {
         fonts: data.fonts,
         voice: data.voice,
         description: data.description,
+        negativeConstraints: data.negative_constraints,
         logoUrl: data.logo_url,
         updatedAt: new Date(data.updated_at).getTime(),
       };
@@ -42,6 +47,7 @@ export const brand = {
       fonts: kit.fonts,
       voice: kit.voice,
       description: kit.description,
+      negative_constraints: kit.negativeConstraints,
       logo_url: kit.logoUrl,
       updated_at: new Date().toISOString(),
     };
@@ -59,6 +65,7 @@ export const brand = {
       fonts: data.fonts,
       voice: data.voice,
       description: data.description,
+      negativeConstraints: data.negative_constraints,
       logoUrl: data.logo_url,
       updatedAt: new Date(data.updated_at).getTime(),
     };

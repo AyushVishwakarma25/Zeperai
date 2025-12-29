@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Icon } from './ui/Icon';
-import { AppMode, View } from '../types';
+import { AppMode, View, GeneratedImage } from '../types';
 import { Toggle } from './ui/Toggle';
 import { UserProfileData } from '../services/userService';
 
@@ -47,6 +47,7 @@ interface DashboardSidebarProps {
     user: UserProfileData | null;
     onLogin: () => void;
     onLogout: () => void;
+    onInternalImageDrop?: (image: GeneratedImage, targetMode?: AppMode) => void;
 }
 
 const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({ 
@@ -65,10 +66,12 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
     onToggleAdmin,
     user,
     onLogin,
-    onLogout
+    onLogout,
+    onInternalImageDrop
 }) => {
   const [isModesOpen, setIsModesOpen] = useState(true);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [dragOverMode, setDragOverMode] = useState<AppMode | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   
   const creativeModes = [
@@ -95,6 +98,35 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
     action();
     setIsUserMenuOpen(false);
     onClose();
+  };
+
+  const handleDragEnter = (e: React.DragEvent, mode: AppMode) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragOverMode(mode);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragOverMode(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, mode: AppMode) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragOverMode(null);
+      const data = e.dataTransfer.getData('application/x-krackx-image');
+      if (data && onInternalImageDrop) {
+          try {
+              const image = JSON.parse(data);
+              onInternalImageDrop(image, mode);
+          } catch (err) {
+              console.error("Drop error", err);
+          }
+      } else {
+          onSelectMode(mode);
+      }
   };
 
   const sidebarWidthClass = isOpen ? 'w-[260px]' : 'w-[92px]';
@@ -154,9 +186,18 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
                                     else if (item.action) item.action();
                                     onClose(); 
                                 }}
-                                className="w-full pl-12 pr-4 py-2.5 text-sm font-medium text-slate-600 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors text-left"
+                                onDragEnter={(e) => item.mode && handleDragEnter(e, item.mode)}
+                                onDragLeave={handleDragLeave}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={(e) => item.mode && handleDrop(e, item.mode)}
+                                className={`w-full pl-12 pr-4 py-2.5 text-sm font-medium rounded-lg transition-colors text-left flex justify-between items-center ${
+                                    dragOverMode === item.mode 
+                                    ? 'bg-primary text-white scale-105 shadow-md' 
+                                    : 'text-slate-600 hover:text-primary hover:bg-primary/10'
+                                }`}
                             >
-                                {item.label}
+                                <span>{item.label}</span>
+                                {dragOverMode === item.mode && <Icon name="plus-circle" className="w-4 h-4 text-white animate-pulse" />}
                             </button>
                         ))}
                     </div>

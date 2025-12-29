@@ -110,6 +110,8 @@ const App: React.FC = () => {
   const [floatingImageFile, setFloatingImageFile] = useState<File | null>(null);
   const [floatingImagePreview, setFloatingImagePreview] = useState<string | null>(null);
   const floatingImageInputRef = useRef<HTMLInputElement>(null);
+  
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
   useEffect(() => {
       const { frontProductImage, bulkImages, backProductImage, customAvatarImage, outfitReferenceImage, logoImage, remixReferenceImage, remixProductImage, ...safeParams } = params;
@@ -864,6 +866,8 @@ const App: React.FC = () => {
                 setParams(prev => ({ ...prev, [paramName]: processedFile }));
             } else if (paramName === 'remixProductImage') {
                 setParams(prev => ({ ...prev, [paramName]: processedFile }));
+            } else if (paramName === 'logoImage') {
+                setParams(prev => ({ ...prev, [paramName]: processedFile }));
             } else {
                 setParams(prev => ({ ...prev, [paramName]: processedFile, detectedCategory: undefined }));
             }
@@ -907,17 +911,29 @@ const App: React.FC = () => {
       }
   }, [handleFileChange, handleSelectMode]);
 
+  const handleFloatingImageDrop = useCallback(async (file: File) => {
+      try {
+          const processedFile = await processImageFile(file, { maxWidth: 1024, maxHeight: 1024, format: 'image/png' });
+          setFloatingImageFile(processedFile);
+      } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to process image.');
+          console.error(err);
+      }
+  }, []);
+
   useEffect(() => {
     const handleKrackxDrop = (e: any) => {
         const { id, image } = e.detail;
         const fileName = `internal-${image.id}.png`;
         const file = dataURLtoFile(image.imageUrl, fileName);
-        if (id === 'front-product-image-upload') {
+        if (id === 'asset-upload-main') {
             handleFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 1024, maxHeight: 1024 });
         } else if (id === 'remix-reference-image-upload') {
             handleFileChange(file, 'remixReferenceImage', setRemixReferenceImagePreview, { maxWidth: 1024, maxHeight: 1024 });
         } else if (id === 'remix-product-image-upload') {
             handleFileChange(file, 'remixProductImage', setRemixProductImagePreview, { maxWidth: 1024, maxHeight: 1024, format: 'image/png' });
+        } else if (id === 'logo-upload-main') {
+            handleFileChange(file, 'logoImage', setLogoPreview, { maxWidth: 512, maxHeight: 512, format: 'image/png' });
         }
     };
     window.addEventListener('krackx-internal-image-drop', handleKrackxDrop);
@@ -964,18 +980,12 @@ const App: React.FC = () => {
   const handleFloatingImageFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
-          try {
-              const processedFile = await processImageFile(file, { maxWidth: 1024, maxHeight: 1024, format: 'image/png' });
-              setFloatingImageFile(processedFile);
-          } catch (err) {
-              setError(err instanceof Error ? err.message : 'Failed to process image.');
-              console.error(err);
-          }
+          handleFloatingImageDrop(file);
       }
       if (floatingImageInputRef.current) {
           floatingImageInputRef.current.value = '';
       }
-  }, []);
+  }, [handleFloatingImageDrop]);
 
   const handleRemoveFloatingImage = useCallback(() => {
       setFloatingImageFile(null);
@@ -1098,6 +1108,7 @@ const App: React.FC = () => {
                     userTier={userTier}
                     userName={userProfile?.name || 'there'}
                     onInternalImageDrop={handleInternalImageDrop}
+                    onFloatingImageDrop={handleFloatingImageDrop}
                     isLoading={isLoading}
                 />
             );
@@ -1173,6 +1184,7 @@ const App: React.FC = () => {
             user={userProfile}
             onLogin={() => setIsAuthModalOpen(true)}
             onLogout={handleLogout}
+            onInternalImageDrop={handleInternalImageDrop}
         />
 
         <main className="flex-1 flex flex-col overflow-hidden lg:ml-[92px]">

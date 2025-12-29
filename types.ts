@@ -79,6 +79,7 @@ export interface BrandKit {
   fonts: string;
   voice: string;
   description: string;
+  negativeConstraints?: string;
   logoUrl?: string;
   updatedAt?: number;
 }

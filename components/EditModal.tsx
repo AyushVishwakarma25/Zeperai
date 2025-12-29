@@ -4,7 +4,7 @@ import type { GeneratedImage, EditImageParams } from '../types';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 import { ImageDropzone } from './ui/ImageDropzone';
-import { processImageFile } from '../utils/images';
+import { processImageFile, dataURLtoFile } from '../utils/images';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 interface EditModalProps {
@@ -152,6 +152,43 @@ const EditModal: React.FC<EditModalProps> = ({
       }
   }, [image.id, onImageUpdate]);
 
+  const handleFileSelected = useCallback(async (file: File | null) => {
+    setReplacementPreview(prev => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+
+    if (file) {
+      try {
+        const processedFile = await processImageFile(file, { maxWidth: 1024, maxHeight: 1024 });
+        setReplacementImage(processedFile);
+        setReplacementPreview(URL.createObjectURL(processedFile));
+      } catch (error) {
+        console.error("Error processing replacement image:", error);
+        setReplacementImage(null);
+      }
+    } else {
+      setReplacementImage(null);
+    }
+  }, []);
+
+  // Listen for dropped images from generated results
+  useEffect(() => {
+    const handleKrackxDrop = (e: any) => {
+        const { id, image } = e.detail;
+        const fileName = `internal-${image.id}.png`;
+        const file = dataURLtoFile(image.imageUrl, fileName);
+
+        if (id === 'editor-upload') {
+            handleMainFileUpload(file);
+        } else if (id === 'replacement-upload') {
+            handleFileSelected(file);
+        }
+    };
+    window.addEventListener('krackx-internal-image-drop', handleKrackxDrop);
+    return () => window.removeEventListener('krackx-internal-image-drop', handleKrackxDrop);
+  }, [handleMainFileUpload, handleFileSelected]);
+
   const getCropCoords = (e: React.MouseEvent | React.PointerEvent) => {
     const container = cropContainerRef.current;
     if (!container) return { x: 0, y: 0 };
@@ -204,26 +241,6 @@ const EditModal: React.FC<EditModalProps> = ({
 
     lastPointRef.current = currentPoint;
   };
-
-  const handleFileSelected = useCallback(async (file: File | null) => {
-    setReplacementPreview(prev => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
-
-    if (file) {
-      try {
-        const processedFile = await processImageFile(file, { maxWidth: 1024, maxHeight: 1024 });
-        setReplacementImage(processedFile);
-        setReplacementPreview(URL.createObjectURL(processedFile));
-      } catch (error) {
-        console.error("Error processing replacement image:", error);
-        setReplacementImage(null);
-      }
-    } else {
-      setReplacementImage(null);
-    }
-  }, []);
 
   const handleApplyInpaint = () => {
     if (!isOnline) {

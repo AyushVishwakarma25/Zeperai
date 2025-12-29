@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Icon } from './ui/Icon';
 import { Button } from './ui/Button';
 import { FormInput, FormTextArea } from './ui/Form';
@@ -7,8 +7,9 @@ import { Select } from './ui/Select';
 import { ImageDropzone } from './ui/ImageDropzone';
 import { storage } from '../services/storage';
 import { brand } from '../services/brand';
+import { analyzeBrandLogo, fileToBase64 } from '../services/geminiService';
 import type { BrandKit } from '../types';
-import { processImageFile } from '../utils/images';
+import { processImageFile, dataURLtoFile } from '../utils/images';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 interface BrandKitModalProps {
@@ -41,6 +42,10 @@ const ControlButton: React.FC<{
 
 const ColorInput: React.FC<{ label: string; id: string; value: string; onChange: (value: string) => void; }> = ({ label, id, value, onChange }) => {
   const isValidHex = /^#([0-9A-F]{3,8})$/i.test(value);
+  
+  // Browsers require strict 6-digit hex for color inputs
+  const safeHex = isValidHex && value.length === 7 ? value : '#FFFFFF';
+
   return (
     <div className="relative group">
       <label
@@ -49,17 +54,24 @@ const ColorInput: React.FC<{ label: string; id: string; value: string; onChange:
       >
         <div
           className="w-8 h-8 rounded-lg border border-slate-200 shadow-inner flex-shrink-0"
-          style={{ backgroundColor: isValidHex ? value : '#FFFFFF' }}
+          style={{ backgroundColor: safeHex }}
         />
         <div className="flex flex-col min-w-0">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</span>
-            <span className="text-xs text-slate-900 font-mono truncate">{value}</span>
+            <input 
+                type="text" 
+                value={value} 
+                onChange={e => onChange(e.target.value.toUpperCase())}
+                className="text-xs text-slate-900 font-mono truncate outline-none w-full uppercase"
+                placeholder="#RRGGBB"
+                maxLength={9}
+            />
         </div>
       </label>
       <input
         type="color"
         id={id}
-        value={isValidHex ? value : '#FFFFFF'}
+        value={safeHex}
         onChange={e => onChange(e.target.value.toUpperCase())}
         className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
         aria-label={`Select ${label} color`}
@@ -84,6 +96,7 @@ const GOOGLE_FONTS_LIBRARY = {
 const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialKit }) => {
   const isOnline = useNetworkStatus();
   const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [kit, setKit] = useState<BrandKit>(initialKit || {
     brandName: '',
     primaryColor: '#6A5AE0',
@@ -92,6 +105,7 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
     fonts: 'Inter',
     voice: 'Professional',
     description: '',
+    negativeConstraints: '',
   });
 
   const [logoPreview, setLogoPreview] = useState<string | null>(kit.logoUrl || null);
@@ -116,6 +130,43 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
     }
   }, [logoPreview]);
 
+  // Handle dropped generated images
+  useEffect(() => {
+    const handleKrackxDrop = (e: any) => {
+        const { id, image } = e.detail;
+        if (id === 'brandkit-logo-upload') {
+            const fileName = `internal-${image.id}.png`;
+            const file = dataURLtoFile(image.imageUrl, fileName);
+            handleLogoFileChange(file);
+        }
+    };
+    window.addEventListener('krackx-internal-image-drop', handleKrackxDrop);
+    return () => window.removeEventListener('krackx-internal-image-drop', handleKrackxDrop);
+  }, [handleLogoFileChange]);
+
+  const handleAnalyze = async () => {
+      if (!logoFile) return;
+      setAnalyzing(true);
+      try {
+          const base64 = await fileToBase64(logoFile);
+          const analysis = await analyzeBrandLogo(base64, logoFile.type);
+          
+          setKit(prev => ({
+              ...prev,
+              primaryColor: analysis.colors[0]?.hex || prev.primaryColor,
+              secondaryColor: analysis.colors[1]?.hex || prev.secondaryColor,
+              accentColor: analysis.colors[2]?.hex || prev.accentColor,
+              // Map AI result (e.g. "Modern Sans") to closest option or append
+              fonts: analysis.typography || prev.fonts, 
+              voice: analysis.vibe.join(', ') || prev.voice
+          }));
+      } catch (e) {
+          console.error("Analysis failed", e);
+          alert("Could not analyze logo. Please fill details manually.");
+      } finally {
+          setAnalyzing(false);
+      }
+  };
 
   const handleSave = async () => {
     if (!isOnline) {
@@ -180,7 +231,7 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
              </div>
              <div>
                 <h2 className="text-lg font-bold text-slate-800 leading-tight">Brand Identity</h2>
-                <p className="text-xs text-slate-500">Consistent styling across all your creatives</p>
+                <p className="text-xs text-slate-500">Define your brand DNA for consistent AI generations.</p>
              </div>
           </div>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-800 transition-all rounded-full hover:bg-slate-100">
@@ -201,10 +252,24 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
                 className="w-full h-full rounded-xl !border-slate-200"
               />
             </div>
+            
+            {logoFile && (
+                <Button 
+                    onClick={handleAnalyze} 
+                    disabled={analyzing} 
+                    isLoading={analyzing} 
+                    variant="secondary" 
+                    className="w-full mb-4 !text-xs"
+                >
+                    {analyzing ? 'Analyzing Vibe...' : 'Auto-Fill from Logo'}
+                </Button>
+            )}
+
             <div className="text-center px-2">
-                <p className="text-xs font-medium text-slate-600">Logo Upload</p>
+                <p className="text-xs font-medium text-slate-600">Logo Guidelines</p>
                 <p className="text-[10px] text-slate-400 mt-1">
-                    Upload a high-quality PNG or SVG with a transparent background for best results.
+                    Upload a high-quality PNG or SVG with a transparent background. 
+                    <br/>AI uses this to understand your color palette and aesthetic.
                 </p>
             </div>
           </div>
@@ -235,7 +300,7 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
                             </div>
                         </div>
 
-                        <Select label="Typography Style" value={kit.fonts} onChange={e => setKit(prev => ({...prev, fonts: e.target.value}))}>
+                        <Select label="Typography & Style" value={kit.fonts} onChange={e => setKit(prev => ({...prev, fonts: e.target.value}))}>
                             {Object.entries(GOOGLE_FONTS_LIBRARY).map(([category, fonts]) => (
                                 <optgroup key={category} label={category}>
                                     {fonts.map(font => (
@@ -251,21 +316,11 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
 
                 {/* Brand Voice Section */}
                 <div>
-                    <SectionTitle title="Brand Voice" />
+                    <SectionTitle title="Brand Voice & Constraints" />
                     <div className="space-y-5">
-                        <FormTextArea
-                            label="Mission & Context"
-                            id="brand-description"
-                            placeholder="Briefly describe your brand's values and target audience. AI uses this to tailor captions and ad copy."
-                            rows={3}
-                            value={kit.description}
-                            onChange={e => setKit(prev => ({...prev, description: e.target.value}))}
-                            className="!mb-0"
-                        />
-                        
                         <div>
-                            <label className="block text-sm font-semibold text-slate-800 mb-2">Personality Attributes</label>
-                            <div className="flex flex-wrap gap-2">
+                            <label className="block text-sm font-semibold text-slate-800 mb-2">Brand Tone</label>
+                            <div className="flex flex-wrap gap-2 mb-4">
                                 {VOICE_OPTIONS.map(v => (
                                 <ControlButton
                                     key={v}
@@ -276,6 +331,28 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
                                 </ControlButton>
                                 ))}
                             </div>
+                        </div>
+
+                        <FormTextArea
+                            label="Mission & Context"
+                            id="brand-description"
+                            placeholder="Briefly describe your brand's values and target audience. AI uses this to tailor captions and ad copy."
+                            rows={3}
+                            value={kit.description}
+                            onChange={e => setKit(prev => ({...prev, description: e.target.value}))}
+                            className="!mb-0"
+                        />
+                        
+                        <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                            <FormTextArea
+                                label="Brand Don'ts (Negative Constraints)"
+                                id="negative-constraints"
+                                placeholder="What should the AI strictly avoid? e.g. No dark backgrounds, no cartoon effects, no neon colors."
+                                rows={2}
+                                value={kit.negativeConstraints || ''}
+                                onChange={e => setKit(prev => ({...prev, negativeConstraints: e.target.value}))}
+                                className="!mb-0 !bg-white !border-red-100 focus:!ring-red-200"
+                            />
                         </div>
                     </div>
                 </div>
