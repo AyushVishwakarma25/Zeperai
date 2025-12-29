@@ -11,13 +11,17 @@ export const ControlButton: React.FC<{
   selected: boolean;
   children: React.ReactNode;
   className?: string;
-}> = ({ onClick, selected, children, className }) => (
+  disabled?: boolean;
+}> = ({ onClick, selected, children, className, disabled }) => (
   <button
-    onClick={onClick}
+    onClick={disabled ? undefined : onClick}
+    disabled={disabled}
     className={`px-3 py-2 text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 border ${
       selected
         ? 'bg-primary text-white border-primary shadow-sm'
-        : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+        : (disabled
+            ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
+            : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200')
     } ${className}`}
   >
     {children}

@@ -6,7 +6,6 @@ import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 import { DetailPanel } from './DetailPanel';
 import { LivePreview } from './ui/LivePreview';
-import { Skeleton } from './ui/Skeleton';
 
 interface MainContentProps {
   params: GenerateImageParams;
@@ -113,35 +112,8 @@ const MainContentComponent: React.FC<MainContentProps> = (props) => {
     );
   }
 
-  // Display Skeleton Grid while loading initial images
-  if (props.isLoading && props.generatedImages.length === 0) {
-      return (
-        <div className="w-full h-full bg-white flex flex-col p-4 md:p-8">
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center space-x-4">
-                    <Skeleton className="w-8 h-8 rounded-full" />
-                    <div>
-                        <Skeleton className="w-48 h-6 mb-2" />
-                        <Skeleton className="w-32 h-4" />
-                    </div>
-                </div>
-                <Skeleton className="w-40 h-10" />
-            </div>
-            <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-6">
-                {[...Array(8)].map((_, i) => (
-                    <div key={i} className="mb-6 break-inside-avoid">
-                        <Skeleton className="w-full aspect-[4/5] rounded-xl" />
-                        <div className="mt-2 flex justify-between px-2">
-                            <Skeleton className="w-8 h-8 rounded-full" />
-                            <Skeleton className="w-8 h-8 rounded-full" />
-                            <Skeleton className="w-8 h-8 rounded-full" />
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-      );
-  }
+  // If loading and no images yet, we stay on the preview (or empty state) which will be covered by the App's loading overlay.
+  // We removed the Skeleton grid here to avoid visual clash with the global loading screen.
 
   if (props.generatedImages.length === 0) {
     return <LivePreview params={props.params} productImageUrl={props.frontProductImagePreview} />;

@@ -55,6 +55,16 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
   const isOnline = useNetworkStatus();
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
+  // Detect if we are in a "Remix" state where params are filled but image is missing
+  const isRemixingState = useMemo(() => {
+      // Check if description is pre-filled (common for remixes) but no image
+      const hasDescription = params.productDescription && params.productDescription.length > 0;
+      const missingImage = !frontProductImagePreview;
+      // Don't flag if it's actual Remix Mode (where inputs differ)
+      const standardMode = [AppMode.Product, AppMode.Fashion, AppMode.Influencer, AppMode.Festival, AppMode.AdCreative].includes(mode);
+      return standardMode && hasDescription && missingImage;
+  }, [params.productDescription, frontProductImagePreview, mode]);
+
   useEffect(() => {
     return () => {
       if (logoPreview && logoPreview.startsWith('blob:')) {
@@ -129,15 +139,8 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
 
   const batchOptions = useMemo(() => {
       if (mode === AppMode.Product) return []; 
-      if (isFashion) {
-          if (userTier === 'Agency') return [4, 8, 12];
-          if (userTier === 'Standard') return [1, 4];
-          return [1];
-      }
-      if (userTier === 'Agency') return [1, 4, 8, 12];
-      if (userTier === 'Standard') return [1, 4];
-      return [1];
-  }, [userTier, mode, isFashion]);
+      return [1, 4, 8, 12];
+  }, [mode]);
   
   const handleAspectRatioChange = (ratio: AspectRatio) => {
       if (userTier === 'Free' || userTier === 'Starter') {
@@ -216,11 +219,16 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                                 <SectionTitle title="ASSETS" />
                                 <ImageDropzone 
                                     id="asset-upload-main"
-                                    prompt={isFashion ? "Fabric or Garment" : "Upload Product Image"}
+                                    prompt={isFashion ? "Fabric or Garment" : (isRemixingState ? "Upload Product to Remix" : "Upload Product Image")}
                                     previewUrl={frontProductImagePreview}
                                     onFileChange={(file) => onFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 2048, maxHeight: 2048, format: 'image/png' })}
-                                    className={`w-full ${isAdCreative ? 'h-48 sm:h-56' : 'aspect-[3/2] md:h-64'} ${!frontProductImagePreview ? 'border-red-200 bg-red-50 animate-pulse' : ''}`}
+                                    className={`w-full ${isAdCreative ? 'h-48 sm:h-56' : 'aspect-[3/2] md:h-64'} ${(!frontProductImagePreview || isRemixingState) ? 'border-primary border-dashed bg-primary/5 animate-pulse ring-2 ring-primary/20' : ''}`}
                                 />
+                                {isRemixingState && (
+                                    <p className="text-xs text-primary font-semibold mt-2 text-center">
+                                        Parameters pre-filled from inspiration. Upload product to apply style.
+                                    </p>
+                                )}
                             </div>
                             {isAdCreative && (
                                 <div className="flex flex-col mt-2">
@@ -306,6 +314,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                         handleParamChange={handleParamChange}
                         handleAspectRatioChange={handleAspectRatioChange}
                         batchOptions={batchOptions}
+                        userTier={userTier}
                     />
                 </div>
             </div>

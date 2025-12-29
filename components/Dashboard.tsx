@@ -1,96 +1,50 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Icon } from './ui/Icon';
 import { AppMode, GeneratedImage } from '../types';
 import { FloatingActionBar } from './FloatingActionBar';
 
-interface ToolCardProps {
-  iconName: string;
+interface ColorfulCardProps {
   title: string;
+  subtitle: string;
+  color: string;
+  textColor: string;
+  iconName: string;
   onClick: () => void;
-  isWide?: boolean;
   isLocked?: boolean;
   onUnlock?: () => void;
-  onDrop?: (image: GeneratedImage) => void;
 }
 
-const ToolCard: React.FC<ToolCardProps> = ({ iconName, title, onClick, isWide, isLocked, onUnlock, onDrop }) => {
-    const [isDraggingOver, setIsDraggingOver] = useState(false);
-
-    const handleDragOver = (e: React.DragEvent) => {
-        if (isLocked) return;
-        e.preventDefault();
-        setIsDraggingOver(true);
-    };
-
-    const handleDragLeave = () => {
-        setIsDraggingOver(false);
-    };
-
-    const handleDrop = (e: React.DragEvent) => {
-        if (isLocked) return;
-        e.preventDefault();
-        setIsDraggingOver(false);
-        const internalImageData = e.dataTransfer.getData('application/x-krackx-image');
-        if (internalImageData && onDrop) {
-            try {
-                const image = JSON.parse(internalImageData);
-                onDrop(image);
-            } catch (err) {
-                console.error("Failed to parse dropped image", err);
-            }
-        }
-    };
-
-    // Grid layout logic:
-    // Wide cards: col-span-2
-    // Regular cards: standard grid cell
-    const spanClass = isWide ? 'col-span-2' : '';
-    
+const ColorfulCard: React.FC<ColorfulCardProps> = ({ title, subtitle, color, textColor, iconName, onClick, isLocked, onUnlock }) => {
     return (
         <button
             type="button"
             onClick={isLocked && onUnlock ? onUnlock : onClick}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={`relative p-4 rounded-2xl bg-white/60 backdrop-blur-sm shadow-sm transition-all duration-300 cursor-pointer group flex w-full focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${spanClass} ${isLocked ? 'opacity-90 hover:bg-slate-50 hover:ring-2 hover:ring-primary/20' : 'hover:bg-white/80 hover:shadow-md hover:scale-[1.02]'} ${isDraggingOver ? 'ring-2 ring-primary bg-primary/5 scale-105 z-10' : ''} ${isWide ? 'flex-row items-center h-auto min-h-[6rem]' : 'flex-col items-center text-center h-auto min-h-[8rem] justify-center'}`}
-            aria-label={isLocked ? `${title} (Locked)` : title}
+            className={`relative overflow-hidden w-full h-32 lg:h-36 rounded-3xl p-5 lg:p-6 text-left flex items-center justify-between transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-md hover:shadow-xl group`}
+            style={{ backgroundColor: color }}
         >
-            {isLocked && (
-                <div className="absolute top-2 right-2 bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center shadow-md z-10">
-                    <Icon name="lock" className="w-3 h-3 mr-1" />
-                    PRO
-                </div>
-            )}
-            
-            <div className={`rounded-full bg-white/50 p-3 flex-shrink-0 flex items-center justify-center shadow-inner transition-all ${isWide ? 'mr-4 w-12 h-12' : 'mb-3 w-14 h-14'} ${isLocked ? 'grayscale opacity-70' : ''} ${isDraggingOver ? 'bg-primary text-white' : ''}`}>
-                 <Icon name={iconName} className={`w-8 h-8 transition-colors ${isDraggingOver ? 'text-white' : 'text-slate-700'}`} />
+            <div className="z-10 flex flex-col justify-center h-full">
+                <h3 className={`font-poppins font-bold text-lg lg:text-xl uppercase leading-tight tracking-wide ${textColor}`}>
+                    {title}
+                </h3>
+                <p className={`font-poppins font-normal text-[10px] lg:text-xs mt-1 opacity-90 ${textColor}`}>
+                    {subtitle}
+                </p>
             </div>
             
-            <div className={`flex flex-col ${isWide ? 'items-start text-left' : 'items-center text-center'}`}>
-                <h4 className={`font-bold text-sm text-text-primary ${isDraggingOver ? 'text-primary' : ''}`}>{title}</h4>
+            <div className="h-16 w-16 bg-white rounded-2xl flex items-center justify-center shadow-sm z-10 flex-shrink-0 group-hover:rotate-6 transition-transform">
+                {isLocked ? (
+                    <Icon name="lock" className="w-8 h-8 text-slate-400" />
+                ) : (
+                    <Icon name={iconName} className="w-8 h-8 text-black" />
+                )}
             </div>
-            
-            {isDraggingOver && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                     <div className="animate-ping absolute h-8 w-8 rounded-full bg-primary/20 opacity-75"></div>
-                </div>
-            )}
+
+            {/* Decorative background circle */}
+            <div className="absolute -right-4 -bottom-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:bg-white/20 transition-colors"></div>
         </button>
     );
 };
-
-
-const VerticalCategoryCard: React.FC<{ title: string; children: React.ReactNode; className?: string; titleClassName?: string }> = ({ title, children, className, titleClassName = 'text-white' }) => (
-    <div className={`p-4 rounded-3xl flex flex-col ${className} shadow-lg border border-white/20 h-full`}>
-        <h2 className={`text-xl font-bold mb-4 text-center ${titleClassName}`}>{title}</h2>
-        <div className="grid grid-cols-2 gap-3 h-full content-start">
-            {children}
-        </div>
-    </div>
-);
-
 
 interface DashboardProps {
   onSelectMode: (tool: AppMode) => void;
@@ -138,25 +92,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenFeedbackModal, onOpenPricingModal
     </header>
 );
 
-interface DashboardHomeProps {
-  onSelectMode: (tool: AppMode) => void;
-  onStartImageEdit: (image?: GeneratedImage) => void;
-  onOpenContentGenerator: () => void;
-  floatingPrompt: string;
-  onFloatingPromptChange: (value: string) => void;
-  floatingImagePreview: string | null;
-  onFloatingGenerate: () => void;
-  onRemoveFloatingImage: () => void;
-  onTriggerFloatingUpload: () => void;
-  isLoading: boolean;
-  userTier?: 'Free' | 'Starter' | 'Standard' | 'Agency';
-  onOpenPricingModal: () => void;
-  isAdmin?: boolean;
-  userName?: string;
-  onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;
-}
-
-const DashboardHome: React.FC<DashboardHomeProps> = ({ 
+const DashboardHome: React.FC<DashboardProps> = ({ 
     onSelectMode, 
     onStartImageEdit, 
     onOpenContentGenerator,
@@ -171,50 +107,84 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     onOpenPricingModal,
     isAdmin = false,
     userName = 'there',
-    onInternalImageDrop,
 }) => {
 
     const isProLocked = !isAdmin && (userTier === 'Free' || userTier === 'Starter');
 
-    const ecommerceTools = [
-        { id: AppMode.Product, title: 'Product Photoshoot', iconName: 'camera' },
-        { id: AppMode.Fashion, title: 'Fashion Photoshoot', iconName: 'shirt' },
-    ];
-    const marketingTools = [
-        { id: AppMode.AdCreative, title: 'Ads Generator', iconName: 'megaphone' },
-        { id: AppMode.Influencer, title: 'Influencer Campaign', iconName: 'user' },
-        { id: AppMode.Festival, title: 'Festival Shoot', iconName: 'lamp' },
-        { id: AppMode.Remix, title: 'Image Remix', iconName: 'swap' },
-    ];
-    const otherTools = [
-      { id: 'bg-remover', title: 'Background Remover', iconName: 'magic-wand', action: onStartImageEdit },
-      { 
-          id: 'ai-writer', 
-          title: 'AI Writer', 
-          iconName: 'pencil-sparkles', 
-          action: onOpenContentGenerator, 
-          isLocked: isProLocked
-      },
-    ];
-
-    const handleToolClick = (toolId: string) => {
-        if (Object.values(AppMode).includes(toolId as AppMode)) {
-            onSelectMode(toolId as AppMode);
+    const tools = [
+        {
+            title: 'Product Studio',
+            subtitle: 'Studio-ready product visuals',
+            color: '#5071FF',
+            textColor: 'text-white',
+            iconName: 'camera',
+            onClick: () => onSelectMode(AppMode.Product)
+        },
+        {
+            title: 'AI UGC Influencer',
+            subtitle: 'Generate diverse models',
+            color: '#8F1EAE',
+            textColor: 'text-white',
+            iconName: 'user',
+            onClick: () => onSelectMode(AppMode.Influencer)
+        },
+        {
+            title: 'Fashion Studio',
+            subtitle: 'On-model clothing shoots',
+            color: '#010100',
+            textColor: 'text-white',
+            iconName: 'shirt',
+            onClick: () => onSelectMode(AppMode.Fashion)
+        },
+        {
+            title: 'Ad Generator',
+            subtitle: 'High conversion creatives',
+            color: '#C0E957',
+            textColor: 'text-slate-900',
+            iconName: 'megaphone',
+            onClick: () => onSelectMode(AppMode.AdCreative)
+        },
+        {
+            title: 'AI Content Writer',
+            subtitle: 'Captions & copy in seconds',
+            color: '#816FE6',
+            textColor: 'text-white',
+            iconName: 'pencil-sparkles',
+            onClick: onOpenContentGenerator,
+            isLocked: isProLocked,
+            onUnlock: onOpenPricingModal
+        },
+        {
+            title: 'Image Restyle',
+            subtitle: 'Remix & modify visuals',
+            color: '#82F0E1',
+            textColor: 'text-slate-900',
+            iconName: 'refresh',
+            onClick: () => onSelectMode(AppMode.Remix)
+        },
+        {
+            title: 'Background Remover',
+            subtitle: 'Instant clean cutouts',
+            color: '#F6C796',
+            textColor: 'text-slate-900',
+            iconName: 'magic-wand',
+            onClick: () => onStartImageEdit()
+        },
+        {
+            title: 'Festive Photoshoot',
+            subtitle: 'Seasonal themes & props',
+            color: '#EBD5AF',
+            textColor: 'text-slate-900',
+            iconName: 'lamp',
+            onClick: () => onSelectMode(AppMode.Festival)
         }
-    };
-
-    const handleInternalDrop = (image: GeneratedImage, toolId: string) => {
-        if (Object.values(AppMode).includes(toolId as AppMode)) {
-            onInternalImageDrop(image, toolId as AppMode);
-        } else if (toolId === 'bg-remover') {
-            onStartImageEdit(image);
-        }
-    };
+    ];
 
     return (
-      <div className="py-2">
+      <div className="py-2 pb-10">
         <h1 className="text-3xl font-bold text-text-primary text-center">What are we creating today, {userName}?</h1>
-        <div className="max-w-3xl mx-auto mt-4 mb-4">
+        
+        <div className="max-w-3xl mx-auto mt-6 mb-8">
             <FloatingActionBar 
                 prompt={floatingPrompt}
                 onPromptChange={onFloatingPromptChange}
@@ -226,58 +196,25 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             />
         </div>
 
-        <div className="p-4 rounded-3xl">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-fr">
-                <VerticalCategoryCard title="Ecommerce" className="bg-gradient-to-br from-blue-500 to-indigo-600 shadow-blue-200" titleClassName="text-white">
-                     {ecommerceTools.map(tool => (
-                        <ToolCard 
-                            key={tool.id} 
-                            onClick={() => handleToolClick(tool.id)} 
-                            onDrop={(img) => handleInternalDrop(img, tool.id)}
-                            {...tool} 
-                        />
-                     ))}
-                </VerticalCategoryCard>
-                <VerticalCategoryCard title="Marketing" className="bg-gradient-to-br from-fuchsia-500 to-purple-600 shadow-purple-200" titleClassName="text-white">
-                    {marketingTools.map(tool => (
-                        <ToolCard 
-                            key={tool.id} 
-                            onClick={() => handleToolClick(tool.id)} 
-                            onDrop={(img) => handleInternalDrop(img, tool.id)}
-                            {...tool} 
-                        />
-                    ))}
-                </VerticalCategoryCard>
-                 <VerticalCategoryCard title="Other" className="bg-gradient-to-br from-amber-400 to-orange-500 shadow-orange-200" titleClassName="text-white">
-                    {otherTools.map(tool => (
-                        <ToolCard 
-                            key={tool.id} 
-                            onClick={tool.action ? tool.action : () => handleToolClick(tool.id)} 
-                            onDrop={(img) => handleInternalDrop(img, tool.id)}
-                            {...tool} 
-                            isLocked={tool.isLocked}
-                            onUnlock={onOpenPricingModal}
-                        />
-                    ))}
-                </VerticalCategoryCard>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            {tools.map((tool) => (
+                <ColorfulCard 
+                    key={tool.title}
+                    {...tool}
+                />
+            ))}
         </div>
       </div>
     )
 };
 
-
 const DashboardComponent: React.FC<DashboardProps> = (props) => {
     return (
-        <main className="relative w-full h-full flex flex-col overflow-hidden">
+        <main className="relative w-full h-full flex flex-col overflow-hidden bg-main">
             <Header onOpenFeedbackModal={props.onOpenFeedbackModal} onOpenPricingModal={props.onOpenPricingModal} onToggleSidebar={props.onToggleSidebar} />
-            <div className="flex-1 overflow-y-auto">
-                <div className="grid grid-cols-[1fr_minmax(0,64rem)_1fr]">
-                    <div />
-                    <div className="px-4 md:px-8 lg:px-12">
-                        <DashboardHome {...props} />
-                    </div>
-                    <div />
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300">
+                <div className="px-4 md:px-8 lg:px-12">
+                    <DashboardHome {...props} />
                 </div>
             </div>
         </main>

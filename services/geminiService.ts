@@ -1,32 +1,25 @@
 
 /**
  * FILE: geminiService.ts
- *
- * PURPOSE:
- * - Core service for all Google Gemini AI interactions (Image, Text, Vision).
- *
- * FLOW:
- * UI Component → geminiService → Google Gemini API → Response → UI Component
- *
- * INPUT:
- * - params: GenerateImageParams | GenerateCaptionParams | ...
- *
- * OUTPUT:
- * - GeneratedImage[] | CaptionData | ...
- *
- * NOTES:
- * - Rate limiting is handled internally via retries.
- * - API Key is retrieved from environment variables.
+ * PURPOSE: Core service for all Google Gemini AI interactions (Image, Text, Vision).
  */
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS } from '../constants';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis } from '../types';
-import { AspectRatio, AppMode, MarketplacePreset, FashionGender, FashionShootType, RegionalStyle, ProductCategory, ResolutionQuality } from '../types';
-
-// --- PRIVATE HELPERS ---
+import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, RegionalStyle, ProductCategory, ResolutionQuality } from '../types';
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// --- MODELS CONFIGURATION ---
+const MODELS = {
+    TEXT: 'gemini-3-flash-preview',
+    TEXT_FALLBACK: 'gemini-2.0-flash-exp', // Fallback for 403/500 on primary text model
+    // IMAGE_PRO: 'gemini-3-pro-image-preview', // TODO: Re-enable when API access is available
+    IMAGE_PRO: 'gemini-2.5-flash-image', // Temporary override: Use 2.5 Flash for all tiers to avoid access errors
+    IMAGE_STD: 'gemini-2.5-flash-image',
+    EDIT: 'gemini-2.5-flash-image'
+};
 
 const getAI = () => {
     const apiKey = process.env.API_KEY;
@@ -36,8 +29,32 @@ const getAI = () => {
     return new GoogleGenAI({ apiKey });
 };
 
+// --- HELPER: Safe Content Generation with Fallback ---
+const generateContentSafe = async (ai: GoogleGenAI, params: any) => {
+    try {
+        return await ai.models.generateContent(params);
+    } catch (error: any) {
+        // Check for Permission Denied (403), Not Found (404), or Internal Error (500)
+        const isAccessError = error.status === 403 || error.status === 404 || error.status === 500 || 
+                              (error.message && (error.message.includes('403') || error.message.includes('500')));
+        
+        if (params.model === MODELS.TEXT && isAccessError) {
+            console.warn(`Primary model ${MODELS.TEXT} failed (${error.status}). Falling back to ${MODELS.TEXT_FALLBACK}.`);
+            try {
+                return await ai.models.generateContent({
+                    ...params,
+                    model: MODELS.TEXT_FALLBACK
+                });
+            } catch (fallbackError: any) {
+                console.error("Fallback text generation also failed:", fallbackError);
+                throw error; // Throw original error to retain context if both fail
+            }
+        }
+        throw error;
+    }
+};
+
 const getFashionPoses = (count: number): string[] => {
-    // Logic to get diverse poses
     const poses = [
         'Full length front view hero shot, standing confidently looking at camera',
         'Mid-shot (thigh-high) 45-degree angle, one hand on waist, sophisticated expression',
@@ -69,13 +86,11 @@ export const fileToBase64 = (file: File): Promise<string> => {
 
 const dataURLToParts = (dataURL: string) => {
     const parts = dataURL.split(',');
-    const meta = parts[0];
+    // const meta = parts[0]; 
     const data = parts[1];
-    const mimeType = meta.split(':')[1].split(';')[0];
+    const mimeType = parts[0].split(':')[1].split(';')[0];
     return { data, mimeType };
 };
-
-// --- CORE GENERATION LOGIC ---
 
 async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit | null, activeImage?: File, pose?: string, modelSeedUrl?: string): Promise<any[]> {
     const { 
@@ -88,7 +103,6 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
     
     let parts: any[] = [];
 
-    // Add Image Assets
     if (modelSeedUrl) {
         const response = await fetch(modelSeedUrl);
         const blob = await response.blob();
@@ -112,7 +126,6 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
         parts.push({ inlineData: { data: base64, mimeType: params.remixProductImage.type } });
     }
 
-    // Construct Text Prompt
     let corePrompt = '';
 
     switch (appMode) {
@@ -172,12 +185,37 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
             break;
     }
 
-    // Append Compliance/Brand Rules
     if (marketplacePreset === MarketplacePreset.Amazon) corePrompt += ` COMPLIANCE: Amazon White Background (RGB 255,255,255). No shadows.`;
     if (brandKit?.voice) corePrompt += `\n- Brand Voice: ${brandKit.voice}.`;
 
     return [{ text: corePrompt }, ...parts];
 }
+
+const parseGenerationResponse = (response: any, params: any, aspectRatio: any, pose: any, sourceProductImageUrl: any): GeneratedImage => {
+    let imageUrl = '';
+    const candidate = response.candidates?.[0];
+    const outParts = candidate?.content?.parts || [];
+    
+    for (const part of outParts) {
+        if (part.inlineData) {
+            imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            break;
+        }
+    }
+    
+    if (!imageUrl) throw new Error("AI pipeline error: No image returned.");
+
+    return {
+        id: `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        imageUrl,
+        caption: pose || params.fashionSubCategory || "Creative Variation",
+        hashtags: "",
+        aspectRatio: aspectRatio,
+        params,
+        sourceProductImageUrl,
+        timestamp: Date.now(),
+    };
+};
 
 async function generateSingleImage(
     params: GenerateImageParams, 
@@ -188,13 +226,15 @@ async function generateSingleImage(
     pose?: string, 
     sourceProductImageUrl?: string, 
     modelSeedUrl?: string,
+    presetOverride?: string,
     retryCount: number = 0
 ): Promise<GeneratedImage> {
-    // 1. Validate & Init
     const ai = getAI();
     
-    // 2. Prepare Config & Prompt
-    const contents = await buildPromptParts(params, brandKit, activeImage, pose, modelSeedUrl);
+    // Apply preset override if exists
+    const effectiveParams = presetOverride ? { ...params, productStylePreset: presetOverride } : params;
+    
+    const contents = await buildPromptParts(effectiveParams, brandKit, activeImage, pose, modelSeedUrl);
     
     let aspectRatioConfig: "1:1" | "3:4" | "4:3" | "9:16" | "16:9" = "1:1";
     if (aspectRatio === AspectRatio.Portrait) aspectRatioConfig = "9:16";
@@ -202,61 +242,80 @@ async function generateSingleImage(
     if (aspectRatio === AspectRatio.PortraitPost || aspectRatio === AspectRatio.FashionShopify) aspectRatioConfig = "3:4";
 
     const isProTier = userTier === 'Standard' || userTier === 'Agency';
-    const modelName = isProTier ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
+    const primaryModel = isProTier ? MODELS.IMAGE_PRO : MODELS.IMAGE_STD;
 
     const config: any = {
         imageConfig: { aspectRatio: aspectRatioConfig },
         safetySettings: [{ category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' }]
     };
 
-    if (isProTier && params.resolutionQuality === ResolutionQuality.High) {
+    // Only apply imageSize if the selected model actually supports it (Gemini 3 Pro series).
+    // gemini-2.5-flash-image does NOT support imageSize and will error if sent.
+    // Since IMAGE_PRO is currently overridden to 2.5-flash, this check prevents the error.
+    if (isProTier && params.resolutionQuality === ResolutionQuality.High && primaryModel.includes('gemini-3')) {
         config.imageConfig.imageSize = '2K'; 
     }
 
     try {
-        // 3. Call AI
         const response = await ai.models.generateContent({
-            model: modelName,
+            model: primaryModel,
             contents: { parts: contents },
             config: config,
         });
 
-        // 4. Handle Response
-        let imageUrl = '';
-        const candidate = response.candidates?.[0];
-        const outParts = candidate?.content?.parts || [];
-        
-        for (const part of outParts) {
-            if (part.inlineData) {
-                imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-                break;
-            }
-        }
-        
-        if (!imageUrl) throw new Error("AI pipeline error: No image returned.");
-
-        // 5. Return Safe Output
-        return {
-            id: `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            imageUrl,
-            caption: pose || params.fashionSubCategory || "Creative Variation",
-            hashtags: "",
-            aspectRatio: aspectRatio,
-            params,
-            sourceProductImageUrl,
-            timestamp: Date.now(),
-        };
+        return parseGenerationResponse(response, effectiveParams, aspectRatio, pose, sourceProductImageUrl);
 
     } catch (error: any) {
+        // Fallback Logic for Pro Tier failures (403 Permission Denied or 500 Internal Error)
+        const isPermissionError = error.status === 403 || (error.message && error.message.includes('403')) || (error.message && error.message.includes('PERMISSION_DENIED'));
+        const isInternalError = error.status === 500 || (error.message && error.message.includes('500')) || (error.message && error.message.includes('INTERNAL'));
+        
+        if (isProTier && (isPermissionError || isInternalError)) {
+            console.warn(`Model ${primaryModel} failed with ${error.status || 'Error'}. Falling back to ${MODELS.IMAGE_STD}.`);
+            
+            // Remove imageSize config as it is not supported on flash-image
+            const fallbackConfig = { ...config };
+            if (fallbackConfig.imageConfig) delete fallbackConfig.imageConfig.imageSize;
+
+            // --- Robust Retry Loop for Fallback ---
+            let fallbackRetries = 0;
+            const maxFallbackRetries = 3;
+            
+            while (fallbackRetries < maxFallbackRetries) {
+                try {
+                    const fallbackResponse = await ai.models.generateContent({
+                        model: MODELS.IMAGE_STD,
+                        contents: { parts: contents },
+                        config: fallbackConfig,
+                    });
+                    return parseGenerationResponse(fallbackResponse, effectiveParams, aspectRatio, pose, sourceProductImageUrl);
+                } catch (fallbackError: any) {
+                    const isFallbackInternal = fallbackError.status === 500 || (fallbackError.message && fallbackError.message.includes('500'));
+                    
+                    if (isFallbackInternal) {
+                        fallbackRetries++;
+                        console.warn(`Fallback attempt ${fallbackRetries} failed with 500. Retrying...`);
+                        await wait(2000 * fallbackRetries); // Exponential wait: 2s, 4s, 6s
+                        
+                        if (fallbackRetries >= maxFallbackRetries) {
+                            console.error("All fallback retries failed.");
+                            throw fallbackError; 
+                        }
+                    } else {
+                        console.error("Fallback failed with non-retriable error:", fallbackError);
+                        throw fallbackError;
+                    }
+                }
+            }
+        }
+
         if (retryCount < 3 && (error.message?.includes('429') || error.status === 429)) {
             await wait((retryCount + 1) * 6000);
-            return generateSingleImage(params, aspectRatio, userTier, brandKit, activeImage, pose, sourceProductImageUrl, modelSeedUrl, retryCount + 1);
+            return generateSingleImage(params, aspectRatio, userTier, brandKit, activeImage, pose, sourceProductImageUrl, modelSeedUrl, presetOverride, retryCount + 1);
         }
         throw error;
     }
 }
-
-// --- PUBLIC API ---
 
 export const generateImages = async (
     params: GenerateImageParams, 
@@ -266,46 +325,125 @@ export const generateImages = async (
     onProgress?: (current: number, total: number) => void,
     modelSeedUrl?: string
 ): Promise<GeneratedImage[]> => {
-    // 1. Validate Input & Setup Queues
     const aspectRatios = params.aspectRatios?.length ? params.aspectRatios : [AspectRatio.PortraitPost];
-    const batchSize = params.batchSize || (params.appMode === AppMode.Fashion ? 4 : 1);
-    const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
-    const effectiveBatch = Math.min(batchSize, maxBatch);
+    
+    // --- 1. DETERMINE TASKS (Cartesian Product of Images x Variations x Presets) ---
+    let tasks: { image?: File, pose?: string, angle?: string, preset?: string }[] = [];
 
-    const allResults: GeneratedImage[] = [];
-    const totalJobs = aspectRatios.length * effectiveBatch;
-    let completedJobs = 0;
+    if (params.appMode === AppMode.Product) {
+        // Product Mode: Images x Angles x Presets
+        const images = params.bulkImages && params.bulkImages.length > 0 
+            ? params.bulkImages 
+            : (params.frontProductImage ? [params.frontProductImage] : []);
+            
+        const angles = params.selectedAngles && params.selectedAngles.length > 0 
+            ? params.selectedAngles 
+            : ['Front View'];
 
-    // 2. Execution Loop
-    for (const ratio of aspectRatios) {
-        const poses = params.appMode === AppMode.Fashion ? getFashionPoses(effectiveBatch) : [];
-        const angles = params.appMode === AppMode.Product ? (params.selectedAngles || ['Front View']) : [];
-        const iterations = params.appMode === AppMode.Product ? angles.length : effectiveBatch;
+        // Determine presets (use multi-select list or fallback to single/default)
+        const presets = params.productStylePresets && params.productStylePresets.length > 0 
+            ? params.productStylePresets 
+            : (params.productStylePreset ? [params.productStylePreset] : [AI_SUGGESTED]);
 
-        for (let i = 0; i < iterations; i++) {
-            completedJobs++;
-            if (onProgress) onProgress(completedJobs, totalJobs);
+        if (images.length === 0) {
+             // Fallback if no images (e.g. text-only gen if supported, or just empty task to trigger default logic)
+             for (const angle of angles) {
+                 for (const preset of presets) {
+                     tasks.push({ angle, pose: angle, preset });
+                 }
+             }
+        } else {
+            // Process EVERY image with EVERY selected angle AND EVERY selected preset
+            for (const img of images) {
+                for (const angle of angles) {
+                    for (const preset of presets) {
+                        tasks.push({ image: img, angle, pose: angle, preset });
+                    }
+                }
+            }
+        }
+    } else if (params.appMode === AppMode.Fashion) {
+        // Fashion Mode: Bulk Images OR Batch Size
+        const images = params.bulkImages && params.bulkImages.length > 0 ? params.bulkImages : [];
+        let count = 0;
+        
+        if (images.length > 0) {
+            count = images.length;
+        } else {
+            const batchSize = params.batchSize || 4;
+            const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
+            count = Math.min(batchSize, maxBatch);
+        }
 
-            const activeImage = params.bulkImages ? params.bulkImages[i % params.bulkImages.length] : undefined;
-            const pose = params.appMode === AppMode.Fashion ? poses[i] : (params.appMode === AppMode.Product ? angles[i] : undefined);
+        const poses = getFashionPoses(count);
+        for (let i = 0; i < count; i++) {
+            tasks.push({
+                image: images.length > 0 ? images[i] : undefined,
+                pose: poses[i % poses.length]
+            });
+        }
+    } else {
+        // Other Modes (Influencer, Ad, etc.): Bulk Images OR Batch Size
+        const images = params.bulkImages && params.bulkImages.length > 0 ? params.bulkImages : [];
+        let count = 0;
+        
+        if (images.length > 0) {
+            count = images.length;
+        } else {
+            const batchSize = params.batchSize || 1;
+            const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
+            count = Math.min(batchSize, maxBatch);
+        }
 
-            // 3. Call Internal Generator
-            const result = await generateSingleImage(params, ratio, userTier, brandKit, activeImage, pose, sourceProductImageUrl, modelSeedUrl);
-            allResults.push(result);
-
-            if (i < iterations - 1) await wait(5000); // Rate limit buffer
+        for (let i = 0; i < count; i++) {
+            tasks.push({
+                image: images.length > 0 ? images[i] : undefined,
+                pose: undefined 
+            });
         }
     }
 
-    // 4. Return Results
+    const allResults: GeneratedImage[] = [];
+    let completedJobs = 0;
+    const totalJobs = aspectRatios.length * tasks.length;
+
+    // --- 2. EXECUTE TASKS ---
+    for (const ratio of aspectRatios) {
+        for (let i = 0; i < tasks.length; i++) {
+            completedJobs++;
+            if (onProgress) onProgress(completedJobs, totalJobs);
+
+            const task = tasks[i];
+            
+            // Wait buffer to respect rate limits (15 RPM safe zone)
+            // If we have already generated something, wait before next
+            if (allResults.length > 0) await wait(4000); 
+
+            try {
+                const result = await generateSingleImage(
+                    params, 
+                    ratio, 
+                    userTier, 
+                    brandKit, 
+                    task.image, // Correct image from task list
+                    task.pose, 
+                    sourceProductImageUrl, 
+                    modelSeedUrl,
+                    task.preset // Pass preset override
+                );
+                allResults.push(result);
+            } catch (err) {
+                console.error("Generation failed for one item in batch:", err);
+                // Throwing here to stop the batch and alert user, rather than partial silent failure
+                throw err; 
+            }
+        }
+    }
     return allResults;
 };
 
 export const editImage = async (params: EditImageParams): Promise<{ imageUrl: string }> => {
-    // 1. Validate
     const ai = getAI();
-    
-    // 2. Prepare Config
     const { data: originalData, mimeType: originalMimeType } = dataURLToParts(params.originalImageUrl);
     const { data: maskData } = dataURLToParts(params.maskDataUrl);
     
@@ -320,31 +458,24 @@ export const editImage = async (params: EditImageParams): Promise<{ imageUrl: st
         parts.push({ inlineData: { data: replacementBase64, mimeType: params.replacementImage.type } });
     }
 
-    // 3. Call AI
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
+        model: MODELS.EDIT,
         contents: { parts }
     });
 
-    // 4. Handle Response
     const outputPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
     if (!outputPart?.inlineData) throw new Error("No image generated from edit.");
 
-    // 5. Return Safe Output
     return { imageUrl: `data:${outputPart.inlineData.mimeType};base64,${outputPart.inlineData.data}` };
 };
 
 export const generateCaption = async (params: GenerateCaptionParams, brandKit: BrandKit | null) => {
-    // 1. Validate
     const ai = getAI();
-    
-    // 2. Prepare Prompt
     const { data, mimeType } = dataURLToParts(params.imageUrl);
     const prompt = `Write marketing caption. Tone: ${params.tone}. Platform: ${params.platform}. JSON {caption, hashtags}.`;
     
-    // 3. Call AI
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+    const response = await generateContentSafe(ai, {
+        model: MODELS.TEXT,
         contents: { parts: [{ inlineData: { data, mimeType } }, { text: prompt }] },
         config: {
             responseMimeType: "application/json",
@@ -352,61 +483,44 @@ export const generateCaption = async (params: GenerateCaptionParams, brandKit: B
         }
     });
     
-    // 4. Handle & Return
-    try {
-        return JSON.parse(response.text || '{}');
-    } catch {
-        return { caption: "Check this out!", hashtags: "#trending" };
-    }
+    try { return JSON.parse(response.text || '{}'); } catch { return { caption: "Check this out!", hashtags: "#trending" }; }
 };
 
 export const detectProductCategory = async (base64: string, mimeType: string, description: string): Promise<ProductCategory> => {
-    // 1. Validate
     if (!process.env.API_KEY) return ProductCategory.Generic;
     const ai = getAI();
-
-    // 2. Prepare Prompt
     const categories = Object.values(ProductCategory).join('", "');
     const prompt = `Classify product in image based on description "${description}" into ONE category: ["${categories}"]. Return ONLY category name.`;
 
-    // 3. Call AI
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+    const response = await generateContentSafe(ai, {
+        model: MODELS.TEXT,
         contents: { parts: [{ inlineData: { data: base64, mimeType } }, { text: prompt }] }
     });
 
-    // 4. Handle Response
     const text = response.text?.trim() as ProductCategory;
     if (Object.values(ProductCategory).includes(text)) return text;
-
-    // 5. Return Safe Default
     return ProductCategory.Generic;
 };
 
 export const generateVariantSuggestions = async (description: string, field: string) => {
-    // 1. Validate & Prepare
     const ai = getAI();
     const prompt = `Suggest 4 options for "${field}" based on product: "${description}". JSON array.`;
 
-    // 2. Call AI
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+    const response = await generateContentSafe(ai, {
+        model: MODELS.TEXT,
         contents: prompt,
         config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }
     });
 
-    // 3. Handle & Return
     try { return JSON.parse(response.text || '[]'); } catch { return ['Option 1', 'Option 2']; }
 };
 
 export const getABTestSuggestions = async (image: GeneratedImage) => {
-    // 1. Validate & Prepare
     const ai = getAI();
     const { data, mimeType } = dataURLToParts(image.imageUrl);
     
-    // 2. Call AI
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+    const response = await generateContentSafe(ai, {
+        model: MODELS.TEXT,
         contents: { parts: [{ inlineData: { data, mimeType } }, { text: "Suggest 3 A/B test variations. JSON array {title, description, hypothesis}." }] },
         config: { 
             responseMimeType: "application/json", 
@@ -417,21 +531,16 @@ export const getABTestSuggestions = async (image: GeneratedImage) => {
         }
     });
 
-    // 3. Handle & Return
     try { return JSON.parse(response.text || '[]'); } catch { return []; }
 };
 
 export const removeBackground = async (base64: string, mimeType: string): Promise<{ data: string, mimeType: string }> => {
-    // 1. Validate & Prepare
     const ai = getAI();
-    
-    // 2. Call AI
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
+        model: MODELS.IMAGE_STD, // Using standard flash for editing tasks
         contents: { parts: [{ inlineData: { data: base64, mimeType } }, { text: "Isolate subject on pure white #FFFFFF background." }] }
     });
 
-    // 3. Handle & Return
     const part = response.candidates?.[0]?.content?.parts?.[0];
     if (part?.inlineData) return { data: part.inlineData.data, mimeType: part.inlineData.mimeType };
     return { data: base64, mimeType };
@@ -439,8 +548,8 @@ export const removeBackground = async (base64: string, mimeType: string): Promis
 
 export const generateMoodBoard = async (description: string): Promise<MoodBoard> => {
     const ai = getAI();
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+    const response = await generateContentSafe(ai, {
+        model: MODELS.TEXT,
         contents: `Mood board for: "${description}". JSON {concept, colors:[{name,hex}], styles:[], tones:[]}.`,
         config: { responseMimeType: "application/json" }
     });
@@ -449,8 +558,8 @@ export const generateMoodBoard = async (description: string): Promise<MoodBoard>
 
 export const analyzeBrandLogo = async (base64: string, mimeType: string): Promise<BrandAnalysis> => {
     const ai = getAI();
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+    const response = await generateContentSafe(ai, {
+        model: MODELS.TEXT,
         contents: { parts: [{ inlineData: { data: base64, mimeType } }, { text: `Analyze logo JSON {colors:[{name,hex}], typography, vibe:[]}.` }] },
         config: { responseMimeType: "application/json" }
     });

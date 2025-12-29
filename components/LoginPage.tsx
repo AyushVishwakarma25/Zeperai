@@ -222,6 +222,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     onLoginSuccess(guestSession);
   };
 
+  const handleAdminAccess = () => {
+    const adminSession: AuthSession = {
+        user: {
+            id: 'admin-user-id',
+            name: 'Admin User',
+            email: 'admin@krackxai.com',
+            role: 'Administrator',
+            bio: 'Super user with max tier access.',
+            location: 'HQ',
+            avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=admin`,
+            tier: 'Agency', // Max Tier
+        },
+        token: 'admin-token',
+        expiresAt: Date.now() + (24 * 3600 * 1000), 
+    };
+    onLoginSuccess(adminSession);
+  };
+
   const handleCopySql = () => {
       navigator.clipboard.writeText(DB_SETUP_SQL);
       setCopyFeedback('Copied!');
@@ -347,15 +365,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     <div className="flex-grow border-t border-slate-200"></div>
                 </div>
 
-                <Button
-                    type="button"
-                    onClick={handleSkip}
-                    fullWidth
-                    variant="secondary"
-                    className="!py-3 !text-sm"
-                >
-                    Continue as Guest
-                </Button>
+                <div className="grid grid-cols-2 gap-3">
+                    <Button
+                        type="button"
+                        onClick={handleSkip}
+                        fullWidth
+                        variant="secondary"
+                        className="!py-2 !text-xs"
+                    >
+                        Continue as Guest
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={handleAdminAccess}
+                        fullWidth
+                        variant="ghost"
+                        className="!py-2 !text-xs !bg-slate-100 !text-slate-600 hover:!bg-slate-200"
+                    >
+                        Admin Access
+                    </Button>
+                </div>
 
                 <div className="text-center pt-4">
                     <p className="text-sm text-slate-600">

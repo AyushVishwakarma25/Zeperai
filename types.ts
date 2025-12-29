@@ -208,6 +208,7 @@ export interface GenerateImageParams {
   backProductImage?: File;
   selectedAngles: string[];
   productStylePreset?: string;
+  productStylePresets?: string[]; // Multi-select presets
   festivalStyle?: string;
   backdropAndProps?: string;
   textPlacementSuggestion?: string;
@@ -249,6 +250,17 @@ export interface GenerateImageParams {
   // Remix mode
   remixReferenceImage?: File;
   remixProductImage?: File;
+}
+
+export interface InspirationItem {
+  id: string;
+  imageUrl: string;
+  title: string;
+  category: string;
+  appMode: AppMode;
+  remixParams: Partial<GenerateImageParams>;
+  isRemixable: boolean;
+  badge?: string;
 }
 
 export interface GeneratedImage {

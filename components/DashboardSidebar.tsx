@@ -194,37 +194,48 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
           )}
 
           {user ? (
-              <button 
-                  onClick={() => isOpen && setIsUserMenuOpen(prev => !prev)}
-                  className={`flex items-center w-full transition-colors duration-200 ${
-                      isOpen 
-                      ? 'px-4 py-2 rounded-lg bg-primary text-white shadow-lg shadow-primary/40' 
-                      : 'h-12 w-12 mx-auto rounded-xl justify-center bg-primary shadow-lg shadow-primary/40'
-                  }`}
-                  disabled={!isOpen}
-                  title={!isOpen ? user.name : undefined}
-              >
-                  <img 
-                      src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} 
-                      alt="User" 
-                      className={`object-cover flex-shrink-0 rounded-full w-10 h-10 ${
-                          isOpen 
-                          ? 'border-2 border-white/50' 
-                          : ''
-                      }`}
-                  />
-                  
-                  {isOpen && (
-                      <div className="ml-3 min-w-0 flex-1 text-left">
-                          <p className="text-sm font-bold text-white truncate">{user.name}</p>
-                          <p className="text-xs text-white/80 truncate">{user.role}</p>
-                      </div>
-                  )}
-                  
-                  {isOpen && (
-                      <Icon name="dots-horizontal" className={`w-5 h-5 text-white/80 ml-2`} />
-                  )}
-              </button>
+              <div className="flex flex-col">
+                <button 
+                    onClick={() => isOpen && setIsUserMenuOpen(prev => !prev)}
+                    className={`flex items-center w-full transition-colors duration-200 ${
+                        isOpen 
+                        ? 'px-4 py-2 rounded-lg bg-primary text-white shadow-lg shadow-primary/40' 
+                        : 'h-12 w-12 mx-auto rounded-xl justify-center bg-primary shadow-lg shadow-primary/40'
+                    }`}
+                    disabled={!isOpen}
+                    title={!isOpen ? user.name : undefined}
+                >
+                    <img 
+                        src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} 
+                        alt="User" 
+                        className={`object-cover flex-shrink-0 rounded-full w-10 h-10 ${
+                            isOpen 
+                            ? 'border-2 border-white/50' 
+                            : ''
+                        }`}
+                    />
+                    
+                    {isOpen && (
+                        <div className="ml-3 min-w-0 flex-1 text-left">
+                            <p className="text-sm font-bold text-white truncate">{user.name}</p>
+                            <p className="text-xs text-white/80 truncate">{user.role}</p>
+                        </div>
+                    )}
+                    
+                    {isOpen && (
+                        <Icon name="dots-horizontal" className={`w-5 h-5 text-white/80 ml-2`} />
+                    )}
+                </button>
+                
+                {isOpen && onToggleAdmin && (
+                    <button 
+                        onClick={onToggleAdmin} 
+                        className={`mt-2 text-[10px] uppercase font-bold tracking-wider py-1 px-2 rounded hover:bg-slate-100 transition-colors ${isAdmin ? 'text-green-600 bg-green-50' : 'text-slate-300'}`}
+                    >
+                        {isAdmin ? 'Admin Mode ON' : 'Admin Mode OFF'}
+                    </button>
+                )}
+              </div>
           ) : (
               <div className="p-2">
                 <button 

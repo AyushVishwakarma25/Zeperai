@@ -12,11 +12,15 @@ interface CommonControlsProps {
     handleParamChange: (param: keyof GenerateImageParams, value: any) => void;
     handleAspectRatioChange: (ratio: AspectRatio) => void;
     batchOptions: number[];
+    userTier: 'Free' | 'Starter' | 'Standard' | 'Agency';
 }
 
 export const CommonControls: React.FC<CommonControlsProps> = ({ 
-    params, handleParamChange, handleAspectRatioChange, batchOptions 
+    params, handleParamChange, handleAspectRatioChange, batchOptions, userTier 
 }) => {
+    
+    const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
+
     return (
         <>
             <SectionTitle title="OUTPUT SETTINGS" className="mt-6" />
@@ -48,11 +52,20 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
                 <div className="mt-6">
                     <HelpLabel label="Batch Size" tooltip="Number of variations generated in one go. Higher batches save time." />
                     <div className="grid grid-cols-4 gap-2">
-                        {batchOptions.map(count => (
-                            <ControlButton key={count} onClick={() => handleParamChange('batchSize', count)} selected={params.batchSize === count}>
-                                {count}
-                            </ControlButton>
-                        ))}
+                        {batchOptions.map(count => {
+                            const isDisabled = count > maxBatch;
+                            return (
+                                <ControlButton 
+                                    key={count} 
+                                    onClick={() => handleParamChange('batchSize', count)} 
+                                    selected={params.batchSize === count}
+                                    disabled={isDisabled}
+                                >
+                                    {count}
+                                    {isDisabled && <Icon name="lock" className="w-3 h-3 text-slate-300 ml-1" />}
+                                </ControlButton>
+                            );
+                        })}
                     </div>
                 </div>
             )}

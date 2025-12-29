@@ -1,8 +1,8 @@
 
 import React, { useState, useCallback, lazy, Suspense, useEffect, useRef } from 'react';
 import { MainContent } from './components/MainContent';
-import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, SavedModel } from './types';
-import { generateImages, editImage, generateCaption, generateVariantSuggestions, detectProductCategory, fileToBase64, removeBackground } from './services/gemini';
+import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, SavedModel, InspirationItem } from './types';
+import { generateImages, editImage, generateCaption, generateVariantSuggestions, detectProductCategory, fileToBase64, removeBackground } from './services/geminiService';
 import { user as userService, UserProfileData } from './services/user';
 import { designs as designService } from './services/designs'; 
 import { storage as storageService } from './services/storage'; 
@@ -47,6 +47,7 @@ const App: React.FC = () => {
   
   const [activeMode, setActiveMode] = useState<AppMode | null>(null);
   const [lastActiveMode, setLastActiveMode] = useState<AppMode | null>(null);
+  const [isRemixMode, setIsRemixMode] = useState(false);
   
   const [params, setParams] = useState<GenerateImageParams>(() => {
       const saved = localStorage.getItem('krackx_last_params');
@@ -86,7 +87,7 @@ const App: React.FC = () => {
   const [isSavingDesign, setIsSavingDesign] = useState<string | null>(null); 
   const [savedModels, setSavedModels] = useState<SavedModel[]>([]);
   
-  const [isAdmin, setIsAdmin] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [credits, setCredits] = useState(0); 
   const [totalCredits, setTotalCredits] = useState(100);
   const [userTier, setUserTier] = useState<'Free' | 'Starter' | 'Standard' | 'Agency'>('Starter');
@@ -166,6 +167,8 @@ const App: React.FC = () => {
             if (session) {
                 setUserProfile(session.user);
                 setUserTier(session.user.tier);
+                if (session.user.role === 'Administrator') setIsAdmin(true);
+                
                 if (session.user.id !== 'guest-user-id') {
                     const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
                         userService.getCredits(),
@@ -219,6 +222,9 @@ const App: React.FC = () => {
       setCurrentView(View.Dashboard); 
       setUserProfile(session.user);
       setUserTier(session.user.tier);
+      if (session.user.role === 'Administrator') setIsAdmin(true);
+      else setIsAdmin(false);
+
       setToast({ message: `Welcome back, ${session.user.name}!`, type: 'success' });
       
       if (session.user.id !== 'guest-user-id') {
@@ -257,6 +263,7 @@ const App: React.FC = () => {
       setBrandKit(null);
       setSavedModels([]);
       setCurrentView(View.Dashboard);
+      setIsAdmin(false);
       setToast({ message: "Logged out successfully", type: 'success' });
   }, []);
 
@@ -333,12 +340,58 @@ const App: React.FC = () => {
 
   const handleApiError = useCallback((err: unknown) => {
     let errorMessage = 'An unexpected error occurred.';
+    
+    // Check for Error instance
     if (err instanceof Error) {
       errorMessage = err.message;
-    } else if (typeof err === 'object' && err !== null) {
-      errorMessage = (err as any).message || (err as any).error_description || (err as any).error || JSON.stringify(err);
+    } 
+    // Check for object with potential error details
+    else if (typeof err === 'object' && err !== null) {
+      const anyErr = err as any;
+      
+      // Try to find error message in various common properties
+      if (typeof anyErr.message === 'string') {
+          errorMessage = anyErr.message;
+      } else if (anyErr.error_description) {
+          errorMessage = anyErr.error_description;
+      } else if (anyErr.error) {
+          if (typeof anyErr.error === 'string') {
+              errorMessage = anyErr.error;
+          } else if (typeof anyErr.error === 'object' && anyErr.error.message) {
+              errorMessage = anyErr.error.message;
+          } else {
+              try {
+                  const json = JSON.stringify(anyErr.error);
+                  if (json !== '{}') errorMessage = json;
+                  else errorMessage = 'Unknown API Error Object';
+              } catch {
+                  errorMessage = 'Unknown API Error Object';
+              }
+          }
+      } else if (anyErr.statusText) {
+          errorMessage = anyErr.statusText;
+      } else {
+          try {
+              const json = JSON.stringify(err);
+              if (json !== '{}') errorMessage = json;
+              else errorMessage = 'Unknown Error Object';
+          } catch {
+              errorMessage = 'Unknown Error Object';
+          }
+      }
     } else if (typeof err === 'string') {
       errorMessage = err;
+    }
+
+    // Final safeguard against [object Object]
+    if (errorMessage.includes('[object Object]')) {
+        try {
+            const json = JSON.stringify(err);
+            if (json !== '{}' && !json.includes('[object Object]')) errorMessage = json;
+            else errorMessage = 'An unknown error occurred.';
+        } catch {
+            errorMessage = 'An unknown error occurred.';
+        }
     }
 
     console.error("API Error Detail:", err);
@@ -382,6 +435,7 @@ const App: React.FC = () => {
 
   const handleSelectMode = useCallback((tool: AppMode) => {
     setLastActiveMode(tool);
+    setIsRemixMode(false);
     setParams(prev => {
         const updates = getModeConfiguration(tool, prev);
         if (tool !== AppMode.Remix && prev.appMode === AppMode.Remix) {
@@ -395,6 +449,33 @@ const App: React.FC = () => {
     });
     setActiveMode(tool);
   }, [frontProductImagePreview]);
+  
+  const handleRemix = useCallback((item: InspirationItem) => {
+      setLastActiveMode(item.appMode);
+      setIsRemixMode(true);
+      setFrontProductImagePreview(null); // Clear previous image as user needs to upload their own
+      
+      setParams(prev => {
+          // 1. Reset to base defaults for the mode
+          const baseDefaults = getModeConfiguration(item.appMode, INITIAL_GENERATE_PARAMS);
+          
+          // 2. Merge in the inspiration preset params
+          return {
+              ...INITIAL_GENERATE_PARAMS,
+              ...baseDefaults,
+              ...item.remixParams,
+              appMode: item.appMode,
+              // Explicitly clear file inputs
+              frontProductImage: undefined,
+              remixReferenceImage: undefined,
+              remixProductImage: undefined
+          };
+      });
+      
+      setActiveMode(item.appMode);
+      setCurrentView(View.Dashboard);
+      setToast({ message: `Remixing style: ${item.title}`, type: 'success' });
+  }, []);
   
   const handleParamChange = useCallback((param: keyof GenerateImageParams, value: any) => {
     setParams(prev => ({ ...prev, [param]: value }));
@@ -969,6 +1050,7 @@ const App: React.FC = () => {
                 <InspirationPage 
                   onSetView={handleSetView}
                   onToggleSidebar={onToggleSidebar}
+                  onRemix={handleRemix}
                 />
               </Suspense>
             );
@@ -1058,33 +1140,6 @@ const App: React.FC = () => {
                     aria-hidden="true"
                 />
             )}
-        {(isLoading || isEditing || isSavingDesign) && (
-            <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-60">
-            <Spinner />
-            <p className="text-white mt-4 text-lg text-center px-4">
-                { isSavingDesign
-                    ? 'Saving Design...'
-                    : (batchProgress ? `${loadingMessages.title} (${batchProgress.current}/${batchProgress.total})` : loadingMessages.title)
-                }
-            </p>
-            {batchProgress && !isSavingDesign && !isEditing && (
-                <div className="w-64 h-2 bg-slate-700 rounded-full mt-4 overflow-hidden">
-                    <div 
-                        className="h-full transition-all duration-300 bg-gradient-to-r from-cyan-400 to-primary relative overflow-hidden"
-                        style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
-                    >
-                        <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full"></div>
-                    </div>
-                </div>
-            )}
-            <p className="text-slate-400 mt-2 text-sm text-center px-4">
-                { isSavingDesign
-                ? 'Uploading high-resolution assets to storage.'
-                : loadingMessages.subtext
-                }
-            </p>
-            </div>
-        )}
         
         <input
             type="file"
@@ -1244,6 +1299,34 @@ const App: React.FC = () => {
             />
             )}
         </Suspense>
+
+        {(isLoading || isEditing || isSavingDesign) && (
+            <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-[100]">
+            <Spinner />
+            <p className="text-white mt-4 text-lg text-center px-4">
+                { isSavingDesign
+                    ? 'Saving Design...'
+                    : (batchProgress ? `${loadingMessages.title} (${batchProgress.current}/${batchProgress.total})` : loadingMessages.title)
+                }
+            </p>
+            {batchProgress && !isSavingDesign && !isEditing && (
+                <div className="w-64 h-2 bg-slate-700 rounded-full mt-4 overflow-hidden">
+                    <div 
+                        className="h-full transition-all duration-300 bg-gradient-to-r from-cyan-400 to-primary relative overflow-hidden"
+                        style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                    >
+                        <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full"></div>
+                    </div>
+                </div>
+            )}
+            <p className="text-slate-400 mt-2 text-sm text-center px-4">
+                { isSavingDesign
+                ? 'Uploading high-resolution assets to storage.'
+                : loadingMessages.subtext
+                }
+            </p>
+            </div>
+        )}
         </div>
     </ErrorBoundary>
   );

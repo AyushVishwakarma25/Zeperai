@@ -12,6 +12,7 @@ export const INITIAL_GENERATE_PARAMS: GenerateImageParams = {
   resolutionQuality: ResolutionQuality.Standard,
   selectedAngles: ['Front View'],
   productStylePreset: AI_SUGGESTED,
+  productStylePresets: [],
   backdropAndProps: AI_SUGGESTED,
   textPlacementSuggestion: AI_SUGGESTED,
   overlayText: '',

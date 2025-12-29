@@ -2,105 +2,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Icon } from './ui/Icon';
 import { Button } from './ui/Button';
-import { View } from '../types';
-
-interface InspirationImage {
-  id: string;
-  src: string;
-  category: string;
-  title: string;
-}
-
-// Verified, high-quality Unsplash images
-const INSPIRATION_IMAGES: InspirationImage[] = [
-  {
-    id: '1',
-    src: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=800&q=80',
-    category: 'Skincare',
-    title: 'Minimalist Serum'
-  },
-  {
-    id: '2',
-    src: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
-    category: 'Creative',
-    title: 'Abstract Fluid'
-  },
-  {
-    id: '3',
-    src: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80',
-    category: 'Fashion',
-    title: 'Urban Chic'
-  },
-  {
-    id: '4',
-    src: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80',
-    category: 'Product',
-    title: 'Premium Audio'
-  },
-  {
-    id: '5',
-    src: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80',
-    category: 'Product',
-    title: 'Smart Watch'
-  },
-  {
-    id: '6',
-    src: 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=800&q=80',
-    category: 'Home Decor',
-    title: 'Modern Living'
-  },
-  {
-    id: '7',
-    src: 'https://images.unsplash.com/photo-1529139574466-a302d20525b2?auto=format&fit=crop&w=800&q=80',
-    category: 'Fashion',
-    title: 'Editorial'
-  },
-  {
-    id: '8',
-    src: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=800&q=80',
-    category: 'Beverage',
-    title: 'Refreshment'
-  },
-  {
-    id: '9',
-    src: 'https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?auto=format&fit=crop&w=800&q=80',
-    category: 'Skincare',
-    title: 'Organic Oil'
-  },
-  {
-    id: '10',
-    src: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80',
-    category: 'Product',
-    title: 'Sportswear'
-  },
-  {
-    id: '11',
-    src: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=800&q=80',
-    category: 'Creative',
-    title: 'Neon Vibes'
-  },
-  {
-    id: '12',
-    src: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=800&q=80',
-    category: 'Home Decor',
-    title: 'Minimal Chair'
-  },
-];
+import { View, InspirationItem } from '../types';
+import { INSPIRATION_GALLERY } from '../data/inspirationGallery';
 
 interface InspirationPageProps {
   onSetView: (view: View) => void;
   onToggleSidebar: () => void;
+  onRemix: (item: InspirationItem) => void;
 }
 
-const InspirationPage: React.FC<InspirationPageProps> = ({ onSetView, onToggleSidebar }) => {
+const InspirationPage: React.FC<InspirationPageProps> = ({ onSetView, onToggleSidebar, onRemix }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [activeCategory, setActiveCategory] = useState('All');
 
-  const categories = ['All', ...Array.from(new Set(INSPIRATION_IMAGES.map(img => img.category)))];
+  const categories = ['All', ...Array.from(new Set(INSPIRATION_GALLERY.map(img => img.category)))];
 
   const filteredImages = activeCategory === 'All' 
-    ? INSPIRATION_IMAGES 
-    : INSPIRATION_IMAGES.filter(img => img.category === activeCategory);
+    ? INSPIRATION_GALLERY 
+    : INSPIRATION_GALLERY.filter(img => img.category === activeCategory);
 
   const handleNext = useCallback(() => {
     if (selectedImageIndex === null) return;
@@ -124,6 +43,14 @@ const InspirationPage: React.FC<InspirationPageProps> = ({ onSetView, onToggleSi
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  const handleRemixClick = () => {
+      if (selectedImageIndex !== null) {
+          const item = filteredImages[selectedImageIndex];
+          onRemix(item);
+          setSelectedImageIndex(null); // Close lightbox
+      }
+  };
+
   return (
     <div className="w-full h-full bg-main flex flex-col overflow-hidden">
       <header className="flex-shrink-0 flex items-center justify-between p-4 md:p-6 border-b border-border-light bg-white/50 backdrop-blur-sm z-10">
@@ -136,7 +63,7 @@ const InspirationPage: React.FC<InspirationPageProps> = ({ onSetView, onToggleSi
             </div>
             <div>
                 <h1 className="text-2xl font-bold text-text-primary">Inspiration Gallery</h1>
-                <p className="text-sm text-text-secondary">Explore trending styles and creative concepts.</p>
+                <p className="text-sm text-text-secondary">Explore styles and remix them with your products.</p>
             </div>
         </div>
         <Button onClick={() => onSetView(View.Dashboard)} variant="secondary" className="hidden sm:flex">
@@ -172,14 +99,28 @@ const InspirationPage: React.FC<InspirationPageProps> = ({ onSetView, onToggleSi
                     className="break-inside-avoid relative group cursor-pointer rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 bg-gray-200"
                 >
                     <img 
-                        src={img.src} 
+                        src={img.imageUrl} 
                         alt={img.title} 
                         loading="lazy"
                         className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-110 block"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                        <p className="text-white font-bold">{img.title}</p>
-                        <p className="text-white/80 text-xs">{img.category}</p>
+                    {img.badge && (
+                        <span className="absolute top-3 left-3 px-2 py-1 bg-black/60 text-white text-[10px] font-bold uppercase rounded backdrop-blur-md">
+                            {img.badge}
+                        </span>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                        <div className="flex justify-between items-end">
+                            <div>
+                                <p className="text-white font-bold">{img.title}</p>
+                                <p className="text-white/80 text-xs">{img.category}</p>
+                            </div>
+                            {img.isRemixable && (
+                                <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                                    <Icon name="swap" className="w-4 h-4 text-white" />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             ))}
@@ -208,13 +149,22 @@ const InspirationPage: React.FC<InspirationPageProps> = ({ onSetView, onToggleSi
               {/* Main Image */}
               <div className="relative max-w-[90vw] max-h-[90vh] flex flex-col items-center">
                   <img 
-                    src={filteredImages[selectedImageIndex].src} 
+                    src={filteredImages[selectedImageIndex].imageUrl} 
                     alt={filteredImages[selectedImageIndex].title}
-                    className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" 
+                    className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl" 
                   />
-                  <div className="mt-4 text-center">
-                      <h3 className="text-white text-xl font-bold">{filteredImages[selectedImageIndex].title}</h3>
-                      <p className="text-white/60 text-sm">{filteredImages[selectedImageIndex].category}</p>
+                  <div className="mt-6 text-center max-w-lg">
+                      <h3 className="text-white text-2xl font-bold mb-1">{filteredImages[selectedImageIndex].title}</h3>
+                      <p className="text-white/60 text-sm mb-4">
+                          Created with {filteredImages[selectedImageIndex].appMode} Mode
+                      </p>
+                      
+                      {filteredImages[selectedImageIndex].isRemixable && (
+                          <Button onClick={handleRemixClick} className="mx-auto shadow-glow-primary !text-base !px-8 !py-3">
+                              <Icon name="sparkles" className="w-5 h-5 mr-2" />
+                              Remix This Style
+                          </Button>
+                      )}
                   </div>
               </div>
 
@@ -225,17 +175,6 @@ const InspirationPage: React.FC<InspirationPageProps> = ({ onSetView, onToggleSi
               >
                   <Icon name="chevron-left" className="w-8 h-8 rotate-180" />
               </button>
-              
-              {/* Pagination Dots */}
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex space-x-2">
-                  {filteredImages.map((_, idx) => (
-                      <button 
-                        key={idx}
-                        onClick={() => setSelectedImageIndex(idx)}
-                        className={`w-2 h-2 rounded-full transition-all ${idx === selectedImageIndex ? 'bg-white w-4' : 'bg-white/30 hover:bg-white/60'}`}
-                      />
-                  ))}
-              </div>
           </div>
       )}
     </div>
