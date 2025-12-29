@@ -209,7 +209,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         user: {
             id: 'guest-user-id',
             name: 'Guest User',
-            email: 'guest@krackxai.com',
+            email: 'guest@zeperai.com',
             role: 'Creator',
             bio: 'Exploring the studio as a guest.',
             location: 'The Cloud',
@@ -227,7 +227,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         user: {
             id: 'admin-user-id',
             name: 'Admin User',
-            email: 'admin@krackxai.com',
+            email: 'admin@zeperai.com',
             role: 'Administrator',
             bio: 'Super user with max tier access.',
             location: 'HQ',
@@ -255,7 +255,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mb-6">
                     <Icon name="logo" className="w-7 h-7 text-white" />
                 </div>
-                <h1 className="text-3xl md:text-4xl font-bold mb-4">KrackXai Studio</h1>
+                <h1 className="text-3xl md:text-4xl font-bold mb-4">ZeperAi Studio</h1>
                 <p className="text-white/80 text-lg">Create stunning, studio-quality product ads in seconds with the power of AI.</p>
             </div>
             

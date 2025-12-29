@@ -133,7 +133,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
         
         <div className="bg-slate-50 p-4 text-center border-t border-slate-100">
             <p className="text-xs text-slate-400">
-                By continuing, you agree to KrackXai's Terms of Service and Privacy Policy.
+                By continuing, you agree to ZeperAi's Terms of Service and Privacy Policy.
             </p>
         </div>
       </div>

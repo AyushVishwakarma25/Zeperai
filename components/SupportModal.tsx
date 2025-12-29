@@ -8,7 +8,7 @@ interface SupportModalProps {
 }
 
 export const SupportModal: React.FC<SupportModalProps> = ({ onClose }) => {
-  const email = "Ayush@krackxai.com";
+  const email = "Ayush@zeperai.com";
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -43,7 +43,7 @@ export const SupportModal: React.FC<SupportModalProps> = ({ onClose }) => {
             </div>
             <h3 className="text-xl font-bold text-slate-800 mb-2">How can we help?</h3>
             <p className="text-sm text-slate-500">
-                We're here to assist you with any questions, issues, or feedback you might have about KrackXai.
+                We're here to assist you with any questions, issues, or feedback you might have about ZeperAi.
             </p>
           </div>
 

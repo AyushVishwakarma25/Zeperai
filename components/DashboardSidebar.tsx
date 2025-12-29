@@ -124,7 +124,7 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center flex-shrink-0 shadow-glow-primary">
                 <Icon name="logo" className="w-6 h-6 text-white" />
             </div>
-            {isOpen && <h1 className="text-2xl font-bold text-slate-900 ml-3 tracking-tight">KrackXai</h1>}
+            {isOpen && <h1 className="text-2xl font-bold text-slate-900 ml-3 tracking-tight">ZeperAi</h1>}
         </div>
 
         {/* Navigation Scroll Area */}

@@ -220,7 +220,7 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
                         <FormInput 
                             label="Brand Name"
                             id="brand-name"
-                            placeholder="e.g., KrackXai"
+                            placeholder="e.g., ZeperAi"
                             value={kit.brandName}
                             onChange={e => setKit(prev => ({...prev, brandName: e.target.value}))}
                             className="!mb-0"
