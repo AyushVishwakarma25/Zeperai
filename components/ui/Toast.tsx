@@ -28,7 +28,7 @@ export const Toast: React.FC<ToastProps> = ({ message, type = 'success', onClose
 
   return (
     <div 
-        className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[90] flex items-center px-4 py-3 rounded-xl shadow-2xl text-white ${bgColor} transition-all duration-300 ease-spring ${
+        className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[120] flex items-center px-4 py-3 rounded-xl shadow-2xl text-white ${bgColor} transition-all duration-300 ease-spring ${
             isVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-4 opacity-0 scale-95'
         }`}
     >
