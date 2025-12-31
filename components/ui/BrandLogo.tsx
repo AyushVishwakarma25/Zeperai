@@ -36,7 +36,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({ variant = 'full', color = 
       <text 
         x="0" 
         y="30" 
-        fontFamily="'Poppins', sans-serif" 
+        fontFamily="'Batangas', 'Poppins', sans-serif" 
         fontWeight="700" 
         fontSize="32" 
         fill={color === 'white' ? '#FFFFFF' : '#000000'}

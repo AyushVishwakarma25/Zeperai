@@ -145,7 +145,7 @@ const MainContentComponent: React.FC<MainContentProps> = (props) => {
             <div className="flex items-center w-full sm:w-auto">
                 <Icon name={isFashion ? "shirt" : "sparkles"} className="w-8 h-8 mr-4 text-primary flex-shrink-0"/>
                 <div>
-                    <h2 className="text-xl md:text-2xl font-bold text-text-primary">
+                    <h2 className="text-xl md:text-2xl font-bold font-batangas text-text-primary">
                         {isFashion ? "Fashion Review Studio" : "Generated Results"}
                     </h2>
                     <p className="text-sm text-text-secondary">

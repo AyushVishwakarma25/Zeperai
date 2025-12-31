@@ -24,7 +24,7 @@ const ColorfulCard: React.FC<ColorfulCardProps> = ({ title, subtitle, color, tex
             style={{ backgroundColor: color }}
         >
             <div className="z-10 flex flex-col justify-center h-full">
-                <h3 className={`font-poppins font-bold text-lg lg:text-xl uppercase leading-tight tracking-wide ${textColor}`}>
+                <h3 className={`font-batangas font-bold text-lg lg:text-xl uppercase leading-tight tracking-wide ${textColor}`}>
                     {title}
                 </h3>
                 <p className={`font-poppins font-normal text-[10px] lg:text-xs mt-1 opacity-90 ${textColor}`}>
@@ -184,7 +184,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
 
     return (
       <div className="py-2 pb-10">
-        <h1 className="text-3xl font-bold text-text-primary text-center">What are we creating today, {userName}?</h1>
+        <h1 className="text-3xl font-batangas font-bold text-text-primary text-center">What are we creating today, {userName}?</h1>
         
         <div className="max-w-3xl mx-auto mt-6 mb-8">
             <FloatingActionBar 

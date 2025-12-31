@@ -268,7 +268,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <div className="mb-8">
                     <BrandLogo variant="full" color="white" className="w-40 h-auto" />
                 </div>
-                <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight mb-4 text-white">
+                <h1 className="text-4xl md:text-5xl font-batangas font-extrabold tracking-tight leading-tight mb-4 text-white">
                     Creative Intelligence <br/>for Growth.
                 </h1>
                 <p className="text-lg text-gray-400 font-medium max-w-md">
@@ -299,7 +299,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         {/* Right Side - Form */}
         <div className="w-full md:w-1/2 p-8 md:p-12 bg-white flex flex-col justify-center overflow-y-auto max-h-[90vh]">
             <div className="text-center md:text-left mb-8">
-                <h2 className="text-2xl font-bold text-slate-800">
+                <h2 className="text-2xl font-bold text-slate-800 font-batangas">
                     {isSignUp ? 'Create Account' : 'Welcome Back'}
                 </h2>
                 <p className="text-slate-500 text-sm mt-2">
