@@ -255,8 +255,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       <div className="absolute inset-0 z-0 opacity-10 pointer-events-none">
           <img
               src="https://i.pinimg.com/originals/e0/72/79/e072795e2df448bc05973c24237d002d.gif" 
-              alt="Background Animation"
+              alt=""
               className="w-full h-full object-cover"
+              onError={(e) => e.currentTarget.style.display = 'none'}
           />
       </div>
 
