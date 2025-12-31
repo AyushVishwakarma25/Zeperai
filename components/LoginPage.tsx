@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
+import { BrandLogo } from './ui/BrandLogo';
 import { FormInput } from './ui/Form';
 import { authService, AuthSession } from '../services/authService';
 
@@ -248,36 +249,50 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-main flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row">
+    <div className="min-h-screen w-full bg-main flex items-center justify-center p-4 relative overflow-hidden">
+      
+      {/* Background Animated GIF */}
+      <div className="absolute inset-0 z-0 opacity-10 pointer-events-none">
+          <img
+              src="https://i.pinimg.com/originals/e0/72/79/e072795e2df448bc05973c24237d002d.gif" 
+              alt="Background Animation"
+              className="w-full h-full object-cover"
+          />
+      </div>
+
+      <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10">
         {/* Left Side - Brand / Info */}
-        <div className="w-full md:w-1/2 bg-primary p-8 md:p-12 text-white flex flex-col justify-between relative overflow-hidden">
+        <div className="w-full md:w-1/2 bg-black p-8 md:p-12 text-white flex flex-col justify-between relative overflow-hidden">
             <div className="relative z-10">
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mb-6">
-                    <Icon name="logo" className="w-7 h-7 text-white" />
+                <div className="mb-8">
+                    <BrandLogo variant="full" color="white" className="w-40 h-auto" />
                 </div>
-                <h1 className="text-3xl md:text-4xl font-bold mb-4">ZeperAi Studio</h1>
-                <p className="text-white/80 text-lg">Create stunning, studio-quality product ads in seconds with the power of AI.</p>
+                <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight mb-4 text-white">
+                    Creative Intelligence <br/>for Growth.
+                </h1>
+                <p className="text-lg text-gray-400 font-medium max-w-md">
+                    Intelligent, business-grade, brand-aware AI.
+                </p>
             </div>
             
-            <div className="relative z-10 mt-12">
-                <div className="flex items-center space-x-2 text-sm text-white/70">
-                    <Icon name="check-circle" className="w-5 h-5 text-accent-green" />
-                    <span>AI Product Photography</span>
+            <div className="relative z-10 mt-12 space-y-4">
+                <div className="flex items-center space-x-3 text-sm font-medium text-gray-300">
+                    <div className="bg-white/10 p-1 rounded-full"><Icon name="check-circle" className="w-4 h-4 text-white" /></div>
+                    <span>Brand-aware creative intelligence</span>
                 </div>
-                <div className="flex items-center space-x-2 text-sm text-white/70 mt-2">
-                    <Icon name="check-circle" className="w-5 h-5 text-accent-green" />
-                    <span>Instant Copywriting</span>
+                <div className="flex items-center space-x-3 text-sm font-medium text-gray-300">
+                    <div className="bg-white/10 p-1 rounded-full"><Icon name="check-circle" className="w-4 h-4 text-white" /></div>
+                    <span>Learns your colors, fonts & tone</span>
                 </div>
-                <div className="flex items-center space-x-2 text-sm text-white/70 mt-2">
-                    <Icon name="check-circle" className="w-5 h-5 text-accent-green" />
-                    <span>Commercial License</span>
+                <div className="flex items-center space-x-3 text-sm font-medium text-gray-300">
+                    <div className="bg-white/10 p-1 rounded-full"><Icon name="check-circle" className="w-4 h-4 text-white" /></div>
+                    <span>Campaign-ready outputs in seconds</span>
                 </div>
             </div>
 
             {/* Decorative circles */}
-            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
         </div>
 
         {/* Right Side - Form */}

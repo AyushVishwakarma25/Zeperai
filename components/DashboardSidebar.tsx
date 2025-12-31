@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Icon } from './ui/Icon';
+import { BrandLogo } from './ui/BrandLogo';
 import { AppMode, View, GeneratedImage } from '../types';
 import { Toggle } from './ui/Toggle';
 import { UserProfileData } from '../services/userService';
@@ -153,10 +154,11 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
       >
         {/* Header / Logo */}
         <div className={`flex-shrink-0 h-20 flex items-center ${isOpen ? 'px-6' : 'justify-center'}`}>
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center flex-shrink-0 shadow-glow-primary">
-                <Icon name="logo" className="w-6 h-6 text-white" />
-            </div>
-            {isOpen && <h1 className="text-2xl font-bold text-slate-900 ml-3 tracking-tight">ZeperAi</h1>}
+            {isOpen ? (
+                <BrandLogo variant="full" className="w-32 h-auto" />
+            ) : (
+                <BrandLogo variant="icon" className="w-8 h-8" />
+            )}
         </div>
 
         {/* Navigation Scroll Area */}

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
+import { BrandLogo } from './ui/BrandLogo';
 import { FormInput } from './ui/Form';
 import { authService, AuthSession } from '../services/authService';
 
@@ -59,10 +60,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
         </button>
 
         <div className="p-8 pb-6 text-center">
-            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4 shadow-glow-primary">
-                <Icon name="logo" className="w-7 h-7 text-white" />
+            <div className="mb-4 flex justify-center">
+                <BrandLogo variant="full" className="w-32 h-auto" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-800">
+            <h2 className="text-xl font-bold text-slate-800">
                 {isSignUp ? 'Create your account' : 'Welcome back'}
             </h2>
             <p className="text-slate-500 text-sm mt-2">

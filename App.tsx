@@ -24,6 +24,7 @@ import { Button } from './components/ui/Button';
 import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { SplashScreen } from './components/SplashScreen';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { calculateGenerationCost } from './utils/costs';
 
@@ -95,6 +96,9 @@ const App: React.FC = () => {
 
   const [userProfile, setUserProfile] = useState<UserProfileData | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  
+  // App Loading State
+  const [showSplash, setShowSplash] = useState(true);
   const [isSessionChecked, setIsSessionChecked] = useState(false);
   
   const [loadingMessages, setLoadingMessages] = useState<{title: string, subtext: string}>({ title: '', subtext: '' });
@@ -163,7 +167,9 @@ const App: React.FC = () => {
   }, [isLoading, isEditing, batchProgress]);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const initApp = async () => {
+        const minWait = new Promise(resolve => setTimeout(resolve, 2500)); // Show splash for at least 2.5s
+        
         try {
             const session = await authService.getSession();
             if (session) {
@@ -172,6 +178,7 @@ const App: React.FC = () => {
                 if (session.user.role === 'Administrator') setIsAdmin(true);
                 
                 if (session.user.id !== 'guest-user-id') {
+                    // Fetch heavy data while splash is showing
                     const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
                         userService.getCredits(),
                         designService.getSavedDesigns(),
@@ -193,12 +200,15 @@ const App: React.FC = () => {
             }
         } catch (err) {
             console.error("Failed to fetch initial data", err);
-            setToast({ message: "Network error: Could not load user data.", type: 'error' });
+            // Don't show error toast here, just let it fall through to login screen if needed
         } finally {
+            await minWait; // Ensure splash duration
             setIsSessionChecked(true);
+            setShowSplash(false);
         }
     };
-    fetchData();
+    
+    initApp();
   }, []);
 
   useEffect(() => {
@@ -1115,14 +1125,12 @@ const App: React.FC = () => {
     }
   };
 
-  if (!isSessionChecked) {
-      return (
-          <div className="w-screen h-screen flex items-center justify-center bg-main">
-              <Spinner />
-          </div>
-      );
+  // 1. Initial Splash Screen
+  if (showSplash) {
+      return <SplashScreen />;
   }
 
+  // 2. Authentication Check (Should be handled by useEffect logic, but safety fallback)
   if (!userProfile) {
       return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
