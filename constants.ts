@@ -39,6 +39,9 @@ export const INITIAL_GENERATE_PARAMS: GenerateImageParams = {
   remixReferenceImage: undefined,
   remixProductImage: undefined,
   modelSourceOption: 'new',
+  isComparisonMode: false,
+  productAFeatures: '',
+  productBFeatures: '',
 };
 
 export const STORAGE_LIMITS: Record<string, number> = {
@@ -198,6 +201,12 @@ export const AD_LAYOUT_OPTIONS = [
   { value: AdLayout.TextLeftImageRight, label: 'Image Right', icon: 'layout-image-right' },
   { value: AdLayout.TextTopBottomImageCenter, label: 'Image Center', icon: 'layout-image-center' },
   { value: AdLayout.ProductShowcase, label: 'Showcase', icon: 'layout-showcase' },
+];
+
+export const COMPARISON_LAYOUT_OPTIONS = [
+  { value: AdLayout.ComparisonSplit, label: 'Split Layout', icon: 'layout-banner' },
+  { value: AdLayout.ComparisonOverlay, label: 'Overlay Layout', icon: 'image' },
+  { value: AdLayout.ComparisonTable, label: 'Table Layout', icon: 'board' },
 ];
 
 export const OUTPUT_FORMAT_OPTIONS = [

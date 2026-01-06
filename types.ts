@@ -109,7 +109,11 @@ export enum AdLayout {
   TextRightImageLeft = 'Text Right, Image Left',
   TextLeftImageRight = 'Text Left, Image Right',
   TextTopBottomImageCenter = 'Text Top/Bottom, Image Center',
-  ProductShowcase = 'Product Showcase'
+  ProductShowcase = 'Product Showcase',
+  // Comparison Layouts
+  ComparisonSplit = 'Split Layout (Side-by-Side)',
+  ComparisonOverlay = 'Overlay Layout (Better Choice)',
+  ComparisonTable = 'Table Layout (Infographic)'
 }
 
 export enum CaptionTone {
@@ -224,6 +228,12 @@ export interface GenerateImageParams {
   adAvailability?: string;
   adLayout?: AdLayout;
   adStylePreset?: string;
+  
+  // Comparison Ad Extensions
+  isComparisonMode?: boolean;
+  competitorImage?: File;
+  productAFeatures?: string;
+  productBFeatures?: string;
 
   // Remix mode
   remixReferenceImage?: File;

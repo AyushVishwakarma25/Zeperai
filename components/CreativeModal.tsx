@@ -66,6 +66,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
 }) => {
   const isOnline = useNetworkStatus();
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [competitorPreview, setCompetitorPreview] = useState<string | null>(null);
 
   // Detect if we are in a "Remix" state where params are filled but image is missing
   const isRemixingState = useMemo(() => {
@@ -82,8 +83,11 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
       if (logoPreview && logoPreview.startsWith('blob:')) {
         URL.revokeObjectURL(logoPreview);
       }
+      if (competitorPreview && competitorPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(competitorPreview);
+      }
     };
-  }, [logoPreview]);
+  }, [logoPreview, competitorPreview]);
 
   const handleParamChange = useCallback((param: keyof GenerateImageParams, value: any) => {
     onParamsChange(prev => ({ ...prev, [param]: value }));
@@ -92,6 +96,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
   const isFashion = mode === AppMode.Fashion;
   const isAdCreative = [AppMode.AdCreative, AppMode.Youtube, AppMode.Banner].includes(mode);
   const isInfluencerMode = mode === AppMode.Influencer;
+  const isComparisonAd = isAdCreative && params.isComparisonMode;
 
   // Cost Calculation
   const cost = useMemo(() => calculateGenerationCost(params, userTier), [params, userTier]);
@@ -125,10 +130,13 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
       if (mode === AppMode.AdCreative) {
           if (!params.frontProductImage && !frontProductImagePreview) return false;
           if (!params.adTitle || params.adTitle.trim() === '') return false;
+          if (params.isComparisonMode) {
+              if (!params.competitorImage && !competitorPreview) return false;
+          }
       }
       if (!params.aspectRatios || params.aspectRatios.length === 0) return false;
       return true;
-  }, [mode, params, frontProductImagePreview, remixReferenceImagePreview, remixProductImagePreview]);
+  }, [mode, params, frontProductImagePreview, remixReferenceImagePreview, remixProductImagePreview, competitorPreview]);
 
   const getButtonText = () => {
       if (!isOnline) return 'Reconnecting...';
@@ -234,21 +242,21 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                                 <SectionTitle title="ASSETS" />
                                 <ImageDropzone 
                                     id="asset-upload-main"
-                                    prompt={isFashion ? "Fabric or Garment" : (isRemixingState ? "Upload Product to Remix" : (isInfluencerMode ? "Upload Product Image" : "Upload Product Image(s)"))}
+                                    prompt={isComparisonAd ? "Your Product Image" : (isFashion ? "Fabric or Garment" : (isRemixingState ? "Upload Product to Remix" : (isInfluencerMode ? "Upload Product Image" : "Upload Product Image(s)")))}
                                     icon={isInfluencerMode ? "shirt" : (isAdCreative ? "megaphone" : undefined)}
                                     
-                                    // Use bulk props for multi-file support in main modes, except Influencer
-                                    multiple={!isInfluencerMode}
-                                    maxFiles={isInfluencerMode ? 1 : 3}
-                                    previewUrls={isInfluencerMode ? undefined : bulkImagePreviews} 
-                                    onFilesChange={isInfluencerMode ? undefined : onBulkFilesChange}
-                                    onRemoveFile={isInfluencerMode ? undefined : onRemoveBulkImage}
+                                    // Use bulk props for multi-file support in main modes, except Influencer or Comparison Ad
+                                    multiple={!isInfluencerMode && !isComparisonAd}
+                                    maxFiles={isInfluencerMode || isComparisonAd ? 1 : 3}
+                                    previewUrls={isInfluencerMode || isComparisonAd ? undefined : bulkImagePreviews} 
+                                    onFilesChange={isInfluencerMode || isComparisonAd ? undefined : onBulkFilesChange}
+                                    onRemoveFile={isInfluencerMode || isComparisonAd ? undefined : onRemoveBulkImage}
 
-                                    // Single mode props for Influencer
-                                    previewUrl={isInfluencerMode ? frontProductImagePreview : undefined}
-                                    onFileChange={isInfluencerMode ? (file) => onFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 1024, maxHeight: 1024 }) : undefined}
+                                    // Single mode props for Influencer and Comparison Ad
+                                    previewUrl={(isInfluencerMode || isComparisonAd) ? frontProductImagePreview : undefined}
+                                    onFileChange={(isInfluencerMode || isComparisonAd) ? (file) => onFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 1024, maxHeight: 1024 }) : undefined}
                                     
-                                    className={`w-full ${isAdCreative ? 'h-48 sm:h-56' : 'aspect-[3/2] md:h-64'} ${(!frontProductImagePreview || isRemixingState) ? 'border-primary border-dashed bg-primary/5 animate-pulse ring-2 ring-primary/20' : ''}`}
+                                    className={`w-full ${isAdCreative ? 'h-40 sm:h-48' : 'aspect-[3/2] md:h-64'} ${(!frontProductImagePreview || isRemixingState) ? 'border-primary border-dashed bg-primary/5 animate-pulse ring-2 ring-primary/20' : ''}`}
                                 />
                                 {isRemixingState && (
                                     <p className="text-xs text-primary font-semibold mt-2 text-center">
@@ -256,7 +264,22 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                                     </p>
                                 )}
                             </div>
-                            {isAdCreative && (
+                            
+                            {/* Secondary Image Slot for Comparison Mode */}
+                            {isComparisonAd && (
+                                <div className="flex flex-col mt-2">
+                                    <p className="text-xs font-semibold text-black mb-2 uppercase tracking-wider">Competitor / Generic Product</p>
+                                    <ImageDropzone 
+                                        id="competitor-image-upload"
+                                        prompt="Upload Competitor Image"
+                                        previewUrl={competitorPreview}
+                                        onFileChange={(file) => onFileChange(file, 'competitorImage', setCompetitorPreview, { maxWidth: 1024, maxHeight: 1024 })}
+                                        className="h-40 sm:h-48 w-full border-dashed border-slate-300"
+                                    />
+                                </div>
+                            )}
+
+                            {isAdCreative && !isComparisonAd && (
                                 <div className="flex flex-col mt-2">
                                     <p className="text-xs font-semibold text-black mb-2 uppercase tracking-wider">Brand Logo</p>
                                     <ImageDropzone 
@@ -283,15 +306,18 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                     ) : (
                         <>
                             <SectionTitle title="CREATIVE SETTINGS" />
-                            <FormTextArea 
-                                label="Product Description"
-                                id="product-description"
-                                placeholder="e.g., A refreshing watermelon-flavored energy drink in a sleek can."
-                                value={params.productDescription}
-                                onChange={e => handleParamChange('productDescription', e.target.value)}
-                                rows={4}
-                                className="!mb-0"
-                            />
+                            {/* Hide generic description if using Comparison Fields, or keep as context? Usually redundant if specific features are asked. */}
+                            {!isComparisonAd && (
+                                <FormTextArea 
+                                    label="Product Description"
+                                    id="product-description"
+                                    placeholder="e.g., A refreshing watermelon-flavored energy drink in a sleek can."
+                                    value={params.productDescription}
+                                    onChange={e => handleParamChange('productDescription', e.target.value)}
+                                    rows={4}
+                                    className="!mb-0"
+                                />
+                            )}
                         </>
                     )}
 

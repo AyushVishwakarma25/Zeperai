@@ -81,7 +81,8 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
         fashionShootType, fashionCategory, fashionSubCategory, fashionBodyType, 
         regionalStyle, modelLockId, productStylePreset,
         modelGender, modelPersona, poseSuggestion, backgroundStyle, clothingType,
-        adLayout, adTitle, overlayText, ugcStyle, adStylePreset
+        adLayout, adTitle, overlayText, ugcStyle, adStylePreset,
+        isComparisonMode, competitorImage, productAFeatures, productBFeatures
     } = params;
     
     let parts: any[] = [];
@@ -117,6 +118,12 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
         if (imageToUse) {
             const base64 = await fileToBase64(imageToUse);
             parts.push({ inlineData: { data: base64, mimeType: imageToUse.type } });
+        }
+
+        // Add Competitor Image if in Comparison Mode
+        if (isComparisonMode && competitorImage) {
+            const base64 = await fileToBase64(competitorImage);
+            parts.push({ inlineData: { data: base64, mimeType: competitorImage.type } });
         }
     }
 
@@ -197,29 +204,53 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
         case AppMode.AdCreative:
         case AppMode.Banner:
         case AppMode.Youtube:
-            let adStyleInstructions = "Visually striking, professional graphic design.";
-            if (adStylePreset && adStylePreset !== AI_SUGGESTED) {
-                const foundAdPreset = AD_STYLE_PRESETS.find(p => p.value === adStylePreset);
-                if (foundAdPreset) adStyleInstructions = foundAdPreset.prompt;
+            if (isComparisonMode) {
+                corePrompt = `Create a high-conversion comparison ad for a D2C brand.
+                Use the provided product images, headline, and features to visually compare the two products in a clean, modern style.
+                
+                VISUAL INPUTS:
+                - Primary Product (Image 1): Emphasize this. Make it vibrant, sharp, and the "hero".
+                - Competitor/Generic (Image 2): Make this desaturated, neutral, or slightly less prominent to visually highlight the superiority of the Primary Product.
+
+                TEXT ELEMENTS:
+                - Headline: "${adTitle || 'Comparison'}"
+                - Subheading: "${params.adSubheading || ''}"
+                - CTA Button: "${params.adCta || 'Shop Now'}"
+                
+                COMPARISON POINTS:
+                - Your Product Features: ${productAFeatures || 'High Quality, Premium'}
+                - Competitor Features: ${productBFeatures || 'Standard Quality, Basic'}
+
+                LAYOUT: ${adLayout}.
+                Automatically adapt layout composition based on product type, comparison points count, and aspect ratio.
+                Ensure brand colors dominate while competitor visuals remain neutral.
+                Maintain D2C-style energy (bold, playful, relatable).
+                `;
+            } else {
+                let adStyleInstructions = "Visually striking, professional graphic design.";
+                if (adStylePreset && adStylePreset !== AI_SUGGESTED) {
+                    const foundAdPreset = AD_STYLE_PRESETS.find(p => p.value === adStylePreset);
+                    if (foundAdPreset) adStyleInstructions = foundAdPreset.prompt;
+                }
+
+                corePrompt = `Create a high-converting Ad Creative optimized for social media performance.
+
+                PRODUCT CONTEXT: "${productDescription}".
+                LAYOUT STRUCTURE: ${adLayout}.
+                CREATIVE STYLE: ${adStyleInstructions}
+
+                TEXT ELEMENTS (Render these clearly):
+                - HEADLINE: "${adTitle || ''}" (Hook attention)
+                - SUBHEADING: "${params.adSubheading || ''}" (Build desire)
+                - CTA BUTTON: "${params.adCta || ''}" (Drive action)
+
+                DESIGN PRINCIPLES:
+                1. Visual Hierarchy: Make the headline and product the largest, most contrasting elements.
+                2. Stopping Power: Use the requested style to create a "scroll-stopping" visual.
+                3. Clarity: Text must be legible against the background. Use overlays or shadows if necessary.
+                4. Composition: Balance the "Visual Element" (image) with the copy according to the Layout Structure.
+                `;
             }
-
-            corePrompt = `Create a high-converting Ad Creative optimized for social media performance.
-
-            PRODUCT CONTEXT: "${productDescription}".
-            LAYOUT STRUCTURE: ${adLayout}.
-            CREATIVE STYLE: ${adStyleInstructions}
-
-            TEXT ELEMENTS (Render these clearly):
-            - HEADLINE: "${adTitle || ''}" (Hook attention)
-            - SUBHEADING: "${params.adSubheading || ''}" (Build desire)
-            - CTA BUTTON: "${params.adCta || ''}" (Drive action)
-
-            DESIGN PRINCIPLES:
-            1. Visual Hierarchy: Make the headline and product the largest, most contrasting elements.
-            2. Stopping Power: Use the requested style to create a "scroll-stopping" visual.
-            3. Clarity: Text must be legible against the background. Use overlays or shadows if necessary.
-            4. Composition: Balance the "Visual Element" (image) with the copy according to the Layout Structure.
-            `;
             break;
         
         case AppMode.Remix:
