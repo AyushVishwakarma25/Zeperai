@@ -8,7 +8,7 @@ export const INITIAL_GENERATE_PARAMS: GenerateImageParams = {
   appMode: AppMode.Influencer,
   productDescription: '',
   aspectRatios: [AspectRatio.PortraitPost],
-  outputFormat: OutputFormat.JPEG,
+  outputFormat: OutputFormat.JPG,
   resolutionQuality: ResolutionQuality.Standard,
   selectedAngles: ['Front View'],
   productStylePreset: AI_SUGGESTED,
@@ -29,6 +29,7 @@ export const INITIAL_GENERATE_PARAMS: GenerateImageParams = {
   stylePreset: StylePreset.AISuggested,
   poseSuggestion: AI_SUGGESTED,
   backgroundStyle: AI_SUGGESTED,
+  ugcStyle: '',
   adLayout: AdLayout.TextRightImageLeft,
   adTitle: '',
   adSubheading: '',
@@ -46,6 +47,15 @@ export const STORAGE_LIMITS: Record<string, number> = {
   'Standard': 200,
   'Agency': 10000, // Effectively unlimited
 };
+
+export const UGC_STYLE_OPTIONS = [
+    { value: 'Sun-Kissed Glow', label: 'Sun-Kissed Glow', prompt: 'A radiant Indian model with curly hair holding [product] near face. Warm, golden hour lighting against a clear blue sky. Fresh, summery vibe.' },
+    { value: 'Neon Pop Art', label: 'Neon Pop Art', prompt: 'A stylish Indian model holding [product] close to camera. Vibrant neon background, bold makeup, studio lighting. High-fashion commercial look.' },
+    { value: 'Dynamic Reach', label: 'Dynamic Reach', prompt: 'Low-angle shot of a trendy Indian model reaching towards the camera with [product]. Pink monochromatic room with checkered floor. Playful, wide-angle perspective.' },
+    { value: 'Glamour Close-Up', label: 'Glamour Close-Up', prompt: 'Extreme close-up of an Indian model with bold lipstick holding [product] near lips. Luxurious styling with gold chain accessory. Dramatic ring lighting.' },
+    { value: 'Morning Glow', label: 'Morning Glow', prompt: 'Natural light shot of an Indian model with a towel wrap on head, holding [product] up to sunlight. Fresh, no-makeup look, golden hour flare.' },
+    { value: 'Mirror Ritual', label: 'Mirror Ritual', prompt: 'Indian model looking into a vanity mirror while applying/holding [product]. Reflection visible. Bathroom setting, clean white aesthetic.' },
+];
 
 export const FASHION_MODEL_LOCKS = {
   [FashionGender.Women]: [
@@ -77,6 +87,10 @@ export const FASHION_CATEGORIES: Record<FashionGender, Record<string, string[]>>
   [FashionGender.Kids]: {
     'Boys’ Clothing': ['T-shirts', 'Shirts', 'Shorts', 'Jeans', 'Trousers', 'Clothing Sets', 'Ethnic Wear', 'Track Pants & Pyjamas', 'Jackets, Sweaters & Sweatshirts', 'Party Wear', 'Innerwear & Thermals', 'Nightwear & Loungewear', 'Value Packs'],
     'Girls’ Clothing': ['Dresses', 'Tops', 'T-shirts', 'Clothing Sets', 'Lehenga Cholis', 'Kurta Sets', 'Party Wear', 'Dungarees & Jumpsuits', 'Skirts & Shorts', 'Tights & Leggings', 'Jeans, Trousers & Capris', 'Jackets, Sweaters & Sweatshirts', 'Innerwear & Thermals', 'Nightwear & Loungewear']
+  },
+  [FashionGender.Unisex]: {
+    'Casual Wear': ['T-shirts', 'Hoodies', 'Sweatshirts', 'Joggers', 'Caps', 'Beanies'],
+    'Accessories': ['Scarf', 'Muffler', 'Socks', 'Gloves']
   }
 };
 
@@ -85,7 +99,7 @@ export const MARKETPLACE_RULES: Record<MarketplacePreset, any> = {
     aspectRatio: AspectRatio.Square,
     background: 'Pure White studio backdrop (RGB 255, 255, 255)',
     allowLifestyle: false,
-    format: OutputFormat.JPEG,
+    format: OutputFormat.JPG,
     hint: 'Strict 1:1. Product fills 85%. No text.'
   },
   [MarketplacePreset.Shopify]: {
@@ -99,7 +113,7 @@ export const MARKETPLACE_RULES: Record<MarketplacePreset, any> = {
     aspectRatio: AspectRatio.Square,
     background: 'Pure White or Neutral Grey',
     allowLifestyle: false,
-    format: OutputFormat.JPEG,
+    format: OutputFormat.JPG,
     hint: 'Strict 1:1. No floating shadows.'
   },
   [MarketplacePreset.None]: {
@@ -187,7 +201,7 @@ export const AD_LAYOUT_OPTIONS = [
 ];
 
 export const OUTPUT_FORMAT_OPTIONS = [
-  { label: 'JPEG', value: OutputFormat.JPEG },
+  { label: 'JPEG', value: OutputFormat.JPG },
   { label: 'PNG', value: OutputFormat.PNG },
   { label: 'WEBP', value: OutputFormat.WEBP },
 ];
@@ -449,8 +463,10 @@ export const PRO_PRODUCT_STYLE_PRESETS = [
       { "name": "Minimal Refresh", "prompt": "A single [product] on a clean pedestal with subtle droplets, soft shadows, and a pastel gradient background." },
       { "name": "Flavor Burst", "prompt": "A [product] surrounded by its core ingredients in mid-air, sharp detail, vivid background, strong directional lighting." },
       { "name": "Summer Glow", "prompt": "A [product] bottle shot on reflective surface with fresh fruits around, warm sunlight tone, minimal props." },
-      { "name": "Cool Lift", "prompt": "A levitating [product] can with floating ice and vapor mist, clean blue or mint background, cinematic depth and clarity." },
-      { "name": "Vibrant Ingredient Pile", "prompt": "A professional studio shot of the [product] placed centrally on a generous, artful pile of its fresh, whole and sliced ingredients. The background is a clean, vibrant, single-color or soft gradient that matches the product's color palette. The lighting is bright and clean, making the product and ingredients look fresh and appealing, with subtle condensation on the bottle. The overall style is commercial, vibrant, and appetizing." }
+      { "name": "Cool Lift", "prompt": "A levitating [product] with floating ice and vapor mist, clean blue or mint background, cinematic depth and clarity." },
+      { "name": "Vibrant Ingredient Pile", "prompt": "A professional studio shot of the [product] placed centrally on a generous, artful pile of its fresh, whole and sliced ingredients. The background is a clean, vibrant, single-color or soft gradient that matches the product's color palette. The lighting is bright and clean, making the product and ingredients look fresh and appealing, with subtle condensation on the bottle. The overall style is commercial, vibrant, and appetizing." },
+      { "name": "Vibrant Geo-Steps", "prompt": "A dynamic commercial composition featuring multiple units of [product] arranged on colorful geometric stepped blocks (yellow, pink, lavender). The products are placed at different heights and angles on the steps to create a playful, stacked arrangement. The background is a solid, vibrant blue. Hard sunlight-style lighting creates sharp, defined shadows for a pop-art aesthetic. High-contrast, multipurpose advertising photography." },
+      { "name": "Human Connection Stack", "prompt": "A creative composition of three hands with diverse skin tones holding [product], stacked vertically against a plain, light neutral background. Soft, natural studio lighting highlighting the packaging details. Minimalist and modern." }
     ]
   },
   {
@@ -479,7 +495,8 @@ export const PRO_PRODUCT_STYLE_PRESETS = [
       { "name": "Hands-On Flat Lay", "prompt": "A clean, top-down flat lay composition on a bold, solid-colored background. Two hands are in the frame, presenting both the [product] packaging and the product in use (e.g., in a bowl). The lighting is bright and even, creating a modern, graphic, and engaging look ideal for social media." },
       { "name": "Vibrant Breakfast Scene", "prompt": "A vibrant, energetic lifestyle shot of [product] as part of a breakfast scene. Includes a bowl of the product, a glass of milk, and other relevant props. The shot can be from a top-down or a dynamic three-quarter angle, possibly featuring a hand interacting with the scene (e.g., holding a spoon, pouring milk). The background is a bright, solid color and the lighting is hard, creating crisp shadows for a playful, modern feel." },
       { "name": "Quickcommerce Style", "prompt": "A professional studio shot of the [product] placed centrally in a scene with its key ingredients and final form (e.g., brownies, a prepared dish) artfully scattered around it. The background is a clean, warm, soft-focus gradient that complements the product's colors. The lighting is dramatic yet soft, creating an appetizing and high-quality commercial look. Include dynamic elements like small splashes or floating ingredients for a vibrant, premium feel." },
-      { "name": "Blinkit Style 2", "prompt": "Studio shot of a standing [product] on a sky or smooth gradient background, with a soft spotlight from the corners and subtle shadows. Add realistic water droplets on the packaging if appropriate for the product. Surround the [product] with its key ingredients, artfully arranged in a rich food styling composition. Premium commercial photography style with crisp details and a shallow depth of field. Do not add any other elements. The [product] should be the main focus, filling approximately 85% of the frame." }
+      { "name": "Blinkit Style 2", "prompt": "Studio shot of a standing [product] on a sky or smooth gradient background, with a soft spotlight from the corners and subtle shadows. Add realistic water droplets on the packaging if appropriate for the product. Surround the [product] with its key ingredients, artfully arranged in a rich food styling composition. Premium commercial photography style with crisp details and a shallow depth of field. Do not add any other elements. The [product] should be the main focus, filling approximately 85% of the frame." },
+      { "name": "Color Block Pop", "prompt": "Three [product] items displayed against a vibrant background featuring bold diagonal color blocks (purple, red, blue). Hard directional lighting creates long, dramatic shadows. Graphic, high-contrast pop-art aesthetic." }
     ]
   },
   {
@@ -582,4 +599,12 @@ export const FESTIVAL_PRESETS: ProProductStyleCategory[] = [
       }
     ]
   }
+];
+
+export const AD_STYLE_PRESETS = [
+  { value: '✨ AI Suggested', label: '✨ AI Suggested', prompt: 'Visually striking, professional graphic design.' },
+  { value: 'Minimalist', label: 'Minimalist', prompt: 'Clean, ample whitespace, modern typography, focus on product.' },
+  { value: 'Bold & Loud', label: 'Bold & Loud', prompt: 'High contrast, large typography, vibrant colors, energetic vibe.' },
+  { value: 'Luxury', label: 'Luxury', prompt: 'Elegant fonts, gold/silver accents, dark or premium textures, sophisticated.' },
+  { value: 'Playful', label: 'Playful', prompt: 'Bright colors, fun shapes, rounded fonts, energetic and friendly.' }
 ];

@@ -1,43 +1,32 @@
 
-/**
- * FILE: authService.ts
- *
- * PURPOSE:
- * - Manages user authentication sessions via Supabase.
- *
- * FLOW:
- * AuthModal → authService → Supabase Auth → Session/Profile → App State
- *
- * INPUT:
- * - email, password, name
- *
- * OUTPUT:
- * - AuthSession (user profile + token)
- *
- * NOTES:
- * - Auto-maps Supabase User to local UserProfileData format.
- */
-
 import { supabase } from './supabaseClient';
 import { UserProfileData, userService } from './userService';
 
 // Helper to construct profile object from Supabase user data
 const mapUserToProfile = async (user: any): Promise<UserProfileData> => {
     // Attempt to fetch full profile from DB
-    const profile = await userService.getUserProfile(user.id);
-    if (profile) return profile;
+    let profile = await userService.getUserProfile(user.id);
 
     // Fallback based on auth metadata if profile row not found/ready yet
-    return {
-        id: user.id,
-        name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-        email: user.email || '',
-        role: 'Creator',
-        bio: '',
-        location: '',
-        avatarUrl: user.user_metadata?.avatar_url || '',
-        tier: 'Free'
-    };
+    if (!profile) {
+        profile = {
+            id: user.id,
+            name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+            email: user.email || '',
+            role: 'Creator',
+            bio: '',
+            location: '',
+            avatarUrl: user.user_metadata?.avatar_url || '',
+            tier: 'Free'
+        };
+    }
+
+    // Special access for sharma25ayush@gmail.com
+    if (profile.email === 'sharma25ayush@gmail.com') {
+        profile.tier = 'Standard';
+    }
+
+    return profile;
 };
 
 export interface AuthSession {
@@ -93,11 +82,6 @@ export const authService = {
     };
   },
 
-  // Kept for backward compatibility if needed, but should not be used with real auth without password
-  async signIn(email: string): Promise<AuthSession> {
-      throw new Error("Password is required for authentication.");
-  },
-
   /**
    * Sign Up
    */
@@ -131,11 +115,6 @@ export const authService = {
         token: data.session.access_token,
         expiresAt: (data.session.expires_at || 0) * 1000
     };
-  },
-
-  // Legacy signature wrapper
-  async signUp(name: string, email: string): Promise<AuthSession> {
-      throw new Error("Password is required for signup.");
   },
 
   /**

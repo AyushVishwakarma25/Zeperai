@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
-import { payments, STRIPE_PRICES } from '../services/payments';
+import { paymentService, STRIPE_PRICES } from '../services/paymentService';
 import { Spinner } from './ui/Spinner';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
@@ -98,7 +98,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
       if (loadingPriceId) return;
       setLoadingPriceId(priceId);
       try {
-          await payments.createCheckoutSession(priceId);
+          await paymentService.createCheckoutSession(priceId);
       } catch (e) {
           console.error(e);
           alert(e instanceof Error ? e.message : 'Checkout failed');

@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback } from 'react';
-import { generateAdCopy } from '../services/adCopy';
+import { generateAdCopy } from '../services/adCopyService';
 import type { GenerateAdCopyParams, AdCopy } from '../types';
 import { FormTextArea } from './ui/Form';
 import { Select } from './ui/Select';

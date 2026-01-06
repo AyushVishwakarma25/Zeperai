@@ -4,7 +4,7 @@ import type { MoodBoard, BrandAnalysis, BrandGuidelines } from '../types';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 import { Spinner } from './ui/Spinner';
-import { generateMoodBoard, analyzeBrandLogo, fileToBase64 } from '../services/gemini';
+import { generateMoodBoard, analyzeBrandLogo, fileToBase64 } from '../services/geminiService';
 import { processImageFile } from '../utils/images';
 import { ImageDropzone } from './ui/ImageDropzone';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';

@@ -139,8 +139,8 @@ const DashboardHome: React.FC<DashboardProps> = ({
             onClick: () => onSelectMode(AppMode.Fashion)
         },
         {
-            title: 'Ad Generator',
-            subtitle: 'High conversion creatives',
+            title: 'Ad Generator + BI',
+            subtitle: 'Predictive creative analytics',
             color: '#C0E957',
             textColor: 'text-slate-900',
             iconName: 'megaphone',

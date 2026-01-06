@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
-import { feedback } from '../services/feedback';
+import { feedbackService } from '../services/feedbackService';
 import { Toast } from './ui/Toast';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
@@ -38,7 +38,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
     setIsSubmitting(true);
     try {
         const ratingLabel = ratings[selectedRating].label;
-        await feedback.submitFeedback(ratingLabel, comment);
+        await feedbackService.submitFeedback(ratingLabel, comment);
         
         setToast({ message: "Thank you for your feedback!", type: 'success' });
         

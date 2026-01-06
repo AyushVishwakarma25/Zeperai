@@ -4,7 +4,7 @@ import type { GenerateImageParams, SavedModel } from '../../types';
 import { 
     MODEL_GENDER_OPTIONS, SKIN_TONE_OPTIONS, MODEL_PERSONA_OPTIONS, 
     POSE_SUGGESTIONS, CLOTHING_TYPE_OPTIONS, ALL_BACKGROUND_OPTIONS, 
-    PRODUCT_CATEGORY_OPTIONS 
+    PRODUCT_CATEGORY_OPTIONS, UGC_STYLE_OPTIONS, AI_SUGGESTED
 } from '../../constants';
 import { Select } from '../ui/Select';
 import { Icon } from '../ui/Icon';
@@ -28,6 +28,12 @@ export const InfluencerControls: React.FC<InfluencerControlsProps> = ({
             {backgroundOptionsForCategory[group].map(option => <option key={option} value={option}>{option}</option>)}
         </optgroup>
     ));
+
+    // Logic: If background is specifically set (not default), block UGC Style. 
+    // And if UGC Style is set, block background style.
+    // Default background is often "AI Suggested" which should be considered "empty" in this context
+    const isBackgroundSet = params.backgroundStyle && params.backgroundStyle !== AI_SUGGESTED;
+    const isUgcStyleSet = params.ugcStyle && params.ugcStyle !== '';
 
     return (
         <>
@@ -93,6 +99,24 @@ export const InfluencerControls: React.FC<InfluencerControlsProps> = ({
                 </Select>
                 <button onClick={() => onGenerateVariants('modelPersona')} className="absolute top-8 right-2 p-1 text-slate-400 hover:text-primary"><Icon name="sparkles" className="w-4 h-4"/></button>
             </div>
+            
+            <div className="border-t border-slate-200 my-6"></div>
+            
+            <div className="mt-4">
+                <HelpLabel label="UGC Style (Presets)" tooltip="Complete influencer presets. Disables Background Style if selected." />
+                <Select 
+                    label="" 
+                    value={params.ugcStyle || ''} 
+                    onChange={e => handleParamChange('ugcStyle', e.target.value)}
+                    disabled={isBackgroundSet}
+                    className={isBackgroundSet ? 'opacity-50 cursor-not-allowed' : ''}
+                >
+                    <option value="">Select a Style...</option>
+                    {UGC_STYLE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                </Select>
+                {isBackgroundSet && <p className="text-xs text-red-500 mt-1">Reset Background Style to enable UGC Styles</p>}
+            </div>
+
             <div className="relative mt-4">
                 <HelpLabel label="Pose / Action" tooltip="What should the model be doing?" />
                 <Select label="" value={params.poseSuggestion} onChange={e => handleParamChange('poseSuggestion', e.target.value)}>
@@ -111,8 +135,17 @@ export const InfluencerControls: React.FC<InfluencerControlsProps> = ({
                 </div>
             </div>
             <div className="mt-4">
-                <HelpLabel label="Background Style" />
-                <Select label="" value={params.backgroundStyle} onChange={e => handleParamChange('backgroundStyle', e.target.value)}>{backgroundOptions}</Select>
+                <HelpLabel label="Background Style" tooltip="Disables UGC Style if selected." />
+                <Select 
+                    label="" 
+                    value={params.backgroundStyle} 
+                    onChange={e => handleParamChange('backgroundStyle', e.target.value)}
+                    disabled={isUgcStyleSet}
+                    className={isUgcStyleSet ? 'opacity-50 cursor-not-allowed' : ''}
+                >
+                    {backgroundOptions}
+                </Select>
+                {isUgcStyleSet && <p className="text-xs text-red-500 mt-1">Unselect UGC Style to enable custom Background</p>}
             </div>
         </>
     );

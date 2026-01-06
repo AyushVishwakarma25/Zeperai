@@ -15,6 +15,7 @@ interface MyDesignsProps {
   onSetZoomedImage: (image: GeneratedImage) => void;
   onSetStoryboardSource: (image: GeneratedImage) => void;
   onToggleSidebar: () => void;
+  onRemix?: (image: GeneratedImage) => void;
 }
 
 const IconButton: React.FC<{icon: string, label: string, onClick: (e: React.MouseEvent) => void, disabled?: boolean}> = ({icon, label, onClick, disabled}) => (
@@ -29,7 +30,7 @@ const IconButton: React.FC<{icon: string, label: string, onClick: (e: React.Mous
 );
 
 export const MyDesigns: React.FC<MyDesignsProps> = ({ 
-    images, onRemove, onDeploy, onSetView, onStartEdit, onSetZoomedImage, onSetStoryboardSource, onToggleSidebar
+    images, onRemove, onDeploy, onSetView, onStartEdit, onSetZoomedImage, onSetStoryboardSource, onToggleSidebar, onRemix
 }) => {
 
   const handleDownload = useCallback((image: GeneratedImage) => {
@@ -106,6 +107,7 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
                                     <div className="flex items-center justify-around">
                                         <IconButton icon="film" label="Create Storyboard" onClick={(e) => { e.stopPropagation(); onSetStoryboardSource(image); }} />
                                         <IconButton icon="edit" label="Edit" onClick={(e) => { e.stopPropagation(); onStartEdit(image); }} />
+                                        {onRemix && <IconButton icon="swap" label="Remix Style" onClick={(e) => { e.stopPropagation(); onRemix(image); }} />}
                                         <IconButton icon="download" label="Download" onClick={(e) => { e.stopPropagation(); handleDownload(image); }} />
                                         <IconButton icon="remove" label="Remove" onClick={(e) => { e.stopPropagation(); onRemove(image.id); }} />
                                     </div>

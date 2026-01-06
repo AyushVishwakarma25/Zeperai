@@ -1,4 +1,3 @@
-
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -19,6 +18,9 @@ export default defineConfig(({ mode }) => {
       // This replaces 'process.env.API_KEY' in your client code with the actual string value.
       // We default to '' to avoid inserting the literal string "undefined" into the bundle.
       'process.env.API_KEY': JSON.stringify(apiKey || ''),
+      // FIX: Expose Supabase variables to the client via process.env
+      'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
+      'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
     },
   };
 });

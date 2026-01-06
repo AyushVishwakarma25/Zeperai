@@ -10,6 +10,7 @@ import { FormTextArea } from './ui/Form';
 import { calculateGenerationCost } from '../utils/costs';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { SectionTitle } from './modes/shared';
+import { toggleAspectRatio } from '../utils/configLogic';
 
 // Mode Components
 import { InfluencerControls } from './modes/InfluencerControls';
@@ -29,9 +30,18 @@ interface CreativeModalProps {
   isLoading: boolean;
   storyboardSourceImage: GeneratedImage | null;
   onClearStoryboardSource: () => void;
+  
   onFileChange: (file: File | null, paramName: keyof GenerateImageParams, previewSetter: React.Dispatch<React.SetStateAction<string | null>>, options: any) => void;
+  
+  // Single preview
   frontProductImagePreview: string | null;
   setFrontProductImagePreview: React.Dispatch<React.SetStateAction<string | null>>;
+  
+  // Bulk preview props
+  bulkImagePreviews?: string[];
+  onBulkFilesChange?: (files: File[]) => void;
+  onRemoveBulkImage?: (index: number) => void;
+
   remixReferenceImagePreview: string | null;
   setRemixReferenceImagePreview: React.Dispatch<React.SetStateAction<string | null>>;
   remixProductImagePreview: string | null;
@@ -41,16 +51,18 @@ interface CreativeModalProps {
   onOpenPricingModal: () => void;
   freeGenerationsUsed: number;
   savedModels: SavedModel[];
+  onReset: () => void;
 }
 
 export const CreativeModal: React.FC<CreativeModalProps> = ({ 
     mode, onClose, params, onParamsChange, onGenerate, isLoading,
     onFileChange, frontProductImagePreview, setFrontProductImagePreview,
+    bulkImagePreviews, onBulkFilesChange, onRemoveBulkImage,
     remixReferenceImagePreview, setRemixReferenceImagePreview,
     remixProductImagePreview, setRemixProductImagePreview,
     onGenerateVariants, storyboardSourceImage, onClearStoryboardSource,
     userTier, onOpenPricingModal, freeGenerationsUsed,
-    savedModels
+    savedModels, onReset
 }) => {
   const isOnline = useNetworkStatus();
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -59,11 +71,11 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
   const isRemixingState = useMemo(() => {
       // Check if description is pre-filled (common for remixes) but no image
       const hasDescription = params.productDescription && params.productDescription.length > 0;
-      const missingImage = !frontProductImagePreview;
+      const missingImage = !frontProductImagePreview && (!bulkImagePreviews || bulkImagePreviews.length === 0);
       // Don't flag if it's actual Remix Mode (where inputs differ)
       const standardMode = [AppMode.Product, AppMode.Fashion, AppMode.Influencer, AppMode.Festival, AppMode.AdCreative].includes(mode);
       return standardMode && hasDescription && missingImage;
-  }, [params.productDescription, frontProductImagePreview, mode]);
+  }, [params.productDescription, frontProductImagePreview, bulkImagePreviews, mode]);
 
   useEffect(() => {
     return () => {
@@ -103,8 +115,11 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
           return true;
       }
       const needsMainImage = [AppMode.Product, AppMode.Fashion, AppMode.Influencer, AppMode.Festival].includes(mode);
-      if (needsMainImage && !params.bulkImages) {
-          if (!params.frontProductImage && !frontProductImagePreview) return false;
+      if (needsMainImage) {
+          // Check if either single image or bulk images exist
+          const hasSingle = !!params.frontProductImage || !!frontProductImagePreview;
+          const hasBulk = params.bulkImages && params.bulkImages.length > 0;
+          if (!hasSingle && !hasBulk) return false;
       }
       if (mode === AppMode.AdCreative) {
           if (!params.frontProductImage && !frontProductImagePreview) return false;
@@ -143,24 +158,13 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
   }, [mode]);
   
   const handleAspectRatioChange = (ratio: AspectRatio) => {
-      if (userTier === 'Free' || userTier === 'Starter') {
-            onParamsChange(prev => ({ ...prev, aspectRatios: [ratio] }));
-            return;
-      }
-      onParamsChange(prev => {
-          const currentRatios = prev.aspectRatios || [];
-          const newRatios = currentRatios.includes(ratio)
-              ? currentRatios.filter(r => r !== ratio)
-              : [...currentRatios, ratio];
-          return { ...prev, aspectRatios: newRatios };
-      });
+      onParamsChange(prev => ({
+          ...prev,
+          aspectRatios: toggleAspectRatio(prev.aspectRatios || [], ratio, userTier)
+      }));
   };
   
   const handleAngleChange = (angle: string) => {
-      if (userTier === 'Free' || userTier === 'Starter') {
-            onParamsChange(prev => ({ ...prev, selectedAngles: [angle] }));
-            return;
-      }
       onParamsChange(prev => {
           const currentAngles = prev.selectedAngles || [];
           const newAngles = currentAngles.includes(angle)
@@ -187,9 +191,19 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                     <Icon name="sparkles" className="w-6 h-6 mr-3 text-primary" />
                     <h2 className="text-xl font-bold text-slate-800">{getModalTitle()}</h2>
                 </div>
-                <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
-                    <Icon name="close" className="w-5 h-5"/>
-                </button>
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={onReset}
+                        className="text-xs font-medium text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors mr-2 flex items-center"
+                        title="Clear all settings"
+                    >
+                        <Icon name="remove" className="w-3 h-3 mr-1" />
+                        Reset
+                    </button>
+                    <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
+                        <Icon name="close" className="w-5 h-5"/>
+                    </button>
+                </div>
             </header>
 
             <div className="flex-grow flex flex-col md:flex-row overflow-y-auto md:overflow-hidden scrollbar-thin">
@@ -219,9 +233,15 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                                 <SectionTitle title="ASSETS" />
                                 <ImageDropzone 
                                     id="asset-upload-main"
-                                    prompt={isFashion ? "Fabric or Garment" : (isRemixingState ? "Upload Product to Remix" : "Upload Product Image")}
-                                    previewUrl={frontProductImagePreview}
-                                    onFileChange={(file) => onFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 2048, maxHeight: 2048, format: 'image/png' })}
+                                    prompt={isFashion ? "Fabric or Garment" : (isRemixingState ? "Upload Product to Remix" : "Upload Product Image(s)")}
+                                    
+                                    // Use bulk props for multi-file support in main modes
+                                    multiple={true}
+                                    maxFiles={3}
+                                    previewUrls={bulkImagePreviews} 
+                                    onFilesChange={onBulkFilesChange}
+                                    onRemoveFile={onRemoveBulkImage}
+                                    
                                     className={`w-full ${isAdCreative ? 'h-48 sm:h-56' : 'aspect-[3/2] md:h-64'} ${(!frontProductImagePreview || isRemixingState) ? 'border-primary border-dashed bg-primary/5 animate-pulse ring-2 ring-primary/20' : ''}`}
                                 />
                                 {isRemixingState && (

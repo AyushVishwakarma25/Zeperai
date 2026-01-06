@@ -6,11 +6,14 @@ import { ASPECT_RATIO_OPTIONS, OUTPUT_FORMAT_OPTIONS, RESOLUTION_QUALITY_OPTIONS
 import { Select } from '../ui/Select';
 import { Icon } from '../ui/Icon';
 import { ControlButton, SectionTitle, HelpLabel } from './shared';
+import { toggleAspectRatio } from '../../utils/configLogic';
 
 interface CommonControlsProps {
     params: GenerateImageParams;
     handleParamChange: (param: keyof GenerateImageParams, value: any) => void;
-    handleAspectRatioChange: (ratio: AspectRatio) => void;
+    // We pass the setter wrapper or the logic directly? 
+    // Passing the raw setter is flexible, but here we can handle the logic if we have userTier
+    handleAspectRatioChange: (ratio: AspectRatio) => void; 
     batchOptions: number[];
     userTier: 'Free' | 'Starter' | 'Standard' | 'Agency';
 }
@@ -20,17 +23,31 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
 }) => {
     
     const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
+    // Multi-select enabled for all tiers now
+    const canMultiSelect = true; 
 
     return (
         <>
             <SectionTitle title="OUTPUT SETTINGS" className="mt-6" />
-            <HelpLabel label="Aspect Ratio" tooltip="Select dimensions suitable for your target platform (e.g., Stories vs Posts)." />
+            <div className="flex justify-between items-center mb-2">
+                <HelpLabel label="Aspect Ratio" tooltip="Select dimensions suitable for your target platform. Select multiple to generate variations." className="mb-0" />
+                {canMultiSelect && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">MULTI-SELECT ON</span>}
+            </div>
+            
             <div className="grid grid-cols-4 gap-2">
-                {ASPECT_RATIO_OPTIONS.map(opt => (
-                    <ControlButton key={opt.value} onClick={() => handleAspectRatioChange(opt.value)} selected={params.aspectRatios?.includes(opt.value)}>
-                        <Icon name={opt.icon} className="w-4 h-4" /><span>{opt.label}</span>
-                    </ControlButton>
-                ))}
+                {ASPECT_RATIO_OPTIONS.map(opt => {
+                    const isSelected = params.aspectRatios?.includes(opt.value);
+                    return (
+                        <ControlButton 
+                            key={opt.value} 
+                            onClick={() => handleAspectRatioChange(opt.value)} 
+                            selected={isSelected || false}
+                        >
+                            <Icon name={opt.icon} className="w-4 h-4" />
+                            <span>{opt.label}</span>
+                        </ControlButton>
+                    );
+                })}
             </div>
 
             <div className="grid grid-cols-2 gap-4 mt-4">

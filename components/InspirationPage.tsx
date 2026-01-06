@@ -3,7 +3,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Icon } from './ui/Icon';
 import { Button } from './ui/Button';
 import { View, InspirationItem } from '../types';
-import { INSPIRATION_GALLERY } from '../data/inspirationGallery';
+import { inspirationService } from '../services/inspirationService';
+import { Spinner } from './ui/Spinner';
 
 interface InspirationPageProps {
   onSetView: (view: View) => void;
@@ -12,14 +13,31 @@ interface InspirationPageProps {
 }
 
 const InspirationPage: React.FC<InspirationPageProps> = ({ onSetView, onToggleSidebar, onRemix }) => {
+  const [items, setItems] = useState<InspirationItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [activeCategory, setActiveCategory] = useState('All');
 
-  const categories = ['All', ...Array.from(new Set(INSPIRATION_GALLERY.map(img => img.category)))];
+  useEffect(() => {
+      const loadInspirations = async () => {
+          setLoading(true);
+          try {
+              const data = await inspirationService.getInspirations();
+              setItems(data);
+          } catch (e) {
+              console.error("Failed to load inspirations", e);
+          } finally {
+              setLoading(false);
+          }
+      };
+      loadInspirations();
+  }, []);
+
+  const categories = ['All', ...Array.from(new Set(items.map(img => img.category)))];
 
   const filteredImages = activeCategory === 'All' 
-    ? INSPIRATION_GALLERY 
-    : INSPIRATION_GALLERY.filter(img => img.category === activeCategory);
+    ? items 
+    : items.filter(img => img.category === activeCategory);
 
   const handleNext = useCallback(() => {
     if (selectedImageIndex === null) return;
@@ -73,62 +91,74 @@ const InspirationPage: React.FC<InspirationPageProps> = ({ onSetView, onToggleSi
       </header>
 
       <main className="flex-grow overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-        {/* Category Filters */}
-        <div className="flex flex-wrap gap-2 mb-8 justify-center">
-            {categories.map(cat => (
-                <button
-                    key={cat}
-                    onClick={() => setActiveCategory(cat)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                        activeCategory === cat 
-                        ? 'bg-primary text-white shadow-lg shadow-primary/30 scale-105' 
-                        : 'bg-white text-text-secondary hover:bg-gray-100 border border-border-light'
-                    }`}
-                >
-                    {cat}
-                </button>
-            ))}
-        </div>
-
-        {/* Masonry Grid */}
-        <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
-            {filteredImages.map((img, index) => (
-                <div 
-                    key={img.id}
-                    onClick={() => setSelectedImageIndex(index)}
-                    className="break-inside-avoid relative group cursor-pointer rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 bg-gray-200"
-                >
-                    <img 
-                        src={img.imageUrl} 
-                        alt={img.title} 
-                        loading="lazy"
-                        className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-110 block"
-                    />
-                    {img.badge && (
-                        <span className="absolute top-3 left-3 px-2 py-1 bg-black/60 text-white text-[10px] font-bold uppercase rounded backdrop-blur-md">
-                            {img.badge}
-                        </span>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                        <div className="flex justify-between items-end">
-                            <div>
-                                <p className="text-white font-bold">{img.title}</p>
-                                <p className="text-white/80 text-xs">{img.category}</p>
-                            </div>
-                            {img.isRemixable && (
-                                <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
-                                    <Icon name="swap" className="w-4 h-4 text-white" />
-                                </div>
-                            )}
-                        </div>
-                    </div>
+        {loading ? (
+            <div className="flex h-full items-center justify-center">
+                <Spinner />
+            </div>
+        ) : (
+            <>
+                {/* Category Filters */}
+                <div className="flex flex-wrap gap-2 mb-8 justify-center">
+                    {categories.map(cat => (
+                        <button
+                            key={cat}
+                            onClick={() => setActiveCategory(cat)}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                                activeCategory === cat 
+                                ? 'bg-primary text-white shadow-lg shadow-primary/30 scale-105' 
+                                : 'bg-white text-text-secondary hover:bg-gray-100 border border-border-light'
+                            }`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
                 </div>
-            ))}
-        </div>
+
+                {/* Masonry Grid */}
+                {filteredImages.length === 0 ? (
+                    <div className="text-center text-slate-500 mt-12">No inspirations found in this category.</div>
+                ) : (
+                    <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
+                        {filteredImages.map((img, index) => (
+                            <div 
+                                key={img.id}
+                                onClick={() => setSelectedImageIndex(index)}
+                                className="break-inside-avoid relative group cursor-pointer rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 bg-gray-200"
+                            >
+                                <img 
+                                    src={img.imageUrl} 
+                                    alt={img.title} 
+                                    loading="lazy"
+                                    className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-110 block"
+                                />
+                                {img.badge && (
+                                    <span className={`absolute top-3 left-3 px-2 py-1 text-white text-[10px] font-bold uppercase rounded backdrop-blur-md ${img.badge === 'Community' ? 'bg-blue-600/80' : 'bg-black/60'}`}>
+                                        {img.badge}
+                                    </span>
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                                    <div className="flex justify-between items-end">
+                                        <div>
+                                            <p className="text-white font-bold">{img.title}</p>
+                                            <p className="text-white/80 text-xs">{img.category}</p>
+                                        </div>
+                                        {img.isRemixable && (
+                                            <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                                                <Icon name="swap" className="w-4 h-4 text-white" />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </>
+        )}
       </main>
 
       {/* Lightbox / Slideshow Carousel */}
-      {selectedImageIndex !== null && (
+      {selectedImageIndex !== null && filteredImages[selectedImageIndex] && (
           <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center animate-fade-in-scale-up">
               {/* Close Button */}
               <button 

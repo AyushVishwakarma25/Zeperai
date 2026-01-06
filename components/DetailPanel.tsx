@@ -12,6 +12,8 @@ import {
     CAPTION_LANGUAGE_OPTIONS
 } from '../constants';
 import { generateFilename } from '../utils/images';
+import { inspirationService } from '../services/inspirationService';
+import { Toast } from './ui/Toast';
 
 interface DetailPanelProps {
   image: GeneratedImage;
@@ -70,6 +72,9 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
     const [language, setLanguage] = useState<'English' | 'Hindi' | 'Hinglish'>('English');
     const [includeHashtags, setIncludeHashtags] = useState(true);
     const [includeEmojis, setIncludeEmojis] = useState(true);
+    
+    const [isSharing, setIsSharing] = useState(false);
+    const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
     const isGenerating = generatingCaptionImageId === image.id;
 
@@ -90,11 +95,30 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
         });
     }, [onGenerateCaption, image.id, tone, length, platform, language, includeHashtags, includeEmojis]);
 
+    const handleShareToInspiration = async () => {
+        setIsSharing(true);
+        try {
+            await inspirationService.submitToInspiration(image);
+            setToast({ message: "Shared to Global Gallery!", type: 'success' });
+        } catch (e: any) {
+            setToast({ message: e.message || "Failed to share.", type: 'error' });
+        } finally {
+            setIsSharing(false);
+        }
+    };
+
     const encodedCaption = encodeURIComponent(image.caption);
     const encodedUrl = encodeURIComponent(image.imageUrl);
 
     const PanelContent = (
       <>
+        {toast && (
+            <Toast 
+                message={toast.message} 
+                type={toast.type} 
+                onClose={() => setToast(null)} 
+            />
+        )}
         <div className="p-4 border-b border-slate-200 flex justify-between items-center">
             <h3 className="font-semibold text-slate-800">Content Details</h3>
             <button 
@@ -193,10 +217,14 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
                         label="WhatsApp" 
                     />
                  </div>
-                  <div className="mt-4">
-                      <Button onClick={handleDownload} variant="secondary" fullWidth>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                      <Button onClick={handleShareToInspiration} disabled={isSharing} isLoading={isSharing} variant="ghost" className="!bg-purple-100 !text-primary hover:!bg-purple-200 !text-xs !px-2">
+                          <Icon name="globe" className="w-4 h-4 mr-2" />
+                          Share to Community
+                      </Button>
+                      <Button onClick={handleDownload} variant="secondary" className="!text-xs !px-2">
                           <Icon name="download" className="w-4 h-4 mr-2" />
-                          Download Image
+                          Download
                       </Button>
                   </div>
             </div>

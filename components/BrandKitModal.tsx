@@ -5,8 +5,8 @@ import { Button } from './ui/Button';
 import { FormInput, FormTextArea } from './ui/Form';
 import { Select } from './ui/Select';
 import { ImageDropzone } from './ui/ImageDropzone';
-import { storage } from '../services/storage';
-import { brand } from '../services/brand';
+import { storageService } from '../services/storageService';
+import { brandService } from '../services/brandService';
 import { analyzeBrandLogo, fileToBase64 } from '../services/geminiService';
 import type { BrandKit } from '../types';
 import { processImageFile, dataURLtoFile } from '../utils/images';
@@ -179,7 +179,7 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
       if (logoFile) {
         try {
             const fileName = `brand/logo-${Date.now()}.png`;
-            finalLogoUrl = await storage.uploadImage(logoFile, fileName);
+            finalLogoUrl = await storageService.uploadImage(logoFile, fileName);
         } catch (storageError) {
             console.warn("Storage service failed, using local blob URL for logo.", storageError);
             finalLogoUrl = logoPreview || undefined;
@@ -188,7 +188,7 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
       const updatedKit = { ...kit, logoUrl: finalLogoUrl };
       
       try {
-        const savedKit = await brand.saveBrandKit(updatedKit);
+        const savedKit = await brandService.saveBrandKit(updatedKit);
         onSave(savedKit);
       } catch (dbError) {
         console.warn("Database service failed, saving to app state only.", dbError);

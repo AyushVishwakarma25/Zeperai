@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { generateMarketingCopy, rewriteMarketingCopy } from '../services/contentGenerator';
+import { generateMarketingCopy, rewriteMarketingCopy } from '../services/contentGeneratorService';
 import type { GenerateContentParams, CopyVariation, RewriteCopyParams } from '../types';
 import { RewriteAction } from '../types';
 import { FormInput, FormTextArea } from './ui/Form';

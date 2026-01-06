@@ -252,8 +252,19 @@ const EditModal: React.FC<EditModalProps> = ({
     if (!canvas) return;
     const context = canvas.getContext('2d');
     if (!context) return;
-    const pixelBuffer = new Uint32Array(context.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
-    const hasDrawing = pixelBuffer.some(color => color !== 0);
+    
+    let hasDrawing = false;
+    try {
+        const pixelBuffer = new Uint32Array(context.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
+        hasDrawing = pixelBuffer.some(color => color !== 0);
+    } catch (e) {
+        if (e instanceof DOMException && e.name === 'SecurityError') {
+            alert("Security Error: Cannot edit this image due to cross-origin restrictions. Please try downloading it and uploading it again from your device.");
+            return;
+        }
+        throw e;
+    }
+
 
     if (!hasDrawing) {
         alert("Please brush over the area you want to edit.");

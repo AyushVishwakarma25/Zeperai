@@ -5,21 +5,29 @@
  */
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS } from '../constants';
+import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS, UGC_STYLE_OPTIONS, AD_STYLE_PRESETS } from '../constants';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis } from '../types';
 import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, RegionalStyle, ProductCategory, ResolutionQuality } from '../types';
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- MODELS CONFIGURATION ---
-const MODELS = {
-    TEXT: 'gemini-3-flash-preview',
-    TEXT_FALLBACK: 'gemini-2.0-flash-exp', // Fallback for 403/500 on primary text model
-    // IMAGE_PRO: 'gemini-3-pro-image-preview', // TODO: Re-enable when API access is available
-    IMAGE_PRO: 'gemini-2.5-flash-image', // Temporary override: Use 2.5 Flash for all tiers to avoid access errors
-    IMAGE_STD: 'gemini-2.5-flash-image',
-    EDIT: 'gemini-2.5-flash-image'
+// Helper function to safely parse JSON from Gemini, which might be wrapped in markdown
+const parseGeminiJson = <T>(text: string | undefined, fallback: T): T => {
+    if (!text) return fallback;
+    try {
+        // Find the start and end of the JSON block
+        const jsonMatch = text.match(/```(json)?\s*([\s\S]*?)\s*```/);
+        if (jsonMatch && jsonMatch[2]) {
+            return JSON.parse(jsonMatch[2]);
+        }
+        // If no markdown block, try parsing the whole string
+        return JSON.parse(text);
+    } catch (e) {
+        console.warn("Failed to parse Gemini JSON response, returning fallback.", text);
+        return fallback;
+    }
 };
+
 
 const getAI = () => {
     const apiKey = process.env.API_KEY;
@@ -27,31 +35,6 @@ const getAI = () => {
         throw new Error("API Key is missing. Please set VITE_API_KEY in your environment variables.");
     }
     return new GoogleGenAI({ apiKey });
-};
-
-// --- HELPER: Safe Content Generation with Fallback ---
-const generateContentSafe = async (ai: GoogleGenAI, params: any) => {
-    try {
-        return await ai.models.generateContent(params);
-    } catch (error: any) {
-        // Check for Permission Denied (403), Not Found (404), or Internal Error (500)
-        const isAccessError = error.status === 403 || error.status === 404 || error.status === 500 || 
-                              (error.message && (error.message.includes('403') || error.message.includes('500')));
-        
-        if (params.model === MODELS.TEXT && isAccessError) {
-            console.warn(`Primary model ${MODELS.TEXT} failed (${error.status}). Falling back to ${MODELS.TEXT_FALLBACK}.`);
-            try {
-                return await ai.models.generateContent({
-                    ...params,
-                    model: MODELS.TEXT_FALLBACK
-                });
-            } catch (fallbackError: any) {
-                console.error("Fallback text generation also failed:", fallbackError);
-                throw error; // Throw original error to retain context if both fail
-            }
-        }
-        throw error;
-    }
 };
 
 const getFashionPoses = (count: number): string[] => {
@@ -98,63 +81,104 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
         fashionShootType, fashionCategory, fashionSubCategory, fashionBodyType, 
         regionalStyle, modelLockId, productStylePreset,
         modelGender, modelPersona, poseSuggestion, backgroundStyle, clothingType,
-        adLayout, adTitle, overlayText
+        adLayout, adTitle, overlayText, ugcStyle, adStylePreset
     } = params;
     
     let parts: any[] = [];
-
-    if (modelSeedUrl) {
-        const response = await fetch(modelSeedUrl);
-        const blob = await response.blob();
-        const reader = new FileReader();
-        const dataUrl = await new Promise<string>(resolve => {
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-        });
-        const { data, mimeType } = dataURLToParts(dataUrl);
-        parts.push({ inlineData: { data, mimeType } });
-    }
-
-    const imageToUse = activeImage || params.frontProductImage || params.remixReferenceImage;
-    if (imageToUse) {
-        const base64 = await fileToBase64(imageToUse);
-        parts.push({ inlineData: { data: base64, mimeType: imageToUse.type } });
-    }
-
-    if (params.remixProductImage) {
-        const base64 = await fileToBase64(params.remixProductImage);
-        parts.push({ inlineData: { data: base64, mimeType: params.remixProductImage.type } });
-    }
-
     let corePrompt = '';
+
+    // --- Step 1: Add Image Parts based on App Mode (FIXED LOGIC) ---
+    if (appMode === AppMode.Remix) {
+        // For Remix mode, order is: Reference (scene) first, then Product.
+        if (params.remixReferenceImage) {
+            const base64 = await fileToBase64(params.remixReferenceImage);
+            parts.push({ inlineData: { data: base64, mimeType: params.remixReferenceImage.type } });
+        }
+        if (params.remixProductImage) {
+            const base64 = await fileToBase64(params.remixProductImage);
+            parts.push({ inlineData: { data: base64, mimeType: params.remixProductImage.type } });
+        }
+    } else {
+        // For all other modes that use images.
+        if (modelSeedUrl) {
+            const response = await fetch(modelSeedUrl);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            const dataUrl = await new Promise<string>(resolve => {
+                reader.onload = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+            });
+            const { data, mimeType } = dataURLToParts(dataUrl);
+            parts.push({ inlineData: { data, mimeType } });
+        }
+
+        // 'activeImage' is for bulk jobs, otherwise use the main 'frontProductImage'.
+        const imageToUse = activeImage || params.frontProductImage;
+        if (imageToUse) {
+            const base64 = await fileToBase64(imageToUse);
+            parts.push({ inlineData: { data: base64, mimeType: imageToUse.type } });
+        }
+    }
+
+
+    // --- Step 2: Build Text Prompt based on App Mode ---
 
     switch (appMode) {
         case AppMode.Product:
         case AppMode.Festival:
-            let presetPrompt = "A professional studio shot of the [product]. The background is a clean, vibrant, single-color or soft gradient. Bright, clean lighting.";
-            
+            const baseSubject = productDescription || 'a product';
+            let stylePrompt = "A professional studio shot with a clean, vibrant, single-color or soft gradient background and bright, clean lighting.";
+
             if (appMode === AppMode.Festival && params.festivalStyle) {
-                presetPrompt = `A festive photoshoot of the [product] with a theme of: ${params.festivalStyle}.`;
+                stylePrompt = `A festive photoshoot with a theme of: ${params.festivalStyle}.`;
             } else if (productStylePreset && productStylePreset !== AI_SUGGESTED) {
                  const [category, presetName] = productStylePreset.split('|');
                  const foundCategory = PRO_PRODUCT_STYLE_PRESETS.find(c => c.category === category);
                  const foundPreset = foundCategory?.presets.find(p => p.name === presetName);
-                 if (foundPreset) presetPrompt = foundPreset.prompt;
+                 if (foundPreset) {
+                     stylePrompt = foundPreset.prompt.replace(/\[product\]/g, 'the described product');
+                 }
             }
-            corePrompt = presetPrompt.replace(/\[product\]/g, productDescription || 'product');
-            if (pose) corePrompt += ` Image must be a ${pose}.`;
+            
+            corePrompt = `
+              You are an expert product photographer. Create a single, professional studio photograph based on the following instructions.
+              
+              Primary Subject: "${baseSubject}". This is the most important instruction. The final image must accurately represent this subject. Any details in this description (e.g., specific colors, ingredients, text) override conflicting details in the style guide below.
+              
+              Visual Style Guide: "${stylePrompt}". Use this as a guide for the overall look, feel, lighting, and composition.
+            `;
+
+            if (pose) { // 'pose' is the angle for product mode
+                corePrompt += `\nCamera Angle: The image must be a ${pose}.`;
+            }
             break;
 
         case AppMode.Influencer:
-             corePrompt = `Create a high-end influencer-style marketing image.`;
-             if (modelSeedUrl) corePrompt += `\n- CRITICAL: Model must match provided seed image exactly.`;
-             corePrompt += `
-            - Product: ${productDescription || 'the product'}.
-            - Model: ${modelGender} influencer, ${modelPersona} persona.
-            - Pose: ${poseSuggestion || 'Natural, engaging'}.
-            - Outfit: ${clothingType}.
-            - Scene: ${backgroundStyle || 'Aesthetic setting'}.
-            Photorealistic, aspirational mood.`;
+             // Priority 1: UGC Style Preset
+             if (ugcStyle) {
+                 const foundUgcPreset = UGC_STYLE_OPTIONS.find(p => p.value === ugcStyle);
+                 if (foundUgcPreset) {
+                     corePrompt = foundUgcPreset.prompt.replace(/\[product\]/g, productDescription || 'product');
+                     if (modelSeedUrl) corePrompt += `\n- CRITICAL: Use the person from the seed image but apply the requested style/vibe/pose.`;
+                     // Enforce "Indian faces and tone" if not explicit in the seed image
+                     if (!modelSeedUrl && !corePrompt.toLowerCase().includes('indian')) {
+                         corePrompt += ` Model should have Indian features and skin tone as requested.`;
+                     }
+                 } else {
+                     corePrompt = `Create a high-end influencer-style marketing image.`;
+                 }
+             } else {
+                 // Priority 2: Manual Configuration
+                 corePrompt = `Create a high-end influencer-style marketing image.`;
+                 if (modelSeedUrl) corePrompt += `\n- CRITICAL: Model must match provided seed image exactly.`;
+                 corePrompt += `
+                - Product: ${productDescription || 'the product'}.
+                - Model: ${modelGender} influencer, ${modelPersona} persona.
+                - Pose: ${poseSuggestion || 'Natural, engaging'}.
+                - Outfit: ${clothingType}.
+                - Scene: ${backgroundStyle || 'Aesthetic setting'}.
+                Photorealistic, aspirational mood.`;
+             }
             break;
 
         case AppMode.Fashion:
@@ -173,11 +197,40 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
         case AppMode.AdCreative:
         case AppMode.Banner:
         case AppMode.Youtube:
-            corePrompt = `Ad creative for "${productDescription}". Layout: ${adLayout}. Text: "${adTitle || overlayText || ''}". Background: ${backgroundStyle}. Visually striking.`;
+            let adStyleInstructions = "Visually striking, professional graphic design.";
+            if (adStylePreset && adStylePreset !== AI_SUGGESTED) {
+                const foundAdPreset = AD_STYLE_PRESETS.find(p => p.value === adStylePreset);
+                if (foundAdPreset) adStyleInstructions = foundAdPreset.prompt;
+            }
+
+            corePrompt = `Create a high-converting Ad Creative optimized for social media performance.
+
+            PRODUCT CONTEXT: "${productDescription}".
+            LAYOUT STRUCTURE: ${adLayout}.
+            CREATIVE STYLE: ${adStyleInstructions}
+
+            TEXT ELEMENTS (Render these clearly):
+            - HEADLINE: "${adTitle || ''}" (Hook attention)
+            - SUBHEADING: "${params.adSubheading || ''}" (Build desire)
+            - CTA BUTTON: "${params.adCta || ''}" (Drive action)
+
+            DESIGN PRINCIPLES:
+            1. Visual Hierarchy: Make the headline and product the largest, most contrasting elements.
+            2. Stopping Power: Use the requested style to create a "scroll-stopping" visual.
+            3. Clarity: Text must be legible against the background. Use overlays or shadows if necessary.
+            4. Composition: Balance the "Visual Element" (image) with the copy according to the Layout Structure.
+            `;
             break;
         
         case AppMode.Remix:
-            corePrompt = `Seamlessly integrate new product cutout into reference scene. Modification: "${productDescription}". Photorealistic lighting adaption.`;
+            corePrompt = `You are an expert photo editor. Your task is to use two images: the first image is the scene/style reference, and the second is a product cutout.
+            
+            Instructions:
+            1. Seamlessly integrate the product from the second image into the scene of the first image.
+            2. The final result must adopt the lighting, shadows, style, and mood of the first image.
+            3. If the first image has a main subject, replace it with the product from the second image.
+            4. Apply the following modifications if provided: "${productDescription}". If the prompt is empty, just perform the integration.
+            5. The final output should be photorealistic.`;
             break;
 
         default:
@@ -186,47 +239,10 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
     }
 
     if (marketplacePreset === MarketplacePreset.Amazon) corePrompt += ` COMPLIANCE: Amazon White Background (RGB 255,255,255). No shadows.`;
-    
-    // Inject Brand Kit Identity
-    if (brandKit) {
-        corePrompt += `\n\nBRAND IDENTITY GUIDELINES:`;
-        if (brandKit.brandName) corePrompt += `\n- Brand Name: "${brandKit.brandName}"`;
-        if (brandKit.voice) corePrompt += `\n- Tone/Mood: ${brandKit.voice}`;
-        if (brandKit.primaryColor) corePrompt += `\n- Primary Color: ${brandKit.primaryColor} (Use for key elements/accents)`;
-        if (brandKit.secondaryColor) corePrompt += `\n- Secondary Color: ${brandKit.secondaryColor}`;
-        if (brandKit.fonts) corePrompt += `\n- Aesthetic Style: ${brandKit.fonts}`; // Maps fonts to general visual style
-        if (brandKit.description) corePrompt += `\n- Context: ${brandKit.description}`;
-        if (brandKit.negativeConstraints) corePrompt += `\n- STRICTLY AVOID: ${brandKit.negativeConstraints}`;
-    }
+    if (brandKit?.voice) corePrompt += `\n- Brand Voice: ${brandKit.voice}.`;
 
     return [{ text: corePrompt }, ...parts];
 }
-
-const parseGenerationResponse = (response: any, params: any, aspectRatio: any, pose: any, sourceProductImageUrl: any): GeneratedImage => {
-    let imageUrl = '';
-    const candidate = response.candidates?.[0];
-    const outParts = candidate?.content?.parts || [];
-    
-    for (const part of outParts) {
-        if (part.inlineData) {
-            imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-            break;
-        }
-    }
-    
-    if (!imageUrl) throw new Error("AI pipeline error: No image returned.");
-
-    return {
-        id: `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        imageUrl,
-        caption: pose || params.fashionSubCategory || "Creative Variation",
-        hashtags: "",
-        aspectRatio: aspectRatio,
-        params,
-        sourceProductImageUrl,
-        timestamp: Date.now(),
-    };
-};
 
 async function generateSingleImage(
     params: GenerateImageParams, 
@@ -237,92 +253,61 @@ async function generateSingleImage(
     pose?: string, 
     sourceProductImageUrl?: string, 
     modelSeedUrl?: string,
-    presetOverride?: string,
     retryCount: number = 0
 ): Promise<GeneratedImage> {
     const ai = getAI();
-    
-    // Apply preset override if exists
-    const effectiveParams = presetOverride ? { ...params, productStylePreset: presetOverride } : params;
-    
-    const contents = await buildPromptParts(effectiveParams, brandKit, activeImage, pose, modelSeedUrl);
+    const contents = await buildPromptParts(params, brandKit, activeImage, pose, modelSeedUrl);
     
     let aspectRatioConfig: "1:1" | "3:4" | "4:3" | "9:16" | "16:9" = "1:1";
     if (aspectRatio === AspectRatio.Portrait) aspectRatioConfig = "9:16";
     if (aspectRatio === AspectRatio.Landscape) aspectRatioConfig = "16:9";
     if (aspectRatio === AspectRatio.PortraitPost || aspectRatio === AspectRatio.FashionShopify) aspectRatioConfig = "3:4";
 
-    const isProTier = userTier === 'Standard' || userTier === 'Agency';
-    const primaryModel = isProTier ? MODELS.IMAGE_PRO : MODELS.IMAGE_STD;
+    const modelName = 'gemini-2.5-flash-image';
 
     const config: any = {
         imageConfig: { aspectRatio: aspectRatioConfig },
         safetySettings: [{ category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' }]
     };
 
-    // Only apply imageSize if the selected model actually supports it (Gemini 3 Pro series).
-    // gemini-2.5-flash-image does NOT support imageSize and will error if sent.
-    // Since IMAGE_PRO is currently overridden to 2.5-flash, this check prevents the error.
-    if (isProTier && params.resolutionQuality === ResolutionQuality.High && primaryModel.includes('gemini-3')) {
-        config.imageConfig.imageSize = '2K'; 
-    }
+    // The 'imageSize' parameter is not supported by 'gemini-2.5-flash-image'.
 
     try {
         const response = await ai.models.generateContent({
-            model: primaryModel,
+            model: modelName,
             contents: { parts: contents },
             config: config,
         });
 
-        return parseGenerationResponse(response, effectiveParams, aspectRatio, pose, sourceProductImageUrl);
-
-    } catch (error: any) {
-        // Fallback Logic for Pro Tier failures (403 Permission Denied or 500 Internal Error)
-        const isPermissionError = error.status === 403 || (error.message && error.message.includes('403')) || (error.message && error.message.includes('PERMISSION_DENIED'));
-        const isInternalError = error.status === 500 || (error.message && error.message.includes('500')) || (error.message && error.message.includes('INTERNAL'));
+        let imageUrl = '';
+        const candidate = response.candidates?.[0];
+        const outParts = candidate?.content?.parts || [];
         
-        if (isProTier && (isPermissionError || isInternalError)) {
-            console.warn(`Model ${primaryModel} failed with ${error.status || 'Error'}. Falling back to ${MODELS.IMAGE_STD}.`);
-            
-            // Remove imageSize config as it is not supported on flash-image
-            const fallbackConfig = { ...config };
-            if (fallbackConfig.imageConfig) delete fallbackConfig.imageConfig.imageSize;
-
-            // --- Robust Retry Loop for Fallback ---
-            let fallbackRetries = 0;
-            const maxFallbackRetries = 3;
-            
-            while (fallbackRetries < maxFallbackRetries) {
-                try {
-                    const fallbackResponse = await ai.models.generateContent({
-                        model: MODELS.IMAGE_STD,
-                        contents: { parts: contents },
-                        config: fallbackConfig,
-                    });
-                    return parseGenerationResponse(fallbackResponse, effectiveParams, aspectRatio, pose, sourceProductImageUrl);
-                } catch (fallbackError: any) {
-                    const isFallbackInternal = fallbackError.status === 500 || (fallbackError.message && fallbackError.message.includes('500'));
-                    
-                    if (isFallbackInternal) {
-                        fallbackRetries++;
-                        console.warn(`Fallback attempt ${fallbackRetries} failed with 500. Retrying...`);
-                        await wait(2000 * fallbackRetries); // Exponential wait: 2s, 4s, 6s
-                        
-                        if (fallbackRetries >= maxFallbackRetries) {
-                            console.error("All fallback retries failed.");
-                            throw fallbackError; 
-                        }
-                    } else {
-                        console.error("Fallback failed with non-retriable error:", fallbackError);
-                        throw fallbackError;
-                    }
-                }
+        for (const part of outParts) {
+            if (part.inlineData) {
+                imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                break;
             }
         }
+        
+        if (!imageUrl) throw new Error("AI pipeline error: No image returned.");
 
+        return {
+            id: `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            imageUrl,
+            caption: pose || params.fashionSubCategory || "Creative Variation",
+            hashtags: "",
+            aspectRatio: aspectRatio,
+            params,
+            sourceProductImageUrl,
+            timestamp: Date.now(),
+        };
+
+    } catch (error: any) {
+        // Fallback for Pro model is no longer needed.
         if (retryCount < 3 && (error.message?.includes('429') || error.status === 429)) {
             await wait((retryCount + 1) * 6000);
-            return generateSingleImage(params, aspectRatio, userTier, brandKit, activeImage, pose, sourceProductImageUrl, modelSeedUrl, presetOverride, retryCount + 1);
+            return generateSingleImage(params, aspectRatio, userTier, brandKit, activeImage, pose, sourceProductImageUrl, modelSeedUrl, retryCount + 1);
         }
         throw error;
     }
@@ -337,117 +322,29 @@ export const generateImages = async (
     modelSeedUrl?: string
 ): Promise<GeneratedImage[]> => {
     const aspectRatios = params.aspectRatios?.length ? params.aspectRatios : [AspectRatio.PortraitPost];
-    
-    // --- 1. DETERMINE TASKS (Cartesian Product of Images x Variations x Presets) ---
-    let tasks: { image?: File, pose?: string, angle?: string, preset?: string }[] = [];
-
-    if (params.appMode === AppMode.Product) {
-        // Product Mode: Images x Angles x Presets
-        const images = params.bulkImages && params.bulkImages.length > 0 
-            ? params.bulkImages 
-            : (params.frontProductImage ? [params.frontProductImage] : []);
-            
-        const angles = params.selectedAngles && params.selectedAngles.length > 0 
-            ? params.selectedAngles 
-            : ['Front View'];
-
-        // Determine presets (use multi-select list or fallback to single/default)
-        const presets = params.productStylePresets && params.productStylePresets.length > 0 
-            ? params.productStylePresets 
-            : (params.productStylePreset ? [params.productStylePreset] : [AI_SUGGESTED]);
-
-        if (images.length === 0) {
-             // Fallback if no images (e.g. text-only gen if supported, or just empty task to trigger default logic)
-             for (const angle of angles) {
-                 for (const preset of presets) {
-                     tasks.push({ angle, pose: angle, preset });
-                 }
-             }
-        } else {
-            // Process EVERY image with EVERY selected angle AND EVERY selected preset
-            for (const img of images) {
-                for (const angle of angles) {
-                    for (const preset of presets) {
-                        tasks.push({ image: img, angle, pose: angle, preset });
-                    }
-                }
-            }
-        }
-    } else if (params.appMode === AppMode.Fashion) {
-        // Fashion Mode: Bulk Images OR Batch Size
-        const images = params.bulkImages && params.bulkImages.length > 0 ? params.bulkImages : [];
-        let count = 0;
-        
-        if (images.length > 0) {
-            count = images.length;
-        } else {
-            const batchSize = params.batchSize || 4;
-            const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
-            count = Math.min(batchSize, maxBatch);
-        }
-
-        const poses = getFashionPoses(count);
-        for (let i = 0; i < count; i++) {
-            tasks.push({
-                image: images.length > 0 ? images[i] : undefined,
-                pose: poses[i % poses.length]
-            });
-        }
-    } else {
-        // Other Modes (Influencer, Ad, etc.): Bulk Images OR Batch Size
-        const images = params.bulkImages && params.bulkImages.length > 0 ? params.bulkImages : [];
-        let count = 0;
-        
-        if (images.length > 0) {
-            count = images.length;
-        } else {
-            const batchSize = params.batchSize || 1;
-            const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
-            count = Math.min(batchSize, maxBatch);
-        }
-
-        for (let i = 0; i < count; i++) {
-            tasks.push({
-                image: images.length > 0 ? images[i] : undefined,
-                pose: undefined 
-            });
-        }
-    }
+    const batchSize = params.batchSize || (params.appMode === AppMode.Fashion ? 4 : 1);
+    const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
+    const effectiveBatch = Math.min(batchSize, maxBatch);
 
     const allResults: GeneratedImage[] = [];
     let completedJobs = 0;
-    const totalJobs = aspectRatios.length * tasks.length;
 
-    // --- 2. EXECUTE TASKS ---
     for (const ratio of aspectRatios) {
-        for (let i = 0; i < tasks.length; i++) {
+        const poses = params.appMode === AppMode.Fashion ? getFashionPoses(effectiveBatch) : [];
+        const angles = params.appMode === AppMode.Product ? (params.selectedAngles || ['Front View']) : [];
+        const iterations = params.appMode === AppMode.Product ? angles.length : effectiveBatch;
+
+        for (let i = 0; i < iterations; i++) {
             completedJobs++;
-            if (onProgress) onProgress(completedJobs, totalJobs);
+            if (onProgress) onProgress(completedJobs, aspectRatios.length * iterations);
 
-            const task = tasks[i];
-            
-            // Wait buffer to respect rate limits (15 RPM safe zone)
-            // If we have already generated something, wait before next
-            if (allResults.length > 0) await wait(4000); 
+            const activeImage = params.bulkImages ? params.bulkImages[i % params.bulkImages.length] : undefined;
+            const pose = params.appMode === AppMode.Fashion ? poses[i] : (params.appMode === AppMode.Product ? angles[i] : undefined);
 
-            try {
-                const result = await generateSingleImage(
-                    params, 
-                    ratio, 
-                    userTier, 
-                    brandKit, 
-                    task.image, // Correct image from task list
-                    task.pose, 
-                    sourceProductImageUrl, 
-                    modelSeedUrl,
-                    task.preset // Pass preset override
-                );
-                allResults.push(result);
-            } catch (err) {
-                console.error("Generation failed for one item in batch:", err);
-                // Throwing here to stop the batch and alert user, rather than partial silent failure
-                throw err; 
-            }
+            const result = await generateSingleImage(params, ratio, userTier, brandKit, activeImage, pose, sourceProductImageUrl, modelSeedUrl);
+            allResults.push(result);
+
+            if (i < iterations - 1) await wait(5000); 
         }
     }
     return allResults;
@@ -470,7 +367,7 @@ export const editImage = async (params: EditImageParams): Promise<{ imageUrl: st
     }
 
     const response = await ai.models.generateContent({
-        model: MODELS.EDIT,
+        model: 'gemini-2.5-flash-image',
         contents: { parts }
     });
 
@@ -485,8 +382,8 @@ export const generateCaption = async (params: GenerateCaptionParams, brandKit: B
     const { data, mimeType } = dataURLToParts(params.imageUrl);
     const prompt = `Write marketing caption. Tone: ${params.tone}. Platform: ${params.platform}. JSON {caption, hashtags}.`;
     
-    const response = await generateContentSafe(ai, {
-        model: MODELS.TEXT,
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
         contents: { parts: [{ inlineData: { data, mimeType } }, { text: prompt }] },
         config: {
             responseMimeType: "application/json",
@@ -494,7 +391,7 @@ export const generateCaption = async (params: GenerateCaptionParams, brandKit: B
         }
     });
     
-    try { return JSON.parse(response.text || '{}'); } catch { return { caption: "Check this out!", hashtags: "#trending" }; }
+    return parseGeminiJson(response.text, { caption: "Check this out!", hashtags: "#trending" });
 };
 
 export const detectProductCategory = async (base64: string, mimeType: string, description: string): Promise<ProductCategory> => {
@@ -503,35 +400,43 @@ export const detectProductCategory = async (base64: string, mimeType: string, de
     const categories = Object.values(ProductCategory).join('", "');
     const prompt = `Classify product in image based on description "${description}" into ONE category: ["${categories}"]. Return ONLY category name.`;
 
-    const response = await generateContentSafe(ai, {
-        model: MODELS.TEXT,
-        contents: { parts: [{ inlineData: { data: base64, mimeType } }, { text: prompt }] }
-    });
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: { parts: [{ inlineData: { data: base64, mimeType } }, { text: prompt }] }
+        });
 
-    const text = response.text?.trim() as ProductCategory;
-    if (Object.values(ProductCategory).includes(text)) return text;
-    return ProductCategory.Generic;
+        const text = response.text?.trim() as ProductCategory;
+        if (Object.values(ProductCategory).includes(text)) return text;
+        return ProductCategory.Generic;
+    } catch (error: any) {
+        if (error.status === 403 || error.message?.includes('403')) {
+            console.warn("API Permission Denied for category detection. Defaulting to Generic.");
+            return ProductCategory.Generic;
+        }
+        throw error;
+    }
 };
 
 export const generateVariantSuggestions = async (description: string, field: string) => {
     const ai = getAI();
     const prompt = `Suggest 4 options for "${field}" based on product: "${description}". JSON array.`;
 
-    const response = await generateContentSafe(ai, {
-        model: MODELS.TEXT,
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
         contents: prompt,
         config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }
     });
 
-    try { return JSON.parse(response.text || '[]'); } catch { return ['Option 1', 'Option 2']; }
+    return parseGeminiJson(response.text, ['Option 1', 'Option 2']);
 };
 
 export const getABTestSuggestions = async (image: GeneratedImage) => {
     const ai = getAI();
     const { data, mimeType } = dataURLToParts(image.imageUrl);
     
-    const response = await generateContentSafe(ai, {
-        model: MODELS.TEXT,
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
         contents: { parts: [{ inlineData: { data, mimeType } }, { text: "Suggest 3 A/B test variations. JSON array {title, description, hypothesis}." }] },
         config: { 
             responseMimeType: "application/json", 
@@ -542,13 +447,13 @@ export const getABTestSuggestions = async (image: GeneratedImage) => {
         }
     });
 
-    try { return JSON.parse(response.text || '[]'); } catch { return []; }
+    return parseGeminiJson(response.text, []);
 };
 
 export const removeBackground = async (base64: string, mimeType: string): Promise<{ data: string, mimeType: string }> => {
     const ai = getAI();
     const response = await ai.models.generateContent({
-        model: MODELS.IMAGE_STD, // Using standard flash for editing tasks
+        model: 'gemini-2.5-flash-image',
         contents: { parts: [{ inlineData: { data: base64, mimeType } }, { text: "Isolate subject on pure white #FFFFFF background." }] }
     });
 
@@ -559,20 +464,20 @@ export const removeBackground = async (base64: string, mimeType: string): Promis
 
 export const generateMoodBoard = async (description: string): Promise<MoodBoard> => {
     const ai = getAI();
-    const response = await generateContentSafe(ai, {
-        model: MODELS.TEXT,
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
         contents: `Mood board for: "${description}". JSON {concept, colors:[{name,hex}], styles:[], tones:[]}.`,
         config: { responseMimeType: "application/json" }
     });
-    return JSON.parse(response.text || '{}');
+    return parseGeminiJson(response.text, { concept: '', colors: [], styles: [], tones: [] });
 };
 
 export const analyzeBrandLogo = async (base64: string, mimeType: string): Promise<BrandAnalysis> => {
     const ai = getAI();
-    const response = await generateContentSafe(ai, {
-        model: MODELS.TEXT,
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
         contents: { parts: [{ inlineData: { data: base64, mimeType } }, { text: `Analyze logo JSON {colors:[{name,hex}], typography, vibe:[]}.` }] },
         config: { responseMimeType: "application/json" }
     });
-    return JSON.parse(response.text || '{}');
+    return parseGeminiJson(response.text, { colors: [], typography: '', vibe: [] });
 };

@@ -5,7 +5,7 @@ import { Button } from './ui/Button';
 import { FormInput, FormTextArea } from './ui/Form';
 import { ImageDropzone } from './ui/ImageDropzone';
 import { processImageFile } from '../utils/images';
-import { storage } from '../services/storage';
+import { storageService } from '../services/storageService';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 interface UserProfile {
@@ -78,7 +78,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, onClose, onSa
         let finalAvatarUrl = user.avatarUrl;
         if (avatarFile) {
             const fileName = `users/${user.id}/avatar.png`;
-            finalAvatarUrl = await storage.uploadImage(avatarFile, fileName);
+            finalAvatarUrl = await storageService.uploadImage(avatarFile, fileName);
         }
 
         const newData: Partial<UserProfile> = {

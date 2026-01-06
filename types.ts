@@ -1,184 +1,159 @@
 
-export enum AspectRatio {
-  Portrait = '9:16', 
-  PortraitPost = '4:5', 
-  Square = '1:1', 
-  Landscape = '16:9', 
-  FashionShopify = '2:3', 
-}
-
-export enum MarketplacePreset {
-  Amazon = 'Amazon',
-  Shopify = 'Shopify',
-  Flipkart = 'Flipkart',
-  None = 'None'
-}
+import { ReactNode } from "react";
 
 export enum AppMode {
-  Influencer = 'Influencer',
   Product = 'Product',
-  AdCreative = 'AdCreative',
-  Remix = 'Remix',
+  Influencer = 'Influencer',
   Fashion = 'Fashion',
+  AdCreative = 'AdCreative',
   Banner = 'Banner',
   Youtube = 'Youtube',
-  Copywriter = 'Copywriter',
+  Remix = 'Remix',
   Festival = 'Festival',
-  Bulk = 'Bulk',
+  Bulk = 'Bulk'
+}
+
+export enum AspectRatio {
+  Square = '1:1',
+  Portrait = '9:16',
+  Landscape = '16:9',
+  PortraitPost = '4:5',
+  FashionShopify = '3:4'
+}
+
+export enum OutputFormat {
+  JPG = 'jpg',
+  PNG = 'png',
+  WEBP = 'webp'
+}
+
+export enum ResolutionQuality {
+  Standard = 'Standard',
+  High = 'High'
+}
+
+export enum ProductCategory {
+  Generic = 'Generic',
+  Fashion = 'Fashion',
+  FoodAndBeverage = 'Food & Beverage',
+  Skincare = 'Skincare',
+  Perfume = 'Perfume',
+  HomeDecor = 'Home Decor',
+  Tech = 'Tech',
+  Herbal = 'Herbal',
+  Fitness = 'Fitness'
+}
+
+export enum ModelGender {
+  Female = 'Female',
+  Male = 'Male'
 }
 
 export enum FashionGender {
   Women = 'Women',
   Men = 'Men',
-  Kids = 'Kids'
+  Kids = 'Kids',
+  Unisex = 'Unisex'
+}
+
+export enum SkinTone {
+  Light = 'Light',
+  Medium = 'Medium',
+  Dark = 'Dark',
+  Deep = 'Deep'
+}
+
+export enum ClothingType {
+  Casual = 'Casual',
+  Formal = 'Formal',
+  Athleisure = 'Athleisure',
+  Traditional = 'Traditional',
+  AISuggested = 'AI Suggested'
+}
+
+export enum FashionShootType {
+  ModelShoot = 'Model Shoot',
+  GhostMannequin = 'Ghost Mannequin',
+  FlatLay = 'Flat Lay'
 }
 
 export enum FashionBodyType {
   Regular = 'Regular',
-  Petite = 'Petite',
   PlusSize = 'Plus Size',
-  Tall = 'Tall'
+  Petite = 'Petite',
+  Athletic = 'Athletic'
 }
 
 export enum FashionAgeBracket {
-  Toddler = 'Toddler (2-4 yrs)',
-  Child = 'Child (5-10 yrs)',
-  Teen = 'Teen (11-16 yrs)'
+  YoungAdult = 'Young Adult',
+  Adult = 'Adult',
+  Mature = 'Mature'
 }
 
 export enum RegionalStyle {
-  None = 'Standard/Modern',
-  SouthIndian = 'South Indian (Temple/Silk)',
-  Punjabi = 'Punjabi (Patiala/Vibrant)',
-  Bengali = 'Bengali (Artistic/Traditional)',
-  Maharashtrian = 'Maharashtrian (Nauvari Style)',
-  Rajasthani = 'Rajasthani (Royal/Bandhani)'
+  None = 'None',
+  Indian = 'Indian',
+  Western = 'Western',
+  EastAsian = 'East Asian',
+  MiddleEastern = 'Middle Eastern'
 }
 
-export enum FashionShootType {
-  FabricOnly = 'Fabric Only (AI Draping)',
-  FullProduct = 'Full Product (Refine Scene)',
-  ModelShoot = 'Model Shoot (Wear Product)',
-  GhostMannequin = 'Ghost Mannequin (Apparel Only)',
-  LifestyleScene = 'Lifestyle Scene (Contextual)',
+export enum MarketplacePreset {
+  None = 'None',
+  Amazon = 'Amazon',
+  Shopify = 'Shopify',
+  Flipkart = 'Flipkart'
+}
+
+export enum AdLayout {
+  TextRightImageLeft = 'Text Right, Image Left',
+  TextLeftImageRight = 'Text Left, Image Right',
+  TextTopBottomImageCenter = 'Text Top/Bottom, Image Center',
+  ProductShowcase = 'Product Showcase'
+}
+
+export enum CaptionTone {
+  Playful = 'Playful',
+  Professional = 'Professional',
+  Witty = 'Witty',
+  Bold = 'Bold',
+  Luxury = 'Luxury',
+  Friendly = 'Friendly',
+  Urgent = 'Urgent',
+  Inspirational = 'Inspirational',
+  Serious = 'Serious'
+}
+
+export enum RewriteAction {
+  Shorter = 'Shorter',
+  Humor = 'Humor',
+  Luxury = 'Luxury',
+  Simplify = 'Simplify'
 }
 
 export enum View {
   Dashboard = 'Dashboard',
   MyDesigns = 'MyDesigns',
   Profile = 'Profile',
-  Inspiration = 'Inspiration',
+  Inspiration = 'Inspiration'
 }
 
-export interface BrandKit {
-  id?: string;
-  brandName: string;
-  primaryColor: string;
-  secondaryColor: string;
-  accentColor: string;
-  fonts: string;
-  voice: string;
-  description: string;
-  negativeConstraints?: string;
-  logoUrl?: string;
-  updatedAt?: number;
-}
-
-export enum AdLayout {
-  TextLeftImageRight = 'Text on Left, Image on Right',
-  TextRightImageLeft = 'Text on Right, Image on Left',
-  TextTopBottomImageCenter = 'Text on Top/Bottom, Image in Center',
-  ProductShowcase = 'Product Showcase with Features',
-  LifestyleAdShot = 'Lifestyle Ad Shot',
-}
-
-export enum ModelGender {
-  Female = 'Female',
-  Male = 'Male',
-}
-
-export enum SkinTone {
-    Light = 'Light',
-    Medium = 'Medium',
-    Deep = 'Deep',
-}
-
-export enum ClothingType {
-    AISuggested = 'AI Suggested',
-    Traditional = 'Traditional',
-    Casual = 'Casual',
-    Formal = 'Formal',
-}
+export type ModelChoice = 'new' | 'existing';
 
 export enum OutfitChoice {
-  AI = 'AI-Suggested',
-  Reference = 'Upload Reference',
-}
-
-export enum ModelChoice {
-  AI = 'AI-Generated Model',
-  Custom = 'Use Custom Avatar',
+  AI = 'generated',
+  Reference = 'reference'
 }
 
 export enum StylePreset {
-  AISuggested = 'AI Suggested',
-  Minimal = 'Minimal',
-  Luxury = 'Luxury',
-  Bold = 'Bold',
-  Playful = 'Playful',
-  Techy = 'Techy',
-  Editorial = 'Editorial',
-  Lifestyle = 'Lifestyle',
+  AISuggested = 'AI Suggested'
 }
 
-export enum OutputFormat {
-  PNG = 'image/png',
-  JPEG = 'image/jpeg',
-  WEBP = 'image/webp',
-}
-
-export enum CaptionTone {
-    Playful = 'Playful',
-    Catchy = 'Catchy',
-    Persuasive = 'Persuasive',
-    Funny = 'Funny',
-    Hinglish = 'Hinglish',
-    Emotional = 'Emotional',
-    Inspirational = 'Inspirational',
-    Luxury = 'Luxury',
-    Minimal = 'Minimal',
-    Edgy = 'Edgy',
-    Informative = 'Informative',
-}
-
-export enum ResolutionQuality {
-  Standard = 'Standard',
-  High = 'High',
-}
-
-export enum ProductCategory {
-  Generic = 'Generic',
-  Skincare = 'Skincare',
-  FoodAndBeverage = 'Food & Beverage',
-  Perfume = 'Perfume',
-  Herbal = 'Herbal',
-  Tech = 'Tech & Gadgets',
-  Fashion = 'Fashion & Apparel',
-  HomeDecor = 'Home & Decor',
-  Fitness = 'Fitness & Nutrition',
-}
+export type ModelPersona = string;
 
 export interface StoryboardScene {
-  description: string;
-  focusOnProduct: boolean;
-}
-
-export interface SavedModel {
-  id: string;
-  user_id: string;
-  name: string;
-  thumbnail_url: string;
-  created_at: string;
+    description: string;
+    cameraAngle: string;
 }
 
 export interface GenerateImageParams {
@@ -234,6 +209,7 @@ export interface GenerateImageParams {
   customStyleConcept?: string;
   poseSuggestion?: string;
   backgroundStyle?: string;
+  ugcStyle?: string; // NEW: UGC Style Preset
   storyboardSourceImageUrl?: string;
   storyboardScenes?: StoryboardScene[];
   modelSourceOption?: 'new' | 'existing';
@@ -247,21 +223,11 @@ export interface GenerateImageParams {
   adCta?: string;
   adAvailability?: string;
   adLayout?: AdLayout;
+  adStylePreset?: string;
 
   // Remix mode
   remixReferenceImage?: File;
   remixProductImage?: File;
-}
-
-export interface InspirationItem {
-  id: string;
-  imageUrl: string;
-  title: string;
-  category: string;
-  appMode: AppMode;
-  remixParams: Partial<GenerateImageParams>;
-  isRemixable: boolean;
-  badge?: string;
 }
 
 export interface GeneratedImage {
@@ -269,10 +235,32 @@ export interface GeneratedImage {
   imageUrl: string;
   caption: string;
   hashtags: string;
-  aspectRatio: AspectRatio;
-  params: GenerateImageParams;
+  aspectRatio: string;
+  params?: GenerateImageParams;
   sourceProductImageUrl?: string;
   timestamp: number;
+}
+
+export interface SavedModel {
+  id: string;
+  name: string;
+  thumbnail_url: string;
+  user_id: string;
+  created_at?: string;
+}
+
+export interface BrandKit {
+  id?: string;
+  brandName: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  fonts: string;
+  voice: string;
+  description: string;
+  negativeConstraints?: string;
+  logoUrl?: string;
+  updatedAt?: number;
 }
 
 export interface EditImageParams {
@@ -285,102 +273,99 @@ export interface EditImageParams {
 export interface GenerateCaptionParams {
   imageUrl: string;
   existingCaption?: string;
-  tone: CaptionTone | string;
-  length: 'Short' | 'Medium' | 'Long';
-  platform: string;
-  language: string;
-  includeHashtags: boolean;
-  includeEmojis: boolean;
-}
-
-export interface MoodBoard {
-  concept: string;
-  colors: { name?: string; hex: string }[];
-  styles: string[];
-  tones: string[];
-}
-
-export interface BrandAnalysis {
-  colors: { name?: string; hex: string }[];
-  typography: string;
-  vibe: string[];
-}
-
-export type BrandGuidelines = BrandAnalysis;
-
-export interface ABTestSuggestion {
-  title: string;
-  description: string;
-  hypothesis: string;
-}
-
-export interface ProProductStylePreset {
-  name: string;
-  prompt: string;
-}
-
-export interface ProProductStyleCategory {
-  category: string;
-  presets: ProProductStylePreset[];
-}
-
-export enum ModelPersona {
-  AISuggested = 'AI Suggested',
-}
-
-export interface GenerateAdCopyParams {
-  productDescription: string;
-  tone: string;
-  platform: string;
-  count: number;
-}
-
-export interface AdCopy {
-  headline: string;
-  body: string;
-  cta: string;
-}
-
-export interface GenerateContentParams {
-  context: string;
-  platform: string;
-  goal: string;
-  style: string;
-  tone: string;
-  language: string;
-  length: 'Short' | 'Medium' | 'Long';
-  includeHashtags: boolean;
-  includeEmojis: boolean;
-  keywords: string;
-}
-
-export interface CopyVariation {
-  headline: string;
-  body: string;
-  cta: string;
-  hashtags?: string;
-  isRewriting?: boolean;
-}
-
-export enum RewriteAction {
-  Shorter = 'Shorter',
-  Humor = 'Humor',
-  Luxury = 'Luxury',
-  Simplify = 'Simplify',
-  AddHashtags = 'AddHashtags',
-  // Translate removed
-}
-
-export interface RewriteCopyParams {
-  copy: Omit<CopyVariation, 'isRewriting'>;
-  action: RewriteAction;
+  tone?: CaptionTone | string;
+  length?: 'Short' | 'Medium' | 'Long';
+  platform?: string;
   language?: string;
+  includeHashtags?: boolean;
+  includeEmojis?: boolean;
+}
+
+export interface InspirationItem {
+  id: string;
+  imageUrl: string;
+  title: string;
+  category: string;
+  appMode: AppMode;
+  isRemixable?: boolean;
+  badge?: string;
+  remixParams: Partial<GenerateImageParams>;
 }
 
 export interface UserActivity {
-  id: string;
-  user: string;
-  action: string;
-  imageUrl: string;
-  timestamp: number;
+    id: string;
+    user: string;
+    action: string;
+    imageUrl: string;
+    timestamp: number;
+}
+
+export interface AdCopy {
+    headline: string;
+    body: string;
+    cta: string;
+}
+
+export interface GenerateAdCopyParams {
+    productDescription: string;
+    tone: string;
+    platform: string;
+    count: number;
+}
+
+export interface CopyVariation {
+    headline: string;
+    body: string;
+    cta: string;
+    hashtags?: string;
+    isRewriting?: boolean;
+}
+
+export interface GenerateContentParams {
+    context: string;
+    platform: string;
+    goal: string;
+    style: string;
+    tone: string;
+    language: string;
+    length: 'Short' | 'Medium' | 'Long';
+    includeHashtags: boolean;
+    includeEmojis: boolean;
+    keywords: string;
+}
+
+export interface RewriteCopyParams {
+    copy: {
+        headline: string;
+        body: string;
+        cta: string;
+        hashtags?: string;
+    };
+    action: RewriteAction;
+}
+
+export interface MoodBoard {
+    concept: string;
+    colors: { name?: string; hex: string }[];
+    styles: string[];
+    tones: string[];
+}
+
+export interface BrandAnalysis {
+    colors: { name?: string; hex: string }[];
+    typography: string;
+    vibe: string[];
+}
+
+export interface BrandGuidelines extends BrandAnalysis {}
+
+export interface ABTestSuggestion {
+    title: string;
+    description: string;
+    hypothesis: string;
+}
+
+export interface ProProductStyleCategory {
+    category: string;
+    presets: { name: string; prompt: string }[];
 }
