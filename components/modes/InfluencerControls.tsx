@@ -3,8 +3,8 @@ import React from 'react';
 import type { GenerateImageParams, SavedModel } from '../../types';
 import { 
     MODEL_GENDER_OPTIONS, SKIN_TONE_OPTIONS, MODEL_PERSONA_OPTIONS, 
-    POSE_SUGGESTIONS, CLOTHING_TYPE_OPTIONS, ALL_BACKGROUND_OPTIONS, 
-    PRODUCT_CATEGORY_OPTIONS, UGC_STYLE_OPTIONS, AI_SUGGESTED
+    CLOTHING_TYPE_OPTIONS, ALL_BACKGROUND_OPTIONS, 
+    UGC_STYLE_OPTIONS, AI_SUGGESTED
 } from '../../constants';
 import { Select } from '../ui/Select';
 import { Icon } from '../ui/Icon';
@@ -40,10 +40,6 @@ export const InfluencerControls: React.FC<InfluencerControlsProps> = ({
             <SectionTitle title="INFLUENCER DETAILS" className="mt-6" />
             <BestForLabel text="Lifestyle marketing visuals featuring diverse AI models with your product." />
             
-            <HelpLabel label="Product Category" tooltip="Helps AI understand the context (e.g., holding a drink vs wearing a watch)." />
-            <Select label="" value={params.productCategory} onChange={e => handleParamChange('productCategory', e.target.value)}>
-                {PRODUCT_CATEGORY_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </Select>
             <div className="grid grid-cols-2 gap-4 mt-4">
                 <div>
                     <HelpLabel label="Gender" />
@@ -117,13 +113,6 @@ export const InfluencerControls: React.FC<InfluencerControlsProps> = ({
                 {isBackgroundSet && <p className="text-xs text-red-500 mt-1">Reset Background Style to enable UGC Styles</p>}
             </div>
 
-            <div className="relative mt-4">
-                <HelpLabel label="Pose / Action" tooltip="What should the model be doing?" />
-                <Select label="" value={params.poseSuggestion} onChange={e => handleParamChange('poseSuggestion', e.target.value)}>
-                    {POSE_SUGGESTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                </Select>
-                <button onClick={() => onGenerateVariants('poseSuggestion')} className="absolute top-8 right-2 p-1 text-slate-400 hover:text-primary"><Icon name="sparkles" className="w-4 h-4"/></button>
-            </div>
             <div className="mt-4">
                 <HelpLabel label="Outfit Type" />
                 <div className="grid grid-cols-4 gap-2">

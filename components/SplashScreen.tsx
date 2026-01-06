@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrandLogo } from './ui/BrandLogo';
 
@@ -17,7 +16,7 @@ export const SplashScreen: React.FC = () => {
         {/* Centered Content */}
         <div className="relative z-10 flex flex-col items-center animate-fade-in-scale-up">
             <div className="mb-6 animate-pulse">
-                <BrandLogo variant="full" className="w-64 h-auto" />
+                <BrandLogo variant="full" color="black" className="w-64 h-auto" />
             </div>
             <p className="text-slate-400 text-xs font-semibold tracking-[0.3em] uppercase mt-2">Creative Studio</p>
         </div>

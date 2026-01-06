@@ -91,6 +91,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
 
   const isFashion = mode === AppMode.Fashion;
   const isAdCreative = [AppMode.AdCreative, AppMode.Youtube, AppMode.Banner].includes(mode);
+  const isInfluencerMode = mode === AppMode.Influencer;
 
   // Cost Calculation
   const cost = useMemo(() => calculateGenerationCost(params, userTier), [params, userTier]);
@@ -144,9 +145,9 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
   const getModalTitle = () => {
       switch(mode) {
           case AppMode.Product: return 'Product Photoshoot Settings';
-          case AppMode.Influencer: return 'Influencer Settings';
+          case AppMode.Influencer: return 'Ai UGC Influencer Settings';
           case AppMode.Fashion: return 'Fashion Photoshoot Settings';
-          case AppMode.AdCreative: return 'Ad Creative Settings';
+          case AppMode.AdCreative: return 'Ad Generator Settings';
           case AppMode.Remix: return 'Remix Studio';
           default: return `${mode} Settings`;
       }
@@ -233,14 +234,19 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                                 <SectionTitle title="ASSETS" />
                                 <ImageDropzone 
                                     id="asset-upload-main"
-                                    prompt={isFashion ? "Fabric or Garment" : (isRemixingState ? "Upload Product to Remix" : "Upload Product Image(s)")}
+                                    prompt={isFashion ? "Fabric or Garment" : (isRemixingState ? "Upload Product to Remix" : (isInfluencerMode ? "Upload Product Image" : "Upload Product Image(s)"))}
+                                    icon={isInfluencerMode ? "shirt" : (isAdCreative ? "megaphone" : undefined)}
                                     
-                                    // Use bulk props for multi-file support in main modes
-                                    multiple={true}
-                                    maxFiles={3}
-                                    previewUrls={bulkImagePreviews} 
-                                    onFilesChange={onBulkFilesChange}
-                                    onRemoveFile={onRemoveBulkImage}
+                                    // Use bulk props for multi-file support in main modes, except Influencer
+                                    multiple={!isInfluencerMode}
+                                    maxFiles={isInfluencerMode ? 1 : 3}
+                                    previewUrls={isInfluencerMode ? undefined : bulkImagePreviews} 
+                                    onFilesChange={isInfluencerMode ? undefined : onBulkFilesChange}
+                                    onRemoveFile={isInfluencerMode ? undefined : onRemoveBulkImage}
+
+                                    // Single mode props for Influencer
+                                    previewUrl={isInfluencerMode ? frontProductImagePreview : undefined}
+                                    onFileChange={isInfluencerMode ? (file) => onFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 1024, maxHeight: 1024 }) : undefined}
                                     
                                     className={`w-full ${isAdCreative ? 'h-48 sm:h-56' : 'aspect-[3/2] md:h-64'} ${(!frontProductImagePreview || isRemixingState) ? 'border-primary border-dashed bg-primary/5 animate-pulse ring-2 ring-primary/20' : ''}`}
                                 />
@@ -289,7 +295,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                         </>
                     )}
 
-                    {mode === AppMode.Influencer && (
+                    {isInfluencerMode && (
                         <InfluencerControls 
                             params={params} 
                             handleParamChange={handleParamChange} 
@@ -335,6 +341,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                         handleAspectRatioChange={handleAspectRatioChange}
                         batchOptions={batchOptions}
                         userTier={userTier}
+                        hideMultiSelectLabel={isInfluencerMode}
                     />
                 </div>
             </div>

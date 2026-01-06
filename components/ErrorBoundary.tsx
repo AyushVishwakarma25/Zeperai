@@ -12,8 +12,6 @@ interface State {
 }
 
 export class ErrorBoundary extends React.Component<Props, State> {
-  // FIX: Using class properties for state and arrow functions for methods to ensure correct 'this' context.
-  // This is a more modern and less error-prone way to define state and handlers in React class components.
   public state: State = {
     hasError: false,
     error: null,
@@ -31,7 +29,8 @@ export class ErrorBoundary extends React.Component<Props, State> {
     this.setState({ hasError: false, error: null });
   }
 
-  public render() {
+  // FIX: Converted `render` to an arrow function to ensure the `this` context is consistently bound, resolving errors when accessing `this.props` and `this.state`.
+  public render = () => {
     if (this.state.hasError) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4 text-center">

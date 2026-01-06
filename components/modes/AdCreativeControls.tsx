@@ -6,7 +6,7 @@ import { Select } from '../ui/Select';
 import { FormInput } from '../ui/Form';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
-import { SectionTitle, HelpLabel, BestForLabel } from './shared';
+import { HelpLabel, BestForLabel } from './shared';
 import { CreativeScorecard } from '../CreativeScorecard';
 
 interface AdCreativeControlsProps {
@@ -21,8 +21,9 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
 
     return (
         <>
-            <SectionTitle title="AD CREATIVE DETAILS" className="mt-6" />
-            <BestForLabel text="High-conversion social media ads with integrated BI performance metrics." />
+            <div className="mt-6">
+                <BestForLabel text="High-conversion social media ads with integrated BI performance metrics." />
+            </div>
             
             <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">

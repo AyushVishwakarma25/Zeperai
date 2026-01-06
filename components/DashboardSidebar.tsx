@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Icon } from './ui/Icon';
 import { BrandLogo } from './ui/BrandLogo';
@@ -155,9 +154,9 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
         {/* Header / Logo */}
         <div className={`flex-shrink-0 h-20 flex items-center ${isOpen ? 'px-6' : 'justify-center'}`}>
             {isOpen ? (
-                <BrandLogo variant="full" className="w-32 h-auto" />
+                <BrandLogo variant="full" color="black" className="w-32 h-auto" />
             ) : (
-                <BrandLogo variant="icon" className="w-8 h-8" />
+                <BrandLogo variant="icon" color="black" className="w-8 h-8" />
             )}
         </div>
 

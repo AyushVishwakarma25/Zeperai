@@ -16,10 +16,11 @@ interface CommonControlsProps {
     handleAspectRatioChange: (ratio: AspectRatio) => void; 
     batchOptions: number[];
     userTier: 'Free' | 'Starter' | 'Standard' | 'Agency';
+    hideMultiSelectLabel?: boolean;
 }
 
 export const CommonControls: React.FC<CommonControlsProps> = ({ 
-    params, handleParamChange, handleAspectRatioChange, batchOptions, userTier 
+    params, handleParamChange, handleAspectRatioChange, batchOptions, userTier, hideMultiSelectLabel 
 }) => {
     
     const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
@@ -31,7 +32,7 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
             <SectionTitle title="OUTPUT SETTINGS" className="mt-6" />
             <div className="flex justify-between items-center mb-2">
                 <HelpLabel label="Aspect Ratio" tooltip="Select dimensions suitable for your target platform. Select multiple to generate variations." className="mb-0" />
-                {canMultiSelect && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">MULTI-SELECT ON</span>}
+                {canMultiSelect && !hideMultiSelectLabel && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">MULTI-SELECT ON</span>}
             </div>
             
             <div className="grid grid-cols-4 gap-2">

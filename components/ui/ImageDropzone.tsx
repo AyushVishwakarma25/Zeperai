@@ -16,11 +16,12 @@ interface ImageDropzoneProps {
   className?: string;
   isLoading?: boolean;
   onRemoveBackground?: () => void;
+  icon?: string;
 }
 
 export const ImageDropzone: React.FC<ImageDropzoneProps> = ({ 
     id, previewUrl, previewUrls = [], onFileChange, onFilesChange, onRemoveFile, multiple, maxFiles = 3, prompt = 'Click to upload or drag & drop', 
-    className, isLoading = false, onRemoveBackground 
+    className, isLoading = false, onRemoveBackground, icon 
 }) => {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -196,7 +197,7 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
             onDrop={handleDrop}
           >
             <div className="p-3 bg-white rounded-full shadow-sm mb-3">
-                <Icon name={multiple ? "stack" : "upload"} className="h-6 w-6 text-primary" />
+                <Icon name={icon || (multiple ? "stack" : "upload")} className="h-6 w-6 text-primary" />
             </div>
             <span className="text-sm font-semibold text-slate-700">{prompt}</span>
             {multiple && <span className="text-xs text-slate-400 mt-1">Up to {maxFiles} images</span>}
