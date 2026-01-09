@@ -6,7 +6,6 @@ import { INSPIRATION_GALLERY } from '../data/inspirationGallery';
 import { AppMode } from '../types';
 
 const TABLE_NAME = 'inspiration_gallery';
-const SUBMISSION_LIMIT = 5;
 
 export const inspirationService = {
   /**
@@ -49,28 +48,17 @@ export const inspirationService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("You must be logged in to share to the gallery.");
 
-    // 1. Check Submission Limit
-    const { count, error: countError } = await supabase
-      .from(TABLE_NAME)
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id);
-
-    if (countError) throw new Error("Failed to check submission limit.");
-    
-    if (count !== null && count >= SUBMISSION_LIMIT) {
-      throw new Error(`You have reached the limit of ${SUBMISSION_LIMIT} public inspirations.`);
-    }
-
-    // 2. Upload Image to Public Storage (if not already a public URL we own)
+    // 1. Upload Image to Public Storage (if not already a public URL we own)
     let publicUrl = image.imageUrl;
     
-    // If it's a data URL (base64) or blob, we must upload it
+    // If it's a data URL (base64) or blob, we must upload it. 
+    // If it's already a Supabase URL (from designService), we reuse it.
     if (image.imageUrl.startsWith('data:') || image.imageUrl.startsWith('blob:')) {
        const fileName = `inspiration/${user.id}/${Date.now()}_insp.png`;
        publicUrl = await storageService.uploadImage(image.imageUrl, fileName);
     }
 
-    // 3. Prepare Params for Remixing
+    // 2. Prepare Params for Remixing
     // Clean up params to only include essential style info
     const remixParams = {
         appMode: image.params?.appMode,
@@ -86,7 +74,7 @@ export const inspirationService = {
         ugcStyle: image.params?.ugcStyle
     };
 
-    // 4. Insert into DB
+    // 3. Insert into DB
     const { error: insertError } = await supabase
       .from(TABLE_NAME)
       .insert({

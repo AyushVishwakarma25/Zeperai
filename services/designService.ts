@@ -1,5 +1,6 @@
 
 import { supabase } from './supabaseClient';
+import { storageService } from './storageService';
 import { GeneratedImage } from '../types';
 
 export const designService = {
@@ -38,17 +39,25 @@ export const designService = {
 
   /**
    * Save a new design.
+   * Auto-uploads to storage (persistence) but does NOT auto-share to gallery.
    */
   async saveDesign(design: GeneratedImage): Promise<GeneratedImage> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated");
 
+    // 1. Upload to Storage (Persistence)
+    // We upload first to get a permanent URL for both the design record
+    let imageUrl = design.imageUrl;
+    if (imageUrl.startsWith('data:') || imageUrl.startsWith('blob:')) {
+        const fileName = `users/${user.id}/designs/${Date.now()}.png`;
+        imageUrl = await storageService.uploadImage(imageUrl, fileName);
+    }
+
+    // 2. Save to Private Collection
     const dbRow = {
-        // Let Supabase generate the UUID for the primary key if needed, or use the client ID if valid UUID.
-        // Since client IDs are 'gen-timestamp', they are not valid UUIDs. We omit 'id' to let DB generate one.
-        // We will map the returned DB ID back to the object.
+        // Let Supabase generate the UUID for the primary key
         user_id: user.id,
-        image_url: design.imageUrl,
+        image_url: imageUrl,
         caption: design.caption,
         hashtags: design.hashtags,
         aspect_ratio: design.aspectRatio,
@@ -68,10 +77,13 @@ export const designService = {
         throw error;
     }
 
-    return {
+    const savedDesign = {
         ...design,
-        id: data.id // Use the authoritative UUID from DB
+        id: data.id, // Use the authoritative UUID from DB
+        imageUrl: imageUrl // Use the persistent Cloud URL
     };
+
+    return savedDesign;
   },
 
   /**

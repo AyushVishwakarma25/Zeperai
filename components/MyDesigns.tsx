@@ -1,10 +1,12 @@
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import type { GeneratedImage } from '../types';
 import { Icon } from './ui/Icon';
 import { Button } from './ui/Button';
 import { View } from '../types';
 import { generateFilename } from '../utils/images';
+import { inspirationService } from '../services/inspirationService';
+import { Toast } from './ui/Toast';
 
 interface MyDesignsProps {
   images: GeneratedImage[];
@@ -18,20 +20,29 @@ interface MyDesignsProps {
   onRemix?: (image: GeneratedImage) => void;
 }
 
-const IconButton: React.FC<{icon: string, label: string, onClick: (e: React.MouseEvent) => void, disabled?: boolean}> = ({icon, label, onClick, disabled}) => (
+const IconButton: React.FC<{icon: string, label: string, onClick: (e: React.MouseEvent) => void, disabled?: boolean, isLoading?: boolean}> = ({icon, label, onClick, disabled, isLoading}) => (
     <button
         onClick={onClick}
-        disabled={disabled}
+        disabled={disabled || isLoading}
         title={label}
-        className="w-10 h-10 flex items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 hover:text-primary disabled:text-slate-300 disabled:bg-transparent disabled:cursor-not-allowed transition-colors"
+        className="w-10 h-10 flex items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 hover:text-primary disabled:text-slate-300 disabled:bg-transparent disabled:cursor-not-allowed transition-colors relative"
     >
-        <Icon name={icon} className="w-5 h-5" />
+        {isLoading ? (
+             <svg className="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        ) : (
+            <Icon name={icon} className="w-5 h-5" />
+        )}
     </button>
 );
 
 export const MyDesigns: React.FC<MyDesignsProps> = ({ 
     images, onRemove, onDeploy, onSetView, onStartEdit, onSetZoomedImage, onSetStoryboardSource, onToggleSidebar, onRemix
 }) => {
+  const [sharingId, setSharingId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
   const handleDownload = useCallback((image: GeneratedImage) => {
       const link = document.createElement('a');
@@ -47,8 +58,27 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
       e.dataTransfer.effectAllowed = 'copy';
   };
 
+  const handleShareToInspiration = async (image: GeneratedImage) => {
+      setSharingId(image.id);
+      try {
+          await inspirationService.submitToInspiration(image);
+          setToast({ message: "Shared to Inspiration Gallery!", type: 'success' });
+      } catch (e: any) {
+          setToast({ message: e.message || "Failed to share.", type: 'error' });
+      } finally {
+          setSharingId(null);
+      }
+  };
+
   return (
     <div className="w-full h-full bg-white flex flex-col">
+        {toast && (
+            <Toast 
+                message={toast.message} 
+                type={toast.type} 
+                onClose={() => setToast(null)} 
+            />
+        )}
         <header className="flex-shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 md:p-6 border-b border-border-light gap-4">
             <div className="flex items-center w-full sm:w-auto">
                 <button onClick={onToggleSidebar} className="p-2 mr-2 rounded-md text-text-secondary hover:bg-gray-100 lg:hidden">
@@ -106,8 +136,8 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
                                 <div className="p-1 border-t border-slate-200 mt-auto">
                                     <div className="flex items-center justify-around">
                                         <IconButton icon="film" label="Create Storyboard" onClick={(e) => { e.stopPropagation(); onSetStoryboardSource(image); }} />
+                                        <IconButton icon="globe" label="Share to Inspiration" isLoading={sharingId === image.id} onClick={(e) => { e.stopPropagation(); handleShareToInspiration(image); }} />
                                         <IconButton icon="edit" label="Edit" onClick={(e) => { e.stopPropagation(); onStartEdit(image); }} />
-                                        {onRemix && <IconButton icon="swap" label="Remix Style" onClick={(e) => { e.stopPropagation(); onRemix(image); }} />}
                                         <IconButton icon="download" label="Download" onClick={(e) => { e.stopPropagation(); handleDownload(image); }} />
                                         <IconButton icon="remove" label="Remove" onClick={(e) => { e.stopPropagation(); onRemove(image.id); }} />
                                     </div>
