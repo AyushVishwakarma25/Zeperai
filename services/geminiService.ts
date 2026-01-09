@@ -67,6 +67,26 @@ export const fileToBase64 = (file: File): Promise<string> => {
     });
 };
 
+const urlToBase64 = async (url: string): Promise<string> => {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = () => {
+                const result = reader.result as string;
+                resolve(result.split(',')[1]);
+            };
+            reader.onerror = reject;
+        });
+    } catch (e) {
+        console.error("Failed to fetch image from URL (likely CORS issue):", url, e);
+        throw new Error("Failed to load reference image from URL. Try uploading directly.");
+    }
+};
+
 const dataURLToParts = (dataURL: string) => {
     const parts = dataURL.split(',');
     // const meta = parts[0]; 
@@ -82,37 +102,52 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
         regionalStyle, modelLockId, productStylePreset,
         modelGender, modelPersona, poseSuggestion, backgroundStyle, clothingType,
         adLayout, adTitle, overlayText, ugcStyle, adStylePreset,
-        isComparisonMode, competitorImage, productAFeatures, productBFeatures
+        isComparisonMode, competitorImage, productAFeatures, productBFeatures,
+        remixReferenceImageUrl, logoImage
     } = params;
     
     let parts: any[] = [];
     let corePrompt = '';
 
-    // --- Step 1: Add Image Parts based on App Mode (FIXED LOGIC) ---
+    // --- Step 1: Add Image Parts based on App Mode ---
+    
     if (appMode === AppMode.Remix) {
         // For Remix mode, order is: Reference (scene) first, then Product.
         if (params.remixReferenceImage) {
             const base64 = await fileToBase64(params.remixReferenceImage);
             parts.push({ inlineData: { data: base64, mimeType: params.remixReferenceImage.type } });
+        } else if (remixReferenceImageUrl) {
+            try {
+                const base64 = await urlToBase64(remixReferenceImageUrl);
+                parts.push({ inlineData: { data: base64, mimeType: 'image/png' } });
+            } catch (e) {
+                console.warn("Skipping remix reference URL due to fetch error.");
+            }
         }
+
         if (params.remixProductImage) {
             const base64 = await fileToBase64(params.remixProductImage);
             parts.push({ inlineData: { data: base64, mimeType: params.remixProductImage.type } });
         }
     } else {
-        // For all other modes that use images.
+        // 1a. Model Seed (Influencer Mode)
         if (modelSeedUrl) {
-            const response = await fetch(modelSeedUrl);
-            const blob = await response.blob();
-            const reader = new FileReader();
-            const dataUrl = await new Promise<string>(resolve => {
-                reader.onload = () => resolve(reader.result as string);
-                reader.readAsDataURL(blob);
-            });
-            const { data, mimeType } = dataURLToParts(dataUrl);
-            parts.push({ inlineData: { data, mimeType } });
+            try {
+                const response = await fetch(modelSeedUrl);
+                const blob = await response.blob();
+                const reader = new FileReader();
+                const dataUrl = await new Promise<string>(resolve => {
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.readAsDataURL(blob);
+                });
+                const { data, mimeType } = dataURLToParts(dataUrl);
+                parts.push({ inlineData: { data, mimeType } });
+            } catch (e) {
+                console.warn("Failed to load model seed image", e);
+            }
         }
 
+        // 1b. Main Product Image
         // 'activeImage' is for bulk jobs, otherwise use the main 'frontProductImage'.
         const imageToUse = activeImage || params.frontProductImage;
         if (imageToUse) {
@@ -120,10 +155,39 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
             parts.push({ inlineData: { data: base64, mimeType: imageToUse.type } });
         }
 
-        // Add Competitor Image if in Comparison Mode
+        // 1c. Competitor Image (Comparison Mode)
         if (isComparisonMode && competitorImage) {
             const base64 = await fileToBase64(competitorImage);
             parts.push({ inlineData: { data: base64, mimeType: competitorImage.type } });
+        }
+
+        // 1d. Brand Logo (Ad Creative Mode)
+        // Priority: Explicitly uploaded logo > Brand Kit Logo
+        if (appMode === AppMode.AdCreative) {
+            if (logoImage) {
+                const base64 = await fileToBase64(logoImage);
+                parts.push({ inlineData: { data: base64, mimeType: logoImage.type } });
+            } else if (brandKit?.logoUrl) {
+                try {
+                    // Check if it's a blob URL (local) or external
+                    if (brandKit.logoUrl.startsWith('blob:')) {
+                         const response = await fetch(brandKit.logoUrl);
+                         const blob = await response.blob();
+                         const reader = new FileReader();
+                         const dataUrl = await new Promise<string>(resolve => {
+                             reader.onload = () => resolve(reader.result as string);
+                             reader.readAsDataURL(blob);
+                         });
+                         const { data, mimeType } = dataURLToParts(dataUrl);
+                         parts.push({ inlineData: { data, mimeType } });
+                    } else {
+                         const base64 = await urlToBase64(brandKit.logoUrl);
+                         parts.push({ inlineData: { data: base64, mimeType: 'image/png' } });
+                    }
+                } catch (e) {
+                    console.warn("Could not load brand kit logo for prompt:", e);
+                }
+            }
         }
     }
 
@@ -205,12 +269,17 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
         case AppMode.Banner:
         case AppMode.Youtube:
             if (isComparisonMode) {
+                // FIX: Explicitly label image order for Comparison Mode
                 corePrompt = `Create a high-conversion comparison ad for a D2C brand.
-                Use the provided product images, headline, and features to visually compare the two products in a clean, modern style.
                 
-                VISUAL INPUTS:
-                - Primary Product (Image 1): Emphasize this. Make it vibrant, sharp, and the "hero".
-                - Competitor/Generic (Image 2): Make this desaturated, neutral, or slightly less prominent to visually highlight the superiority of the Primary Product.
+                CRITICAL IMAGE ORDER:
+                - The FIRST image provided is the [Primary Product] (Your Brand).
+                - The SECOND image provided is the [Competitor/Generic Product] (Other Brand).
+                
+                INSTRUCTIONS:
+                - Visually compare the two products in a clean, modern style.
+                - Emphasize the [Primary Product]. Make it vibrant, sharp, and the "hero".
+                - Make the [Competitor/Generic Product] slightly desaturated, neutral, or less prominent to visually highlight the superiority of the Primary Product.
 
                 TEXT ELEMENTS:
                 - Headline: "${adTitle || 'Comparison'}"
@@ -218,7 +287,7 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
                 - CTA Button: "${params.adCta || 'Shop Now'}"
                 
                 COMPARISON POINTS:
-                - Your Product Features: ${productAFeatures || 'High Quality, Premium'}
+                - Primary Product Features: ${productAFeatures || 'High Quality, Premium'}
                 - Competitor Features: ${productBFeatures || 'Standard Quality, Basic'}
 
                 LAYOUT: ${adLayout}.
@@ -250,6 +319,10 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
                 3. Clarity: Text must be legible against the background. Use overlays or shadows if necessary.
                 4. Composition: Balance the "Visual Element" (image) with the copy according to the Layout Structure.
                 `;
+                
+                if (logoImage || brandKit?.logoUrl) {
+                    corePrompt += `\nBRANDING: Include the provided logo naturally in the layout (e.g., top corner or bottom center).`;
+                }
             }
             break;
         
@@ -270,7 +343,20 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
     }
 
     if (marketplacePreset === MarketplacePreset.Amazon) corePrompt += ` COMPLIANCE: Amazon White Background (RGB 255,255,255). No shadows.`;
-    if (brandKit?.voice) corePrompt += `\n- Brand Voice: ${brandKit.voice}.`;
+    
+    // --- Step 3: Inject Brand Identity (Global) ---
+    if (brandKit) {
+        corePrompt += `\n\nBRAND IDENTITY GUIDELINES (Strictly Adhere):`;
+        if (brandKit.brandName) corePrompt += `\n- Brand Name: "${brandKit.brandName}"`;
+        if (brandKit.voice) corePrompt += `\n- Tone of Voice: ${brandKit.voice}`;
+        if (brandKit.primaryColor) corePrompt += `\n- Primary Color: ${brandKit.primaryColor} (Use for key elements/CTA)`;
+        if (brandKit.secondaryColor) corePrompt += `\n- Secondary Color: ${brandKit.secondaryColor}`;
+        if (brandKit.accentColor) corePrompt += `\n- Accent Color: ${brandKit.accentColor}`;
+        if (brandKit.fonts) corePrompt += `\n- Typography Style: ${brandKit.fonts}`;
+        if (brandKit.negativeConstraints) corePrompt += `\n- STRICTLY AVOID: ${brandKit.negativeConstraints}`;
+        
+        corePrompt += `\n\nEnsure the final output reflects this brand identity for consistency.`;
+    }
 
     return [{ text: corePrompt }, ...parts];
 }
@@ -300,8 +386,6 @@ async function generateSingleImage(
         imageConfig: { aspectRatio: aspectRatioConfig },
         safetySettings: [{ category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' }]
     };
-
-    // The 'imageSize' parameter is not supported by 'gemini-2.5-flash-image'.
 
     try {
         const response = await ai.models.generateContent({
@@ -335,7 +419,6 @@ async function generateSingleImage(
         };
 
     } catch (error: any) {
-        // Fallback for Pro model is no longer needed.
         if (retryCount < 3 && (error.message?.includes('429') || error.status === 429)) {
             await wait((retryCount + 1) * 6000);
             return generateSingleImage(params, aspectRatio, userTier, brandKit, activeImage, pose, sourceProductImageUrl, modelSeedUrl, retryCount + 1);
@@ -362,7 +445,8 @@ export const generateImages = async (
 
     for (const ratio of aspectRatios) {
         const poses = params.appMode === AppMode.Fashion ? getFashionPoses(effectiveBatch) : [];
-        const angles = params.appMode === AppMode.Product ? (params.selectedAngles || ['Front View']) : [];
+        // FIX: Default to 'Front View' if angles are empty to prevent 0 iterations
+        const angles = params.appMode === AppMode.Product ? (params.selectedAngles && params.selectedAngles.length > 0 ? params.selectedAngles : ['Front View']) : [];
         const iterations = params.appMode === AppMode.Product ? angles.length : effectiveBatch;
 
         for (let i = 0; i < iterations; i++) {

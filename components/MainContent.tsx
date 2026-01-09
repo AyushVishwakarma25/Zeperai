@@ -22,6 +22,7 @@ interface MainContentProps {
   generatingCaptionImageId: string | null;
   onOpenABTestModal: (image: GeneratedImage) => void;
   onReturnToSettings: () => void;
+  onSaveModel?: (image: GeneratedImage) => void;
 }
 
 const IconButton: React.FC<{icon: string, label: string, onClick: (e: React.MouseEvent) => void, disabled?: boolean, className?: string}> = ({icon, label, onClick, disabled, className}) => (
@@ -41,7 +42,9 @@ const FashionReviewStudio: React.FC<{
     onSetZoomedImage: (img: GeneratedImage) => void,
     onAddToPosterBoard: (img: GeneratedImage) => void,
     onStartEdit: (img: GeneratedImage) => void,
-}> = ({ images, onSetZoomedImage, onAddToPosterBoard, onStartEdit }) => {
+    onSaveModel?: (img: GeneratedImage) => void,
+    isInfluencerMode: boolean
+}> = ({ images, onSetZoomedImage, onAddToPosterBoard, onStartEdit, onSaveModel, isInfluencerMode }) => {
     const [activeIndex, setActiveIndex] = useState(0);
 
     useEffect(() => {
@@ -92,6 +95,9 @@ const FashionReviewStudio: React.FC<{
                 <div className="p-2 border-t border-slate-100 bg-white flex items-center justify-center space-x-2">
                     <IconButton icon="edit" label="Edit" onClick={(e) => { e.stopPropagation(); onStartEdit(activeImage); }} />
                     <IconButton icon="bookmark" label="Save to My Designs" onClick={(e) => { e.stopPropagation(); onAddToPosterBoard(activeImage); }} />
+                    {isInfluencerMode && onSaveModel && (
+                        <IconButton icon="user" label="Save as Model" onClick={(e) => { e.stopPropagation(); onSaveModel(activeImage); }} className="text-purple-600 hover:bg-purple-50" />
+                    )}
                 </div>
             </div>
         </div>
@@ -101,8 +107,9 @@ const FashionReviewStudio: React.FC<{
 const MainContentComponent: React.FC<MainContentProps> = (props) => {
   const [detailPanelImage, setDetailPanelImage] = useState<GeneratedImage | null>(null);
   
-  // Safeguard against missing params in generatedImages
-  const isFashion = props.generatedImages.length > 0 && props.generatedImages[0].params?.appMode === AppMode.Fashion;
+  const appMode = props.generatedImages.length > 0 ? props.generatedImages[0].params?.appMode : undefined;
+  const isFashionOrInfluencer = appMode === AppMode.Fashion || appMode === AppMode.Influencer;
+  const isInfluencer = appMode === AppMode.Influencer;
 
   useEffect(() => {
     if (detailPanelImage) {
@@ -130,9 +137,6 @@ const MainContentComponent: React.FC<MainContentProps> = (props) => {
     );
   }
 
-  // If loading and no images yet, we stay on the preview (or empty state) which will be covered by the App's loading overlay.
-  // We removed the Skeleton grid here to avoid visual clash with the global loading screen.
-
   if (props.generatedImages.length === 0) {
     return <LivePreview params={props.params} productImageUrl={props.frontProductImagePreview} />;
   }
@@ -143,13 +147,13 @@ const MainContentComponent: React.FC<MainContentProps> = (props) => {
         {/* HEADER - Consistent across both views */}
         <header className="flex-shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 md:p-6 border-b border-border-light gap-4">
             <div className="flex items-center w-full sm:w-auto">
-                <Icon name={isFashion ? "shirt" : "sparkles"} className="w-8 h-8 mr-4 text-primary flex-shrink-0"/>
+                <Icon name={isFashionOrInfluencer ? "shirt" : "sparkles"} className="w-8 h-8 mr-4 text-primary flex-shrink-0"/>
                 <div>
                     <h2 className="text-xl md:text-2xl font-bold font-batangas text-text-primary">
-                        {isFashion ? "Fashion Review Studio" : "Generated Results"}
+                        {isFashionOrInfluencer ? "Review Studio" : "Generated Results"}
                     </h2>
                     <p className="text-sm text-text-secondary">
-                        {isFashion ? "Select your best shots" : `${props.generatedImages.length} items created`}
+                        {isFashionOrInfluencer ? "Select your best shots" : `${props.generatedImages.length} items created`}
                     </p>
                 </div>
             </div>
@@ -164,13 +168,15 @@ const MainContentComponent: React.FC<MainContentProps> = (props) => {
         {/* MAIN CONTENT - Conditionally render grid or studio */}
         <main className="flex-grow flex flex-row overflow-hidden">
             <div className="flex-1 overflow-y-auto">
-                {isFashion ? (
+                {isFashionOrInfluencer ? (
                     <div className="p-4 md:p-6">
                         <FashionReviewStudio 
                             images={props.generatedImages} 
                             onSetZoomedImage={props.onSetZoomedImage}
                             onAddToPosterBoard={props.onAddToPosterBoard}
                             onStartEdit={props.onStartEdit}
+                            onSaveModel={props.onSaveModel}
+                            isInfluencerMode={isInfluencer}
                         />
                     </div>
                 ) : (

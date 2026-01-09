@@ -237,6 +237,7 @@ export interface GenerateImageParams {
 
   // Remix mode
   remixReferenceImage?: File;
+  remixReferenceImageUrl?: string; // Fallback URL if File creation fails (CORS)
   remixProductImage?: File;
 }
 

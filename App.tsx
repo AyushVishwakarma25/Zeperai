@@ -47,6 +47,9 @@ const App: React.FC = () => {
   const [lastActiveMode, setLastActiveMode] = useState<AppMode | null>(null);
   const [isRemixMode, setIsRemixMode] = useState(false);
   
+  // New state for floating bar mode selection
+  const [floatingMode, setFloatingMode] = useState<AppMode>(AppMode.Influencer);
+  
   const [params, setParams] = useState<GenerateImageParams>(() => {
       const saved = localStorage.getItem('krackx_last_params');
       return saved ? { ...INITIAL_GENERATE_PARAMS, ...JSON.parse(saved) } : INITIAL_GENERATE_PARAMS;
@@ -433,12 +436,14 @@ const App: React.FC = () => {
   const handleRemixDesign = useCallback(async (image: GeneratedImage) => {
       try {
           let referenceFile: File | undefined = undefined;
+          let referenceUrl: string | undefined = undefined;
           try {
               const response = await fetch(image.imageUrl);
               const blob = await response.blob();
               referenceFile = new File([blob], "remix-reference.png", { type: "image/png" });
           } catch (e) {
-              console.warn("Could not fetch blob from URL for remix, defaulting to URL preview only.");
+              console.warn("Could not fetch blob from URL for remix, using URL fallback.");
+              referenceUrl = image.imageUrl;
           }
 
           setActiveMode(AppMode.Remix);
@@ -448,7 +453,8 @@ const App: React.FC = () => {
               ...INITIAL_GENERATE_PARAMS,
               appMode: AppMode.Remix,
               productDescription: image.params?.productDescription || '',
-              remixReferenceImage: referenceFile 
+              remixReferenceImage: referenceFile,
+              remixReferenceImageUrl: referenceUrl // FIX: Set URL fallback
           }));
           
           setCurrentView(View.Dashboard);
@@ -626,6 +632,24 @@ const App: React.FC = () => {
       });
   }, []);
 
+  // NEW: Save specific image as a model
+  const handleSaveModel = useCallback(async (image: GeneratedImage) => {
+      if (!userProfile || userProfile.id === 'guest-user-id') {
+          setIsAuthModalOpen(true);
+          return;
+      }
+      
+      const modelName = `${params.modelGender || 'New'} Model #${Math.floor(1000 + Math.random() * 9000)}`;
+      
+      try {
+          const newModels = await userService.saveModel(modelName, image.imageUrl, savedModels);
+          setSavedModels(newModels);
+          setToast({ message: `Saved as "${modelName}"!`, type: 'success' });
+      } catch (err: any) {
+          setToast({ message: "Failed to save model.", type: 'error' });
+      }
+  }, [userProfile, savedModels, params.modelGender]);
+
   const handleGenerate = useCallback(async (currentParams: GenerateImageParams, previewUrlOverride?: string) => {
     if (isGeneratingRef.current) return;
     isGeneratingRef.current = true;
@@ -674,19 +698,7 @@ const App: React.FC = () => {
       );
       setGeneratedImages(results);
 
-      // Auto-save logic...
-      if (currentParams.appMode === AppMode.Influencer && currentParams.modelSourceOption === 'new' && results.length > 0) {
-          const modelName = `${currentParams.modelGender} Model #${Math.floor(1000 + Math.random() * 9000)}`;
-          if (userProfile && userProfile.id !== 'guest-user-id') {
-              try {
-                  const newModels = await userService.saveModel(modelName, results[0].imageUrl, savedModels);
-                  setSavedModels(newModels);
-                  setToast({ message: `New Model "${modelName}" has been saved!`, type: 'success' });
-              } catch (saveError: any) {
-                  // Suppress non-critical errors
-              }
-          }
-      }
+      // FIX: Removed auto-save for new models. Use manual Save Model instead.
 
       if (isFreeTrialGeneration) {
           setFreeGenerationsUsed(prev => prev + cost);
@@ -766,17 +778,27 @@ const App: React.FC = () => {
       if (isGeneratingRef.current) return;
       if (!isOnline) { setToast({ message: "You are offline.", type: 'error' }); return; }
 
+      // Use the selected floatingMode instead of hardcoded AppMode.Influencer
       const generationParams: GenerateImageParams = {
           ...INITIAL_GENERATE_PARAMS,
-          appMode: AppMode.Influencer,
+          appMode: floatingMode, // FIX: Use selected mode
           productDescription: floatingPrompt,
           frontProductImage: floatingImageFile ?? undefined,
           aspectRatios: params.aspectRatios, 
           outputFormat: params.outputFormat,
           resolutionQuality: params.resolutionQuality,
+          // Apply some safe defaults if user didn't open settings
+          modelGender: params.modelGender,
+          productCategory: params.productCategory
       };
+      
+      // Auto-detect if user typed something that looks like an ad request
+      if (floatingPrompt.toLowerCase().includes('ad') || floatingPrompt.toLowerCase().includes('banner')) {
+          generationParams.appMode = AppMode.AdCreative;
+      }
+
       handleGenerate(generationParams, floatingImagePreview ?? undefined);
-  }, [floatingPrompt, floatingImageFile, params, handleGenerate, floatingImagePreview, isOnline]);
+  }, [floatingPrompt, floatingImageFile, params, handleGenerate, floatingImagePreview, isOnline, floatingMode]);
 
   const handleReturnToSettings = useCallback(() => {
     setGeneratedImages([]);
@@ -805,6 +827,10 @@ const App: React.FC = () => {
 
   const handleApplyEdit = useCallback(async (editParams: EditImageParams) => {
       if (!isOnline) { setToast({message: "Offline", type: 'error'}); return; }
+      
+      // Credit Check for Inpainting
+      if (!checkAndDeductCredits(1)) return;
+
       setIsEditing(true); 
       try {
           const result = await editImage(editParams);
@@ -812,11 +838,12 @@ const App: React.FC = () => {
               setEditingImage({ ...editingImage, imageUrl: result.imageUrl });
           }
       } catch (e) {
+          refundCredits(1); // Refund on failure
           setToast({ message: "Edit failed", type: 'error' });
       } finally {
           setIsEditing(false);
       }
-  }, [isOnline, editingImage]);
+  }, [isOnline, editingImage, checkAndDeductCredits, refundCredits]);
 
   const handleRemoveBackground = useCallback(async () => {
       if (!editingImage?.imageUrl) return;
@@ -915,8 +942,14 @@ const App: React.FC = () => {
                               }
                           }}
                           generatingCaptionImageId={generatingCaptionImageId}
-                          onOpenABTestModal={setAbTestModalImage}
+                          onOpenABTestModal={async (image) => {
+                              // Credit Check for AB Test
+                              if (checkAndDeductCredits(2)) {
+                                  setAbTestModalImage(image);
+                              }
+                          }}
                           onReturnToSettings={handleReturnToSettings}
+                          onSaveModel={handleSaveModel} // FIX: Pass manual save handler
                       />
                   );
               }
@@ -940,6 +973,8 @@ const App: React.FC = () => {
                       onInternalImageDrop={handleInternalImageDrop}
                       onFloatingImageDrop={handleFloatingImageDrop}
                       isLoading={isLoading || isGeneratingRef.current}
+                      floatingMode={floatingMode} // FIX: Pass down floating mode state
+                      onFloatingModeChange={setFloatingMode} // FIX: Pass down setter
                   />
               );
           case View.MyDesigns:
@@ -1034,8 +1069,14 @@ const App: React.FC = () => {
                           }
                       }}
                       generatingCaptionImageId={generatingCaptionImageId}
-                      onOpenABTestModal={setAbTestModalImage}
+                      onOpenABTestModal={async (image) => {
+                          // Credit Check for AB Test
+                          if (checkAndDeductCredits(2)) {
+                              setAbTestModalImage(image);
+                          }
+                      }}
                       onReturnToSettings={handleReturnToSettings}
+                      onSaveModel={handleSaveModel} // FIX: Pass handler here too
                   />
               );
       }

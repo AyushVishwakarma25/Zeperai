@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 
@@ -11,7 +11,7 @@ interface State {
   error: Error | null;
 }
 
-export class ErrorBoundary extends React.Component<Props, State> {
+export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,
@@ -29,8 +29,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
     this.setState({ hasError: false, error: null });
   }
 
-  // FIX: Converted `render` to an arrow function to ensure the `this` context is consistently bound, resolving errors when accessing `this.props` and `this.state`.
-  public render = () => {
+  public render() {
     if (this.state.hasError) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4 text-center">

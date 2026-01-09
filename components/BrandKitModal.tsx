@@ -40,42 +40,72 @@ const ControlButton: React.FC<{
   </button>
 );
 
+// Improved Color Input with local state for smoother typing
 const ColorInput: React.FC<{ label: string; id: string; value: string; onChange: (value: string) => void; }> = ({ label, id, value, onChange }) => {
-  const isValidHex = /^#([0-9A-F]{3,8})$/i.test(value);
-  
-  // Browsers require strict 6-digit hex for color inputs
-  const safeHex = isValidHex && value.length === 7 ? value : '#FFFFFF';
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+      setLocalValue(value);
+  }, [value]);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newVal = e.target.value;
+      setLocalValue(newVal);
+      // Only sync if valid hex 6 digits
+      if (/^#[0-9A-F]{6}$/i.test(newVal)) {
+          onChange(newVal.toUpperCase());
+      }
+  };
+
+  const handleBlur = () => {
+      // On blur, validation
+      if (/^#[0-9A-F]{6}$/i.test(localValue)) {
+          onChange(localValue.toUpperCase());
+      } else if (/^[0-9A-F]{6}$/i.test(localValue)) {
+          // Auto-add hash if missing
+          const fixed = '#' + localValue.toUpperCase();
+          setLocalValue(fixed);
+          onChange(fixed);
+      } else {
+          setLocalValue(value); // Revert to last valid prop value if invalid
+      }
+  };
+
+  // Safe hex for the color picker input type (must be 7 chars)
+  const safeHex = /^#[0-9A-F]{6}$/i.test(localValue) ? localValue : '#FFFFFF';
 
   return (
     <div className="relative group">
-      <label
-        htmlFor={id}
-        className="flex items-center gap-3 w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl shadow-sm cursor-pointer transition-all hover:border-primary/50 hover:shadow-md"
-      >
-        <div
-          className="w-8 h-8 rounded-lg border border-slate-200 shadow-inner flex-shrink-0"
-          style={{ backgroundColor: safeHex }}
-        />
-        <div className="flex flex-col min-w-0">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</span>
-            <input 
-                type="text" 
-                value={value} 
-                onChange={e => onChange(e.target.value.toUpperCase())}
-                className="text-xs text-slate-900 font-mono truncate outline-none w-full uppercase"
-                placeholder="#RRGGBB"
-                maxLength={9}
+      <div className="flex items-center gap-3 w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl shadow-sm transition-all hover:border-primary/50 hover:shadow-md">
+        <div className="relative w-8 h-8 rounded-lg border border-slate-200 shadow-inner flex-shrink-0 overflow-hidden">
+            <div style={{ backgroundColor: safeHex }} className="w-full h-full" />
+            <input
+                type="color"
+                id={`${id}-picker`}
+                value={safeHex}
+                onChange={e => {
+                    const v = e.target.value.toUpperCase();
+                    setLocalValue(v);
+                    onChange(v);
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                aria-label={`Pick ${label} color`}
             />
         </div>
-      </label>
-      <input
-        type="color"
-        id={id}
-        value={safeHex}
-        onChange={e => onChange(e.target.value.toUpperCase())}
-        className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-        aria-label={`Select ${label} color`}
-      />
+        <div className="flex flex-col min-w-0 flex-1">
+            <label htmlFor={id} className="text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer">{label}</label>
+            <input 
+                id={id}
+                type="text" 
+                value={localValue} 
+                onChange={handleTextChange}
+                onBlur={handleBlur}
+                className="text-xs text-slate-900 font-mono truncate outline-none w-full uppercase"
+                placeholder="#RRGGBB"
+                maxLength={7}
+            />
+        </div>
+      </div>
     </div>
   );
 };
@@ -93,11 +123,7 @@ const GOOGLE_FONTS_LIBRARY = {
     'Monospace & Tech': ['Roboto Mono', 'Space Mono', 'Fira Code', 'JetBrains Mono', 'Inconsolata']
 };
 
-const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialKit }) => {
-  const isOnline = useNetworkStatus();
-  const [loading, setLoading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [kit, setKit] = useState<BrandKit>(initialKit || {
+const DEFAULT_KIT: BrandKit = {
     brandName: '',
     primaryColor: '#6A5AE0',
     secondaryColor: '#FFFFFF',
@@ -106,7 +132,13 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
     voice: 'Professional',
     description: '',
     negativeConstraints: '',
-  });
+};
+
+const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialKit }) => {
+  const isOnline = useNetworkStatus();
+  const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [kit, setKit] = useState<BrandKit>(initialKit || DEFAULT_KIT);
 
   const [logoPreview, setLogoPreview] = useState<string | null>(kit.logoUrl || null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -169,30 +201,41 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
   };
 
   const handleSave = async () => {
-    if (!isOnline) {
-        alert("You must be online to save your Brand Kit.");
-        return;
+    // We allow saving to local state even if offline, but show warning if file upload is involved
+    if (!isOnline && logoFile) {
+        alert("You are offline. Logo upload will be skipped, but settings will apply to this session.");
     }
+    
     setLoading(true);
     try {
       let finalLogoUrl = kit.logoUrl;
-      if (logoFile) {
+      
+      // Try uploading logo if online and file exists
+      if (isOnline && logoFile) {
         try {
             const fileName = `brand/logo-${Date.now()}.png`;
             finalLogoUrl = await storageService.uploadImage(logoFile, fileName);
         } catch (storageError) {
-            console.warn("Storage service failed, using local blob URL for logo.", storageError);
+            console.warn("Storage service failed, using local blob URL for logo temporarily.", storageError);
             finalLogoUrl = logoPreview || undefined;
         }
+      } else if (logoFile && logoPreview) {
+          // Fallback for offline/local: use the blob URL for the session
+          finalLogoUrl = logoPreview;
       }
+
       const updatedKit = { ...kit, logoUrl: finalLogoUrl };
       
-      try {
-        const savedKit = await brandService.saveBrandKit(updatedKit);
-        onSave(savedKit);
-      } catch (dbError) {
-        console.warn("Database service failed, saving to app state only.", dbError);
-        onSave(updatedKit);
+      // Update App State Immediately
+      onSave(updatedKit); 
+
+      // Try persisting to DB
+      if (isOnline) {
+          try {
+            await brandService.saveBrandKit(updatedKit);
+          } catch (dbError) {
+            console.warn("Database save failed (likely guest or permissions), saved to session only.", dbError);
+          }
       }
       
       onClose();
@@ -202,6 +245,14 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleReset = () => {
+      if (confirm("Are you sure you want to reset your Brand Identity to defaults?")) {
+          setKit(DEFAULT_KIT);
+          setLogoFile(null);
+          setLogoPreview(null);
+      }
   };
 
   const activeVoices = useMemo(() => kit.voice.split(',').map(v => v.trim()).filter(Boolean), [kit.voice]);
@@ -243,7 +294,7 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
           {/* Left Panel - Logo */}
           <div className="w-full md:w-1/3 bg-slate-50 p-6 md:p-8 border-b md:border-b-0 md:border-r border-slate-200 flex flex-col flex-shrink-0">
             <SectionTitle title="Brand Assets" />
-            <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm aspect-square w-full max-w-[260px] mx-auto mb-4">
+            <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm aspect-square w-full max-w-[260px] mx-auto mb-4 relative group">
               <ImageDropzone 
                 id="brandkit-logo-upload"
                 prompt="Upload Logo"
@@ -253,17 +304,15 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
               />
             </div>
             
-            {logoFile && (
-                <Button 
-                    onClick={handleAnalyze} 
-                    disabled={analyzing} 
-                    isLoading={analyzing} 
-                    variant="secondary" 
-                    className="w-full mb-4 !text-xs"
-                >
-                    {analyzing ? 'Analyzing Vibe...' : 'Auto-Fill from Logo'}
-                </Button>
-            )}
+            <Button 
+                onClick={handleAnalyze} 
+                disabled={analyzing || !logoFile} 
+                isLoading={analyzing} 
+                variant="secondary" 
+                className="w-full mb-4 !text-xs"
+            >
+                {analyzing ? 'Analyzing Vibe...' : 'Auto-Fill from Logo'}
+            </Button>
 
             <div className="text-center px-2">
                 <p className="text-xs font-medium text-slate-600">Logo Guidelines</p>
@@ -360,11 +409,19 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
           </div>
         </main>
 
-        <footer className="px-6 py-4 flex-shrink-0 flex justify-end items-center border-t border-slate-100 bg-white space-x-3">
-          <Button variant="secondary" onClick={onClose} className="!text-sm">Cancel</Button>
-          <Button onClick={handleSave} disabled={!isOnline || loading || !isValid} isLoading={loading} className="!text-sm shadow-lg shadow-primary/20">
-            {isOnline ? (loading ? 'Saving...' : 'Save Brand Identity') : 'Offline'}
-          </Button>
+        <footer className="px-6 py-4 flex-shrink-0 flex justify-between items-center border-t border-slate-100 bg-white">
+          <button 
+            onClick={handleReset} 
+            className="text-xs font-semibold text-red-500 hover:text-red-700 transition-colors px-2 py-1 rounded hover:bg-red-50"
+          >
+            Reset to Default
+          </button>
+          <div className="flex items-center space-x-3">
+            <Button variant="secondary" onClick={onClose} className="!text-sm">Cancel</Button>
+            <Button onClick={handleSave} disabled={loading || !isValid} isLoading={loading} className="!text-sm shadow-lg shadow-primary/20">
+                {loading ? 'Saving...' : 'Save & Apply'}
+            </Button>
+          </div>
         </footer>
       </div>
     </div>

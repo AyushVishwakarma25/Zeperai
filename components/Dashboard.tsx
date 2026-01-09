@@ -20,28 +20,28 @@ const ColorfulCard: React.FC<ColorfulCardProps> = ({ title, subtitle, color, tex
         <button
             type="button"
             onClick={isLocked && onUnlock ? onUnlock : onClick}
-            className={`relative overflow-hidden w-full h-32 lg:h-36 rounded-3xl p-5 lg:p-6 text-left flex items-center justify-between transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-md hover:shadow-xl group`}
+            className={`relative overflow-hidden w-full h-28 sm:h-32 rounded-2xl p-4 sm:p-5 text-left flex items-center justify-between transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-sm hover:shadow-md group`}
             style={{ backgroundColor: color }}
         >
-            <div className="z-10 flex flex-col justify-center h-full">
-                <h3 className={`font-batangas font-bold text-lg lg:text-xl uppercase leading-tight tracking-wide ${textColor}`}>
+            <div className="z-10 flex flex-col justify-center h-full mr-2">
+                <h3 className={`font-batangas font-bold text-base sm:text-lg uppercase leading-tight tracking-wide ${textColor}`}>
                     {title}
                 </h3>
-                <p className={`font-poppins font-normal text-[10px] lg:text-xs mt-1 opacity-90 ${textColor}`}>
+                <p className={`font-poppins font-normal text-[10px] sm:text-xs mt-1 opacity-90 ${textColor} line-clamp-2`}>
                     {subtitle}
                 </p>
             </div>
             
-            <div className="h-16 w-16 bg-white rounded-2xl flex items-center justify-center shadow-sm z-10 flex-shrink-0 group-hover:rotate-6 transition-transform">
+            <div className="h-12 w-12 sm:h-14 sm:w-14 bg-white/90 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-sm z-10 flex-shrink-0 group-hover:rotate-6 transition-transform">
                 {isLocked ? (
-                    <Icon name="lock" className="w-8 h-8 text-slate-400" />
+                    <Icon name="lock" className="w-5 h-5 sm:w-6 sm:h-6 text-slate-400" />
                 ) : (
-                    <Icon name={iconName} className="w-8 h-8 text-black" />
+                    <Icon name={iconName} className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
                 )}
             </div>
 
             {/* Decorative background circle */}
-            <div className="absolute -right-4 -bottom-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:bg-white/20 transition-colors"></div>
+            <div className="absolute -right-4 -bottom-8 w-24 h-24 sm:w-32 sm:h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:bg-white/20 transition-colors"></div>
         </button>
     );
 };
@@ -65,6 +65,8 @@ interface DashboardProps {
   onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;
   onFloatingImageDrop: (file: File) => void;
   isLoading: boolean;
+  floatingMode?: AppMode;
+  onFloatingModeChange?: (mode: AppMode) => void;
 }
 
 interface HeaderProps {
@@ -74,7 +76,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onOpenFeedbackModal, onOpenPricingModal, onToggleSidebar }) => (
-    <header className="flex-shrink-0 flex items-center p-4 md:p-6">
+    <header className="flex-shrink-0 flex items-center p-4 md:p-6 pb-2">
         <button onClick={onToggleSidebar} className="p-2 rounded-md text-text-secondary hover:bg-gray-100 lg:hidden">
             <Icon name="menu" className="w-6 h-6" />
         </button>
@@ -109,6 +111,8 @@ const DashboardHome: React.FC<DashboardProps> = ({
     onOpenPricingModal,
     isAdmin = false,
     userName = 'there',
+    floatingMode,
+    onFloatingModeChange
 }) => {
 
     const isProLocked = !isAdmin && (userTier === 'Free' || userTier === 'Starter');
@@ -183,8 +187,8 @@ const DashboardHome: React.FC<DashboardProps> = ({
     ];
 
     return (
-      <div className="py-2 pb-10">
-        <h1 className="text-3xl font-batangas font-bold text-text-primary text-center">What are we creating today, {userName}?</h1>
+      <div className="py-2 pb-8">
+        <h1 className="text-2xl md:text-3xl font-batangas font-bold text-text-primary text-center">What are we creating today, {userName}?</h1>
         
         <div className="max-w-3xl mx-auto mt-6 mb-8">
             <FloatingActionBar 
@@ -196,10 +200,12 @@ const DashboardHome: React.FC<DashboardProps> = ({
                 onGenerate={onFloatingGenerate}
                 onImageDrop={onFloatingImageDrop}
                 isGenerating={isLoading}
+                floatingMode={floatingMode}
+                onFloatingModeChange={onFloatingModeChange}
             />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 xl:gap-5 max-w-7xl mx-auto">
             {tools.map((tool) => (
                 <ColorfulCard 
                     key={tool.title}
@@ -216,7 +222,7 @@ const DashboardComponent: React.FC<DashboardProps> = (props) => {
         <main className="relative w-full h-full flex flex-col overflow-hidden bg-main">
             <Header onOpenFeedbackModal={props.onOpenFeedbackModal} onOpenPricingModal={props.onOpenPricingModal} onToggleSidebar={props.onToggleSidebar} />
             <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300">
-                <div className="px-4 md:px-8 lg:px-12">
+                <div className="px-4 md:px-8 lg:px-8">
                     <DashboardHome {...props} />
                 </div>
             </div>

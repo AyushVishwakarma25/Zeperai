@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from './ui/Icon';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import { GeneratedImage } from '../types';
+import { GeneratedImage, AppMode } from '../types';
 import { dataURLtoFile } from '../utils/images';
 
 interface FloatingActionBarProps {
@@ -14,6 +15,8 @@ interface FloatingActionBarProps {
   onGenerate: () => void;
   isGenerating: boolean;
   onImageDrop?: (file: File) => void;
+  floatingMode?: AppMode;
+  onFloatingModeChange?: (mode: AppMode) => void;
 }
 
 export const FloatingActionBar: React.FC<FloatingActionBarProps> = ({
@@ -24,10 +27,19 @@ export const FloatingActionBar: React.FC<FloatingActionBarProps> = ({
   onRemoveImage,
   onGenerate,
   isGenerating,
-  onImageDrop
+  onImageDrop,
+  floatingMode = AppMode.Influencer,
+  onFloatingModeChange
 }) => {
   const isOnline = useNetworkStatus();
   const [isDragging, setIsDragging] = useState(false);
+  
+  // Custom Dropdown State
+  const [isModeOpen, setIsModeOpen] = useState(false);
+  const modeBtnRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+
   const canGenerate = (prompt.trim() !== '' || imagePreviewUrl) && isOnline;
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -63,6 +75,90 @@ export const FloatingActionBar: React.FC<FloatingActionBarProps> = ({
       }
   };
 
+  // --- Dropdown Logic ---
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (
+            isModeOpen &&
+            modeBtnRef.current &&
+            !modeBtnRef.current.contains(event.target as Node) &&
+            dropdownRef.current &&
+            !dropdownRef.current.contains(event.target as Node)
+        ) {
+            setIsModeOpen(false);
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isModeOpen]);
+
+  const updatePosition = () => {
+      if (modeBtnRef.current) {
+          const rect = modeBtnRef.current.getBoundingClientRect();
+          setDropdownStyle({
+              position: 'fixed',
+              top: `${rect.bottom + 8}px`,
+              left: `${rect.left}px`,
+              minWidth: '160px',
+              maxWidth: '220px'
+          });
+      }
+  };
+
+  useEffect(() => {
+      if (isModeOpen) {
+          updatePosition();
+          window.addEventListener('scroll', updatePosition, true);
+          window.addEventListener('resize', updatePosition);
+      }
+      return () => {
+          window.removeEventListener('scroll', updatePosition, true);
+          window.removeEventListener('resize', updatePosition);
+      }
+  }, [isModeOpen]);
+
+  const getModeLabel = (mode: AppMode) => {
+      switch (mode) {
+          case AppMode.AdCreative: return 'Ad Creative';
+          case AppMode.Product: return 'Product';
+          case AppMode.Fashion: return 'Fashion';
+          case AppMode.Influencer: return 'Influencer';
+          default: return mode;
+      }
+  };
+
+  const ModeDropdown = () => createPortal(
+      <div 
+        ref={dropdownRef}
+        className="fixed z-[120] bg-white/95 border border-slate-200 rounded-xl shadow-xl backdrop-blur-md p-1.5 flex flex-col gap-1 animate-fade-in-scale-up origin-top-left"
+        style={dropdownStyle}
+      >
+          {[
+              { value: AppMode.Influencer, label: 'Influencer' },
+              { value: AppMode.Product, label: 'Product' },
+              { value: AppMode.Fashion, label: 'Fashion' },
+              { value: AppMode.AdCreative, label: 'Ad Creative' }
+          ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => {
+                    if (onFloatingModeChange) onFloatingModeChange(opt.value);
+                    setIsModeOpen(false);
+                }}
+                className={`px-3 py-2 text-sm text-left rounded-lg transition-all flex items-center justify-between ${
+                    floatingMode === opt.value 
+                    ? 'bg-primary text-white font-semibold shadow-md' 
+                    : 'text-slate-700 hover:bg-slate-100 font-medium'
+                }`}
+              >
+                  <span>{opt.label}</span>
+                  {floatingMode === opt.value && <Icon name="check-circle" className="w-3.5 h-3.5" />}
+              </button>
+          ))}
+      </div>,
+      document.body
+  );
+
   return (
     <div 
         className={`rounded-2xl shadow-2xl p-2 border-2 flex flex-col sm:flex-row sm:items-center gap-2 transition-all duration-300 ${
@@ -77,6 +173,25 @@ export const FloatingActionBar: React.FC<FloatingActionBarProps> = ({
       
       {/* Input Group */}
       <div className="flex items-center flex-grow gap-2 min-w-0 w-full">
+        {onFloatingModeChange && (
+            <div className="relative">
+                <button
+                    ref={modeBtnRef}
+                    onClick={() => setIsModeOpen(!isModeOpen)}
+                    disabled={!isOnline}
+                    className={`flex items-center pl-3 pr-2 py-2 text-xs font-bold uppercase cursor-pointer rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                        isModeOpen ? 'bg-primary/10 text-primary' : 'hover:bg-primary/5 text-primary'
+                    }`}
+                >
+                    <span className="mr-1">{getModeLabel(floatingMode || AppMode.Influencer)}</span>
+                    <Icon name="chevron-down" className={`w-3 h-3 transition-transform duration-200 ${isModeOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {isModeOpen && <ModeDropdown />}
+            </div>
+        )}
+
+        <div className="h-6 w-px bg-slate-200 mx-1"></div>
+
         {imagePreviewUrl && (
           <div className="relative flex-shrink-0">
             <img src={imagePreviewUrl} alt="Preview" className="w-12 h-12 rounded-lg object-cover border border-slate-200" />
