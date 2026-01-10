@@ -139,7 +139,9 @@ export enum View {
   Dashboard = 'Dashboard',
   MyDesigns = 'MyDesigns',
   Profile = 'Profile',
-  Inspiration = 'Inspiration'
+  Inspiration = 'Inspiration',
+  Analytics = 'Analytics',
+  ShopifyAnalytics = 'ShopifyAnalytics'
 }
 
 export type ModelChoice = 'new' | 'existing';
@@ -315,6 +317,7 @@ export interface AdCopy {
     headline: string;
     body: string;
     cta: string;
+    hashtags?: string;
 }
 
 export interface GenerateAdCopyParams {
@@ -379,4 +382,28 @@ export interface ABTestSuggestion {
 export interface ProProductStyleCategory {
     category: string;
     presets: { name: string; prompt: string }[];
+}
+
+export interface ShopifyAnalysisResult {
+    totalRevenue: number;
+    totalOrders: number;
+    avgOrderValue: number;
+    // FIX: Allow revenue to be a string to match potential AI output before sanitization.
+    topProducts: { name: string; revenue: number | string; quantity: number }[];
+    salesTrend: { date: string; revenue: number | string }[];
+    productZones: {
+        green: ProductZoneItem[];
+        yellow: ProductZoneItem[];
+        red: ProductZoneItem[];
+    };
+    aiInsights: string[];
+}
+
+export interface ProductZoneItem {
+    name: string;
+    sku?: string;
+    // FIX: Allow revenue to be a string to match potential AI output before sanitization.
+    revenue: number | string;
+    quantity: number;
+    margin?: number;
 }

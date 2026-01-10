@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, lazy, Suspense, useEffect, useRef } from 'react';
+import React, { useState, useCallback, lazy, Suspense, useEffect, useRef, useMemo } from 'react';
 import { MainContent } from './components/MainContent';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, BrandKit, SavedModel, InspirationItem } from './types';
 import { generateImages, editImage, generateCaption, generateVariantSuggestions, detectProductCategory, fileToBase64, removeBackground } from './services/geminiService';
@@ -25,6 +25,8 @@ import { LoginPage } from './components/LoginPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SplashScreen } from './components/SplashScreen';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { AnalyticsDashboard } from './components/AnalyticsDashboard';
+import { ShopifyDashboard } from './components/ShopifyDashboard';
 
 const EditModal = lazy(() => import('./components/EditModal'));
 const ZoomModal = lazy(() => import('./components/ZoomModal'));
@@ -284,14 +286,14 @@ const App: React.FC = () => {
   }, [userProfile]);
 
   const handleSetView = useCallback((view: View) => {
-      if ((view === View.MyDesigns || view === View.Profile) && !userProfile) {
+      if ((view === View.MyDesigns || view === View.Profile || view === View.Analytics || view === View.ShopifyAnalytics) && !userProfile) {
           setIsAuthModalOpen(true);
           return;
       }
       setCurrentView(view);
   }, [userProfile]);
 
-  const recentActivity = React.useMemo(() => {
+  const recentActivity = useMemo(() => {
     const allImages = [...generatedImages, ...posterBoard];
     const uniqueImages = Array.from(new Map(allImages.map(img => [img.id, img])).values());
     
@@ -650,6 +652,19 @@ const App: React.FC = () => {
       }
   }, [userProfile, savedModels, params.modelGender]);
 
+  // Handle generation from Shopify Insights (Ad Creative link)
+  const handleShopifyAdGeneration = useCallback((productName: string) => {
+      setParams(prev => ({
+          ...INITIAL_GENERATE_PARAMS,
+          appMode: AppMode.AdCreative,
+          adTitle: `Sale on ${productName}`,
+          productDescription: productName,
+          adCta: 'Shop Now'
+      }));
+      setActiveMode(AppMode.AdCreative);
+      setCurrentView(View.Dashboard);
+  }, []);
+
   const handleGenerate = useCallback(async (currentParams: GenerateImageParams, previewUrlOverride?: string) => {
     if (isGeneratingRef.current) return;
     isGeneratingRef.current = true;
@@ -975,6 +990,21 @@ const App: React.FC = () => {
                       isLoading={isLoading || isGeneratingRef.current}
                       floatingMode={floatingMode} // FIX: Pass down floating mode state
                       onFloatingModeChange={setFloatingMode} // FIX: Pass down setter
+                  />
+              );
+          case View.Analytics:
+              return (
+                  <AnalyticsDashboard 
+                      savedDesigns={posterBoard}
+                      onSetView={handleSetView}
+                      onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                  />
+              );
+          case View.ShopifyAnalytics:
+              return (
+                  <ShopifyDashboard 
+                      onGenerateAd={handleShopifyAdGeneration}
+                      onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
                   />
               );
           case View.MyDesigns:

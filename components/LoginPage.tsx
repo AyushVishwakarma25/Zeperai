@@ -76,7 +76,15 @@ create table if not exists public.feedback (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 7. Create Inspiration Gallery Table (Community)
+-- 7. Create Analysis Reports Table
+create table if not exists public.analysis_reports (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  report_data jsonb not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 8. Create Inspiration Gallery Table (Community)
 create table if not exists public.inspiration_gallery (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -88,16 +96,17 @@ create table if not exists public.inspiration_gallery (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 8. Enable RLS
+-- 9. Enable RLS
 alter table public.profiles enable row level security;
 alter table public.user_credits enable row level security;
 alter table public.designs enable row level security;
 alter table public.brand_kits enable row level security;
 alter table public.saved_models enable row level security;
 alter table public.feedback enable row level security;
+alter table public.analysis_reports enable row level security;
 alter table public.inspiration_gallery enable row level security;
 
--- 9. Policies
+-- 10. Policies
 -- Profiles
 create policy "Users can view own profile" on public.profiles for select using (auth.uid() = id);
 create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
@@ -122,12 +131,16 @@ create policy "Users can delete own saved models" on public.saved_models for del
 -- Feedback
 create policy "Anyone can insert feedback" on public.feedback for insert with check (true);
 
+-- Analysis Reports
+create policy "Users can view own reports" on public.analysis_reports for select using (auth.uid() = user_id);
+create policy "Users can insert own reports" on public.analysis_reports for insert with check (auth.uid() = user_id);
+
 -- Inspiration Gallery
 create policy "Anyone can view inspiration" on public.inspiration_gallery for select using (true);
 create policy "Users can insert inspiration" on public.inspiration_gallery for insert with check (auth.uid() = user_id);
 create policy "Users can delete own inspiration" on public.inspiration_gallery for delete using (auth.uid() = user_id);
 
--- 10. Trigger for New Users
+-- 11. Trigger for New Users
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -147,7 +160,7 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 11. STORAGE SETUP
+-- 12. STORAGE SETUP
 insert into storage.buckets (id, name, public)
 values ('designs', 'designs', true)
 on conflict (id) do nothing;
@@ -168,7 +181,7 @@ create policy "Users can delete own images"
   on storage.objects for delete
   using ( bucket_id = 'designs' and auth.uid() = owner );
 
--- 12. BACKFILL EXISTING USERS
+-- 13. BACKFILL EXISTING USERS
 insert into public.profiles (id, email, name, avatar_url)
 select id, email, raw_user_meta_data->>'name', raw_user_meta_data->>'avatar_url'
 from auth.users

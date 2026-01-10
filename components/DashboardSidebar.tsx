@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Icon } from './ui/Icon';
 import { BrandLogo } from './ui/BrandLogo';
@@ -207,6 +208,8 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
 
             <NavItem icon="edit" label="AI Content Writer" onClick={() => { onOpenContentGenerator(); onClose(); }} isOpen={isOpen} />
             <NavItem icon="magic-wand" label="Brand Identity" onClick={() => { onOpenBrandKit(); onClose(); }} isOpen={isOpen} />
+            <NavItem icon="chart-bar" label="Brand Analytics" active={currentView === View.Analytics} onClick={() => { onSetView(View.Analytics); onClose(); }} isOpen={isOpen} />
+            <NavItem icon="shopping-bag" label="Shopify Analyzer" active={currentView === View.ShopifyAnalytics} onClick={() => { onSetView(View.ShopifyAnalytics); onClose(); }} isOpen={isOpen} />
             <NavItem icon="folder" label="My Designs" active={currentView === View.MyDesigns} onClick={() => { onSetView(View.MyDesigns); onClose(); }} isOpen={isOpen} />
             <NavItem icon="lightbulb" label="Inspiration" active={currentView === View.Inspiration} onClick={() => { onSetView(View.Inspiration); onClose(); }} isOpen={isOpen} />
             
