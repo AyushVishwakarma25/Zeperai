@@ -19,7 +19,12 @@ export const inspirationService = {
       .order('created_at', { ascending: false });
 
     if (error) {
-      if (error.code !== '42P01' && error.code !== '404') {
+      // 42P01: undefined table
+      // PGRST200: Schema cache refresh needed / table not found
+      // schema cache: generic message for missing table/cache issues
+      const isSchemaError = error.code === '42P01' || error.code === '404' || error.message.includes('schema cache');
+      
+      if (!isSchemaError) {
           console.warn("Failed to fetch community inspirations:", error.message);
       }
       return INSPIRATION_GALLERY; // Return static only if DB fails/missing

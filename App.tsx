@@ -95,6 +95,9 @@ const App: React.FC = () => {
   const [isSavingDesign, setIsSavingDesign] = useState<string | null>(null); 
   const [savedModels, setSavedModels] = useState<SavedModel[]>([]);
   
+  // New state for design loading
+  const [isLoadingDesigns, setIsLoadingDesigns] = useState(false);
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [credits, setCredits] = useState(0); 
   const [totalCredits, setTotalCredits] = useState(100);
@@ -192,12 +195,13 @@ const App: React.FC = () => {
                 
                 if (session.user.id !== 'guest-user-id') {
                     // Fetch heavy data while splash is showing
+                    // Use individual catches so one failure doesn't block the app loading
                     try {
                         const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
-                            userService.getCredits(),
-                            designService.getSavedDesigns(),
-                            brandService.getBrandKit(),
-                            userService.getSavedModels()
+                            userService.getCredits().catch(() => ({ current: 0, total: 0 })),
+                            designService.getSavedDesigns().catch(() => []),
+                            brandService.getBrandKit().catch(() => null),
+                            userService.getSavedModels().catch(() => [])
                         ]);
                         setCredits(creditData.current);
                         setTotalCredits(creditData.total);
@@ -206,7 +210,6 @@ const App: React.FC = () => {
                         setSavedModels(models);
                     } catch (dataError) {
                         console.error("Partial data load failure", dataError);
-                        // Don't block app load for data fetch errors
                     }
                 } else {
                     setCredits(25);
@@ -227,6 +230,28 @@ const App: React.FC = () => {
     initApp();
   }, []);
 
+  // New Effect: Refresh designs when MyDesigns view is active to ensure persistence visibility
+  useEffect(() => {
+      if (currentView === View.MyDesigns && userProfile && userProfile.id !== 'guest-user-id') {
+          if (!isOnline) {
+              return;
+          }
+          const fetchDesigns = async () => {
+              setIsLoadingDesigns(true);
+              try {
+                  const designs = await designService.getSavedDesigns();
+                  setPosterBoard(designs);
+              } catch (e: any) {
+                  console.error("Failed to refresh designs:", e.message || e);
+                  setToast({ message: "Could not load saved designs. Check connection.", type: 'error' });
+              } finally {
+                  setIsLoadingDesigns(false);
+              }
+          };
+          fetchDesigns();
+      }
+  }, [currentView, userProfile, isOnline]);
+
   const handleLoginSuccess = useCallback(async (session: AuthSession) => {
       setIsSidebarOpen(false); 
       setCurrentView(View.Dashboard); 
@@ -240,10 +265,10 @@ const App: React.FC = () => {
       if (session.user.id !== 'guest-user-id') {
           try {
               const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
-                    userService.getCredits(),
-                    designService.getSavedDesigns(),
-                    brandService.getBrandKit(),
-                    userService.getSavedModels()
+                    userService.getCredits().catch(() => ({ current: 0, total: 0 })),
+                    designService.getSavedDesigns().catch(() => []),
+                    brandService.getBrandKit().catch(() => null),
+                    userService.getSavedModels().catch(() => [])
               ]);
               setCredits(creditData.current);
               setTotalCredits(creditData.total);
@@ -1022,6 +1047,7 @@ const App: React.FC = () => {
                       onSetStoryboardSource={(img) => { setStoryboardSourceImage(img); handleSelectMode(AppMode.Influencer); }}
                       onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
                       onRemix={handleRemixDesign}
+                      isLoading={isLoadingDesigns}
                   />
               );
           case View.Profile:

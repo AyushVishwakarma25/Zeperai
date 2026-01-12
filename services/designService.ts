@@ -19,11 +19,21 @@ export const designService = {
 
     if (error) {
         // Silently fail if table missing or connection issue during init
+        // 42P01: relation does not exist
+        // 404: resource not found (often generic 404 from PostgREST if endpoint not mapped)
         if (error.code === '42P01' || error.code === '404' || (error as any).status === 404) {
             return [];
         }
-        console.warn("Failed to load designs:", error.message || error);
-        return [];
+        
+        // Handle Fetch/Network errors gracefully
+        const errorMessage = error.message || String(error);
+        if (errorMessage.includes('Failed to fetch') || errorMessage.includes('Network request failed')) {
+             throw new Error("Network connection failed. Unable to load designs.");
+        }
+
+        // For actual network/auth errors, throw so the UI knows it failed
+        console.error("Failed to load designs:", errorMessage);
+        throw error;
     }
 
     return data.map((row: any) => ({

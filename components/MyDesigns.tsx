@@ -3,6 +3,7 @@ import React, { useCallback, useState } from 'react';
 import type { GeneratedImage } from '../types';
 import { Icon } from './ui/Icon';
 import { Button } from './ui/Button';
+import { Spinner } from './ui/Spinner';
 import { View } from '../types';
 import { generateFilename } from '../utils/images';
 import { inspirationService } from '../services/inspirationService';
@@ -18,6 +19,7 @@ interface MyDesignsProps {
   onSetStoryboardSource: (image: GeneratedImage) => void;
   onToggleSidebar: () => void;
   onRemix?: (image: GeneratedImage) => void;
+  isLoading?: boolean;
 }
 
 const IconButton: React.FC<{icon: string, label: string, onClick: (e: React.MouseEvent) => void, disabled?: boolean, isLoading?: boolean}> = ({icon, label, onClick, disabled, isLoading}) => (
@@ -39,18 +41,39 @@ const IconButton: React.FC<{icon: string, label: string, onClick: (e: React.Mous
 );
 
 export const MyDesigns: React.FC<MyDesignsProps> = ({ 
-    images, onRemove, onDeploy, onSetView, onStartEdit, onSetZoomedImage, onSetStoryboardSource, onToggleSidebar, onRemix
+    images, onRemove, onDeploy, onSetView, onStartEdit, onSetZoomedImage, onSetStoryboardSource, onToggleSidebar, onRemix, isLoading
 }) => {
   const [sharingId, setSharingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
-  const handleDownload = useCallback((image: GeneratedImage) => {
-      const link = document.createElement('a');
-      link.href = image.imageUrl;
-      link.download = generateFilename(image, 'design');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+  const handleDownload = useCallback(async (image: GeneratedImage) => {
+      setDownloadingId(image.id);
+      try {
+          const response = await fetch(image.imageUrl, { mode: 'cors' });
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = generateFilename(image, 'design');
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+      } catch (e) {
+          console.error("Download failed, attempting fallback", e);
+          const link = document.createElement('a');
+          link.href = image.imageUrl;
+          link.download = generateFilename(image, 'design');
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+      } finally {
+          setDownloadingId(null);
+      }
   }, []);
   
   const handleDragStart = (e: React.DragEvent, image: GeneratedImage) => {
@@ -102,7 +125,12 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
             </div>
         </header>
 
-        {images.length === 0 ? (
+        {isLoading ? (
+            <div className="flex-grow flex items-center justify-center">
+                <Spinner />
+                <p className="ml-3 text-slate-500 font-medium">Loading your designs...</p>
+            </div>
+        ) : images.length === 0 ? (
             <div className="flex-grow flex flex-col items-center justify-center text-center text-text-secondary p-6">
                 <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6">
                     <Icon name="bookmark" className="w-10 h-10 text-slate-400"/>
@@ -138,7 +166,12 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
                                         <IconButton icon="film" label="Create Storyboard" onClick={(e) => { e.stopPropagation(); onSetStoryboardSource(image); }} />
                                         <IconButton icon="globe" label="Share to Inspiration" isLoading={sharingId === image.id} onClick={(e) => { e.stopPropagation(); handleShareToInspiration(image); }} />
                                         <IconButton icon="edit" label="Edit" onClick={(e) => { e.stopPropagation(); onStartEdit(image); }} />
-                                        <IconButton icon="download" label="Download" onClick={(e) => { e.stopPropagation(); handleDownload(image); }} />
+                                        <IconButton 
+                                            icon="download" 
+                                            label="Download" 
+                                            isLoading={downloadingId === image.id}
+                                            onClick={(e) => { e.stopPropagation(); handleDownload(image); }} 
+                                        />
                                         <IconButton icon="remove" label="Remove" onClick={(e) => { e.stopPropagation(); onRemove(image.id); }} />
                                     </div>
                                 </div>
