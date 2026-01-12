@@ -1,14 +1,37 @@
 
 import React, { useMemo } from 'react';
-import { 
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
-    LineChart, Line, Area 
-} from 'recharts';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+  ChartOptions
+} from 'chart.js';
+import { Line, Bar } from 'react-chartjs-2';
 import { Icon } from './ui/Icon';
 import type { GeneratedImage } from '../types';
 import { analyticsService } from '../services/analyticsService';
 import { View } from '../types';
 import { Button } from './ui/Button';
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 interface AnalyticsDashboardProps {
     savedDesigns: GeneratedImage[];
@@ -35,21 +58,78 @@ const StatCard: React.FC<{ label: string; value: string; subtext?: string; trend
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ savedDesigns, onSetView, onToggleSidebar }) => {
     const analytics = useMemo(() => analyticsService.getAnalyticsData(savedDesigns), [savedDesigns]);
 
-    // Custom Tooltip for Charts
-    const CustomTooltip = ({ active, payload, label }: any) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="bg-slate-800 text-white p-3 rounded-lg shadow-xl text-xs">
-                    <p className="font-bold mb-1">{label}</p>
-                    {payload.map((p: any) => (
-                        <p key={p.name} style={{ color: p.color }}>
-                            {p.name}: {p.value} {p.name === 'CTR' ? '%' : ''}
-                        </p>
-                    ))}
-                </div>
-            );
+    const commonOptions: ChartOptions<any> = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false,
+            },
+            tooltip: {
+                backgroundColor: '#1E293B',
+                padding: 12,
+                titleFont: { family: 'Inter', size: 13 },
+                bodyFont: { family: 'Inter', size: 12 },
+                cornerRadius: 8,
+                displayColors: false,
+            }
+        },
+        scales: {
+            x: {
+                grid: { display: false },
+                ticks: {
+                    color: '#64748B',
+                    font: { family: 'Inter', size: 11 }
+                },
+                border: { display: false }
+            },
+            y: {
+                grid: { color: '#F1F5F9', drawBorder: false },
+                ticks: {
+                    color: '#64748B',
+                    font: { family: 'Inter', size: 11 }
+                },
+                border: { display: false }
+            }
         }
-        return null;
+    };
+
+    const barData = {
+        labels: analytics.performanceByFormat.map(d => d.format),
+        datasets: [
+            {
+                label: 'CTR (%)',
+                data: analytics.performanceByFormat.map(d => d.ctr),
+                backgroundColor: '#6A5AE0',
+                borderRadius: 4,
+                barThickness: 40,
+            }
+        ]
+    };
+
+    const lineData = {
+        labels: analytics.trends.map(d => d.date),
+        datasets: [
+            {
+                label: 'Clicks',
+                data: analytics.trends.map(d => d.clicks),
+                borderColor: '#10B981',
+                backgroundColor: (context: any) => {
+                    const ctx = context.chart.ctx;
+                    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                    gradient.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
+                    gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+                    return gradient;
+                },
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#10B981',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+            }
+        ]
     };
 
     return (
@@ -115,15 +195,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ savedDes
                             </h3>
                         </div>
                         <div className="h-64 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={analytics.performanceByFormat} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                    <XAxis dataKey="format" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} dy={10} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
-                                    <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
-                                    <Bar dataKey="ctr" fill="#6A5AE0" radius={[6, 6, 0, 0]} barSize={40} name="CTR" />
-                                </BarChart>
-                            </ResponsiveContainer>
+                            <Bar options={commonOptions} data={barData} />
                         </div>
                     </div>
 
@@ -136,21 +208,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ savedDes
                             </h3>
                         </div>
                         <div className="h-64 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={analytics.trends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                    <defs>
-                                        <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#10B981" stopOpacity={0.1}/>
-                                            <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} dy={10} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
-                                    <RechartsTooltip content={<CustomTooltip />} />
-                                    <Line type="monotone" dataKey="clicks" stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: '#10B981', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} name="Clicks" />
-                                </LineChart>
-                            </ResponsiveContainer>
+                            <Line options={commonOptions} data={lineData} />
                         </div>
                     </div>
                 </div>

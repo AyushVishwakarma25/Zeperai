@@ -1,16 +1,39 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { 
-    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
-    BarChart, Bar 
-} from 'recharts';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+  ChartOptions
+} from 'chart.js';
+import { Line, Bar } from 'react-chartjs-2';
 import { Icon } from './ui/Icon';
 import { Button } from './ui/Button';
 import { Spinner } from './ui/Spinner';
 import { shopifyService } from '../services/shopifyService';
 import { analysisService } from '../services/analysisService';
-import { ShopifyAnalysisResult, AppMode, ProductZoneItem } from '../types';
+import { ShopifyAnalysisResult, ProductZoneItem } from '../types';
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 interface ShopifyDashboardProps {
     onGenerateAd: (productName: string) => void;
@@ -145,6 +168,118 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({ onGenerateAd
         setError(null);
     };
 
+    // Chart Configuration
+    const commonOptions: ChartOptions<any> = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#1E293B',
+                padding: 12,
+                cornerRadius: 8,
+                titleFont: { family: 'Inter', size: 13 },
+                bodyFont: { family: 'Inter', size: 12 },
+                callbacks: {
+                    label: (context) => {
+                        let label = context.dataset.label || '';
+                        if (label) { label += ': '; }
+                        if (context.parsed.y !== null) {
+                            label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                        }
+                        return label;
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                grid: { display: false },
+                ticks: { color: '#64748B', font: { family: 'Inter', size: 10 } },
+                border: { display: false }
+            },
+            y: {
+                grid: { color: '#F1F5F9', drawBorder: false },
+                ticks: {
+                    color: '#64748B',
+                    font: { family: 'Inter', size: 10 },
+                    callback: (value) => '$' + value
+                },
+                border: { display: false }
+            }
+        }
+    };
+
+    const salesData = {
+        labels: sanitizedSalesTrend.map(d => d.date),
+        datasets: [
+            {
+                label: 'Revenue',
+                data: sanitizedSalesTrend.map(d => d.revenue),
+                borderColor: '#10B981',
+                backgroundColor: '#10B981',
+                tension: 0.4,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+            }
+        ]
+    };
+
+    const horizontalBarOptions: ChartOptions<any> = {
+        ...commonOptions,
+        indexAxis: 'y', // Horizontal Bar
+        plugins: {
+            ...commonOptions.plugins,
+            tooltip: {
+                ...commonOptions.plugins?.tooltip,
+                callbacks: {
+                    label: (context) => {
+                        let label = context.dataset.label || '';
+                        if (label) { label += ': '; }
+                        if (context.parsed.x !== null) {
+                            label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.x);
+                        }
+                        return label;
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                ...commonOptions.scales?.y, // Swap X and Y logic for horizontal
+                grid: { color: '#F1F5F9', drawBorder: false },
+                ticks: { display: false }
+            },
+            y: {
+                ...commonOptions.scales?.x,
+                grid: { display: false },
+                ticks: { 
+                    color: '#334155', 
+                    font: { family: 'Inter', size: 11 },
+                    autoSkip: false,
+                    callback: function(val, index) {
+                        // ChartJS passes index, lookup label
+                        const label = this.getLabelForValue(val as number);
+                        return label.length > 15 ? label.substring(0, 15) + '...' : label;
+                    }
+                }
+            }
+        }
+    };
+
+    const topProductsData = {
+        labels: sanitizedTopProducts.map(d => d.name),
+        datasets: [
+            {
+                label: 'Revenue',
+                data: sanitizedTopProducts.map(d => d.revenue),
+                backgroundColor: '#6A5AE0',
+                borderRadius: 4,
+                barThickness: 24,
+            }
+        ]
+    };
+
     if (isFetching) {
         return (
              <div className="w-full h-full bg-main flex flex-col items-center justify-center">
@@ -273,32 +408,9 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({ onGenerateAd
                     {/* Revenue Chart */}
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
                         <h4 className="font-bold text-slate-700 mb-4">Revenue Trend</h4>
-                        {/* Explicit Height Style ensures ResponsiveContainer has dimensions */}
                         <div style={{ width: '100%', height: 300 }}>
                             {sanitizedSalesTrend.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={sanitizedSalesTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                        <XAxis 
-                                            dataKey="date" 
-                                            tick={{fontSize: 10, fill: '#64748b'}} 
-                                            tickLine={false}
-                                            axisLine={false}
-                                            minTickGap={30}
-                                        />
-                                        <YAxis 
-                                            tick={{fontSize: 10, fill: '#64748b'}} 
-                                            tickLine={false}
-                                            axisLine={false}
-                                            tickFormatter={(val) => `$${val}`}
-                                        />
-                                        <RechartsTooltip 
-                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                            formatter={(val: number) => [`$${val.toLocaleString()}`, 'Revenue']}
-                                        />
-                                        <Line type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                                    </LineChart>
-                                </ResponsiveContainer>
+                                <Line options={commonOptions} data={salesData} />
                             ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-sm text-slate-400 bg-slate-50 rounded-lg">
                                     <Icon name="chart-bar" className="w-8 h-8 mb-2 text-slate-300" />
@@ -313,28 +425,7 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({ onGenerateAd
                         <h4 className="font-bold text-slate-700 mb-4">Top 5 Products</h4>
                         <div style={{ width: '100%', height: 300 }}>
                             {sanitizedTopProducts.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={sanitizedTopProducts} layout="vertical" margin={{ top: 0, right: 30, left: 30, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                                        <XAxis type="number" hide />
-                                        <YAxis 
-                                            type="category" 
-                                            dataKey="name" 
-                                            width={140}
-                                            tick={{fontSize: 11, fill: '#334155'}} 
-                                            tickLine={false}
-                                            axisLine={false}
-                                            tickFormatter={(value) => value.length > 20 ? `${value.substring(0, 20)}...` : value}
-                                            interval={0}
-                                        />
-                                        <RechartsTooltip 
-                                            cursor={{fill: '#f1f5f9'}}
-                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                            formatter={(val: number) => [`$${val.toLocaleString()}`, 'Revenue']}
-                                        />
-                                        <Bar dataKey="revenue" fill="#6A5AE0" radius={[0, 4, 4, 0]} barSize={24} />
-                                    </BarChart>
-                                </ResponsiveContainer>
+                                <Bar options={horizontalBarOptions} data={topProductsData} />
                             ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-sm text-slate-400 bg-slate-50 rounded-lg">
                                     <Icon name="shopping-bag" className="w-8 h-8 mb-2 text-slate-300" />
