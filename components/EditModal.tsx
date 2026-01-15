@@ -4,7 +4,7 @@ import type { GeneratedImage, EditImageParams } from '../types';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 import { ImageDropzone } from './ui/ImageDropzone';
-import { processImageFile, dataURLtoFile } from '../utils/images';
+import { processImageFile, dataURLtoFile, downloadImage } from '../utils/images';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 interface EditModalProps {
@@ -42,6 +42,7 @@ const EditModal: React.FC<EditModalProps> = ({
   const isOnline = useNetworkStatus();
   const [mode, setMode] = useState<'inpaint' | 'crop' | 'background'>(initialTab);
   const [showOriginalBg, setShowOriginalBg] = useState(false);
+  const [downloadFormat, setDownloadFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
 
   // Inpaint state
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -415,14 +416,9 @@ const EditModal: React.FC<EditModalProps> = ({
     onImageUpdate(image.id, dataUrl);
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
       if (!image.imageUrl) return;
-      const link = document.createElement('a');
-      link.href = image.imageUrl;
-      link.download = `edited-image-${Date.now()}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      await downloadImage(image.imageUrl, `edited-${Date.now()}`, downloadFormat);
   };
 
   const cropHandles = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight', 'top', 'bottom', 'left', 'right'];
@@ -670,6 +666,11 @@ const EditModal: React.FC<EditModalProps> = ({
                                 )}
 
                                 <div className="mt-4 pt-4 border-t border-slate-200">
+                                    <div className="flex gap-2 mb-2">
+                                        <Button onClick={() => setDownloadFormat('png')} variant={downloadFormat === 'png' ? 'primary' : 'ghost'} className={`flex-1 !text-xs !py-1 ${downloadFormat === 'png' ? '' : '!bg-white border border-slate-200'}`}>PNG</Button>
+                                        <Button onClick={() => setDownloadFormat('jpeg')} variant={downloadFormat === 'jpeg' ? 'primary' : 'ghost'} className={`flex-1 !text-xs !py-1 ${downloadFormat === 'jpeg' ? '' : '!bg-white border border-slate-200'}`}>JPG</Button>
+                                        <Button onClick={() => setDownloadFormat('webp')} variant={downloadFormat === 'webp' ? 'primary' : 'ghost'} className={`flex-1 !text-xs !py-1 ${downloadFormat === 'webp' ? '' : '!bg-white border border-slate-200'}`}>WEBP</Button>
+                                    </div>
                                     <Button onClick={handleDownload} fullWidth variant="secondary">
                                         <Icon name="download" className="w-4 h-4 mr-2" />
                                         Download Image

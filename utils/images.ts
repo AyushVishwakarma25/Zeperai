@@ -146,7 +146,7 @@ export const cropImageToAspectRatio = (dataUrl: string, targetAspectRatio: Aspec
 };
 
 export const generateFilename = (image: GeneratedImage, prefix?: string, index?: number): string => {
-    const extension = image.imageUrl.split(';')[0].split('/')[1] || 'png';
+    // Basic filename without extension
     let namePart = 'design';
 
     if (image.params?.productDescription) {
@@ -161,7 +161,62 @@ export const generateFilename = (image: GeneratedImage, prefix?: string, index?:
     const finalPrefix = prefix ? `${prefix}-` : '';
     const finalIndex = index ? `-${index}` : '';
 
-    return `${finalPrefix}${sanitizedName}${finalIndex}.${extension}`;
+    return `${finalPrefix}${sanitizedName}${finalIndex}`;
+}
+
+export const downloadImage = async (url: string, filename: string, format: 'png' | 'jpeg' | 'webp' = 'png') => {
+    try {
+        const response = await fetch(url, { mode: 'cors' });
+        const blob = await response.blob();
+        
+        const mimeType = `image/${format}`;
+        
+        // Use a canvas to convert if needed
+        const img = new Image();
+        const blobUrl = URL.createObjectURL(blob);
+        img.crossOrigin = 'anonymous';
+        img.src = blobUrl;
+        
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+        });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas context failed');
+        
+        // Handle transparency for JPEG
+        if (format === 'jpeg') {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        ctx.drawImage(img, 0, 0);
+        
+        const convertedDataUrl = canvas.toDataURL(mimeType, 0.95);
+        const link = document.createElement('a');
+        link.href = convertedDataUrl;
+        link.download = `${filename}.${format === 'jpeg' ? 'jpg' : format}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        URL.revokeObjectURL(blobUrl);
+
+    } catch (e) {
+        console.error("Download failed", e);
+        // Fallback to direct download
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${filename}.png`; 
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
 }
 
 export const fileToGeneratedImage = async (file: File): Promise<GeneratedImage> => {

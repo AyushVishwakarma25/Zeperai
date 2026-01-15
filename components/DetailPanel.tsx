@@ -11,7 +11,7 @@ import {
     CAPTION_PLATFORM_OPTIONS,
     CAPTION_LANGUAGE_OPTIONS
 } from '../constants';
-import { generateFilename } from '../utils/images';
+import { generateFilename, downloadImage } from '../utils/images';
 import { inspirationService } from '../services/inspirationService';
 import { Toast } from './ui/Toast';
 
@@ -75,19 +75,19 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
     
     const [isSharing, setIsSharing] = useState(false);
     const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+    const [downloadFormat, setDownloadFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
+    const [isDownloading, setIsDownloading] = useState(false);
 
     const isGenerating = generatingCaptionImageId === image.id;
 
     const imageUrl = showOriginal && image.sourceProductImageUrl ? image.sourceProductImageUrl : image.imageUrl;
 
-    const handleDownload = useCallback(() => {
-        const link = document.createElement('a');
-        link.href = image.imageUrl;
-        link.download = generateFilename(image, 'design');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }, [image]);
+    const handleDownload = useCallback(async () => {
+        setIsDownloading(true);
+        const filename = generateFilename(image, 'design');
+        await downloadImage(image.imageUrl, filename, downloadFormat);
+        setIsDownloading(false);
+    }, [image, downloadFormat]);
 
     const handleGenerateContent = useCallback(() => {
         onGenerateCaption(image.id, {
@@ -217,16 +217,39 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
                         label="WhatsApp" 
                     />
                  </div>
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                      <Button onClick={handleShareToInspiration} disabled={isSharing} isLoading={isSharing} variant="ghost" className="!bg-purple-100 !text-primary hover:!bg-purple-200 !text-xs !px-2">
-                          <Icon name="globe" className="w-4 h-4 mr-2" />
-                          Share to Community
-                      </Button>
-                      <Button onClick={handleDownload} variant="secondary" className="!text-xs !px-2">
+                  <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                      <div className="flex gap-2 mb-2">
+                          <Button 
+                            onClick={() => setDownloadFormat('png')} 
+                            variant={downloadFormat === 'png' ? 'primary' : 'ghost'} 
+                            className={`flex-1 !text-xs !py-1.5 ${downloadFormat === 'png' ? '' : '!bg-white !text-slate-600 border border-slate-200'}`}
+                          >
+                              PNG
+                          </Button>
+                          <Button 
+                            onClick={() => setDownloadFormat('jpeg')} 
+                            variant={downloadFormat === 'jpeg' ? 'primary' : 'ghost'} 
+                            className={`flex-1 !text-xs !py-1.5 ${downloadFormat === 'jpeg' ? '' : '!bg-white !text-slate-600 border border-slate-200'}`}
+                          >
+                              JPG
+                          </Button>
+                          <Button 
+                            onClick={() => setDownloadFormat('webp')} 
+                            variant={downloadFormat === 'webp' ? 'primary' : 'ghost'} 
+                            className={`flex-1 !text-xs !py-1.5 ${downloadFormat === 'webp' ? '' : '!bg-white !text-slate-600 border border-slate-200'}`}
+                          >
+                              WEBP
+                          </Button>
+                      </div>
+                      <Button onClick={handleDownload} isLoading={isDownloading} variant="secondary" className="w-full !text-xs !px-2">
                           <Icon name="download" className="w-4 h-4 mr-2" />
-                          Download
+                          Download as {downloadFormat.toUpperCase()}
                       </Button>
                   </div>
+                  <Button onClick={handleShareToInspiration} disabled={isSharing} isLoading={isSharing} variant="ghost" fullWidth className="mt-2 !bg-purple-100 !text-primary hover:!bg-purple-200 !text-xs">
+                      <Icon name="globe" className="w-4 h-4 mr-2" />
+                      Share to Community
+                  </Button>
             </div>
         </div>
       </>

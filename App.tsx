@@ -130,7 +130,7 @@ const App: React.FC = () => {
   const floatingImageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-      const { frontProductImage, bulkImages, backProductImage, customAvatarImage, outfitReferenceImage, logoImage, remixReferenceImage, remixProductImage, ...safeParams } = params;
+      const { frontProductImage, bulkImages, customAvatarImage, outfitReferenceImage, logoImage, remixReferenceImage, remixProductImage, ...safeParams } = params;
       localStorage.setItem('krackx_last_params', JSON.stringify(safeParams));
   }, [params]);
 

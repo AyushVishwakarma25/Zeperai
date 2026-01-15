@@ -436,30 +436,97 @@ export const generateImages = async (
     modelSeedUrl?: string
 ): Promise<GeneratedImage[]> => {
     const aspectRatios = params.aspectRatios?.length ? params.aspectRatios : [AspectRatio.PortraitPost];
-    const batchSize = params.batchSize || (params.appMode === AppMode.Fashion ? 4 : 1);
-    const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
-    const effectiveBatch = Math.min(batchSize, maxBatch);
-
     const allResults: GeneratedImage[] = [];
     let completedJobs = 0;
 
+    // Calculate total operations for progress bar
+    let totalOps = 0;
+    
+    // Configs per mode
+    const fashionBatchSize = Math.min(params.batchSize || (params.appMode === AppMode.Fashion ? 4 : 1), userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1);
+    
+    // For Product Mode: Presets * Angles * Images
+    const productPresets = (params.productStylePresets && params.productStylePresets.length > 0) 
+        ? params.productStylePresets 
+        : (params.productStylePreset ? [params.productStylePreset] : [AI_SUGGESTED]);
+    const productAngles = (params.selectedAngles && params.selectedAngles.length > 0) ? params.selectedAngles : ['Front View'];
+    const bulkImages = params.bulkImages && params.bulkImages.length > 0 ? params.bulkImages : (params.frontProductImage ? [params.frontProductImage] : [undefined]);
+
+    if (params.appMode === AppMode.Product) {
+        totalOps = aspectRatios.length * productPresets.length * productAngles.length * bulkImages.length;
+    } else if (params.appMode === AppMode.Fashion) {
+        totalOps = aspectRatios.length * fashionBatchSize; // Fashion usually one image context, repeated for batch size
+        // If bulk images provided in fashion mode (e.g. multiple garments), multiply by that
+        if (params.bulkImages && params.bulkImages.length > 0) totalOps = aspectRatios.length * params.bulkImages.length;
+    } else {
+        // Standard modes (Influencer, Ad, etc)
+        const standardBatch = params.batchSize || 1;
+        totalOps = aspectRatios.length * standardBatch;
+        if (params.bulkImages && params.bulkImages.length > 0) totalOps = aspectRatios.length * params.bulkImages.length;
+    }
+
     for (const ratio of aspectRatios) {
-        const poses = params.appMode === AppMode.Fashion ? getFashionPoses(effectiveBatch) : [];
-        // FIX: Default to 'Front View' if angles are empty to prevent 0 iterations
-        const angles = params.appMode === AppMode.Product ? (params.selectedAngles && params.selectedAngles.length > 0 ? params.selectedAngles : ['Front View']) : [];
-        const iterations = params.appMode === AppMode.Product ? angles.length : effectiveBatch;
+        if (params.appMode === AppMode.Product) {
+            // Product Mode: Iterate All Combinations
+            for (const preset of productPresets) {
+                for (const angle of productAngles) {
+                    for (const img of bulkImages) {
+                        completedJobs++;
+                        if (onProgress) onProgress(completedJobs, totalOps);
 
-        for (let i = 0; i < iterations; i++) {
-            completedJobs++;
-            if (onProgress) onProgress(completedJobs, aspectRatios.length * iterations);
-
-            const activeImage = params.bulkImages ? params.bulkImages[i % params.bulkImages.length] : undefined;
-            const pose = params.appMode === AppMode.Fashion ? poses[i] : (params.appMode === AppMode.Product ? angles[i] : undefined);
-
-            const result = await generateSingleImage(params, ratio, userTier, brandKit, activeImage, pose, sourceProductImageUrl, modelSeedUrl);
-            allResults.push(result);
-
-            if (i < iterations - 1) await wait(5000); 
+                        const singleParams = { ...params, productStylePreset: preset };
+                        const result = await generateSingleImage(singleParams, ratio, userTier, brandKit, img, angle, sourceProductImageUrl, modelSeedUrl);
+                        allResults.push(result);
+                        
+                        if (completedJobs < totalOps) await wait(2000); // Small delay between requests
+                    }
+                }
+            }
+        } 
+        else if (params.appMode === AppMode.Fashion) {
+            const poses = getFashionPoses(fashionBatchSize);
+            const imageList = params.bulkImages && params.bulkImages.length > 0 ? params.bulkImages : [params.frontProductImage];
+            
+            // If bulk images exist, iterate images. Else iterate batch size (poses).
+            if (params.bulkImages && params.bulkImages.length > 0) {
+                for (const img of imageList) {
+                    completedJobs++;
+                    if (onProgress) onProgress(completedJobs, totalOps);
+                    const pose = poses[0]; // Use first pose or random
+                    const result = await generateSingleImage(params, ratio, userTier, brandKit, img, pose, sourceProductImageUrl, modelSeedUrl);
+                    allResults.push(result);
+                    if (completedJobs < totalOps) await wait(2000);
+                }
+            } else {
+                // Single image, multiple poses (batch)
+                for (let i = 0; i < fashionBatchSize; i++) {
+                    completedJobs++;
+                    if (onProgress) onProgress(completedJobs, totalOps);
+                    const pose = poses[i];
+                    const result = await generateSingleImage(params, ratio, userTier, brandKit, undefined, pose, sourceProductImageUrl, modelSeedUrl);
+                    allResults.push(result);
+                    if (completedJobs < totalOps) await wait(2000);
+                }
+            }
+        }
+        else {
+            // Default Modes (Influencer, Ad, etc.)
+            // Support bulk if present, otherwise single batch
+            const imageList = params.bulkImages && params.bulkImages.length > 0 ? params.bulkImages : [params.frontProductImage];
+            
+            for (const img of imageList) {
+                // If standard batch size requested (e.g. variations of same input)
+                const iterations = params.batchSize || 1;
+                for (let i = 0; i < iterations; i++) {
+                    completedJobs++;
+                    if (onProgress) onProgress(completedJobs, totalOps);
+                    
+                    const result = await generateSingleImage(params, ratio, userTier, brandKit, img, undefined, sourceProductImageUrl, modelSeedUrl);
+                    allResults.push(result);
+                    
+                    if (completedJobs < totalOps) await wait(2000);
+                }
+            }
         }
     }
     return allResults;

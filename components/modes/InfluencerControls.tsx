@@ -10,6 +10,7 @@ import { Select } from '../ui/Select';
 import { Icon } from '../ui/Icon';
 import { ControlButton, SectionTitle, HelpLabel, BestForLabel } from './shared';
 import { ProductCategory } from '../../types';
+import { StyleSelector } from '../ui/StyleSelector';
 
 interface InfluencerControlsProps {
     params: GenerateImageParams;
@@ -29,11 +30,15 @@ export const InfluencerControls: React.FC<InfluencerControlsProps> = ({
         </optgroup>
     ));
 
-    // Logic: If background is specifically set (not default), block UGC Style. 
-    // And if UGC Style is set, block background style.
-    // Default background is often "AI Suggested" which should be considered "empty" in this context
     const isBackgroundSet = params.backgroundStyle && params.backgroundStyle !== AI_SUGGESTED;
     const isUgcStyleSet = params.ugcStyle && params.ugcStyle !== '';
+
+    // Convert UGC options to StyleSelector format
+    const ugcStyleOptions = UGC_STYLE_OPTIONS.map(opt => ({
+        label: opt.label,
+        value: opt.value,
+        thumbnail: `https://placehold.co/300x300/f3e8ff/7e22ce?text=${encodeURIComponent(opt.label.split(' ')[0])}` // Placeholder
+    }));
 
     return (
         <>
@@ -99,21 +104,31 @@ export const InfluencerControls: React.FC<InfluencerControlsProps> = ({
             <div className="border-t border-slate-200 my-6"></div>
             
             <div className="mt-4">
-                <HelpLabel label="UGC Style (Presets)" tooltip="Complete influencer presets. Disables Background Style if selected." />
-                <Select 
-                    label="" 
-                    value={params.ugcStyle || ''} 
-                    onChange={e => handleParamChange('ugcStyle', e.target.value)}
+                <div className="flex justify-between items-center mb-3">
+                    <HelpLabel label="UGC Styles (Presets)" tooltip="Complete influencer presets. Disables Background Style if selected." className="mb-0" />
+                    {isUgcStyleSet && (
+                        <button 
+                            onClick={() => handleParamChange('ugcStyle', '')}
+                            className="text-xs text-slate-400 hover:text-red-500 font-medium flex items-center transition-colors px-2 py-1 rounded hover:bg-red-50"
+                        >
+                            <Icon name="remove" className="w-3 h-3 mr-1" />
+                            Clear
+                        </button>
+                    )}
+                </div>
+                
+                <StyleSelector 
+                    options={ugcStyleOptions}
+                    value={params.ugcStyle || ''}
+                    onChange={(val) => handleParamChange('ugcStyle', val)}
                     disabled={isBackgroundSet}
-                    className={isBackgroundSet ? 'opacity-50 cursor-not-allowed' : ''}
-                >
-                    <option value="">Select a Style...</option>
-                    {UGC_STYLE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                </Select>
-                {isBackgroundSet && <p className="text-xs text-red-500 mt-1">Reset Background Style to enable UGC Styles</p>}
+                    className="grid-cols-2 sm:grid-cols-3"
+                />
+                
+                {isBackgroundSet && <p className="text-xs text-red-500 mt-2 bg-red-50 p-2 rounded-lg text-center">Reset Background Style below to enable UGC Styles</p>}
             </div>
 
-            <div className="mt-4">
+            <div className="mt-6">
                 <HelpLabel label="Outfit Type" />
                 <div className="grid grid-cols-4 gap-2">
                     {CLOTHING_TYPE_OPTIONS.map(opt => (
@@ -124,7 +139,7 @@ export const InfluencerControls: React.FC<InfluencerControlsProps> = ({
                 </div>
             </div>
             <div className="mt-4">
-                <HelpLabel label="Background Style" tooltip="Disables UGC Style if selected." />
+                <HelpLabel label="Custom Background" tooltip="Disables UGC Style if selected." />
                 <Select 
                     label="" 
                     value={params.backgroundStyle} 

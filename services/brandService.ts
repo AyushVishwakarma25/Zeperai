@@ -34,6 +34,7 @@ export const brandService = {
         fonts: data.fonts,
         voice: data.voice,
         description: data.description,
+        negativeConstraints: data.negative_constraints || '',
         logoUrl: data.logo_url,
         updatedAt: new Date(data.updated_at).getTime(),
       };
@@ -56,6 +57,7 @@ export const brandService = {
       fonts: kit.fonts,
       voice: kit.voice,
       description: kit.description,
+      negative_constraints: kit.negativeConstraints,
       logo_url: kit.logoUrl,
       updated_at: new Date().toISOString(),
     };
@@ -82,6 +84,7 @@ export const brandService = {
       fonts: data.fonts,
       voice: data.voice,
       description: data.description,
+      negativeConstraints: data.negative_constraints || '',
       logoUrl: data.logo_url,
       updatedAt: new Date(data.updated_at).getTime(),
     };

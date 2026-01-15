@@ -1,11 +1,11 @@
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import type { GeneratedImage } from '../types';
 import { Icon } from './ui/Icon';
 import { Button } from './ui/Button';
 import { Spinner } from './ui/Spinner';
 import { View } from '../types';
-import { generateFilename } from '../utils/images';
+import { generateFilename, downloadImage } from '../utils/images';
 import { inspirationService } from '../services/inspirationService';
 import { Toast } from './ui/Toast';
 
@@ -40,42 +40,45 @@ const IconButton: React.FC<{icon: string, label: string, onClick: (e: React.Mous
     </button>
 );
 
+// New Component: Download Popover
+const DownloadPopover: React.FC<{ image: GeneratedImage, onClose: () => void, onDownloadStart: (id: string) => void, onDownloadEnd: () => void }> = ({ image, onClose, onDownloadStart, onDownloadEnd }) => {
+    const popoverRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+                onClose();
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [onClose]);
+
+    const handleDownload = async (format: 'png' | 'jpeg' | 'webp') => {
+        onDownloadStart(image.id);
+        const filename = generateFilename(image, 'design');
+        await downloadImage(image.imageUrl, filename, format);
+        onDownloadEnd();
+        onClose();
+    };
+
+    return (
+        <div ref={popoverRef} className="absolute bottom-full right-0 mb-2 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 flex flex-col gap-1 min-w-[100px] animate-fade-in">
+            <button onClick={() => handleDownload('png')} className="px-3 py-2 text-sm text-left hover:bg-slate-50 rounded-lg text-slate-700">PNG</button>
+            <button onClick={() => handleDownload('jpeg')} className="px-3 py-2 text-sm text-left hover:bg-slate-50 rounded-lg text-slate-700">JPG</button>
+            <button onClick={() => handleDownload('webp')} className="px-3 py-2 text-sm text-left hover:bg-slate-50 rounded-lg text-slate-700">WEBP</button>
+        </div>
+    );
+};
+
 export const MyDesigns: React.FC<MyDesignsProps> = ({ 
     images, onRemove, onDeploy, onSetView, onStartEdit, onSetZoomedImage, onSetStoryboardSource, onToggleSidebar, onRemix, isLoading
 }) => {
   const [sharingId, setSharingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [activeDownloadPopoverId, setActiveDownloadPopoverId] = useState<string | null>(null);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
-  const handleDownload = useCallback(async (image: GeneratedImage) => {
-      setDownloadingId(image.id);
-      try {
-          const response = await fetch(image.imageUrl, { mode: 'cors' });
-          const blob = await response.blob();
-          const blobUrl = URL.createObjectURL(blob);
-
-          const link = document.createElement('a');
-          link.href = blobUrl;
-          link.download = generateFilename(image, 'design');
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-      } catch (e) {
-          console.error("Download failed, attempting fallback", e);
-          const link = document.createElement('a');
-          link.href = image.imageUrl;
-          link.download = generateFilename(image, 'design');
-          link.target = '_blank';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-      } finally {
-          setDownloadingId(null);
-      }
-  }, []);
-  
   const handleDragStart = (e: React.DragEvent, image: GeneratedImage) => {
       e.dataTransfer.setData('application/x-krackx-image', JSON.stringify(image));
       e.dataTransfer.effectAllowed = 'copy';
@@ -162,16 +165,31 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
                                     <img src={image.imageUrl} alt="Saved generation" className="w-full h-full object-cover" />
                                 </div>
                                 <div className="p-1 border-t border-slate-200 mt-auto">
-                                    <div className="flex items-center justify-around">
+                                    <div className="flex items-center justify-around relative">
                                         <IconButton icon="film" label="Create Storyboard" onClick={(e) => { e.stopPropagation(); onSetStoryboardSource(image); }} />
                                         <IconButton icon="globe" label="Share to Inspiration" isLoading={sharingId === image.id} onClick={(e) => { e.stopPropagation(); handleShareToInspiration(image); }} />
                                         <IconButton icon="edit" label="Edit" onClick={(e) => { e.stopPropagation(); onStartEdit(image); }} />
-                                        <IconButton 
-                                            icon="download" 
-                                            label="Download" 
-                                            isLoading={downloadingId === image.id}
-                                            onClick={(e) => { e.stopPropagation(); handleDownload(image); }} 
-                                        />
+                                        
+                                        <div className="relative">
+                                            <IconButton 
+                                                icon="download" 
+                                                label="Download" 
+                                                isLoading={downloadingId === image.id}
+                                                onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    setActiveDownloadPopoverId(activeDownloadPopoverId === image.id ? null : image.id);
+                                                }} 
+                                            />
+                                            {activeDownloadPopoverId === image.id && (
+                                                <DownloadPopover 
+                                                    image={image} 
+                                                    onClose={() => setActiveDownloadPopoverId(null)}
+                                                    onDownloadStart={(id) => setDownloadingId(id)}
+                                                    onDownloadEnd={() => setDownloadingId(null)}
+                                                />
+                                            )}
+                                        </div>
+
                                         <IconButton icon="remove" label="Remove" onClick={(e) => { e.stopPropagation(); onRemove(image.id); }} />
                                     </div>
                                 </div>
