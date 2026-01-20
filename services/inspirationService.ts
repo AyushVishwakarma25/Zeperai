@@ -92,7 +92,7 @@ export const inspirationService = {
       });
 
     if (insertError) {
-        if (insertError.code === '42P01') throw new Error("Inspiration gallery not configured yet.");
+        if (insertError.code === '42P01') throw new Error("Missing 'inspiration_gallery' table. Please run the SQL setup script.");
         throw insertError;
     }
   }

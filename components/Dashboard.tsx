@@ -115,7 +115,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
     onFloatingModeChange
 }) => {
 
-    const isProLocked = !isAdmin && (userTier === 'Free' || userTier === 'Starter');
+    const isProLocked = !isAdmin && (userTier === 'Free');
 
     const tools = [
         {

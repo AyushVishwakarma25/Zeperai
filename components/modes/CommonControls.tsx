@@ -26,6 +26,9 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
     const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
     // Multi-select enabled for all tiers now
     const canMultiSelect = true; 
+    
+    // Only show batch size for specific modes
+    const showBatchControls = [AppMode.Influencer, AppMode.Fashion, AppMode.AdCreative].includes(params.appMode);
 
     return (
         <>
@@ -66,7 +69,7 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
                 </div>
             </div>
 
-            {params.appMode !== AppMode.Product && batchOptions.length > 0 && (
+            {showBatchControls && batchOptions.length > 0 && (
                 <div className="mt-6">
                     <HelpLabel label="Batch Size" tooltip="Number of variations generated in one go. Higher batches save time." />
                     <div className="grid grid-cols-4 gap-2">

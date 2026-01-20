@@ -83,6 +83,23 @@ export const authService = {
   },
 
   /**
+   * Sign In with Magic Link (OTP)
+   */
+  async signInWithOtp(email: string): Promise<void> {
+    // 1. Call Supabase
+    // We redirect to window.location.origin (the root of the app)
+    // The App.tsx listener will pick up the hash fragment automatically.
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
+
+    if (error) throw error;
+  },
+
+  /**
    * Sign Up
    */
   async signUpWithPassword(name: string, email: string, password: string): Promise<AuthSession> {
@@ -122,5 +139,26 @@ export const authService = {
    */
   async signOut(): Promise<void> {
     await supabase.auth.signOut();
+  },
+
+  /**
+   * Subscribe to Auth Changes (Redirects, OAuth, Magic Links)
+   */
+  subscribe(callback: (event: string, session: AuthSession | null) => void): { unsubscribe: () => void } {
+    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session) {
+            const userProfile = await mapUserToProfile(session.user);
+            const authSession: AuthSession = {
+                user: userProfile,
+                token: session.access_token,
+                expiresAt: (session.expires_at || 0) * 1000
+            };
+            callback(event, authSession);
+        } else {
+            callback(event, null);
+        }
+    });
+    
+    return data.subscription;
   }
 };

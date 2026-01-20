@@ -21,8 +21,8 @@ const pricingPlans = [
     features: [
       '80 Credits monthly',
       'Access to Flash Models ⚡',
+      'Unlock AI Copywriter ✍️',
       'Standard HD Resolution',
-      'Basic Image Editing',
       'Commercial Usage Rights',
     ],
     highlight: false,
@@ -37,9 +37,10 @@ const pricingPlans = [
     credits: '300 Credits',
     features: [
       '300 Credits monthly',
-      'Unlock AI Copywriter ✍️',
       'Unlock Pro Models',
       'Priority Generation Speed',
+      'Access to Brand Analytics 📊',
+      'Commercial Usage Rights',
     ],
     highlight: true,
     buttonVariant: 'primary' as const,
@@ -56,7 +57,7 @@ const pricingPlans = [
       'All Pro Features Included',
       'Bulk Content Generation 🚀',
       'Unlimited Cloud Storage ☁️',
-      'Early Access to Beta Models',
+      'Shopify Data Analyzer 📈',
     ],
     highlight: false,
     buttonVariant: 'secondary' as const,
@@ -123,7 +124,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
               Unlock Creative Power
             </h2>
             <p className="text-sm text-slate-500 max-w-xl mx-auto">
-                Scale your content production with flexible plans. Upgrade to Standard to unlock the AI Writer and Photorealistic Pro Models.
+                Scale your content production with flexible plans. Upgrade to unlock Pro Models and Business Intelligence tools.
             </p>
           </div>
 

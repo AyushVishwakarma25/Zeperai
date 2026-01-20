@@ -42,23 +42,27 @@ export const StyleSelector: React.FC<StyleSelectorProps> = ({ options, value, on
     };
 
     return (
-        <div className={`grid grid-cols-3 sm:grid-cols-4 gap-3 ${className} ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
+        <div className={`grid grid-cols-3 sm:grid-cols-4 gap-4 ${className} ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
             {options.map((option) => {
                 const selected = isSelected(option.value);
                 return (
                     <button
                         key={option.value}
                         onClick={() => handleClick(option.value)}
-                        className={`group relative flex flex-col items-center text-left transition-all duration-200 ${selected ? 'scale-105' : 'hover:scale-105'}`}
+                        className={`group relative flex flex-col items-center text-left transition-all duration-200 outline-none`}
                         title={option.label}
                         type="button"
                     >
-                        <div className={`relative w-full aspect-square rounded-xl overflow-hidden mb-2 border-2 shadow-sm transition-all ${selected ? 'border-primary ring-2 ring-primary/20' : 'border-slate-200 group-hover:border-slate-300'}`}>
+                        <div className={`relative w-full aspect-square rounded-2xl overflow-hidden mb-2 transition-all duration-200 ${
+                            selected 
+                            ? 'ring-2 ring-primary ring-offset-2' 
+                            : 'ring-1 ring-slate-200 hover:ring-slate-300 hover:shadow-md'
+                        }`}>
                             {option.thumbnail ? (
                                 <img 
                                     src={option.thumbnail} 
                                     alt={option.label} 
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                                    className={`w-full h-full object-cover transition-transform duration-500 ${selected ? 'scale-105' : 'group-hover:scale-110'}`} 
                                     loading="lazy" 
                                 />
                             ) : (
@@ -67,16 +71,19 @@ export const StyleSelector: React.FC<StyleSelectorProps> = ({ options, value, on
                                 </div>
                             )}
                             
-                            {/* Selected Overlay */}
+                            {/* Selected Indicator - Cleaner Badge */}
                             {selected && (
-                                <div className="absolute inset-0 bg-primary/20 flex items-center justify-center backdrop-blur-[1px]">
-                                    <div className="bg-white text-primary rounded-full p-1 shadow-lg transform scale-110">
-                                        <Icon name="check-circle" className="w-5 h-5" />
-                                    </div>
+                                <div className="absolute top-2 right-2 bg-primary text-white rounded-full p-0.5 shadow-md transform scale-100 transition-transform">
+                                    <Icon name="check-circle" className="w-4 h-4" />
                                 </div>
                             )}
+                            
+                            {/* Hover Overlay */}
+                            {!selected && (
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
+                            )}
                         </div>
-                        <span className={`text-[10px] sm:text-xs font-semibold text-center leading-tight line-clamp-2 px-1 ${selected ? 'text-primary' : 'text-slate-600'}`}>
+                        <span className={`text-[10px] sm:text-xs font-semibold text-center leading-tight line-clamp-2 px-1 ${selected ? 'text-primary' : 'text-slate-600 group-hover:text-slate-900'}`}>
                             {option.label}
                         </span>
                     </button>

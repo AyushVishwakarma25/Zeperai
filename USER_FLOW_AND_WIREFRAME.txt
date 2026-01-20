@@ -1,107 +1,127 @@
 
-ZEPERAI STUDIO - PRODUCT DOCUMENTATION
+ZEPERAI STUDIO - PRODUCT FLOW & UX ARCHITECTURE
 
 ================================================================================
-1. USER FLOW
+1. USER JOURNEY MAPS
 ================================================================================
 
-PHASE A: AUTHENTICATION & ONBOARDING
-1. Initial Landing: User arrives at the login page.
-2. Login/Signup: User authenticates via Supabase. New users receive 25 starting credits.
-3. Session Initialization: The app fetches user profile, credits, and existing designs.
-4. Dashboard Entry: User sees a personalized greeting and the main workspace.
+FLOW A: THE "SMART" CREATIVE START (Brand-First Approach)
+1.  **Onboarding:** User Logs in.
+2.  **Brand Identity Setup (Critical):** 
+    -   User opens "Brand Identity" from sidebar.
+    -   Uploads Logo.
+    -   AI analyzes Logo -> Auto-fills Primary Colors, Fonts, and Tone of Voice.
+    -   User saves Brand Kit. (This now applies to ALL future generations).
+3.  **Creation:** User goes to Dashboard, selects "Product Photoshoot".
+    -   The system automatically prompts the AI: "Use brand color #6A5AE0 for lighting accents."
 
-PHASE B: CREATIVE INITIATION
-1. Mode Discovery: User chooses a creative path (Influencer, Product, Remix, etc.) via:
-   - Sidebar navigation.
-   - Central Tool Cards.
-   - Quick Floating Action Bar.
-2. Asset Upload: User uploads a product image. Client-side processing ensures optimized dimensions.
-3. AI Contextualization: 
-   - Gemini analyzes the image + description.
-   - Detects ProductCategory (e.g., Skincare, Tech).
-   - Dynamically filters background and style options.
-4. Configuration: User selects camera angles, lighting presets, and model personas.
+FLOW B: THE "DATA-DRIVEN" AD CAMPAIGN (Shopify Integration)
+1.  **Ingestion:** User goes to "Shopify Analyzer".
+2.  **Upload:** User drops a CSV export of their Monthly Sales.
+3.  **Analysis:** System visualizes Revenue Trends and creates "Product Zones".
+    -   User sees "Red Zone" (Underperforming Products).
+4.  **Action:** User clicks "Create Clearance Ad" on a Red Zone product.
+5.  **Generation:** App redirects to "Ad Creative" mode with pre-filled context:
+    -   *Objective:* Clearance/Urgency.
+    -   *Product Name:* From CSV.
+    -   *Ad Copy:* "Last Chance to Buy".
 
-PHASE C: GENERATION & REFINEMENT
-1. Generation: User triggers "Generate". The gemini-proxy Edge Function validates credits before calling Gemini 2.5 Flash.
-2. Review: Results appear in a grid. User can click any image for a detailed view.
-3. AI Enhancement:
-   - Content Writing: Generate platform-specific captions (Instagram, LinkedIn, etc.).
-   - A/B Testing: Get AI suggestions for variations to improve CTR.
-   - Upscaling: Enhance specific images to 4K resolution.
-   - Editing: Use the brush tool for inpainting or the crop tool for resizing.
-
-PHASE D: MANAGEMENT & DEPLOYMENT
-1. Saving: User bookmarks favorite designs. High-res versions are uploaded to Supabase Storage.
-2. Collection: Saved items move to the "My Designs" view.
-3. Deployment: User selects images and downloads a Deployment Package (CSV data + Zip images) for easy import into tools like Airtable or Shopify.
+FLOW C: THE CONTENT ENGINE (Generation -> Copy -> Deploy)
+1.  **Visual:** User generates a batch of 4 images in "Fashion Studio" mode.
+2.  **Selection:** User picks the best shot.
+3.  **Writing:** Opens "AI Content Writer" in the detail panel.
+    -   Selects Platform: "Instagram".
+    -   AI generates Caption + Hashtags based on the image visual context.
+4.  **Persistence:** User clicks "Save". Image is uploaded to Cloud Storage; Data saved to DB.
+5.  **Analytics:** User views "Brand Analytics" to see predicted CTR scores for the asset.
 
 ================================================================================
-2. VISUAL WIREFRAME (STRUCTURAL LAYOUT)
+2. WIREFRAME & UI COMPOSITION
 ================================================================================
 
-[HEADER]
-_______________________________________________________________________________
-| [Logo] ZeperAi Studio                    | [Feedback] [Launch Offer - 🐝]  |
-|__________________________________________|__________________________________|
+[ GLOBAL LAYOUT ]
+___________________________________________________________________________________
+| [SIDEBAR (Collapsed/Expanded)]                                                  |
+| ------------------------------                                                  |
+| [Logo]                                                                          |
+|                                                                                 |
+| [Home]                                                                          |
+| [Creative Modes v]                                                              |
+|   |-- Influencer                                                                |
+|   |-- Product                                                                   |
+|   |-- Fashion                                                                   |
+|   |-- Ad Creative                                                               |
+|   |-- Remix                                                                     |
+|                                                                                 |
+| [Tools]                                                                         |
+|   |-- AI Content Writer                                                         |
+|   |-- Brand Identity                                                            |
+|                                                                                 |
+| [Intelligence]                                                                  |
+|   |-- Brand Analytics                                                           |
+|   |-- Shopify Analyzer                                                          |
+|                                                                                 |
+| [Library]                                                                       |
+|   |-- My Designs                                                                |
+|   |-- Inspiration                                                               |
+|_________________________________________________________________________________|
+| [MAIN CONTENT AREA]                                                             |
+|                                                                                 |
+|  [HEADER: Breadcrumbs | Feedback | Upgrade Plan]                                |
+|                                                                                 |
+|  [VIEW: DASHBOARD]                                                              |
+|  "What are we creating, {Name}?"                                                |
+|                                                                                 |
+|  [ FLOATING ACTION BAR ------------------------------------------------------]  |
+|  | [Mode Select]  [Upload Img]  [Prompt Input field...]         [Generate]   |  |
+|  [---------------------------------------------------------------------------]  |
+|                                                                                 |
+|  [GRID: QUICK ACTIONS]                                                          |
+|  [Product Studio] [Fashion Studio] [Ad Generator] [Background Remover]          |
+|  (Colorful Cards with Icons)                                                    |
+|                                                                                 |
+|_________________________________________________________________________________|
 
-[MAIN LAYOUT]
-_______________________________________________________________________________
-|                |                                                            |
-| [SIDEBAR]      |  [WORKSPACE / DASHBOARD]                                   |
-|                |                                                            |
-| (Top Nav)      |  "What are we creating today, {User}?"                     |
-| [Home]         |                                                            |
-| [Modes v]      |  [--- FLOATING GENERATION BAR ---------------------------] |
-|   - Influencer |  | [Asset Icon] Describe your creation...    [Generate]   | |
-|   - Product    |  [-------------------------------------------------------] |
-|   - Fashion    |                                                            |
-| [AI Writer]    |  (Grid Categories)                                         |
-| [My Designs]   |  _____________    _____________    _____________           |
-| [Inspiration]  |  | [Ecommerce]|   | [Marketing] |   | [Other]     |          |
-|                |  | - Tool 1   |   | - Tool 1    |   | - Tool 1    |          |
-| (Divider)      |  | - Tool 2   |   | - Tool 2    |   | - Tool 2    |          |
-|                |  |____________|   |_____________|   |_____________|          |
-| (Bottom Nav)   |                                                            |
-| [Profile]      |  (Footer Row)                                              |
-| [Support]      |  [Recent Thumbnail 1] [Recent Thumbnail 2] [Recent 3]...     |
-| [Logout]       |                                                            |
-|________________|____________________________________________________________|
-
-[MODAL INTERFACE - CREATIVE SETTINGS]
-_______________________________________________________________________________
-| [X] Tool Name (e.g., Product Photoshoot)                                    |
-|-----------------------------------------------------------------------------|
-| [LEFT COLUMN - 35%]            | [RIGHT COLUMN - 65%]                       |
-| (Asset Management)             | (Configuration)                            |
-|                                |                                            |
-| [Dropzone: Main Image]         | [TextArea: Product Description]            |
-| [Dropzone: Brand Logo]         | [Select: Camera Angles]                    |
-|                                | [Select: Visual Style Preset]              |
-|                                | [Group: Aspect Ratio Selection]            |
-|                                | [Select: Output Format & Quality]          |
-|--------------------------------|--------------------------------------------|
-|                                | [BUTTON: Generate Photoshoot (1 Credit)]   |
-|________________________________|____________________________________________|
+[ MODAL: CREATIVE CONFIGURATION (The "Brain")]
+___________________________________________________________________________________
+| [Header: Mode Name (e.g. Influencer)]                               [Reset] [X] |
+|---------------------------------------------------------------------------------|
+| [LEFT COLUMN: ASSETS]                | [RIGHT COLUMN: CONTROLS]                 |
+|                                      |                                          |
+| [ Large Dropzone ]                   | [ Section: Context ]                     |
+| - Preview of Uploaded Product        | - Description TextArea                   |
+| - "Remove Background" toggle         | - "Magic Prompt" button                  |
+|                                      |                                          |
+| (If Ad Mode)                         | [ Section: Mode Specifics ]              |
+| [ Logo Dropzone ]                    | (Influencer)                             |
+| [ Competitor Image Dropzone ]        | - Model Gender / Ethnicity / Age         |
+|                                      | - Setting (Cafe, Street, Studio)         |
+|                                      |                                          |
+|                                      | (Product)                                |
+|                                      | - Camera Angle (Top down, Front)         |
+|                                      | - Visual Style (Minimal, Neon, Luxury)   |
+|                                      |                                          |
+|                                      | [ Section: Output ]                      |
+|                                      | - Aspect Ratio (1:1, 9:16, 16:9)         |
+|                                      | - Format (JPG/PNG)                       |
+|                                      | - Batch Size (1, 4, 8)                   |
+|                                      |                                          |
+|--------------------------------------|------------------------------------------|
+| [Cost Indicator: 4 Credits]          | [ BIG CTA BUTTON: GENERATE ]             |
+|______________________________________|__________________________________________|
 
 ================================================================================
-3. POSSIBLE IMPROVEMENTS
+3. INTERACTION STATES
 ================================================================================
 
-UX & WORKFLOW
-- Canvas-Based Workspace: Replace static grids with an infinite white-board canvas where users can arrange, resize, and group generated assets manually.
-- Drag-to-Remix: Allow dragging a generated result directly back into the "Reference Asset" slot to iterate on a specific style.
-- Dark Mode: A high-contrast theme for professional environments.
+LOADING STATES
+- **Spinner Overlay:** "Generating... (2/4)" with a progress bar for batch operations.
+- **Micro-copy:** "Warming up the AI models...", "Polishing pixels...".
 
-AI & FEATURES
-- Video Generation: Integrate Veo 3.1 for cinemagraphs or product-in-motion videos (e.g., 360 spins).
-- Background Removal Service: A dedicated, fast pre-processing step for product isolation before sending to Gemini.
-- Brand Kit Persistence: A global "Brand Identity" section to store fonts, colors, and hex codes that auto-inject into every generation prompt.
+ERROR STATES
+- **Toast Notifications:** "Insufficient Credits", "Upload Failed", "Network Error".
+- **Fallback UI:** If offline, the AI buttons disable and show "Offline Mode".
 
-TECHNICAL SCALABILITY
-- Batch Processing: Upload a CSV/Folder of product images to generate 100+ creatives in one background job.
-- Social Webhooks: Add a "Post to Meta/LinkedIn" button that uses the generated caption and image via official APIs.
-- Team Collaboration: Shared folders and credit pools for agency teams.
-- Local History: IndexedDB implementation for caching results to reduce Supabase read requests.
-================================================================================
+SUCCESS STATES
+- **Gallery View:** Results appear immediately in a Masonry grid.
+- **Confetti:** On first successful generation of the session.

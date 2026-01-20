@@ -1,4 +1,6 @@
 
+// ... imports same as before ...
+// (keeping imports identical)
 import React, { useState, useCallback, lazy, Suspense, useEffect, useRef, useMemo } from 'react';
 import { MainContent } from './components/MainContent';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, BrandKit, SavedModel, InspirationItem } from './types';
@@ -53,8 +55,12 @@ const App: React.FC = () => {
   const [floatingMode, setFloatingMode] = useState<AppMode>(AppMode.Influencer);
   
   const [params, setParams] = useState<GenerateImageParams>(() => {
-      const saved = localStorage.getItem('krackx_last_params');
-      return saved ? { ...INITIAL_GENERATE_PARAMS, ...JSON.parse(saved) } : INITIAL_GENERATE_PARAMS;
+      try {
+          const saved = localStorage.getItem('krackx_last_params');
+          return saved ? { ...INITIAL_GENERATE_PARAMS, ...JSON.parse(saved) } : INITIAL_GENERATE_PARAMS;
+      } catch (e) {
+          return INITIAL_GENERATE_PARAMS;
+      }
   });
 
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
@@ -182,55 +188,86 @@ const App: React.FC = () => {
     }
   }, [isLoading, isEditing, batchProgress]);
 
+  // INITIALIZATION & AUTH LISTENER
   useEffect(() => {
+    let isMounted = true;
+
     const initApp = async () => {
-        const minWait = new Promise(resolve => setTimeout(resolve, 2500)); // Show splash for at least 2.5s
+        // Enforce a minimum splash time for branding and smoothness
+        const minWait = new Promise(resolve => setTimeout(resolve, 800)); 
         
         try {
             const session = await authService.getSession();
-            if (session) {
-                setUserProfile(session.user);
-                setUserTier(session.user.tier);
-                if (session.user.role === 'Administrator') setIsAdmin(true);
-                
-                if (session.user.id !== 'guest-user-id') {
-                    // Fetch heavy data while splash is showing
-                    // Use individual catches so one failure doesn't block the app loading
-                    try {
-                        const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
-                            userService.getCredits().catch(() => ({ current: 0, total: 0 })),
-                            designService.getSavedDesigns().catch(() => []),
-                            brandService.getBrandKit().catch(() => null),
-                            userService.getSavedModels().catch(() => [])
-                        ]);
-                        setCredits(creditData.current);
-                        setTotalCredits(creditData.total);
-                        setPosterBoard(savedDesigns);
-                        setBrandKit(userBrandKit);
-                        setSavedModels(models);
-                    } catch (dataError) {
-                        console.error("Partial data load failure", dataError);
-                    }
-                } else {
-                    setCredits(25);
-                    setTotalCredits(25);
-                    setPosterBoard([]);
-                    setBrandKit(null);
-                    setSavedModels([]);
-                }
+            if (session && isMounted) {
+                // If session found, load data. 
+                // We await this to ensure the Dashboard has data (credits, etc.) before rendering.
+                await loadUserData(session);
             }
         } catch (err) {
             console.error("Failed to fetch initial session", err);
         } finally {
-            await minWait; // Ensure splash duration
-            setShowSplash(false);
+            await minWait; 
+            if (isMounted) setShowSplash(false);
         }
     };
     
     initApp();
-  }, []);
 
-  // New Effect: Refresh designs when MyDesigns view is active to ensure persistence visibility
+    // LISTEN FOR REDIRECTS (Magic Link / OAuth from Landing Page)
+    const { unsubscribe } = authService.subscribe((event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+            setUserProfile(current => {
+                if (!current || current.id !== session.user.id) {
+                    loadUserData(session); 
+                    return session.user;
+                }
+                return current;
+            });
+        } else if (event === 'SIGNED_OUT') {
+            handleLogout();
+        }
+    });
+
+    return () => {
+        isMounted = false;
+        unsubscribe();
+    };
+  }, []); 
+
+  // Helper to load user data
+  const loadUserData = async (session: AuthSession) => {
+      setUserProfile(session.user);
+      setUserTier(session.user.tier);
+      if (session.user.role === 'Administrator') setIsAdmin(true);
+      
+      if (session.user.id !== 'guest-user-id') {
+          try {
+              const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
+                  userService.getCredits().catch(() => ({ current: 0, total: 0 })),
+                  designService.getSavedDesigns().catch(() => []),
+                  brandService.getBrandKit().catch(() => null),
+                  userService.getSavedModels().catch(() => [])
+              ]);
+              setCredits(creditData.current);
+              setTotalCredits(creditData.total);
+              setPosterBoard(savedDesigns);
+              setBrandKit(userBrandKit);
+              setSavedModels(models);
+          } catch (dataError) {
+              console.error("Partial data load failure", dataError);
+          }
+      } else {
+          setCredits(25);
+          setTotalCredits(25);
+          setPosterBoard([]);
+          setBrandKit(null);
+          setSavedModels([]);
+      }
+  };
+
+  // ... (Rest of the component remains unchanged - ensuring imports are correct above)
+  
+  // Refetch designs on view change logic
   useEffect(() => {
       if (currentView === View.MyDesigns && userProfile && userProfile.id !== 'guest-user-id') {
           if (!isOnline) {
@@ -255,37 +292,8 @@ const App: React.FC = () => {
   const handleLoginSuccess = useCallback(async (session: AuthSession) => {
       setIsSidebarOpen(false); 
       setCurrentView(View.Dashboard); 
-      setUserProfile(session.user);
-      setUserTier(session.user.tier);
-      if (session.user.role === 'Administrator') setIsAdmin(true);
-      else setIsAdmin(false);
-
+      await loadUserData(session);
       setToast({ message: `Welcome back, ${session.user.name}!`, type: 'success' });
-      
-      if (session.user.id !== 'guest-user-id') {
-          try {
-              const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
-                    userService.getCredits().catch(() => ({ current: 0, total: 0 })),
-                    designService.getSavedDesigns().catch(() => []),
-                    brandService.getBrandKit().catch(() => null),
-                    userService.getSavedModels().catch(() => [])
-              ]);
-              setCredits(creditData.current);
-              setTotalCredits(creditData.total);
-              setPosterBoard(savedDesigns);
-              setBrandKit(userBrandKit);
-              setSavedModels(models);
-          } catch (e) {
-              console.error("Failed to load user data after login", e);
-              setToast({ message: "Failed to sync account data. Please refresh.", type: 'error' });
-          }
-      } else {
-          setCredits(25);
-          setTotalCredits(25);
-          setPosterBoard([]);
-          setBrandKit(null);
-          setSavedModels([]);
-      }
   }, []);
 
   const handleLogout = useCallback(async () => {
@@ -302,6 +310,7 @@ const App: React.FC = () => {
       setToast({ message: "Logged out successfully", type: 'success' });
   }, []);
 
+  // ... (All other handlers unchanged) ...
   const handleRequireAuth = useCallback(() => {
       if (!userProfile || userProfile.id === 'guest-user-id') {
           setIsAuthModalOpen(true);
@@ -481,7 +490,7 @@ const App: React.FC = () => {
               appMode: AppMode.Remix,
               productDescription: image.params?.productDescription || '',
               remixReferenceImage: referenceFile,
-              remixReferenceImageUrl: referenceUrl // FIX: Set URL fallback
+              remixReferenceImageUrl: referenceUrl 
           }));
           
           setCurrentView(View.Dashboard);
@@ -738,8 +747,6 @@ const App: React.FC = () => {
       );
       setGeneratedImages(results);
 
-      // FIX: Removed auto-save for new models. Use manual Save Model instead.
-
       if (isFreeTrialGeneration) {
           setFreeGenerationsUsed(prev => prev + cost);
           setToast({ message: `${cost} free generation(s) used. ${remainingFree - cost} remaining.`, type: 'success' });
@@ -805,7 +812,6 @@ const App: React.FC = () => {
     }
   }, []);
   
-  // ... (Floating UI handlers remain same) ...
   const handleFloatingImageFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) handleFloatingImageDrop(file);
@@ -818,21 +824,18 @@ const App: React.FC = () => {
       if (isGeneratingRef.current) return;
       if (!isOnline) { setToast({ message: "You are offline.", type: 'error' }); return; }
 
-      // Use the selected floatingMode instead of hardcoded AppMode.Influencer
       const generationParams: GenerateImageParams = {
           ...INITIAL_GENERATE_PARAMS,
-          appMode: floatingMode, // FIX: Use selected mode
+          appMode: floatingMode, 
           productDescription: floatingPrompt,
           frontProductImage: floatingImageFile ?? undefined,
           aspectRatios: params.aspectRatios, 
           outputFormat: params.outputFormat,
           resolutionQuality: params.resolutionQuality,
-          // Apply some safe defaults if user didn't open settings
           modelGender: params.modelGender,
           productCategory: params.productCategory
       };
       
-      // Auto-detect if user typed something that looks like an ad request
       if (floatingPrompt.toLowerCase().includes('ad') || floatingPrompt.toLowerCase().includes('banner')) {
           generationParams.appMode = AppMode.AdCreative;
       }
@@ -844,8 +847,6 @@ const App: React.FC = () => {
     setGeneratedImages([]);
     setActiveMode(lastActiveMode);
   }, [lastActiveMode]);
-
-  // -- Missing Handlers Implementation --
 
   const handleStartEdit = useCallback((image?: GeneratedImage, tab: 'inpaint' | 'crop' | 'background' = 'inpaint') => {
       setEditingImage(image || {
@@ -868,7 +869,6 @@ const App: React.FC = () => {
   const handleApplyEdit = useCallback(async (editParams: EditImageParams) => {
       if (!isOnline) { setToast({message: "Offline", type: 'error'}); return; }
       
-      // Credit Check for Inpainting
       if (!checkAndDeductCredits(1)) return;
 
       setIsEditing(true); 
@@ -878,7 +878,7 @@ const App: React.FC = () => {
               setEditingImage({ ...editingImage, imageUrl: result.imageUrl });
           }
       } catch (e) {
-          refundCredits(1); // Refund on failure
+          refundCredits(1); 
           setToast({ message: "Edit failed", type: 'error' });
       } finally {
           setIsEditing(false);
@@ -972,7 +972,6 @@ const App: React.FC = () => {
                               try {
                                   const result = await generateCaption({ imageUrl: img.imageUrl, ...opts }, brandKit);
                                   const updated = { ...img, caption: result.caption, hashtags: result.hashtags };
-                                  // Update local state lists
                                   setGeneratedImages(prev => prev.map(i => i.id === id ? updated : i));
                                   setPosterBoard(prev => prev.map(i => i.id === id ? updated : i));
                               } catch (e) {
@@ -983,13 +982,12 @@ const App: React.FC = () => {
                           }}
                           generatingCaptionImageId={generatingCaptionImageId}
                           onOpenABTestModal={async (image) => {
-                              // Credit Check for AB Test
                               if (checkAndDeductCredits(2)) {
                                   setAbTestModalImage(image);
                               }
                           }}
                           onReturnToSettings={handleReturnToSettings}
-                          onSaveModel={handleSaveModel} // FIX: Pass manual save handler
+                          onSaveModel={handleSaveModel} 
                       />
                   );
               }
@@ -1013,8 +1011,8 @@ const App: React.FC = () => {
                       onInternalImageDrop={handleInternalImageDrop}
                       onFloatingImageDrop={handleFloatingImageDrop}
                       isLoading={isLoading || isGeneratingRef.current}
-                      floatingMode={floatingMode} // FIX: Pass down floating mode state
-                      onFloatingModeChange={setFloatingMode} // FIX: Pass down setter
+                      floatingMode={floatingMode} 
+                      onFloatingModeChange={setFloatingMode} 
                   />
               );
           case View.Analytics:
@@ -1115,7 +1113,6 @@ const App: React.FC = () => {
                           try {
                               const result = await generateCaption({ imageUrl: img.imageUrl, ...opts }, brandKit);
                               const updated = { ...img, caption: result.caption, hashtags: result.hashtags };
-                              // Update local state lists
                               setGeneratedImages(prev => prev.map(i => i.id === id ? updated : i));
                               setPosterBoard(prev => prev.map(i => i.id === id ? updated : i));
                           } catch (e) {
@@ -1126,13 +1123,12 @@ const App: React.FC = () => {
                       }}
                       generatingCaptionImageId={generatingCaptionImageId}
                       onOpenABTestModal={async (image) => {
-                          // Credit Check for AB Test
                           if (checkAndDeductCredits(2)) {
                               setAbTestModalImage(image);
                           }
                       }}
                       onReturnToSettings={handleReturnToSettings}
-                      onSaveModel={handleSaveModel} // FIX: Pass handler here too
+                      onSaveModel={handleSaveModel}
                   />
               );
       }
@@ -1194,11 +1190,8 @@ const App: React.FC = () => {
                         storyboardSourceImage={storyboardSourceImage}
                         onClearStoryboardSource={handleClearStoryboardSource}
                         
-                        // Pass new bulk handlers
                         onFileChange={(file, param, setter, opts) => {
                             if (param === 'frontProductImage') {
-                                // Use bulk handler if modifying front image via drag/drop single file
-                                // or just fall back to standard if needed
                                 if (file) handleBulkFilesChange([file]);
                                 else handleFileChange(null, param, setter, opts);
                             } else {
@@ -1208,7 +1201,6 @@ const App: React.FC = () => {
                         frontProductImagePreview={frontProductImagePreview}
                         setFrontProductImagePreview={setFrontProductImagePreview}
                         
-                        // Pass bulk props specifically for CreativeModal usage
                         bulkImagePreviews={bulkImagePreviews}
                         onBulkFilesChange={handleBulkFilesChange}
                         onRemoveBulkImage={handleRemoveBulkImage}

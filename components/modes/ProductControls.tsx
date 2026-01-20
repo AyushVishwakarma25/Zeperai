@@ -92,21 +92,24 @@ export const ProductControls: React.FC<ProductControlsProps> = ({
                         )}
                     </div>
 
-                    {/* Category Tabs */}
-                    <div className="flex overflow-x-auto gap-2 pb-1 mb-4 scrollbar-hide -mx-1 px-1">
-                        {PRO_PRODUCT_STYLE_PRESETS.map(cat => (
-                            <button 
-                                key={cat.category}
-                                onClick={() => setActiveCategory(cat.category)}
-                                className={`px-3 py-1.5 whitespace-nowrap text-xs font-bold rounded-full border transition-all duration-200 ${
-                                    activeCategory === cat.category 
-                                    ? 'bg-slate-800 text-white border-slate-800 shadow-sm' 
-                                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
-                                }`}
-                            >
-                                {cat.category}
-                            </button>
-                        ))}
+                    {/* Category Tabs - Scrollbar Hidden */}
+                    <div className="flex overflow-x-auto gap-2 pb-2 mb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] mask-fade-right">
+                        {PRO_PRODUCT_STYLE_PRESETS.map(cat => {
+                            const isActive = activeCategory === cat.category;
+                            return (
+                                <button 
+                                    key={cat.category}
+                                    onClick={() => setActiveCategory(cat.category)}
+                                    className={`px-4 py-1.5 whitespace-nowrap text-xs font-bold rounded-full transition-all duration-200 border ${
+                                        isActive 
+                                        ? 'bg-slate-900 text-white border-slate-900 shadow-md transform scale-105' 
+                                        : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-100 hover:text-slate-700'
+                                    }`}
+                                >
+                                    {cat.category}
+                                </button>
+                            )
+                        })}
                     </div>
 
                     {/* Visual Grid */}
