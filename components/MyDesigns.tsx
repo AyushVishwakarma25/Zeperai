@@ -72,7 +72,8 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
     onSetView, onStartEdit, onSetZoomedImage, onSetStoryboardSource, onToggleSidebar, onRemix
 }) => {
   const { designs, isLoading, hasMore, fetchDesigns, removeDesign: removeDesignFromContext } = useDesigns();
-  const observer = useRef<IntersectionObserver>();
+  // FIX: Added explicit 'null' argument to useRef to resolve the "Expected 1 arguments, but got 0" error on line 75.
+  const observer = useRef<IntersectionObserver | null>(null);
   
   const [sharingId, setSharingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);

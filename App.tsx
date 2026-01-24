@@ -1,52 +1,45 @@
-// ... imports same as before ...
 import React, { useState, useCallback, lazy, Suspense, useEffect, useRef, useMemo } from 'react';
 import { MainContent } from './components/MainContent';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, BrandKit, SavedModel, InspirationItem, ShopifyAnalysisResult, GenerateCaptionParams } from './types';
-import { generateImages, editImage, generateCaption, generateVariantSuggestions, detectProductCategory, fileToBase64, removeBackground } from './services/geminiService';
+import { generateImages, editImage, generateCaption, detectProductCategory, fileToBase64, removeBackground } from './services/geminiService';
 import { userService, UserProfileData } from './services/userService';
 import { designService } from './services/designService'; 
 import { brandService } from './services/brandService';
 import { Spinner } from './components/ui/Spinner';
 import { AppMode, ResolutionQuality, ProductCategory, View, AspectRatio } from './types';
-import { AI_SUGGESTED, FREE_TRIAL_LIMIT, LOADING_MESSAGES, INITIAL_GENERATE_PARAMS } from './constants';
-import { processImageFile, dataURLtoFile, fileToGeneratedImage } from './utils/images';
+import { LOADING_MESSAGES, INITIAL_GENERATE_PARAMS, FREE_TRIAL_LIMIT } from './constants';
+import { processImageFile, dataURLtoFile } from './utils/images';
 import { debounce, getActionLabel } from './utils/helpers';
-import { getModeDefaults } from './utils/configLogic'; 
+import { getModeDefaults, toggleAspectRatio } from './utils/configLogic'; 
 import { calculateGenerationCost } from './utils/costs'; 
 import { DashboardSidebar } from './components/DashboardSidebar';
 import { Dashboard } from './components/Dashboard';
 import { CreativeModal } from './components/CreativeModal';
 import { MyDesigns } from './components/MyDesigns';
 import { Toast } from './components/ui/Toast';
-import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuth } from './contexts/AuthContext';
 import { useDesigns } from './contexts/DesignsContext';
-// FIX: Import AuthSession for login handler type
 import { AuthSession } from './services/authService';
 
-// Lazy load heavy components to prevent blocking main bundle
+// Lazy load heavy components
 const EditModal = lazy(() => import('./components/EditModal'));
 const ZoomModal = lazy(() => import('./components/ZoomModal'));
-const DeployModal = lazy(() => import('./components/DeployModal'));
-const ABTestModal = lazy(() => import('./components/ABTestModal'));
-const QuickVariantsModal = lazy(() => import('./components/QuickVariantsModal'));
 const FeedbackModal = lazy(() => import('./components/FeedbackModal'));
 const PricingModal = lazy(() => import('./components/PricingModal'));
 const SupportModal = lazy(() => import('./components/SupportModal'));
 const ContentGenerator = lazy(() => import('./components/ContentGenerator'));
-const ProfilePage = lazy(() => import('./components/ProfilePage'));
 const ProfileEditModal = lazy(() => import('./components/ProfileEditModal'));
 const InspirationPage = lazy(() => import('./components/InspirationPage'));
 const BrandKitModal = lazy(() => import('./components/BrandKitModal'));
+const ProfilePage = lazy(() => import('./components/ProfilePage'));
 
 // Handle Named Exports for Lazy Loading
 const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard').then(module => ({ default: module.AnalyticsDashboard })));
 const ShopifyDashboard = lazy(() => import('./components/ShopifyDashboard').then(module => ({ default: module.ShopifyDashboard })));
 
-// FIX: Helper function to parse data URLs, needed for background removal.
 const dataURLToParts = (dataURL: string) => {
     const parts = dataURL.split(',');
     const data = parts[1];
@@ -61,9 +54,7 @@ const App: React.FC = () => {
   
   const [activeMode, setActiveMode] = useState<AppMode | null>(null);
   const [lastActiveMode, setLastActiveMode] = useState<AppMode | null>(null);
-  const [isRemixMode, setIsRemixMode] = useState(false);
   
-  // New state for floating bar mode selection
   const [floatingMode, setFloatingMode] = useState<AppMode>(AppMode.Influencer);
   
   const [params, setParams] = useState<GenerateImageParams>(() => {
@@ -95,23 +86,14 @@ const App: React.FC = () => {
   const [brandKit, setBrandKit] = useState<BrandKit | null>(null);
   const [abTestModalImage, setAbTestModalImage] = useState<GeneratedImage | null>(null);
   
-  // CACHED DATA STATES
   const [inspirationItems, setInspirationItems] = useState<InspirationItem[]>([]);
   const [isInspirationLoaded, setIsInspirationLoaded] = useState(false);
-  const [shopifyReport, setShopifyReport] = useState<ShopifyAnalysisResult | null>(null);
-  const [isShopifyLoaded, setIsShopifyLoaded] = useState(false);
 
-  // Single image preview
   const [frontProductImagePreview, setFrontProductImagePreview] = useState<string | null>(null);
-  // Bulk image previews
   const [bulkImagePreviews, setBulkImagePreviews] = useState<string[]>([]);
 
   const [remixReferenceImagePreview, setRemixReferenceImagePreview] = useState<string | null>(null);
   const [remixProductImagePreview, setRemixProductImagePreview] = useState<string | null>(null);
-  const [quickVariantsField, setQuickVariantsField] = useState<'modelPersona' | 'poseSuggestion' | null>(null);
-  const [isVariantsLoading, setIsVariantsLoading] = useState(false);
-  const [variantSuggestions, setVariantSuggestions] = useState<string[]>([]);
-  const [variantError, setVariantError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [savedModels, setSavedModels] = useState<SavedModel[]>([]);
@@ -120,20 +102,14 @@ const App: React.FC = () => {
   const [credits, setCredits] = useState(0); 
   const [totalCredits, setTotalCredits] = useState(100);
   
-  // Persistent Free Usage
   const [freeGenerationsUsed, setFreeGenerationsUsed] = useState(() => {
       const saved = localStorage.getItem('krackx_free_usage');
       return saved ? parseInt(saved, 10) : 0;
   });
 
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  
   const [loadingMessages, setLoadingMessages] = useState<{title: string, subtext: string}>({ title: '', subtext: '' });
   const generationModeRef = useRef<AppMode | null>(null);
-  
   const isGeneratingRef = useRef(false);
-
-  const imageEditInputRef = useRef<HTMLInputElement>(null);
 
   const [floatingPrompt, setFloatingPrompt] = useState('');
   const [floatingImageFile, setFloatingImageFile] = useState<File | null>(null);
@@ -150,17 +126,6 @@ const App: React.FC = () => {
   useEffect(() => {
       localStorage.setItem('krackx_free_usage', freeGenerationsUsed.toString());
   }, [freeGenerationsUsed]);
-
-  useEffect(() => {
-      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-          if (generatedImages.length > 0) {
-              e.preventDefault();
-              e.returnValue = ''; 
-          }
-      };
-      window.addEventListener('beforeunload', handleBeforeUnload);
-      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [generatedImages.length]);
 
   useEffect(() => {
     if (isLoading || isEditing) {
@@ -195,7 +160,6 @@ const App: React.FC = () => {
     }
   }, [isLoading, isEditing, batchProgress]);
 
-  // Load user-specific data when user object changes
   useEffect(() => {
       const loadData = async () => {
           if (user && user.id !== 'guest-user-id') {
@@ -213,7 +177,7 @@ const App: React.FC = () => {
               } catch (dataError) {
                   console.error("Partial data load failure", dataError);
               }
-          } else if (user) { // Guest user
+          } else if (user) {
               setCredits(25);
               setTotalCredits(25);
               setBrandKit(null);
@@ -223,37 +187,25 @@ const App: React.FC = () => {
       loadData();
   }, [user]);
 
-
   const handleLogout = useCallback(async () => {
       setIsSidebarOpen(false);
       await signOut();
       setCurrentView(View.Dashboard);
       setToast({ message: "Logged out successfully", type: 'success' });
-      // Clear cached data on logout
-      setInspirationItems([]);
-      setIsInspirationLoaded(false);
-      setShopifyReport(null);
-      setIsShopifyLoaded(false);
   }, [signOut]);
 
   const handleRequireAuth = useCallback(() => {
       if (!user || user.id === 'guest-user-id') {
-          setIsAuthModalOpen(true);
           return false;
       }
       return true;
   }, [user]);
 
   const handleSetView = useCallback((view: View) => {
-      if ((view === View.MyDesigns || view === View.Profile || view === View.Analytics || view === View.ShopifyAnalytics) && !user) {
-          setIsAuthModalOpen(true);
-          return;
-      }
       setCurrentView(view);
-  }, [user]);
+  }, []);
 
   const recentActivity = useMemo(() => {
-    // Now uses designs from context
     return designs
         .slice(0, 12) 
         .map(img => ({
@@ -284,23 +236,17 @@ const App: React.FC = () => {
   const handleOpenFeedbackModal = useCallback(() => setIsFeedbackModalOpen(true), []);
   const handleCloseFeedbackModal = useCallback(() => setIsFeedbackModalOpen(false), []);
 
-  const handleOpenPricingModal = useCallback(() => {
-    if (handleRequireAuth()) {
-        setIsPricingModalOpen(true);
-    }
-  }, [handleRequireAuth]);
-
+  const handleOpenPricingModal = useCallback(() => setIsPricingModalOpen(true), []);
   const handleClosePricingModal = useCallback(() => setIsPricingModalOpen(false), []);
   const handleOpenSupportModal = useCallback(() => setIsSupportModalOpen(true), []);
   const handleCloseSupportModal = useCallback(() => setIsSupportModalOpen(false), []);
   const handleOpenContentGeneratorModal = useCallback(() => setIsContentGeneratorModalOpen(true), []);
   const handleCloseContentGeneratorModal = useCallback(() => setIsContentGeneratorModalOpen(false), []);
-  const handleOpenBrandKitModal = useCallback(() => { if (!handleRequireAuth()) return; setIsBrandKitModalOpen(true); }, [handleRequireAuth]);
+  const handleOpenBrandKitModal = useCallback(() => setIsBrandKitModalOpen(true), []);
 
   const handleApiError = useCallback((err: unknown) => {
     let errorMessage = 'An unexpected error occurred.';
     if (err instanceof Error) errorMessage = err.message;
-    console.error("API Error Detail:", err);
     setError(errorMessage);
   }, []);
 
@@ -328,18 +274,15 @@ const App: React.FC = () => {
 
   const handleSelectMode = useCallback((tool: AppMode) => {
     setLastActiveMode(tool);
-    setIsRemixMode(false);
     setParams(prev => ({ ...prev, ...getModeDefaults(tool, prev) }));
     setActiveMode(tool);
   }, []);
   
   const handleRemix = useCallback((item: InspirationItem) => {
       setLastActiveMode(item.appMode);
-      setIsRemixMode(true);
       setParams(prev => ({ ...INITIAL_GENERATE_PARAMS, ...getModeDefaults(item.appMode, INITIAL_GENERATE_PARAMS), ...item.remixParams, appMode: item.appMode }));
       setActiveMode(item.appMode);
       setCurrentView(View.Dashboard);
-      setToast({ message: `Remixing style: ${item.title}`, type: 'success' });
   }, []);
 
   const handleRemixDesign = useCallback(async (image: GeneratedImage) => {
@@ -348,7 +291,7 @@ const App: React.FC = () => {
           const detailed = await designService.getDesignDetails(image.id);
           if (!detailed) { setToast({ message: "Could not load design details for remix.", type: 'error' }); return; }
           fullImage = detailed;
-          updateDesign(detailed); // Update context
+          updateDesign(detailed);
       }
       try {
           const response = await fetch(fullImage.imageUrl);
@@ -366,7 +309,6 @@ const App: React.FC = () => {
   const handleResetParams = useCallback(() => {
     if (!activeMode) return;
     setParams(prev => ({ ...INITIAL_GENERATE_PARAMS, ...getModeDefaults(activeMode, INITIAL_GENERATE_PARAMS) }));
-    setToast({ message: "Parameters reset.", type: 'success' });
   }, [activeMode]);
 
   const debouncedDetectProductCategory = useCallback(debounce(async (base64: string, mimeType: string, description: string) => {
@@ -387,11 +329,7 @@ const App: React.FC = () => {
       setBulkImagePreviews(prev => [...prev, ...newPreviews]);
       setParams(prev => ({ ...prev, bulkImages: [...(prev.bulkImages || []), ...processedNewFiles], frontProductImage: [...(prev.bulkImages || []), ...processedNewFiles][0] }));
       setFrontProductImagePreview([...currentPreviews, ...newPreviews][0]);
-      if (processedNewFiles.length > 0 && !params.detectedCategory) {
-          const base64 = await fileToBase64(processedNewFiles[0]);
-          debouncedDetectProductCategory(base64, processedNewFiles[0].type, params.productDescription);
-      }
-  }, [bulkImagePreviews, params.productDescription, params.detectedCategory, debouncedDetectProductCategory]);
+  }, [bulkImagePreviews]);
 
   const handleFileChange = useCallback(async (file: File | null, paramName: keyof GenerateImageParams, previewSetter: React.Dispatch<React.SetStateAction<string | null>>, options: any) => {
     if (file === null) previewSetter(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
@@ -399,14 +337,10 @@ const App: React.FC = () => {
         const processedFile = await processImageFile(file, options);
         previewSetter(URL.createObjectURL(processedFile));
         setParams(prev => ({ ...prev, [paramName]: processedFile }));
-        if (paramName === 'frontProductImage') {
-            const base64 = await fileToBase64(processedFile);
-            debouncedDetectProductCategory(base64, processedFile.type, params.productDescription);
-        }
     } else {
         setParams(prev => ({ ...prev, [paramName]: undefined }));
     }
-  }, [params.productDescription, debouncedDetectProductCategory]);
+  }, []);
 
   const handleRemoveBulkImage = useCallback((index: number) => {
       setBulkImagePreviews(prev => {
@@ -425,7 +359,7 @@ const App: React.FC = () => {
 
   const handleSaveModel = useCallback(async (image: GeneratedImage) => {
       if (!handleRequireAuth()) return;
-      const modelName = `${params.modelGender || 'New'} Model #${Math.floor(1000 + Math.random() * 9000)}`;
+      const modelName = `Model #${Math.floor(1000 + Math.random() * 9000)}`;
       try {
           const newModels = await userService.saveModel(modelName, image.imageUrl, savedModels);
           setSavedModels(newModels);
@@ -433,7 +367,7 @@ const App: React.FC = () => {
       } catch (err: any) {
           setToast({ message: "Failed to save model.", type: 'error' });
       }
-  }, [savedModels, params.modelGender, handleRequireAuth]);
+  }, [savedModels, handleRequireAuth]);
 
   const handleGenerate = useCallback(async (currentParams: GenerateImageParams, previewUrlOverride?: string) => {
     if (isGeneratingRef.current) return;
@@ -454,7 +388,6 @@ const App: React.FC = () => {
       setGeneratedImages(results);
       if (isFreeTrialGeneration) {
           setFreeGenerationsUsed(prev => prev + cost);
-          setToast({ message: `${cost} free trial generation(s) used.`, type: 'success' });
       }
     } catch (err) {
       if (!isFreeTrialGeneration) refundCredits(cost);
@@ -466,6 +399,7 @@ const App: React.FC = () => {
   }, [userTier, freeGenerationsUsed, frontProductImagePreview, brandKit, handleApiError, checkAndDeductCredits, refundCredits]);
 
   const handleReturnToSettings = useCallback(() => { setGeneratedImages([]); setActiveMode(lastActiveMode); }, [lastActiveMode]);
+  
   const handleStartEdit = useCallback(async (image?: GeneratedImage, tab: 'inpaint' | 'crop' | 'background' = 'inpaint') => {
       if (image && Object.keys(image.params).length === 0) {
           const detailed = await designService.getDesignDetails(image.id);
@@ -492,24 +426,19 @@ const App: React.FC = () => {
       }
   }, [editingImage, checkAndDeductCredits, refundCredits]);
 
-  const handleImageUpdate = useCallback((id: string, newUrl: string, sourceUrl?: string) => {
+  const handleImageUpdate = useCallback((id: string, newUrl: string) => {
       if (editingImage && editingImage.id === id) {
-          setEditingImage({ ...editingImage, imageUrl: newUrl, sourceProductImageUrl: sourceUrl || editingImage.sourceProductImageUrl });
+          setEditingImage({ ...editingImage, imageUrl: newUrl });
       }
   }, [editingImage]);
 
-  // FIX: Handler for LoginPage onLoginSuccess prop
   const handleLoginSuccess = (session: AuthSession) => {
     setUserProfile(session.user);
   };
     
-  // FIX: Handler for MainContent onGenerateCaption prop
   const handleGenerateCaption = useCallback(async (imageId: string, captionParams: Omit<GenerateCaptionParams, 'imageUrl' | 'existingCaption'>) => {
     const imageToCaption = generatedImages.find(img => img.id === imageId) || designs.find(d => d.id === imageId);
-    if (!imageToCaption) {
-      setToast({ message: "Could not find image to generate caption for.", type: 'error' });
-      return;
-    }
+    if (!imageToCaption) return;
     
     setGeneratingCaptionImageId(imageId);
     try {
@@ -525,8 +454,6 @@ const App: React.FC = () => {
       ));
       
       updateDesign({ ...imageToCaption, caption: result.caption, hashtags: result.hashtags || '' });
-
-      setToast({ message: "Caption generated!", type: 'success' });
     } catch(err: any) {
       setToast({ message: `Caption generation failed: ${err.message}`, type: 'error' });
     } finally {
@@ -534,12 +461,10 @@ const App: React.FC = () => {
     }
   }, [generatedImages, brandKit, updateDesign, designs]);
 
-  // FIX: Handler for MainContent onOpenABTestModal prop
   const handleOpenABTestModal = useCallback((image: GeneratedImage) => {
     setAbTestModalImage(image);
   }, []);
 
-  // FIX: Handlers for Dashboard's floating action bar props
   const handleFloatingGenerate = useCallback(() => {
     const floatingParams: GenerateImageParams = {
         ...INITIAL_GENERATE_PARAMS,
@@ -548,53 +473,33 @@ const App: React.FC = () => {
         frontProductImage: floatingImageFile || undefined,
         aspectRatios: [AspectRatio.PortraitPost]
     };
-    handleGenerate(floatingParams, floatingImagePreview);
-    
+    handleGenerate(floatingParams, floatingImagePreview || undefined);
     setFloatingPrompt('');
     setFloatingImageFile(null);
-    if (floatingImagePreview) URL.revokeObjectURL(floatingImagePreview);
     setFloatingImagePreview(null);
-
   }, [floatingMode, floatingPrompt, floatingImageFile, handleGenerate, floatingImagePreview]);
 
   const handleFloatingImageFileChange = useCallback(async (file: File | null) => {
-    if (floatingImagePreview) URL.revokeObjectURL(floatingImagePreview);
     setFloatingImageFile(file);
-    if (file) {
-        setFloatingImagePreview(URL.createObjectURL(file));
-    } else {
-        setFloatingImagePreview(null);
-    }
-  }, [floatingImagePreview]);
-  
-  const handleRemoveFloatingImage = useCallback(() => {
-    handleFloatingImageFileChange(null);
-  }, [handleFloatingImageFileChange]);
-
-  const handleTriggerFloatingUpload = useCallback(() => {
-    floatingImageInputRef.current?.click();
+    if (file) setFloatingImagePreview(URL.createObjectURL(file));
+    else setFloatingImagePreview(null);
   }, []);
+  
+  const handleRemoveFloatingImage = useCallback(() => handleFloatingImageFileChange(null), [handleFloatingImageFileChange]);
+
+  const handleTriggerFloatingUpload = useCallback(() => floatingImageInputRef.current?.click(), []);
 
   const handleInternalImageDrop = useCallback((image: GeneratedImage, targetMode?: AppMode) => {
       if (targetMode) {
         setActiveMode(targetMode);
         fetch(image.imageUrl).then(res => res.blob()).then(blob => {
             const file = new File([blob], "dropped-image.png", { type: blob.type });
-            if (targetMode === AppMode.Remix) {
-                // Future-proofing: Specific logic for remix drop
-            } else {
-                handleFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 1024, maxHeight: 1024 });
-            }
+            handleFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 1024, maxHeight: 1024 });
         });
       }
   }, [handleFileChange]);
 
-  const onFloatingImageDrop = useCallback((file: File) => {
-      handleFloatingImageFileChange(file);
-  }, [handleFloatingImageFileChange]);
-  
-  // FIX: Handler for EditModal's onRemoveBackground prop
-  const handleRemoveBackground = useCallback(async () => {
+  const handleRemoveBackgroundAction = useCallback(async () => {
     if (!editingImage) return;
     if (!checkAndDeductCredits(1)) return;
     
@@ -603,9 +508,7 @@ const App: React.FC = () => {
         const { data, mimeType } = dataURLToParts(editingImage.imageUrl);
         const result = await removeBackground(data, mimeType);
         const newUrl = `data:${result.mimeType};base64,${result.data}`;
-        if (editingImage) {
-            setEditingImage(prev => prev ? ({ ...prev, imageUrl: newUrl }) : null);
-        }
+        setEditingImage(prev => prev ? ({ ...prev, imageUrl: newUrl }) : null);
     } catch (e) {
         refundCredits(1);
         setToast({ message: "Background removal failed", type: 'error' });
@@ -614,13 +517,15 @@ const App: React.FC = () => {
     }
   }, [editingImage, checkAndDeductCredits, refundCredits]);
 
-
   if (isAuthLoading) {
-      return null;
+      return (
+          <div className="w-screen h-screen flex items-center justify-center bg-main">
+              <Spinner />
+          </div>
+      );
   }
 
   if (!user) {
-      // FIX: Pass required onLoginSuccess prop to LoginPage
       return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
@@ -637,7 +542,6 @@ const App: React.FC = () => {
                 onStartImageEdit={() => handleStartEdit(undefined, 'background')}
                 currentView={currentView}
                 isOpen={isSidebarOpen}
-                // FIX: Add missing onOpen and onClose props
                 onOpen={() => setIsSidebarOpen(true)}
                 onClose={() => setIsSidebarOpen(false)}
                 onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -647,16 +551,15 @@ const App: React.FC = () => {
                 isAdmin={isAdmin}
                 onToggleAdmin={() => setIsAdmin(!isAdmin)}
                 user={user}
-                onLogin={() => setIsAuthModalOpen(true)}
+                onLogin={() => {}}
                 onLogout={handleLogout}
+                onInternalImageDrop={handleInternalImageDrop}
             />
 
             <main className="flex-1 flex flex-col overflow-hidden lg:ml-[92px]">
-                {/* VIEW RENDER LOGIC */}
                  {currentView === View.Dashboard && (
                     generatedImages.length > 0 || isLoading || error ? (
                         <MainContent
-                            // FIX: Add all missing props to MainContent
                             params={params}
                             frontProductImagePreview={frontProductImagePreview}
                             generatedImages={generatedImages}
@@ -681,7 +584,6 @@ const App: React.FC = () => {
                             onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
                             userName={user?.name?.split(' ')[0]}
                             isLoading={isLoading}
-                            // FIX: Add all missing props for floating action bar
                             floatingPrompt={floatingPrompt}
                             onFloatingPromptChange={setFloatingPrompt}
                             floatingImagePreview={floatingImagePreview}
@@ -692,13 +594,12 @@ const App: React.FC = () => {
                             userTier={userTier}
                             isAdmin={isAdmin}
                             onInternalImageDrop={handleInternalImageDrop}
-                            onFloatingImageDrop={onFloatingImageDrop}
+                            onFloatingImageDrop={handleFloatingImageFileChange}
                             floatingMode={floatingMode}
                             onFloatingModeChange={setFloatingMode}
                         />
                     )
                 )}
-                {/* FIX: Add missing onSetView prop to AnalyticsDashboard */}
                 {currentView === View.Analytics && <Suspense fallback={<Spinner />}><AnalyticsDashboard onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onSetView={handleSetView} /></Suspense>}
                 {currentView === View.MyDesigns && <MyDesigns onSetView={handleSetView} onStartEdit={handleStartEdit} onSetZoomedImage={setZoomedImage} onSetStoryboardSource={() => {}} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onRemix={handleRemixDesign} />}
                 {currentView === View.Profile && user && <Suspense fallback={<Spinner />}><ProfilePage user={user} credits={credits} userTier={userTier} onEditProfile={handleOpenProfileEditModal} onUpgradePlan={handleOpenPricingModal} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onSetView={handleSetView} onOpenFeedbackModal={handleOpenFeedbackModal} recentActivity={recentActivity} /></Suspense>}
@@ -736,8 +637,7 @@ const App: React.FC = () => {
             )}
             
             <Suspense fallback={null}>
-                {/* FIX: Pass async handler to onRemoveBackground */}
-                {editingImage && <EditModal image={editingImage} onClose={() => setEditingImage(null)} onApplyEdit={handleApplyEdit} onRemoveBackground={handleRemoveBackground} onImageUpdate={handleImageUpdate} isEditing={isEditing} initialTab={editModalInitialTab} />}
+                {editingImage && <EditModal image={editingImage} onClose={() => setEditingImage(null)} onApplyEdit={handleApplyEdit} onRemoveBackground={handleRemoveBackgroundAction} onImageUpdate={handleImageUpdate} isEditing={isEditing} initialTab={editModalInitialTab} />}
                 {zoomedImage && <ZoomModal image={zoomedImage} onClose={() => setZoomedImage(null)} />}
             </Suspense>
 
