@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { authService, AuthSession } from '../services/authService';
 import { UserProfileData } from '../services/userService';
 
@@ -18,20 +18,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<AuthSession | null>(null);
   const [user, setUser] = useState<UserProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const authCheckStarted = useRef(false);
 
   useEffect(() => {
+    if (authCheckStarted.current) return;
+    authCheckStarted.current = true;
+
     let isMounted = true;
+
+    // Failsafe: If auth check takes longer than 10s, force stop loading
+    const safetyTimer = setTimeout(() => {
+      if (isMounted && isLoading) {
+        console.warn("Auth check timed out. Proceeding to fallback state.");
+        setIsLoading(false);
+      }
+    }, 10000);
+
     const checkSession = async () => {
       try {
         const currentSession = await authService.getSession();
-        if (isMounted && currentSession) {
-          setSession(currentSession);
-          setUser(currentSession.user);
+        if (isMounted) {
+          if (currentSession) {
+            setSession(currentSession);
+            setUser(currentSession.user);
+          }
         }
       } catch (e) {
         console.error("Failed to get session on load", e);
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+          clearTimeout(safetyTimer);
+        }
       }
     };
     
@@ -41,11 +59,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isMounted) {
             setSession(session);
             setUser(session ? session.user : null);
+            // If an external event signs us in/out, we definitely aren't "loading" anymore
+            setIsLoading(false);
         }
     });
 
     return () => {
         isMounted = false;
+        clearTimeout(safetyTimer);
         unsubscribe();
     }
   }, []);

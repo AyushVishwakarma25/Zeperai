@@ -54,7 +54,6 @@ const App: React.FC = () => {
   
   const [activeMode, setActiveMode] = useState<AppMode | null>(null);
   const [lastActiveMode, setLastActiveMode] = useState<AppMode | null>(null);
-  
   const [floatingMode, setFloatingMode] = useState<AppMode>(AppMode.Influencer);
   
   const [params, setParams] = useState<GenerateImageParams>(() => {
@@ -194,13 +193,6 @@ const App: React.FC = () => {
       setToast({ message: "Logged out successfully", type: 'success' });
   }, [signOut]);
 
-  const handleRequireAuth = useCallback(() => {
-      if (!user || user.id === 'guest-user-id') {
-          return false;
-      }
-      return true;
-  }, [user]);
-
   const handleSetView = useCallback((view: View) => {
       setCurrentView(view);
   }, []);
@@ -219,7 +211,6 @@ const App: React.FC = () => {
   
   const [isProfileEditModalOpen, setIsProfileEditModalOpen] = useState(false);
   const handleOpenProfileEditModal = useCallback(() => setIsProfileEditModalOpen(true), []);
-  const handleCloseProfileEditModal = useCallback(() => setIsProfileEditModalOpen(false), []);
   
   const handleUpdateProfile = useCallback(async (newProfileData: Partial<UserProfileData>) => {
       if (!user) return;
@@ -234,14 +225,9 @@ const App: React.FC = () => {
   }, [user, setUserProfile]);
 
   const handleOpenFeedbackModal = useCallback(() => setIsFeedbackModalOpen(true), []);
-  const handleCloseFeedbackModal = useCallback(() => setIsFeedbackModalOpen(false), []);
-
   const handleOpenPricingModal = useCallback(() => setIsPricingModalOpen(true), []);
-  const handleClosePricingModal = useCallback(() => setIsPricingModalOpen(false), []);
   const handleOpenSupportModal = useCallback(() => setIsSupportModalOpen(true), []);
-  const handleCloseSupportModal = useCallback(() => setIsSupportModalOpen(false), []);
   const handleOpenContentGeneratorModal = useCallback(() => setIsContentGeneratorModalOpen(true), []);
-  const handleCloseContentGeneratorModal = useCallback(() => setIsContentGeneratorModalOpen(false), []);
   const handleOpenBrandKitModal = useCallback(() => setIsBrandKitModalOpen(true), []);
 
   const handleApiError = useCallback((err: unknown) => {
@@ -311,15 +297,6 @@ const App: React.FC = () => {
     setParams(prev => ({ ...INITIAL_GENERATE_PARAMS, ...getModeDefaults(activeMode, INITIAL_GENERATE_PARAMS) }));
   }, [activeMode]);
 
-  const debouncedDetectProductCategory = useCallback(debounce(async (base64: string, mimeType: string, description: string) => {
-      try {
-          const detectedCategory = await detectProductCategory(base64, mimeType, description);
-          setParams(prev => ({ ...prev, productCategory: detectedCategory, detectedCategory: detectedCategory }));
-      } catch (error) {
-          setParams(prev => ({ ...prev, productCategory: ProductCategory.Generic, detectedCategory: undefined }));
-      }
-  }, 500), []); 
-
   const handleBulkFilesChange = useCallback(async (files: File[]) => {
       const MAX_FILES = 3;
       const currentPreviews = bulkImagePreviews;
@@ -358,7 +335,6 @@ const App: React.FC = () => {
   }, []);
 
   const handleSaveModel = useCallback(async (image: GeneratedImage) => {
-      if (!handleRequireAuth()) return;
       const modelName = `Model #${Math.floor(1000 + Math.random() * 9000)}`;
       try {
           const newModels = await userService.saveModel(modelName, image.imageUrl, savedModels);
@@ -367,7 +343,7 @@ const App: React.FC = () => {
       } catch (err: any) {
           setToast({ message: "Failed to save model.", type: 'error' });
       }
-  }, [savedModels, handleRequireAuth]);
+  }, [savedModels]);
 
   const handleGenerate = useCallback(async (currentParams: GenerateImageParams, previewUrlOverride?: string) => {
     if (isGeneratingRef.current) return;
@@ -530,125 +506,121 @@ const App: React.FC = () => {
   }
 
   return (
-    <ErrorBoundary>
-        {!isOnline && <div className="fixed top-0 left-0 w-full bg-red-500 text-white text-center py-1 text-sm z-[100] font-medium shadow-md">You are offline. Features may be limited.</div>}
+    <div className="relative w-screen h-screen bg-main font-sans flex overflow-hidden">
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         
-        <div className="relative w-screen h-screen bg-main font-sans flex overflow-hidden">
-            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-            
-            <DashboardSidebar 
-                onSelectMode={handleSelectMode} 
-                onSetView={handleSetView}
-                onStartImageEdit={() => handleStartEdit(undefined, 'background')}
-                currentView={currentView}
-                isOpen={isSidebarOpen}
-                onOpen={() => setIsSidebarOpen(true)}
-                onClose={() => setIsSidebarOpen(false)}
-                onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-                onOpenContentGenerator={handleOpenContentGeneratorModal}
-                onOpenSupport={handleOpenSupportModal}
-                onOpenBrandKit={handleOpenBrandKitModal}
-                isAdmin={isAdmin}
-                onToggleAdmin={() => setIsAdmin(!isAdmin)}
-                user={user}
-                onLogin={() => {}}
-                onLogout={handleLogout}
-                onInternalImageDrop={handleInternalImageDrop}
+        <DashboardSidebar 
+            onSelectMode={handleSelectMode} 
+            onSetView={handleSetView}
+            onStartImageEdit={() => handleStartEdit(undefined, 'background')}
+            currentView={currentView}
+            isOpen={isSidebarOpen}
+            onOpen={() => setIsSidebarOpen(true)}
+            onClose={() => setIsSidebarOpen(false)}
+            onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+            onOpenContentGenerator={handleOpenContentGeneratorModal}
+            onOpenSupport={handleOpenSupportModal}
+            onOpenBrandKit={handleOpenBrandKitModal}
+            isAdmin={isAdmin}
+            onToggleAdmin={() => setIsAdmin(!isAdmin)}
+            user={user}
+            onLogin={() => {}}
+            onLogout={handleLogout}
+            onInternalImageDrop={handleInternalImageDrop}
+        />
+
+        <main className="flex-1 flex flex-col overflow-hidden lg:ml-[92px]">
+              {currentView === View.Dashboard && (
+                generatedImages.length > 0 || isLoading || error ? (
+                    <MainContent
+                        params={params}
+                        frontProductImagePreview={frontProductImagePreview}
+                        generatedImages={generatedImages}
+                        isLoading={isLoading}
+                        error={error}
+                        onReturnToSettings={handleReturnToSettings}
+                        onStartEdit={handleStartEdit}
+                        onSetStoryboardSource={setStoryboardSourceImage}
+                        onSetZoomedImage={setZoomedImage}
+                        isStoryboardResult={isStoryboardResult}
+                        onGenerateCaption={handleGenerateCaption}
+                        generatingCaptionImageId={generatingCaptionImageId}
+                        onOpenABTestModal={handleOpenABTestModal}
+                        onSaveModel={handleSaveModel}
+                    />
+                ) : (
+                    <Dashboard
+                        onSelectMode={handleSelectMode}
+                        onStartImageEdit={(img) => handleStartEdit(img, 'background')}
+                        onOpenFeedbackModal={handleOpenFeedbackModal}
+                        onOpenPricingModal={handleOpenPricingModal}
+                        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                        userName={user?.name?.split(' ')[0]}
+                        isLoading={isLoading}
+                        floatingPrompt={floatingPrompt}
+                        onFloatingPromptChange={setFloatingPrompt}
+                        floatingImagePreview={floatingImagePreview}
+                        onFloatingGenerate={handleFloatingGenerate}
+                        onRemoveFloatingImage={handleRemoveFloatingImage}
+                        onTriggerFloatingUpload={handleTriggerFloatingUpload}
+                        onOpenContentGenerator={handleOpenContentGeneratorModal}
+                        userTier={userTier}
+                        isAdmin={isAdmin}
+                        onInternalImageDrop={handleInternalImageDrop}
+                        onFloatingImageDrop={handleFloatingImageFileChange}
+                        floatingMode={floatingMode}
+                        onFloatingModeChange={setFloatingMode}
+                    />
+                )
+            )}
+            {currentView === View.Analytics && <Suspense fallback={<Spinner />}><AnalyticsDashboard onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onSetView={handleSetView} /></Suspense>}
+            {currentView === View.MyDesigns && <MyDesigns onSetView={handleSetView} onStartEdit={handleStartEdit} onSetZoomedImage={setZoomedImage} onSetStoryboardSource={() => {}} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onRemix={handleRemixDesign} />}
+            {currentView === View.Profile && user && <Suspense fallback={<Spinner />}><ProfilePage user={user} credits={credits} userTier={userTier} onEditProfile={handleOpenProfileEditModal} onUpgradePlan={handleOpenPricingModal} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onSetView={handleSetView} onOpenFeedbackModal={handleOpenFeedbackModal} recentActivity={recentActivity} /></Suspense>}
+            {currentView === View.Inspiration && <Suspense fallback={<Spinner />}><InspirationPage onSetView={handleSetView} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onRemix={handleRemix} items={inspirationItems} isLoaded={isInspirationLoaded} onItemsLoaded={setInspirationItems} /></Suspense>}
+        </main>
+
+        {activeMode && (
+            <CreativeModal
+                key={activeMode} 
+                mode={activeMode}
+                onClose={() => setActiveMode(null)}
+                params={params}
+                onParamsChange={setParams}
+                onGenerate={handleGenerate}
+                isLoading={isLoading}
+                onFileChange={handleFileChange}
+                frontProductImagePreview={frontProductImagePreview}
+                setFrontProductImagePreview={setFrontProductImagePreview}
+                bulkImagePreviews={bulkImagePreviews}
+                onBulkFilesChange={handleBulkFilesChange}
+                onRemoveBulkImage={handleRemoveBulkImage}
+                remixReferenceImagePreview={remixReferenceImagePreview}
+                setRemixReferenceImagePreview={setRemixReferenceImagePreview}
+                remixProductImagePreview={remixProductImagePreview}
+                setRemixProductImagePreview={setRemixProductImagePreview}
+                onGenerateVariants={() => {}}
+                storyboardSourceImage={storyboardSourceImage}
+                onClearStoryboardSource={() => setStoryboardSourceImage(null)}
+                userTier={userTier}
+                onOpenPricingModal={handleOpenPricingModal}
+                freeGenerationsUsed={freeGenerationsUsed}
+                savedModels={savedModels}
+                onReset={handleResetParams}
             />
+        )}
+        
+        <Suspense fallback={null}>
+            {editingImage && <EditModal image={editingImage} onClose={() => setEditingImage(null)} onApplyEdit={handleApplyEdit} onRemoveBackground={handleRemoveBackgroundAction} onImageUpdate={handleImageUpdate} isEditing={isEditing} initialTab={editModalInitialTab} />}
+            {zoomedImage && <ZoomModal image={zoomedImage} onClose={() => setZoomedImage(null)} />}
+        </Suspense>
 
-            <main className="flex-1 flex flex-col overflow-hidden lg:ml-[92px]">
-                 {currentView === View.Dashboard && (
-                    generatedImages.length > 0 || isLoading || error ? (
-                        <MainContent
-                            params={params}
-                            frontProductImagePreview={frontProductImagePreview}
-                            generatedImages={generatedImages}
-                            isLoading={isLoading}
-                            error={error}
-                            onReturnToSettings={handleReturnToSettings}
-                            onStartEdit={handleStartEdit}
-                            onSetStoryboardSource={setStoryboardSourceImage}
-                            onSetZoomedImage={setZoomedImage}
-                            isStoryboardResult={isStoryboardResult}
-                            onGenerateCaption={handleGenerateCaption}
-                            generatingCaptionImageId={generatingCaptionImageId}
-                            onOpenABTestModal={handleOpenABTestModal}
-                            onSaveModel={handleSaveModel}
-                        />
-                    ) : (
-                        <Dashboard
-                            onSelectMode={handleSelectMode}
-                            onStartImageEdit={(img) => handleStartEdit(img, 'background')}
-                            onOpenFeedbackModal={handleOpenFeedbackModal}
-                            onOpenPricingModal={handleOpenPricingModal}
-                            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                            userName={user?.name?.split(' ')[0]}
-                            isLoading={isLoading}
-                            floatingPrompt={floatingPrompt}
-                            onFloatingPromptChange={setFloatingPrompt}
-                            floatingImagePreview={floatingImagePreview}
-                            onFloatingGenerate={handleFloatingGenerate}
-                            onRemoveFloatingImage={handleRemoveFloatingImage}
-                            onTriggerFloatingUpload={handleTriggerFloatingUpload}
-                            onOpenContentGenerator={handleOpenContentGeneratorModal}
-                            userTier={userTier}
-                            isAdmin={isAdmin}
-                            onInternalImageDrop={handleInternalImageDrop}
-                            onFloatingImageDrop={handleFloatingImageFileChange}
-                            floatingMode={floatingMode}
-                            onFloatingModeChange={setFloatingMode}
-                        />
-                    )
-                )}
-                {currentView === View.Analytics && <Suspense fallback={<Spinner />}><AnalyticsDashboard onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onSetView={handleSetView} /></Suspense>}
-                {currentView === View.MyDesigns && <MyDesigns onSetView={handleSetView} onStartEdit={handleStartEdit} onSetZoomedImage={setZoomedImage} onSetStoryboardSource={() => {}} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onRemix={handleRemixDesign} />}
-                {currentView === View.Profile && user && <Suspense fallback={<Spinner />}><ProfilePage user={user} credits={credits} userTier={userTier} onEditProfile={handleOpenProfileEditModal} onUpgradePlan={handleOpenPricingModal} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onSetView={handleSetView} onOpenFeedbackModal={handleOpenFeedbackModal} recentActivity={recentActivity} /></Suspense>}
-                {currentView === View.Inspiration && <Suspense fallback={<Spinner />}><InspirationPage onSetView={handleSetView} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onRemix={handleRemix} items={inspirationItems} isLoaded={isInspirationLoaded} onItemsLoaded={setInspirationItems} /></Suspense>}
-            </main>
-
-            {activeMode && (
-                <CreativeModal
-                    key={activeMode} 
-                    mode={activeMode}
-                    onClose={() => setActiveMode(null)}
-                    params={params}
-                    onParamsChange={setParams}
-                    onGenerate={handleGenerate}
-                    isLoading={isLoading}
-                    onFileChange={handleFileChange}
-                    frontProductImagePreview={frontProductImagePreview}
-                    setFrontProductImagePreview={setFrontProductImagePreview}
-                    bulkImagePreviews={bulkImagePreviews}
-                    onBulkFilesChange={handleBulkFilesChange}
-                    onRemoveBulkImage={handleRemoveBulkImage}
-                    remixReferenceImagePreview={remixReferenceImagePreview}
-                    setRemixReferenceImagePreview={setRemixReferenceImagePreview}
-                    remixProductImagePreview={remixProductImagePreview}
-                    setRemixProductImagePreview={setRemixProductImagePreview}
-                    onGenerateVariants={() => {}}
-                    storyboardSourceImage={storyboardSourceImage}
-                    onClearStoryboardSource={() => setStoryboardSourceImage(null)}
-                    userTier={userTier}
-                    onOpenPricingModal={handleOpenPricingModal}
-                    freeGenerationsUsed={freeGenerationsUsed}
-                    savedModels={savedModels}
-                    onReset={handleResetParams}
-                />
-            )}
-            
-            <Suspense fallback={null}>
-                {editingImage && <EditModal image={editingImage} onClose={() => setEditingImage(null)} onApplyEdit={handleApplyEdit} onRemoveBackground={handleRemoveBackgroundAction} onImageUpdate={handleImageUpdate} isEditing={isEditing} initialTab={editModalInitialTab} />}
-                {zoomedImage && <ZoomModal image={zoomedImage} onClose={() => setZoomedImage(null)} />}
-            </Suspense>
-
-            {(isLoading || isEditing) && (
-                <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-[100]">
-                    <Spinner />
-                    <p className="text-white mt-4 text-lg">{loadingMessages.title}</p>
-                </div>
-            )}
-        </div>
-    </ErrorBoundary>
+        {(isLoading || isEditing) && (
+            <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-[100]">
+                <Spinner />
+                <p className="text-white mt-4 text-lg">{loadingMessages.title}</p>
+            </div>
+        )}
+    </div>
   );
 };
 
