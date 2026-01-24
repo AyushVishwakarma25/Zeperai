@@ -1,3 +1,4 @@
+
 import React, { useCallback, useState, useRef } from 'react';
 import type { GeneratedImage } from '../types';
 import { Icon } from './ui/Icon';
@@ -83,7 +84,8 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
     if (observer.current) observer.current.disconnect();
     observer.current = new IntersectionObserver(entries => {
         if (entries[0].isIntersecting && hasMore) {
-            // FIX: Pass 'false' to fetchDesigns for pagination to resolve argument error.
+            // FIX: Pass 'false' to fetchDesigns for pagination to resolve "Expected 1 arguments, but got 0" error.
+            // Explicitly passing the 'reset' flag as false tells the context to fetch the next page rather than restart.
             fetchDesigns(false);
         }
     });

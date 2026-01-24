@@ -21,7 +21,6 @@ import { Toast } from './components/ui/Toast';
 import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { SplashScreen } from './components/SplashScreen';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuth } from './contexts/AuthContext';
 import { useDesigns } from './contexts/DesignsContext';
@@ -617,7 +616,7 @@ const App: React.FC = () => {
 
 
   if (isAuthLoading) {
-      return <SplashScreen />;
+      return null;
   }
 
   if (!user) {
