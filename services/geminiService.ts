@@ -5,7 +5,7 @@
  */
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS, UGC_STYLE_OPTIONS, AD_STYLE_PRESETS } from '../constants';
+import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS, UGC_STYLE_OPTIONS, AD_STYLE_PRESETS, FASHION_POSE_OPTIONS } from '../constants';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis } from '../types';
 import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, RegionalStyle, ProductCategory, ResolutionQuality } from '../types';
 
@@ -35,24 +35,6 @@ const getAI = () => {
         throw new Error("API Key is missing. Please set VITE_API_KEY in your environment variables.");
     }
     return new GoogleGenAI({ apiKey });
-};
-
-const getFashionPoses = (count: number): string[] => {
-    const poses = [
-        'Full length front view hero shot, standing confidently looking at camera',
-        'Mid-shot (thigh-high) 45-degree angle, one hand on waist, sophisticated expression',
-        'Close-up portrait showing garment neckline and jewelry detail',
-        'Full length side profile, showcasing the silhouette and fit',
-        'Full length back view, looking slightly over the shoulder',
-        'Detailed close-up on fabric texture and embroidery',
-        'Sitting elegantly on a minimal stool, showcasing drape',
-        'Walking motion shot, capturing natural movement of the fabric',
-        'High-angle creative shot looking down at the model',
-        'Low-angle hero shot for dramatic flair and height',
-        'Natural candid smile, lifestyle vibe',
-        'Adjusting garment (pallu or sleeve) naturally'
-    ];
-    return poses.slice(0, count);
 };
 
 export const fileToBase64 = (file: File): Promise<string> => {
@@ -103,7 +85,7 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
         modelGender, modelPersona, poseSuggestion, backgroundStyle, clothingType,
         adLayout, adTitle, overlayText, ugcStyle, adStylePreset,
         isComparisonMode, competitorImage, productAFeatures, productBFeatures,
-        remixReferenceImageUrl, logoImage
+        remixReferenceImageUrl, logoImage, resolutionQuality
     } = params;
     
     let parts: any[] = [];
@@ -197,165 +179,118 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
     switch (appMode) {
         case AppMode.Product:
         case AppMode.Festival:
-            const baseSubject = productDescription || 'a product';
-            let stylePrompt = "A professional studio shot with a clean, vibrant, single-color or soft gradient background and bright, clean lighting.";
+            const baseSubject = productDescription || 'the product';
+            let finalPrompt = "";
 
             if (appMode === AppMode.Festival && params.festivalStyle) {
-                stylePrompt = `A festive photoshoot with a theme of: ${params.festivalStyle}.`;
+                finalPrompt = `A festive photoshoot of ${baseSubject}. Theme: ${params.festivalStyle}. Professional studio lighting, 8k resolution.`;
             } else if (productStylePreset && productStylePreset !== AI_SUGGESTED) {
                  const [category, presetName] = productStylePreset.split('|');
                  const foundCategory = PRO_PRODUCT_STYLE_PRESETS.find(c => c.category === category);
                  const foundPreset = foundCategory?.presets.find(p => p.name === presetName);
                  if (foundPreset) {
-                     stylePrompt = foundPreset.prompt.replace(/\[product\]/g, 'the described product');
+                     // We replace the placeholder in the preset with the actual product description
+                     finalPrompt = foundPreset.prompt.replace(/\[product\]/g, baseSubject);
+                 } else {
+                     finalPrompt = `Professional studio shot of ${baseSubject}. Clean, high-end commercial lighting.`;
                  }
+            } else {
+                 finalPrompt = `Professional studio shot of ${baseSubject}. ${backgroundStyle && backgroundStyle !== AI_SUGGESTED ? `Background: ${backgroundStyle}.` : 'Clean, high-end commercial lighting.'}`;
             }
             
-            corePrompt = `
-              You are an expert product photographer. Create a single, professional studio photograph based on the following instructions.
-              
-              Primary Subject: "${baseSubject}". This is the most important instruction. The final image must accurately represent this subject. Any details in this description (e.g., specific colors, ingredients, text) override conflicting details in the style guide below.
-              
-              Visual Style Guide: "${stylePrompt}". Use this as a guide for the overall look, feel, lighting, and composition.
-            `;
-
-            if (pose) { // 'pose' is the angle for product mode
-                corePrompt += `\nCamera Angle: The image must be a ${pose}.`;
-            }
+            corePrompt = `${finalPrompt} Camera Angle: ${pose || 'Front View'}. ${resolutionQuality === ResolutionQuality.High ? '8K, Ultra-High Definition.' : ''}`;
             break;
 
         case AppMode.Influencer:
-             // Priority 1: UGC Style Preset
              if (ugcStyle) {
                  const foundUgcPreset = UGC_STYLE_OPTIONS.find(p => p.value === ugcStyle);
                  if (foundUgcPreset) {
-                     corePrompt = foundUgcPreset.prompt.replace(/\[product\]/g, productDescription || 'product');
-                     if (modelSeedUrl) corePrompt += `\n- CRITICAL: Use the person from the seed image but apply the requested style/vibe/pose.`;
-                     // Enforce "Indian faces and tone" if not explicit in the seed image
-                     if (!modelSeedUrl && !corePrompt.toLowerCase().includes('indian')) {
-                         corePrompt += ` Model should have Indian features and skin tone as requested.`;
+                     corePrompt = foundUgcPreset.prompt.replace(/\[product\]/g, productDescription || 'the product');
+                     if (modelSeedUrl) {
+                         corePrompt += ` Maintain the facial features of the provided reference model.`;
+                     } else if (!corePrompt.toLowerCase().includes('indian')) {
+                         corePrompt += ` Model should have Indian features and skin tone.`;
                      }
                  } else {
-                     corePrompt = `Create a high-end influencer-style marketing image.`;
+                     corePrompt = `Influencer style photo of ${productDescription}.`;
                  }
              } else {
-                 // Priority 2: Manual Configuration
-                 corePrompt = `Create a high-end influencer-style marketing image.`;
-                 if (modelSeedUrl) corePrompt += `\n- CRITICAL: Model must match provided seed image exactly.`;
-                 corePrompt += `
-                - Product: ${productDescription || 'the product'}.
-                - Model: ${modelGender} influencer, ${modelPersona} persona.
-                - Pose: ${poseSuggestion || 'Natural, engaging'}.
-                - Outfit: ${clothingType}.
-                - Scene: ${backgroundStyle || 'Aesthetic setting'}.
-                Photorealistic, aspirational mood.`;
+                 corePrompt = `High-end influencer marketing photo. 
+                 Product: ${productDescription}. 
+                 Model: ${modelGender} influencer, ${modelPersona} persona. 
+                 Pose: ${poseSuggestion || 'Natural'}. 
+                 Outfit: ${clothingType}. 
+                 Setting: ${backgroundStyle || 'Aesthetic background'}. 
+                 Photorealistic, social media quality.`;
+                 
+                 if (modelSeedUrl) corePrompt += ` Maintain strict consistency with the provided model face.`;
              }
             break;
 
         case AppMode.Fashion:
-            corePrompt = `High-end fashion e-commerce photography. Subject: specific item in image.`;
-            corePrompt += ` 
-            MODEL: Fixed persona [Seed ID: ${modelLockId || 'Standard'}].
-            BODY: ${fashionBodyType || 'Regular'}.
-            APPAREL: ${fashionSubCategory || 'garment'} (${fashionCategory}).
-            STYLE: ${regionalStyle !== RegionalStyle.None ? regionalStyle : 'Modern'}.
-            SHOOT: ${fashionShootType}.
-            POSE: ${pose || 'Catalog pose'}.`;
-            if (fashionShootType === FashionShootType.GhostMannequin) corePrompt += ` Ghost mannequin effect: invisible model.`;
-            if (hyperRealism) corePrompt += ` 8K resolution, Sony A7R IV style, cinematic lighting, sharp focus.`;
+            corePrompt = `High-end Fashion Photography.
+            Subject: ${productDescription || 'Clothing item'}.
+            Category: ${fashionSubCategory || 'Apparel'} (${fashionCategory}).
+            Model: ${fashionBodyType || 'Regular'} body type. ${regionalStyle !== RegionalStyle.None ? `Style: ${regionalStyle}.` : ''}
+            Shoot Type: ${fashionShootType}. ${fashionShootType === FashionShootType.GhostMannequin ? '(Ghost Mannequin / Invisible Model)' : ''}
+            Pose: ${pose || 'Standard Catalog Pose'}.
+            ${hyperRealism ? '8K resolution, highly detailed fabric texture, cinematic lighting.' : 'Standard e-commerce quality.'}`;
+            
+            if (modelLockId) corePrompt += ` Use fixed model persona: ${modelLockId}.`;
             break;
 
         case AppMode.AdCreative:
         case AppMode.Banner:
         case AppMode.Youtube:
             if (isComparisonMode) {
-                // FIX: Explicitly label image order for Comparison Mode
-                corePrompt = `Create a high-conversion comparison ad for a D2C brand.
-                
-                CRITICAL IMAGE ORDER:
-                - The FIRST image provided is the [Primary Product] (Your Brand).
-                - The SECOND image provided is the [Competitor/Generic Product] (Other Brand).
-                
-                INSTRUCTIONS:
-                - Visually compare the two products in a clean, modern style.
-                - Emphasize the [Primary Product]. Make it vibrant, sharp, and the "hero".
-                - Make the [Competitor/Generic Product] slightly desaturated, neutral, or less prominent to visually highlight the superiority of the Primary Product.
-
-                TEXT ELEMENTS:
-                - Headline: "${adTitle || 'Comparison'}"
-                - Subheading: "${params.adSubheading || ''}"
-                - CTA Button: "${params.adCta || 'Shop Now'}"
-                
-                COMPARISON POINTS:
-                - Primary Product Features: ${productAFeatures || 'High Quality, Premium'}
-                - Competitor Features: ${productBFeatures || 'Standard Quality, Basic'}
-
-                LAYOUT: ${adLayout}.
-                Automatically adapt layout composition based on product type, comparison points count, and aspect ratio.
-                Ensure brand colors dominate while competitor visuals remain neutral.
-                Maintain D2C-style energy (bold, playful, relatable).
-                `;
+                corePrompt = `Create a comparison ad layout. 
+                Show ${productDescription} (Primary/Hero) vs a generic competitor.
+                Layout: ${adLayout}.
+                Primary Features: ${productAFeatures || 'Premium Quality'}.
+                Competitor Features: ${productBFeatures || 'Basic Quality'}.
+                Text Overlay: "${adTitle || 'Comparison'}". 
+                CTA: "${params.adCta || 'Shop Now'}".
+                Make the primary product look superior in lighting and presentation.`;
             } else {
-                let adStyleInstructions = "Visually striking, professional graphic design.";
+                let adStyle = "Professional graphic design style.";
                 if (adStylePreset && adStylePreset !== AI_SUGGESTED) {
                     const foundAdPreset = AD_STYLE_PRESETS.find(p => p.value === adStylePreset);
-                    if (foundAdPreset) adStyleInstructions = foundAdPreset.prompt;
+                    if (foundAdPreset) adStyle = foundAdPreset.prompt;
                 }
 
-                corePrompt = `Create a high-converting Ad Creative optimized for social media performance.
-
-                PRODUCT CONTEXT: "${productDescription}".
-                LAYOUT STRUCTURE: ${adLayout}.
-                CREATIVE STYLE: ${adStyleInstructions}
-
-                TEXT ELEMENTS (Render these clearly):
-                - HEADLINE: "${adTitle || ''}" (Hook attention)
-                - SUBHEADING: "${params.adSubheading || ''}" (Build desire)
-                - CTA BUTTON: "${params.adCta || ''}" (Drive action)
-
-                DESIGN PRINCIPLES:
-                1. Visual Hierarchy: Make the headline and product the largest, most contrasting elements.
-                2. Stopping Power: Use the requested style to create a "scroll-stopping" visual.
-                3. Clarity: Text must be legible against the background. Use overlays or shadows if necessary.
-                4. Composition: Balance the "Visual Element" (image) with the copy according to the Layout Structure.
-                `;
+                corePrompt = `Create a professional Ad Creative.
+                Product: ${productDescription}.
+                Layout: ${adLayout}.
+                Style: ${adStyle}
+                Headline: "${adTitle || ''}".
+                Subheading: "${params.adSubheading || ''}".
+                CTA Button: "${params.adCta || ''}".
+                Ensure text is legible and high contrast.`;
                 
                 if (logoImage || brandKit?.logoUrl) {
-                    corePrompt += `\nBRANDING: Include the provided logo naturally in the layout (e.g., top corner or bottom center).`;
+                    corePrompt += ` Include the provided logo naturally.`;
                 }
             }
             break;
         
         case AppMode.Remix:
-            corePrompt = `You are an expert photo editor. Your task is to use two images: the first image is the scene/style reference, and the second is a product cutout.
-            
-            Instructions:
-            1. Seamlessly integrate the product from the second image into the scene of the first image.
-            2. The final result must adopt the lighting, shadows, style, and mood of the first image.
-            3. If the first image has a main subject, replace it with the product from the second image.
-            4. Apply the following modifications if provided: "${productDescription}". If the prompt is empty, just perform the integration.
-            5. The final output should be photorealistic.`;
+            corePrompt = `Photo Manipulation Task.
+            Integrate the product into the reference scene.
+            Match lighting, perspective, and shadows of the reference image.
+            ${productDescription ? `User Instruction: ${productDescription}` : ''}`;
             break;
 
         default:
-            corePrompt = `Professional marketing image for "${productDescription}". Clean, modern, high-quality.`;
+            corePrompt = `Professional marketing image for ${productDescription}. High quality.`;
             break;
     }
 
-    if (marketplacePreset === MarketplacePreset.Amazon) corePrompt += ` COMPLIANCE: Amazon White Background (RGB 255,255,255). No shadows.`;
+    if (marketplacePreset === MarketplacePreset.Amazon) corePrompt += ` White Background (RGB 255,255,255).`;
     
     // --- Step 3: Inject Brand Identity (Global) ---
     if (brandKit) {
-        corePrompt += `\n\nBRAND IDENTITY GUIDELINES (Strictly Adhere):`;
-        if (brandKit.brandName) corePrompt += `\n- Brand Name: "${brandKit.brandName}"`;
-        if (brandKit.voice) corePrompt += `\n- Tone of Voice: ${brandKit.voice}`;
-        if (brandKit.primaryColor) corePrompt += `\n- Primary Color: ${brandKit.primaryColor} (Use for key elements/CTA)`;
-        if (brandKit.secondaryColor) corePrompt += `\n- Secondary Color: ${brandKit.secondaryColor}`;
-        if (brandKit.accentColor) corePrompt += `\n- Accent Color: ${brandKit.accentColor}`;
-        if (brandKit.fonts) corePrompt += `\n- Typography Style: ${brandKit.fonts}`;
-        if (brandKit.negativeConstraints) corePrompt += `\n- STRICTLY AVOID: ${brandKit.negativeConstraints}`;
-        
-        corePrompt += `\n\nEnsure the final output reflects this brand identity for consistency.`;
+        corePrompt += `\nBrand Guidelines: Use ${brandKit.primaryColor} and ${brandKit.secondaryColor} as accent colors.`;
+        if (brandKit.negativeConstraints) corePrompt += ` Avoid: ${brandKit.negativeConstraints}.`;
     }
 
     return [{ text: corePrompt }, ...parts];
@@ -484,25 +419,42 @@ export const generateImages = async (
             }
         } 
         else if (params.appMode === AppMode.Fashion) {
-            const poses = getFashionPoses(fashionBatchSize);
             const imageList = params.bulkImages && params.bulkImages.length > 0 ? params.bulkImages : [params.frontProductImage];
             
+            // Determine poses for the batch
+            let poses: string[] = [];
+            // Use selected array of poses OR default auto logic
+            if (params.fashionPose && params.fashionPose.length > 0) {
+                poses = params.fashionPose;
+            } else {
+                // Auto mode: Use the predefined rotated list from constants
+                poses = FASHION_POSE_OPTIONS;
+            }
+
             // If bulk images exist, iterate images. Else iterate batch size (poses).
             if (params.bulkImages && params.bulkImages.length > 0) {
                 for (const img of imageList) {
                     completedJobs++;
                     if (onProgress) onProgress(completedJobs, totalOps);
-                    const pose = poses[0]; // Use first pose or random
+                    
+                    // For bulk upload, we pick the first pose logic or random if user didn't specify
+                    // If multiple poses selected for bulk... complex. For now, just pick the first.
+                    const pose = poses[0]; 
+                    
                     const result = await generateSingleImage(params, ratio, userTier, brandKit, img, pose, sourceProductImageUrl, modelSeedUrl);
                     allResults.push(result);
                     if (completedJobs < totalOps) await wait(2000);
                 }
             } else {
                 // Single image, multiple poses (batch)
+                // Iterate through the batch size, rotating through the selected poses
                 for (let i = 0; i < fashionBatchSize; i++) {
                     completedJobs++;
                     if (onProgress) onProgress(completedJobs, totalOps);
-                    const pose = poses[i];
+                    
+                    // Rotate through available poses based on index
+                    const pose = poses[i % poses.length];
+                    
                     const result = await generateSingleImage(params, ratio, userTier, brandKit, undefined, pose, sourceProductImageUrl, modelSeedUrl);
                     allResults.push(result);
                     if (completedJobs < totalOps) await wait(2000);

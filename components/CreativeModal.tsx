@@ -358,6 +358,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                             handleParamChange={handleParamChange}
                             isHyperRealismLocked={isHyperRealismLocked}
                             onOpenPricingModal={onOpenPricingModal}
+                            userTier={userTier}
                         />
                     )}
                     

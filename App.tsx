@@ -1,17 +1,13 @@
-
 // ... imports same as before ...
-// (keeping imports identical)
 import React, { useState, useCallback, lazy, Suspense, useEffect, useRef, useMemo } from 'react';
 import { MainContent } from './components/MainContent';
-import type { GenerateImageParams, GeneratedImage, EditImageParams, BrandKit, SavedModel, InspirationItem } from './types';
+import type { GenerateImageParams, GeneratedImage, EditImageParams, BrandKit, SavedModel, InspirationItem, ShopifyAnalysisResult, GenerateCaptionParams } from './types';
 import { generateImages, editImage, generateCaption, generateVariantSuggestions, detectProductCategory, fileToBase64, removeBackground } from './services/geminiService';
 import { userService, UserProfileData } from './services/userService';
 import { designService } from './services/designService'; 
-import { storageService } from './services/storageService'; 
-import { authService, AuthSession } from './services/authService';
 import { brandService } from './services/brandService';
 import { Spinner } from './components/ui/Spinner';
-import { AppMode, ResolutionQuality, ProductCategory, View } from './types';
+import { AppMode, ResolutionQuality, ProductCategory, View, AspectRatio } from './types';
 import { AI_SUGGESTED, FREE_TRIAL_LIMIT, LOADING_MESSAGES, INITIAL_GENERATE_PARAMS } from './constants';
 import { processImageFile, dataURLtoFile, fileToGeneratedImage } from './utils/images';
 import { debounce, getActionLabel } from './utils/helpers';
@@ -27,9 +23,12 @@ import { LoginPage } from './components/LoginPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SplashScreen } from './components/SplashScreen';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
-import { AnalyticsDashboard } from './components/AnalyticsDashboard';
-import { ShopifyDashboard } from './components/ShopifyDashboard';
+import { useAuth } from './contexts/AuthContext';
+import { useDesigns } from './contexts/DesignsContext';
+// FIX: Import AuthSession for login handler type
+import { AuthSession } from './services/authService';
 
+// Lazy load heavy components to prevent blocking main bundle
 const EditModal = lazy(() => import('./components/EditModal'));
 const ZoomModal = lazy(() => import('./components/ZoomModal'));
 const DeployModal = lazy(() => import('./components/DeployModal'));
@@ -44,8 +43,22 @@ const ProfileEditModal = lazy(() => import('./components/ProfileEditModal'));
 const InspirationPage = lazy(() => import('./components/InspirationPage'));
 const BrandKitModal = lazy(() => import('./components/BrandKitModal'));
 
+// Handle Named Exports for Lazy Loading
+const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard').then(module => ({ default: module.AnalyticsDashboard })));
+const ShopifyDashboard = lazy(() => import('./components/ShopifyDashboard').then(module => ({ default: module.ShopifyDashboard })));
+
+// FIX: Helper function to parse data URLs, needed for background removal.
+const dataURLToParts = (dataURL: string) => {
+    const parts = dataURL.split(',');
+    const data = parts[1];
+    const mimeType = parts[0].split(':')[1].split(';')[0];
+    return { data, mimeType };
+};
+
 const App: React.FC = () => {
   const isOnline = useNetworkStatus();
+  const { user, signOut, isLoading: isAuthLoading, setUser: setUserProfile } = useAuth();
+  const { designs, addDesign, updateDesign } = useDesigns();
   
   const [activeMode, setActiveMode] = useState<AppMode | null>(null);
   const [lastActiveMode, setLastActiveMode] = useState<AppMode | null>(null);
@@ -64,7 +77,6 @@ const App: React.FC = () => {
   });
 
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
-  const [posterBoard, setPosterBoard] = useState<GeneratedImage[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [batchProgress, setBatchProgress] = useState<{current: number, total: number} | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -76,7 +88,6 @@ const App: React.FC = () => {
   const [storyboardSourceImage, setStoryboardSourceImage] = useState<GeneratedImage | null>(null);
   const [isStoryboardResult, setIsStoryboardResult] = useState<boolean>(false);
   const [generatingCaptionImageId, setGeneratingCaptionImageId] = useState<string | null>(null);
-  const [isDeployModalOpen, setIsDeployModalOpen] = useState<boolean>(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
@@ -85,6 +96,12 @@ const App: React.FC = () => {
   const [brandKit, setBrandKit] = useState<BrandKit | null>(null);
   const [abTestModalImage, setAbTestModalImage] = useState<GeneratedImage | null>(null);
   
+  // CACHED DATA STATES
+  const [inspirationItems, setInspirationItems] = useState<InspirationItem[]>([]);
+  const [isInspirationLoaded, setIsInspirationLoaded] = useState(false);
+  const [shopifyReport, setShopifyReport] = useState<ShopifyAnalysisResult | null>(null);
+  const [isShopifyLoaded, setIsShopifyLoaded] = useState(false);
+
   // Single image preview
   const [frontProductImagePreview, setFrontProductImagePreview] = useState<string | null>(null);
   // Bulk image previews
@@ -98,16 +115,11 @@ const App: React.FC = () => {
   const [variantError, setVariantError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
-  const [isSavingDesign, setIsSavingDesign] = useState<string | null>(null); 
   const [savedModels, setSavedModels] = useState<SavedModel[]>([]);
   
-  // New state for design loading
-  const [isLoadingDesigns, setIsLoadingDesigns] = useState(false);
-
   const [isAdmin, setIsAdmin] = useState(false);
   const [credits, setCredits] = useState(0); 
   const [totalCredits, setTotalCredits] = useState(100);
-  const [userTier, setUserTier] = useState<'Free' | 'Starter' | 'Standard' | 'Agency'>('Starter');
   
   // Persistent Free Usage
   const [freeGenerationsUsed, setFreeGenerationsUsed] = useState(() => {
@@ -115,25 +127,21 @@ const App: React.FC = () => {
       return saved ? parseInt(saved, 10) : 0;
   });
 
-  const [userProfile, setUserProfile] = useState<UserProfileData | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  
-  // App Loading State
-  const [showSplash, setShowSplash] = useState(true);
   
   const [loadingMessages, setLoadingMessages] = useState<{title: string, subtext: string}>({ title: '', subtext: '' });
   const generationModeRef = useRef<AppMode | null>(null);
   
   const isGeneratingRef = useRef(false);
 
-  const frontProductImageRef = useRef<File | undefined>(undefined); 
-  const frontProductImageBase64Ref = useRef<string | null>(null); 
   const imageEditInputRef = useRef<HTMLInputElement>(null);
 
   const [floatingPrompt, setFloatingPrompt] = useState('');
   const [floatingImageFile, setFloatingImageFile] = useState<File | null>(null);
   const [floatingImagePreview, setFloatingImagePreview] = useState<string | null>(null);
   const floatingImageInputRef = useRef<HTMLInputElement>(null);
+
+  const userTier = user?.tier || 'Free';
 
   useEffect(() => {
       const { frontProductImage, bulkImages, customAvatarImage, outfitReferenceImage, logoImage, remixReferenceImage, remixProductImage, ...safeParams } = params;
@@ -146,14 +154,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
       const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-          if (generatedImages.length > 0 && !isSavingDesign) {
+          if (generatedImages.length > 0) {
               e.preventDefault();
               e.returnValue = ''; 
           }
       };
       window.addEventListener('beforeunload', handleBeforeUnload);
       return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [generatedImages.length, isSavingDesign]);
+  }, [generatedImages.length]);
 
   useEffect(() => {
     if (isLoading || isEditing) {
@@ -188,168 +196,82 @@ const App: React.FC = () => {
     }
   }, [isLoading, isEditing, batchProgress]);
 
-  // INITIALIZATION & AUTH LISTENER
+  // Load user-specific data when user object changes
   useEffect(() => {
-    let isMounted = true;
-
-    const initApp = async () => {
-        // Enforce a minimum splash time for branding and smoothness
-        const minWait = new Promise(resolve => setTimeout(resolve, 800)); 
-        
-        try {
-            const session = await authService.getSession();
-            if (session && isMounted) {
-                // If session found, load data. 
-                // We await this to ensure the Dashboard has data (credits, etc.) before rendering.
-                await loadUserData(session);
-            }
-        } catch (err) {
-            console.error("Failed to fetch initial session", err);
-        } finally {
-            await minWait; 
-            if (isMounted) setShowSplash(false);
-        }
-    };
-    
-    initApp();
-
-    // LISTEN FOR REDIRECTS (Magic Link / OAuth from Landing Page)
-    const { unsubscribe } = authService.subscribe((event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-            setUserProfile(current => {
-                if (!current || current.id !== session.user.id) {
-                    loadUserData(session); 
-                    return session.user;
-                }
-                return current;
-            });
-        } else if (event === 'SIGNED_OUT') {
-            handleLogout();
-        }
-    });
-
-    return () => {
-        isMounted = false;
-        unsubscribe();
-    };
-  }, []); 
-
-  // Helper to load user data
-  const loadUserData = async (session: AuthSession) => {
-      setUserProfile(session.user);
-      setUserTier(session.user.tier);
-      if (session.user.role === 'Administrator') setIsAdmin(true);
-      
-      if (session.user.id !== 'guest-user-id') {
-          try {
-              const [creditData, savedDesigns, userBrandKit, models] = await Promise.all([
-                  userService.getCredits().catch(() => ({ current: 0, total: 0 })),
-                  designService.getSavedDesigns().catch(() => []),
-                  brandService.getBrandKit().catch(() => null),
-                  userService.getSavedModels().catch(() => [])
-              ]);
-              setCredits(creditData.current);
-              setTotalCredits(creditData.total);
-              setPosterBoard(savedDesigns);
-              setBrandKit(userBrandKit);
-              setSavedModels(models);
-          } catch (dataError) {
-              console.error("Partial data load failure", dataError);
-          }
-      } else {
-          setCredits(25);
-          setTotalCredits(25);
-          setPosterBoard([]);
-          setBrandKit(null);
-          setSavedModels([]);
-      }
-  };
-
-  // ... (Rest of the component remains unchanged - ensuring imports are correct above)
-  
-  // Refetch designs on view change logic
-  useEffect(() => {
-      if (currentView === View.MyDesigns && userProfile && userProfile.id !== 'guest-user-id') {
-          if (!isOnline) {
-              return;
-          }
-          const fetchDesigns = async () => {
-              setIsLoadingDesigns(true);
+      const loadData = async () => {
+          if (user && user.id !== 'guest-user-id') {
+              setIsAdmin(user.role === 'Administrator');
               try {
-                  const designs = await designService.getSavedDesigns();
-                  setPosterBoard(designs);
-              } catch (e: any) {
-                  console.error("Failed to refresh designs:", e.message || e);
-                  setToast({ message: "Could not load saved designs. Check connection.", type: 'error' });
-              } finally {
-                  setIsLoadingDesigns(false);
+                  const [creditData, userBrandKit, models] = await Promise.all([
+                      userService.getCredits(),
+                      brandService.getBrandKit(),
+                      userService.getSavedModels()
+                  ]);
+                  setCredits(creditData.current);
+                  setTotalCredits(creditData.total);
+                  setBrandKit(userBrandKit);
+                  setSavedModels(models);
+              } catch (dataError) {
+                  console.error("Partial data load failure", dataError);
               }
-          };
-          fetchDesigns();
-      }
-  }, [currentView, userProfile, isOnline]);
+          } else if (user) { // Guest user
+              setCredits(25);
+              setTotalCredits(25);
+              setBrandKit(null);
+              setSavedModels([]);
+          }
+      };
+      loadData();
+  }, [user]);
 
-  const handleLoginSuccess = useCallback(async (session: AuthSession) => {
-      setIsSidebarOpen(false); 
-      setCurrentView(View.Dashboard); 
-      await loadUserData(session);
-      setToast({ message: `Welcome back, ${session.user.name}!`, type: 'success' });
-  }, []);
 
   const handleLogout = useCallback(async () => {
-      await authService.signOut();
-      setUserProfile(null);
-      setUserTier('Free');
-      setCredits(0); 
-      setTotalCredits(0);
-      setPosterBoard([]);
-      setBrandKit(null);
-      setSavedModels([]);
+      setIsSidebarOpen(false);
+      await signOut();
       setCurrentView(View.Dashboard);
-      setIsAdmin(false);
       setToast({ message: "Logged out successfully", type: 'success' });
-  }, []);
+      // Clear cached data on logout
+      setInspirationItems([]);
+      setIsInspirationLoaded(false);
+      setShopifyReport(null);
+      setIsShopifyLoaded(false);
+  }, [signOut]);
 
-  // ... (All other handlers unchanged) ...
   const handleRequireAuth = useCallback(() => {
-      if (!userProfile || userProfile.id === 'guest-user-id') {
+      if (!user || user.id === 'guest-user-id') {
           setIsAuthModalOpen(true);
           return false;
       }
       return true;
-  }, [userProfile]);
+  }, [user]);
 
   const handleSetView = useCallback((view: View) => {
-      if ((view === View.MyDesigns || view === View.Profile || view === View.Analytics || view === View.ShopifyAnalytics) && !userProfile) {
+      if ((view === View.MyDesigns || view === View.Profile || view === View.Analytics || view === View.ShopifyAnalytics) && !user) {
           setIsAuthModalOpen(true);
           return;
       }
       setCurrentView(view);
-  }, [userProfile]);
+  }, [user]);
 
   const recentActivity = useMemo(() => {
-    const allImages = [...generatedImages, ...posterBoard];
-    const uniqueImages = Array.from(new Map(allImages.map(img => [img.id, img])).values());
-    
-    return uniqueImages
-        .sort((a, b) => b.timestamp - a.timestamp)
+    // Now uses designs from context
+    return designs
         .slice(0, 12) 
         .map(img => ({
             id: img.id,
-            user: userProfile?.name || 'Guest',
+            user: user?.name || 'Guest',
             action: getActionLabel(img.params?.appMode || AppMode.Product), 
-            imageUrl: img.imageUrl,
+            imageUrl: img.thumbnailUrl || img.imageUrl,
             timestamp: img.timestamp
         }));
-  }, [generatedImages, posterBoard, userProfile]);
-
+  }, [designs, user]);
   
   const [isProfileEditModalOpen, setIsProfileEditModalOpen] = useState(false);
   const handleOpenProfileEditModal = useCallback(() => setIsProfileEditModalOpen(true), []);
   const handleCloseProfileEditModal = useCallback(() => setIsProfileEditModalOpen(false), []);
   
   const handleUpdateProfile = useCallback(async (newProfileData: Partial<UserProfileData>) => {
-      if (!userProfile) return;
+      if (!user) return;
       setUserProfile(prev => prev ? ({ ...prev, ...newProfileData }) : null);
       setIsProfileEditModalOpen(false);
       try {
@@ -358,8 +280,7 @@ const App: React.FC = () => {
       } catch (e) {
           setToast({ message: "Failed to save profile changes", type: 'error' });
       }
-  }, [userProfile]);
-
+  }, [user, setUserProfile]);
 
   const handleOpenFeedbackModal = useCallback(() => setIsFeedbackModalOpen(true), []);
   const handleCloseFeedbackModal = useCallback(() => setIsFeedbackModalOpen(false), []);
@@ -371,312 +292,141 @@ const App: React.FC = () => {
   }, [handleRequireAuth]);
 
   const handleClosePricingModal = useCallback(() => setIsPricingModalOpen(false), []);
-
   const handleOpenSupportModal = useCallback(() => setIsSupportModalOpen(true), []);
   const handleCloseSupportModal = useCallback(() => setIsSupportModalOpen(false), []);
-
   const handleOpenContentGeneratorModal = useCallback(() => setIsContentGeneratorModalOpen(true), []);
   const handleCloseContentGeneratorModal = useCallback(() => setIsContentGeneratorModalOpen(false), []);
-
-  const handleOpenBrandKitModal = useCallback(() => {
-      if (!handleRequireAuth()) return;
-      setIsBrandKitModalOpen(true);
-  }, [handleRequireAuth]);
+  const handleOpenBrandKitModal = useCallback(() => { if (!handleRequireAuth()) return; setIsBrandKitModalOpen(true); }, [handleRequireAuth]);
 
   const handleApiError = useCallback((err: unknown) => {
     let errorMessage = 'An unexpected error occurred.';
-    if (err instanceof Error) {
-      errorMessage = err.message;
-    } 
+    if (err instanceof Error) errorMessage = err.message;
     console.error("API Error Detail:", err);
-    if (errorMessage.includes('deploy') || errorMessage.includes('invoke')) {
-        setToast({ message: "System initializing. Please ensure functions are deployed.", type: 'error' });
-        setError(errorMessage);
-    } else if (errorMessage.includes('403') || errorMessage.includes('permission') || errorMessage.includes('API key')) {
-        setToast({ message: "Access denied. Check API Key.", type: 'error' });
-        setError(errorMessage);
-    } else {
-        setError(errorMessage);
-    }
+    setError(errorMessage);
   }, []);
 
   const checkAndDeductCredits = useCallback((cost: number): boolean => {
       if (isAdmin) return true; 
-      
       if (credits >= cost) {
           setCredits(prev => prev - cost);
-          if (userProfile && userProfile.id !== 'guest-user-id') {
-              userService.deductCredits(cost).catch(e => {
-                  console.error("Credit sync failed", e);
-              });
+          if (user && user.id !== 'guest-user-id') {
+              userService.deductCredits(cost).catch(e => console.error("Credit sync failed", e));
           }
           return true;
       }
       setToast({ message: `Insufficient credits! Required: ${cost}, Balance: ${credits}`, type: 'error' });
       setIsPricingModalOpen(true);
       return false;
-  }, [credits, isAdmin, userProfile]);
+  }, [credits, isAdmin, user]);
 
   const refundCredits = useCallback((amount: number) => {
       if (isAdmin) return;
       setCredits(prev => prev + amount);
-      if (userProfile && userProfile.id !== 'guest-user-id') {
+      if (user && user.id !== 'guest-user-id') {
           userService.deductCredits(-amount).catch(e => console.error("Refund failed", e));
       }
-  }, [isAdmin, userProfile]);
-
+  }, [isAdmin, user]);
 
   const handleSelectMode = useCallback((tool: AppMode) => {
     setLastActiveMode(tool);
     setIsRemixMode(false);
-    setParams(prev => {
-        const updates = getModeDefaults(tool, prev); // Use new logic
-        if (tool !== AppMode.Remix && prev.appMode === AppMode.Remix) {
-            setRemixReferenceImagePreview(null);
-            setRemixProductImagePreview(null);
-        }
-        if (![AppMode.Product, AppMode.Influencer, AppMode.Fashion, AppMode.Festival].includes(tool) && frontProductImagePreview) {
-            setFrontProductImagePreview(null);
-            setBulkImagePreviews([]); 
-        }
-        return { ...prev, ...updates };
-    });
+    setParams(prev => ({ ...prev, ...getModeDefaults(tool, prev) }));
     setActiveMode(tool);
-  }, [frontProductImagePreview]);
+  }, []);
   
   const handleRemix = useCallback((item: InspirationItem) => {
       setLastActiveMode(item.appMode);
       setIsRemixMode(true);
-      setFrontProductImagePreview(null);
-      setBulkImagePreviews([]);
-      
-      setParams(prev => {
-          const baseDefaults = getModeDefaults(item.appMode, INITIAL_GENERATE_PARAMS);
-          return {
-              ...INITIAL_GENERATE_PARAMS,
-              ...baseDefaults,
-              ...item.remixParams,
-              appMode: item.appMode,
-              frontProductImage: undefined,
-              bulkImages: undefined,
-              remixReferenceImage: undefined,
-              remixProductImage: undefined
-          };
-      });
-      
+      setParams(prev => ({ ...INITIAL_GENERATE_PARAMS, ...getModeDefaults(item.appMode, INITIAL_GENERATE_PARAMS), ...item.remixParams, appMode: item.appMode }));
       setActiveMode(item.appMode);
       setCurrentView(View.Dashboard);
       setToast({ message: `Remixing style: ${item.title}`, type: 'success' });
   }, []);
 
   const handleRemixDesign = useCallback(async (image: GeneratedImage) => {
+      let fullImage = image;
+      if (Object.keys(image.params).length === 0) {
+          const detailed = await designService.getDesignDetails(image.id);
+          if (!detailed) { setToast({ message: "Could not load design details for remix.", type: 'error' }); return; }
+          fullImage = detailed;
+          updateDesign(detailed); // Update context
+      }
       try {
-          let referenceFile: File | undefined = undefined;
-          let referenceUrl: string | undefined = undefined;
-          try {
-              const response = await fetch(image.imageUrl);
-              const blob = await response.blob();
-              referenceFile = new File([blob], "remix-reference.png", { type: "image/png" });
-          } catch (e) {
-              console.warn("Could not fetch blob from URL for remix, using URL fallback.");
-              referenceUrl = image.imageUrl;
-          }
-
+          const response = await fetch(fullImage.imageUrl);
+          const blob = await response.blob();
+          const referenceFile = new File([blob], "remix-reference.png", { type: "image/png" });
           setActiveMode(AppMode.Remix);
-          setRemixReferenceImagePreview(image.imageUrl);
-          
-          setParams(prev => ({
-              ...INITIAL_GENERATE_PARAMS,
-              appMode: AppMode.Remix,
-              productDescription: image.params?.productDescription || '',
-              remixReferenceImage: referenceFile,
-              remixReferenceImageUrl: referenceUrl 
-          }));
-          
+          setRemixReferenceImagePreview(fullImage.imageUrl);
+          setParams(prev => ({ ...INITIAL_GENERATE_PARAMS, appMode: AppMode.Remix, productDescription: fullImage.params?.productDescription || '', remixReferenceImage: referenceFile }));
           setCurrentView(View.Dashboard);
-          setToast({ message: "Design loaded into Remix Studio!", type: 'success' });
       } catch (e) {
-          console.error("Failed to load design for remix", e);
           setToast({ message: "Failed to load design.", type: 'error' });
       }
-  }, []);
+  }, [updateDesign]);
   
   const handleResetParams = useCallback(() => {
     if (!activeMode) return;
-    setParams(prev => {
-      const modeDefaults = getModeDefaults(activeMode, INITIAL_GENERATE_PARAMS);
-      return {
-        ...INITIAL_GENERATE_PARAMS,
-        ...modeDefaults,
-        appMode: activeMode,
-        // Preserve assets
-        frontProductImage: prev.frontProductImage,
-        bulkImages: prev.bulkImages,
-        remixReferenceImage: prev.remixReferenceImage,
-        remixProductImage: prev.remixProductImage,
-        logoImage: prev.logoImage,
-        customAvatarImage: prev.customAvatarImage,
-        outfitReferenceImage: prev.outfitReferenceImage,
-        productCategory: prev.productCategory,
-        detectedCategory: prev.detectedCategory
-      };
-    });
-    setToast({ message: "Parameters have been removed.", type: 'success' });
+    setParams(prev => ({ ...INITIAL_GENERATE_PARAMS, ...getModeDefaults(activeMode, INITIAL_GENERATE_PARAMS) }));
+    setToast({ message: "Parameters reset.", type: 'success' });
   }, [activeMode]);
 
-  const debouncedDetectProductCategory = useCallback(debounce(async (
-      base64: string,
-      mimeType: string,
-      description: string
-  ) => {
+  const debouncedDetectProductCategory = useCallback(debounce(async (base64: string, mimeType: string, description: string) => {
       try {
           const detectedCategory = await detectProductCategory(base64, mimeType, description);
-          setParams(prev => ({
-              ...prev,
-              productCategory: detectedCategory,
-              detectedCategory: detectedCategory,
-          }));
-      } catch (error: any) {
-          console.error("Error detecting product category:", error);
+          setParams(prev => ({ ...prev, productCategory: detectedCategory, detectedCategory: detectedCategory }));
+      } catch (error) {
           setParams(prev => ({ ...prev, productCategory: ProductCategory.Generic, detectedCategory: undefined }));
       }
   }, 500), []); 
 
-  // --- FILE HANDLING ---
-
   const handleBulkFilesChange = useCallback(async (files: File[]) => {
       const MAX_FILES = 3;
-      const currentBulk = params.bulkImages || [];
       const currentPreviews = bulkImagePreviews;
-
-      const availableSlots = MAX_FILES - currentBulk.length;
-      if (availableSlots <= 0) {
-          setToast({ message: `You can only upload up to ${MAX_FILES} images in total.`, type: 'error' });
-          return;
-      }
-      
-      const filesToProcess = files.slice(0, availableSlots);
-      if (files.length > availableSlots) {
-          setToast({ message: `Limit reached. Only the first ${availableSlots} image(s) were added.`, type: 'success' });
-      }
-      
-      // Create previews immediately
+      const filesToProcess = files.slice(0, MAX_FILES - currentPreviews.length);
       const newPreviews = filesToProcess.map(f => URL.createObjectURL(f));
-
-      // Process new files
       const processedNewFiles = await Promise.all(filesToProcess.map(f => processImageFile(f, { maxWidth: 2048, maxHeight: 2048, format: 'image/png' })));
-      
-      const combinedFiles = [...currentBulk, ...processedNewFiles];
-      const combinedPreviews = [...currentPreviews, ...newPreviews];
-
-      setBulkImagePreviews(combinedPreviews);
-      setParams(prev => ({
-          ...prev,
-          bulkImages: combinedFiles,
-          frontProductImage: combinedFiles[0] 
-      }));
-      setFrontProductImagePreview(combinedPreviews[0]); // Sync main preview
-
-      // Detect category on the newest/first image added if none detected yet
+      setBulkImagePreviews(prev => [...prev, ...newPreviews]);
+      setParams(prev => ({ ...prev, bulkImages: [...(prev.bulkImages || []), ...processedNewFiles], frontProductImage: [...(prev.bulkImages || []), ...processedNewFiles][0] }));
+      setFrontProductImagePreview([...currentPreviews, ...newPreviews][0]);
       if (processedNewFiles.length > 0 && !params.detectedCategory) {
           const base64 = await fileToBase64(processedNewFiles[0]);
           debouncedDetectProductCategory(base64, processedNewFiles[0].type, params.productDescription);
       }
+  }, [bulkImagePreviews, params.productDescription, params.detectedCategory, debouncedDetectProductCategory]);
 
-  }, [params.bulkImages, bulkImagePreviews, params.productDescription, params.detectedCategory, debouncedDetectProductCategory]);
-
-
-  const handleFileChange = useCallback(async (
-    file: File | null,
-    paramName: keyof GenerateImageParams,
-    previewSetter: React.Dispatch<React.SetStateAction<string | null>>,
-    options: { maxWidth: number; maxHeight: number; format?: 'image/jpeg' | 'image/png' }
-  ) => {
-    // Revoke old URL if overwriting
-    if (file === null) {
-        previewSetter(prev => {
-            if (prev) URL.revokeObjectURL(prev);
-            return null;
-        });
-    }
-
+  const handleFileChange = useCallback(async (file: File | null, paramName: keyof GenerateImageParams, previewSetter: React.Dispatch<React.SetStateAction<string | null>>, options: any) => {
+    if (file === null) previewSetter(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
     if (file) {
-        let previewUrl: string | null = null;
-        try {
-            const processedFile = await processImageFile(file, options);
-            previewUrl = URL.createObjectURL(processedFile);
-            previewSetter(previewUrl);
-
-            if (paramName === 'frontProductImage') {
-                frontProductImageRef.current = processedFile; 
-                const base64 = await fileToBase64(processedFile);
-                frontProductImageBase64Ref.current = base64; 
-                debouncedDetectProductCategory(base64, processedFile.type, params.productDescription);
-                
-                // Clear bulk if setting single main image explicitly (legacy behavior, but helpful for reset)
-                setBulkImagePreviews([previewUrl]); 
-                setParams(prev => ({
-                    ...prev,
-                    [paramName]: processedFile,
-                    bulkImages: [processedFile] 
-                }));
-            } else {
-                // Non-main images (logo, remix ref, etc)
-                setParams(prev => ({ ...prev, [paramName]: processedFile }));
-            }
-        } catch (error) {
-            console.error(`Error processing ${paramName}:`, error);
-            setError(error instanceof Error ? error.message : 'Failed to process image.');
-            if (previewUrl) URL.revokeObjectURL(previewUrl);
-            previewSetter(null);
+        const processedFile = await processImageFile(file, options);
+        previewSetter(URL.createObjectURL(processedFile));
+        setParams(prev => ({ ...prev, [paramName]: processedFile }));
+        if (paramName === 'frontProductImage') {
+            const base64 = await fileToBase64(processedFile);
+            debouncedDetectProductCategory(base64, processedFile.type, params.productDescription);
         }
     } else {
         setParams(prev => ({ ...prev, [paramName]: undefined }));
-        if (paramName === 'frontProductImage') {
-             frontProductImageRef.current = undefined;
-             frontProductImageBase64Ref.current = null;
-             setParams(prev => ({ ...prev, productCategory: ProductCategory.Generic, detectedCategory: undefined }));
-             setBulkImagePreviews([]);
-             setParams(prev => ({ ...prev, bulkImages: undefined }));
-        }
     }
   }, [params.productDescription, debouncedDetectProductCategory]);
 
-  // Remove specific image from bulk
   const handleRemoveBulkImage = useCallback((index: number) => {
       setBulkImagePreviews(prev => {
           const newPreviews = [...prev];
-          URL.revokeObjectURL(newPreviews[index]); // Cleanup
+          URL.revokeObjectURL(newPreviews[index]);
           newPreviews.splice(index, 1);
-          
-          // Sync front preview if we removed the first one
-          if (index === 0) {
-              setFrontProductImagePreview(newPreviews.length > 0 ? newPreviews[0] : null);
-          }
+          if (index === 0) setFrontProductImagePreview(newPreviews.length > 0 ? newPreviews[0] : null);
           return newPreviews;
       });
-
       setParams(prev => {
           const currentBulk = prev.bulkImages ? [...prev.bulkImages] : [];
           currentBulk.splice(index, 1);
-          
-          return {
-              ...prev,
-              bulkImages: currentBulk,
-              frontProductImage: currentBulk.length > 0 ? currentBulk[0] : undefined
-          };
+          return { ...prev, bulkImages: currentBulk, frontProductImage: currentBulk.length > 0 ? currentBulk[0] : undefined };
       });
   }, []);
 
-  // NEW: Save specific image as a model
   const handleSaveModel = useCallback(async (image: GeneratedImage) => {
-      if (!userProfile || userProfile.id === 'guest-user-id') {
-          setIsAuthModalOpen(true);
-          return;
-      }
-      
+      if (!handleRequireAuth()) return;
       const modelName = `${params.modelGender || 'New'} Model #${Math.floor(1000 + Math.random() * 9000)}`;
-      
       try {
           const newModels = await userService.saveModel(modelName, image.imageUrl, savedModels);
           setSavedModels(newModels);
@@ -684,219 +434,60 @@ const App: React.FC = () => {
       } catch (err: any) {
           setToast({ message: "Failed to save model.", type: 'error' });
       }
-  }, [userProfile, savedModels, params.modelGender]);
-
-  // Handle generation from Shopify Insights (Ad Creative link)
-  const handleShopifyAdGeneration = useCallback((productName: string) => {
-      setParams(prev => ({
-          ...INITIAL_GENERATE_PARAMS,
-          appMode: AppMode.AdCreative,
-          adTitle: `Sale on ${productName}`,
-          productDescription: productName,
-          adCta: 'Shop Now'
-      }));
-      setActiveMode(AppMode.AdCreative);
-      setCurrentView(View.Dashboard);
-  }, []);
+  }, [savedModels, params.modelGender, handleRequireAuth]);
 
   const handleGenerate = useCallback(async (currentParams: GenerateImageParams, previewUrlOverride?: string) => {
     if (isGeneratingRef.current) return;
     isGeneratingRef.current = true;
-
-    if (!navigator.onLine) {
-        setToast({ message: "You are offline. Please check your internet connection.", type: 'error' });
-        setIsLoading(false);
-        isGeneratingRef.current = false;
-        return;
-    }
-
     const cost = calculateGenerationCost(currentParams, userTier);
-    const isFreeTier = userTier === 'Free';
-    const isStandardGeneration = currentParams.resolutionQuality === ResolutionQuality.Standard;
-    const remainingFree = FREE_TRIAL_LIMIT - freeGenerationsUsed;
-    const isFreeTrialGeneration = isFreeTier && isStandardGeneration && cost > 0 && cost <= remainingFree;
-
-    if (!isFreeTrialGeneration) {
-        if (!checkAndDeductCredits(cost)) {
-            isGeneratingRef.current = false; 
-            return;
-        }
-    }
+    const isFreeTrialGeneration = userTier === 'Free' && currentParams.resolutionQuality === ResolutionQuality.Standard && cost > 0 && cost <= (FREE_TRIAL_LIMIT - freeGenerationsUsed);
+    if (!isFreeTrialGeneration && !checkAndDeductCredits(cost)) { isGeneratingRef.current = false; return; }
     
     generationModeRef.current = currentParams.appMode;
     setIsLoading(true);
-    setBatchProgress(null);
     setError(null);
     setActiveMode(null); 
     setCurrentView(View.Dashboard); 
     setIsStoryboardResult(!!currentParams.storyboardScenes && currentParams.storyboardScenes.length > 0);
     
-    let modelSeedUrl: string | undefined = undefined;
-    if (currentParams.appMode === AppMode.Influencer && currentParams.modelSourceOption === 'existing' && currentParams.modelSeedId) {
-        modelSeedUrl = savedModels.find(m => m.id === currentParams.modelSeedId)?.thumbnail_url;
-    }
-
     try {
-      const results = await generateImages(
-          currentParams, 
-          userTier,
-          brandKit,
-          previewUrlOverride ?? frontProductImagePreview ?? undefined,
-          (current, total) => setBatchProgress({ current, total }),
-          modelSeedUrl
-      );
+      const results = await generateImages(currentParams, userTier, brandKit, previewUrlOverride ?? frontProductImagePreview ?? undefined, (current, total) => setBatchProgress({ current, total }));
       setGeneratedImages(results);
-
       if (isFreeTrialGeneration) {
           setFreeGenerationsUsed(prev => prev + cost);
-          setToast({ message: `${cost} free generation(s) used. ${remainingFree - cost} remaining.`, type: 'success' });
+          setToast({ message: `${cost} free trial generation(s) used.`, type: 'success' });
       }
-
-      setStoryboardSourceImage(null); 
-      setFloatingPrompt('');
-      setFloatingImageFile(null);
     } catch (err) {
-      if (!isFreeTrialGeneration && !isAdmin) {
-          refundCredits(cost);
-          setToast({ message: "Generation failed. Credits refunded.", type: 'success' });
-      }
+      if (!isFreeTrialGeneration) refundCredits(cost);
       handleApiError(err);
     } finally {
       setIsLoading(false);
-      setBatchProgress(null);
       isGeneratingRef.current = false; 
     }
-  }, [userTier, freeGenerationsUsed, frontProductImagePreview, brandKit, handleApiError, checkAndDeductCredits, savedModels, isAdmin, refundCredits, userProfile]);
+  }, [userTier, freeGenerationsUsed, frontProductImagePreview, brandKit, handleApiError, checkAndDeductCredits, refundCredits]);
 
-  const handleInternalImageDrop = useCallback(async (image: GeneratedImage, targetMode?: AppMode) => {
-      const finalMode = targetMode || AppMode.Remix;
-      handleSelectMode(finalMode);
-      try {
-          const fileName = `internal-${image.id}.png`;
-          const file = dataURLtoFile(image.imageUrl, fileName);
-          if (finalMode === AppMode.Remix) {
-              handleFileChange(file, 'remixReferenceImage', setRemixReferenceImagePreview, { maxWidth: 1024, maxHeight: 1024 });
-          } else {
-              handleFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 1024, maxHeight: 1024 });
-          }
-          setToast({ message: `Image loaded into ${finalMode} mode!`, type: 'success' });
-      } catch (err) {
-          console.error("Internal drop processing failed", err);
-          setToast({ message: "Failed to load dropped image.", type: 'error' });
+  const handleReturnToSettings = useCallback(() => { setGeneratedImages([]); setActiveMode(lastActiveMode); }, [lastActiveMode]);
+  const handleStartEdit = useCallback(async (image?: GeneratedImage, tab: 'inpaint' | 'crop' | 'background' = 'inpaint') => {
+      if (image && Object.keys(image.params).length === 0) {
+          const detailed = await designService.getDesignDetails(image.id);
+          if (!detailed) { setToast({ message: "Could not load design details.", type: 'error' }); return; }
+          updateDesign(detailed);
+          setEditingImage(detailed);
+      } else {
+          setEditingImage(image || { id: `edit-placeholder-${Date.now()}`, imageUrl: '', caption: '', hashtags: '', aspectRatio: '1:1', timestamp: Date.now(), params: INITIAL_GENERATE_PARAMS });
       }
-  }, [handleFileChange, handleSelectMode]);
-
-  const handleFloatingImageDrop = useCallback(async (file: File) => {
-      try {
-          const processedFile = await processImageFile(file, { maxWidth: 1024, maxHeight: 1024, format: 'image/png' });
-          setFloatingImageFile(processedFile);
-      } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to process image.');
-          console.error(err);
-      }
-  }, []);
-
-  const handleImageEditFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const generatedImage = await fileToGeneratedImage(file);
-        setEditingImage(generatedImage);
-      } catch (error) {
-        console.error("Error processing image for editing:", error);
-        setError(error instanceof Error ? error.message : 'Failed to process image.');
-      }
-      if (imageEditInputRef.current) {
-        imageEditInputRef.current.value = '';
-      }
-    }
-  }, []);
-  
-  const handleFloatingImageFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) handleFloatingImageDrop(file);
-      if (floatingImageInputRef.current) floatingImageInputRef.current.value = '';
-  }, [handleFloatingImageDrop]);
-
-  const handleRemoveFloatingImage = useCallback(() => setFloatingImageFile(null), []);
-
-  const handleFloatingGenerate = useCallback(() => {
-      if (isGeneratingRef.current) return;
-      if (!isOnline) { setToast({ message: "You are offline.", type: 'error' }); return; }
-
-      const generationParams: GenerateImageParams = {
-          ...INITIAL_GENERATE_PARAMS,
-          appMode: floatingMode, 
-          productDescription: floatingPrompt,
-          frontProductImage: floatingImageFile ?? undefined,
-          aspectRatios: params.aspectRatios, 
-          outputFormat: params.outputFormat,
-          resolutionQuality: params.resolutionQuality,
-          modelGender: params.modelGender,
-          productCategory: params.productCategory
-      };
-      
-      if (floatingPrompt.toLowerCase().includes('ad') || floatingPrompt.toLowerCase().includes('banner')) {
-          generationParams.appMode = AppMode.AdCreative;
-      }
-
-      handleGenerate(generationParams, floatingImagePreview ?? undefined);
-  }, [floatingPrompt, floatingImageFile, params, handleGenerate, floatingImagePreview, isOnline, floatingMode]);
-
-  const handleReturnToSettings = useCallback(() => {
-    setGeneratedImages([]);
-    setActiveMode(lastActiveMode);
-  }, [lastActiveMode]);
-
-  const handleStartEdit = useCallback((image?: GeneratedImage, tab: 'inpaint' | 'crop' | 'background' = 'inpaint') => {
-      setEditingImage(image || {
-          id: `edit-placeholder-${Date.now()}`,
-          imageUrl: '',
-          caption: 'New Edit',
-          hashtags: '',
-          aspectRatio: '1:1',
-          timestamp: Date.now(),
-          params: INITIAL_GENERATE_PARAMS
-      });
       setEditModalInitialTab(tab);
-  }, []);
-
-  const handleCloseEdit = useCallback(() => {
-      setEditingImage(null);
-      setIsEditing(false);
-  }, []);
+  }, [updateDesign]);
 
   const handleApplyEdit = useCallback(async (editParams: EditImageParams) => {
-      if (!isOnline) { setToast({message: "Offline", type: 'error'}); return; }
-      
       if (!checkAndDeductCredits(1)) return;
-
       setIsEditing(true); 
       try {
           const result = await editImage(editParams);
-          if (editingImage) {
-              setEditingImage({ ...editingImage, imageUrl: result.imageUrl });
-          }
+          if (editingImage) setEditingImage({ ...editingImage, imageUrl: result.imageUrl });
       } catch (e) {
           refundCredits(1); 
           setToast({ message: "Edit failed", type: 'error' });
-      } finally {
-          setIsEditing(false);
-      }
-  }, [isOnline, editingImage, checkAndDeductCredits, refundCredits]);
-
-  const handleRemoveBackground = useCallback(async () => {
-      if (!editingImage?.imageUrl) return;
-      if (!checkAndDeductCredits(1)) return;
-      
-      setIsEditing(true);
-      try {
-          const result = await removeBackground(editingImage.imageUrl.split(',')[1], 'image/png'); 
-          const newUrl = `data:${result.mimeType};base64,${result.data}`;
-          setEditingImage({ ...editingImage, imageUrl: newUrl });
-      } catch (e) {
-          refundCredits(1);
-          setToast({ message: "BG Removal failed", type: 'error' });
       } finally {
           setIsEditing(false);
       }
@@ -904,364 +495,260 @@ const App: React.FC = () => {
 
   const handleImageUpdate = useCallback((id: string, newUrl: string, sourceUrl?: string) => {
       if (editingImage && editingImage.id === id) {
-          setEditingImage({ 
-              ...editingImage, 
-              imageUrl: newUrl,
-              sourceProductImageUrl: sourceUrl || editingImage.sourceProductImageUrl 
-          });
+          setEditingImage({ ...editingImage, imageUrl: newUrl, sourceProductImageUrl: sourceUrl || editingImage.sourceProductImageUrl });
       }
   }, [editingImage]);
 
-  const handleClearZoomedImage = useCallback(() => setZoomedImage(null), []);
-  const handleCloseDeployModal = useCallback(() => setIsDeployModalOpen(false), []);
-  const handleClearStoryboardSource = useCallback(() => setStoryboardSourceImage(null), []);
-
-  const handleOpenVariantsModal = useCallback(async (field: 'modelPersona' | 'poseSuggestion') => {
-      setQuickVariantsField(field);
-      setIsVariantsLoading(true);
-      setVariantError(null);
-      try {
-          const suggestions = await generateVariantSuggestions(params.productDescription, field);
-          setVariantSuggestions(suggestions);
-      } catch (err) {
-          setVariantError("Failed to load suggestions.");
-      } finally {
-          setIsVariantsLoading(false);
-      }
-  }, [params.productDescription]);
-
-  const handleSelectVariant = useCallback((suggestion: string) => {
-      if (quickVariantsField) {
-          setParams(prev => ({ ...prev, [quickVariantsField]: suggestion }));
-          setQuickVariantsField(null);
-      }
-  }, [quickVariantsField]);
-
-  const renderCurrentView = () => {
-      switch (currentView) {
-          case View.Dashboard:
-              if (generatedImages.length > 0 || isLoading || error) {
-                  return (
-                      <MainContent
-                          params={params}
-                          frontProductImagePreview={frontProductImagePreview}
-                          generatedImages={generatedImages}
-                          isLoading={isLoading}
-                          error={error}
-                          onAddToPosterBoard={async (img) => {
-                              setPosterBoard(prev => [img, ...prev]);
-                              setIsSavingDesign(img.id);
-                              try {
-                                  const saved = await designService.saveDesign(img);
-                                  setPosterBoard(prev => prev.map(p => p.id === img.id ? saved : p));
-                                  setToast({ message: "Design saved to cloud!", type: 'success' });
-                              } catch (e) {
-                                  setToast({ message: "Saved locally. Cloud sync failed.", type: 'error' });
-                              } finally {
-                                  setIsSavingDesign(null);
-                              }
-                          }}
-                          onStartEdit={handleStartEdit}
-                          onSetStoryboardSource={(img) => { setStoryboardSourceImage(img); handleSelectMode(AppMode.Influencer); }}
-                          onSetZoomedImage={setZoomedImage}
-                          isStoryboardResult={isStoryboardResult}
-                          onGenerateCaption={async (id, opts) => {
-                              const img = generatedImages.find(i => i.id === id) || posterBoard.find(i => i.id === id);
-                              if (!img) return;
-                              setGeneratingCaptionImageId(id);
-                              try {
-                                  const result = await generateCaption({ imageUrl: img.imageUrl, ...opts }, brandKit);
-                                  const updated = { ...img, caption: result.caption, hashtags: result.hashtags };
-                                  setGeneratedImages(prev => prev.map(i => i.id === id ? updated : i));
-                                  setPosterBoard(prev => prev.map(i => i.id === id ? updated : i));
-                              } catch (e) {
-                                  console.error(e);
-                              } finally {
-                                  setGeneratingCaptionImageId(null);
-                              }
-                          }}
-                          generatingCaptionImageId={generatingCaptionImageId}
-                          onOpenABTestModal={async (image) => {
-                              if (checkAndDeductCredits(2)) {
-                                  setAbTestModalImage(image);
-                              }
-                          }}
-                          onReturnToSettings={handleReturnToSettings}
-                          onSaveModel={handleSaveModel} 
-                      />
-                  );
-              }
-              return (
-                  <Dashboard
-                      onSelectMode={handleSelectMode}
-                      onStartImageEdit={(img) => handleStartEdit(img, 'background')}
-                      onOpenFeedbackModal={handleOpenFeedbackModal}
-                      onOpenPricingModal={handleOpenPricingModal}
-                      onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                      floatingPrompt={floatingPrompt}
-                      onFloatingPromptChange={setFloatingPrompt}
-                      floatingImagePreview={floatingImagePreview}
-                      onFloatingGenerate={handleFloatingGenerate}
-                      onRemoveFloatingImage={handleRemoveFloatingImage}
-                      onTriggerFloatingUpload={() => floatingImageInputRef.current?.click()}
-                      onOpenContentGenerator={handleOpenContentGeneratorModal}
-                      userTier={userTier}
-                      isAdmin={isAdmin}
-                      userName={userProfile?.name?.split(' ')[0]}
-                      onInternalImageDrop={handleInternalImageDrop}
-                      onFloatingImageDrop={handleFloatingImageDrop}
-                      isLoading={isLoading || isGeneratingRef.current}
-                      floatingMode={floatingMode} 
-                      onFloatingModeChange={setFloatingMode} 
-                  />
-              );
-          case View.Analytics:
-              return (
-                  <AnalyticsDashboard 
-                      savedDesigns={posterBoard}
-                      onSetView={handleSetView}
-                      onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                  />
-              );
-          case View.ShopifyAnalytics:
-              return (
-                  <ShopifyDashboard 
-                      onGenerateAd={handleShopifyAdGeneration}
-                      onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                  />
-              );
-          case View.MyDesigns:
-              return (
-                  <MyDesigns
-                      images={posterBoard}
-                      onRemove={(id) => {
-                          setPosterBoard(prev => prev.filter(img => img.id !== id));
-                          designService.deleteDesign(id);
-                      }}
-                      onDeploy={() => setIsDeployModalOpen(true)}
-                      onSetView={handleSetView}
-                      onStartEdit={handleStartEdit}
-                      onSetZoomedImage={setZoomedImage}
-                      onSetStoryboardSource={(img) => { setStoryboardSourceImage(img); handleSelectMode(AppMode.Influencer); }}
-                      onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                      onRemix={handleRemixDesign}
-                      isLoading={isLoadingDesigns}
-                  />
-              );
-          case View.Profile:
-              return userProfile ? (
-                  <Suspense fallback={<Spinner />}>
-                      <ProfilePage
-                          user={{
-                              name: userProfile.name,
-                              role: userProfile.role,
-                              bio: userProfile.bio,
-                              email: userProfile.email,
-                              location: userProfile.location,
-                              avatarUrl: userProfile.avatarUrl
-                          }}
-                          credits={credits}
-                          userTier={userTier}
-                          onEditProfile={handleOpenProfileEditModal}
-                          onUpgradePlan={handleOpenPricingModal}
-                          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                          onSetView={handleSetView}
-                          onOpenFeedbackModal={handleOpenFeedbackModal}
-                          recentActivity={recentActivity}
-                      />
-                  </Suspense>
-              ) : null;
-          case View.Inspiration:
-              return (
-                  <Suspense fallback={<Spinner />}>
-                      <InspirationPage
-                          onSetView={handleSetView}
-                          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                          onRemix={handleRemix}
-                      />
-                  </Suspense>
-              );
-          default:
-              return (
-                  <MainContent
-                      params={params}
-                      frontProductImagePreview={frontProductImagePreview}
-                      generatedImages={generatedImages}
-                      isLoading={isLoading}
-                      error={error}
-                      onAddToPosterBoard={async (img) => {
-                          setPosterBoard(prev => [img, ...prev]);
-                          setIsSavingDesign(img.id);
-                          try {
-                              const saved = await designService.saveDesign(img);
-                              setPosterBoard(prev => prev.map(p => p.id === img.id ? saved : p));
-                              setToast({ message: "Design saved to cloud!", type: 'success' });
-                          } catch (e) {
-                              setToast({ message: "Saved locally. Cloud sync failed.", type: 'error' });
-                          } finally {
-                              setIsSavingDesign(null);
-                          }
-                      }}
-                      onStartEdit={handleStartEdit}
-                      onSetStoryboardSource={(img) => { setStoryboardSourceImage(img); handleSelectMode(AppMode.Influencer); }}
-                      onSetZoomedImage={setZoomedImage}
-                      isStoryboardResult={isStoryboardResult}
-                      onGenerateCaption={async (id, opts) => {
-                          const img = generatedImages.find(i => i.id === id) || posterBoard.find(i => i.id === id);
-                          if (!img) return;
-                          setGeneratingCaptionImageId(id);
-                          try {
-                              const result = await generateCaption({ imageUrl: img.imageUrl, ...opts }, brandKit);
-                              const updated = { ...img, caption: result.caption, hashtags: result.hashtags };
-                              setGeneratedImages(prev => prev.map(i => i.id === id ? updated : i));
-                              setPosterBoard(prev => prev.map(i => i.id === id ? updated : i));
-                          } catch (e) {
-                              console.error(e);
-                          } finally {
-                              setGeneratingCaptionImageId(null);
-                          }
-                      }}
-                      generatingCaptionImageId={generatingCaptionImageId}
-                      onOpenABTestModal={async (image) => {
-                          if (checkAndDeductCredits(2)) {
-                              setAbTestModalImage(image);
-                          }
-                      }}
-                      onReturnToSettings={handleReturnToSettings}
-                      onSaveModel={handleSaveModel}
-                  />
-              );
-      }
+  // FIX: Handler for LoginPage onLoginSuccess prop
+  const handleLoginSuccess = (session: AuthSession) => {
+    setUserProfile(session.user);
   };
+    
+  // FIX: Handler for MainContent onGenerateCaption prop
+  const handleGenerateCaption = useCallback(async (imageId: string, captionParams: Omit<GenerateCaptionParams, 'imageUrl' | 'existingCaption'>) => {
+    const imageToCaption = generatedImages.find(img => img.id === imageId) || designs.find(d => d.id === imageId);
+    if (!imageToCaption) {
+      setToast({ message: "Could not find image to generate caption for.", type: 'error' });
+      return;
+    }
+    
+    setGeneratingCaptionImageId(imageId);
+    try {
+      const result = await generateCaption({
+        imageUrl: imageToCaption.imageUrl,
+        ...captionParams,
+      }, brandKit);
+      
+      setGeneratedImages(prev => prev.map(img => 
+        img.id === imageId 
+        ? { ...img, caption: result.caption, hashtags: result.hashtags || '' } 
+        : img
+      ));
+      
+      updateDesign({ ...imageToCaption, caption: result.caption, hashtags: result.hashtags || '' });
+
+      setToast({ message: "Caption generated!", type: 'success' });
+    } catch(err: any) {
+      setToast({ message: `Caption generation failed: ${err.message}`, type: 'error' });
+    } finally {
+      setGeneratingCaptionImageId(null);
+    }
+  }, [generatedImages, brandKit, updateDesign, designs]);
+
+  // FIX: Handler for MainContent onOpenABTestModal prop
+  const handleOpenABTestModal = useCallback((image: GeneratedImage) => {
+    setAbTestModalImage(image);
+  }, []);
+
+  // FIX: Handlers for Dashboard's floating action bar props
+  const handleFloatingGenerate = useCallback(() => {
+    const floatingParams: GenerateImageParams = {
+        ...INITIAL_GENERATE_PARAMS,
+        appMode: floatingMode,
+        productDescription: floatingPrompt,
+        frontProductImage: floatingImageFile || undefined,
+        aspectRatios: [AspectRatio.PortraitPost]
+    };
+    handleGenerate(floatingParams, floatingImagePreview);
+    
+    setFloatingPrompt('');
+    setFloatingImageFile(null);
+    if (floatingImagePreview) URL.revokeObjectURL(floatingImagePreview);
+    setFloatingImagePreview(null);
+
+  }, [floatingMode, floatingPrompt, floatingImageFile, handleGenerate, floatingImagePreview]);
+
+  const handleFloatingImageFileChange = useCallback(async (file: File | null) => {
+    if (floatingImagePreview) URL.revokeObjectURL(floatingImagePreview);
+    setFloatingImageFile(file);
+    if (file) {
+        setFloatingImagePreview(URL.createObjectURL(file));
+    } else {
+        setFloatingImagePreview(null);
+    }
+  }, [floatingImagePreview]);
+  
+  const handleRemoveFloatingImage = useCallback(() => {
+    handleFloatingImageFileChange(null);
+  }, [handleFloatingImageFileChange]);
+
+  const handleTriggerFloatingUpload = useCallback(() => {
+    floatingImageInputRef.current?.click();
+  }, []);
+
+  const handleInternalImageDrop = useCallback((image: GeneratedImage, targetMode?: AppMode) => {
+      if (targetMode) {
+        setActiveMode(targetMode);
+        fetch(image.imageUrl).then(res => res.blob()).then(blob => {
+            const file = new File([blob], "dropped-image.png", { type: blob.type });
+            if (targetMode === AppMode.Remix) {
+                // Future-proofing: Specific logic for remix drop
+            } else {
+                handleFileChange(file, 'frontProductImage', setFrontProductImagePreview, { maxWidth: 1024, maxHeight: 1024 });
+            }
+        });
+      }
+  }, [handleFileChange]);
+
+  const onFloatingImageDrop = useCallback((file: File) => {
+      handleFloatingImageFileChange(file);
+  }, [handleFloatingImageFileChange]);
+  
+  // FIX: Handler for EditModal's onRemoveBackground prop
+  const handleRemoveBackground = useCallback(async () => {
+    if (!editingImage) return;
+    if (!checkAndDeductCredits(1)) return;
+    
+    setIsEditing(true);
+    try {
+        const { data, mimeType } = dataURLToParts(editingImage.imageUrl);
+        const result = await removeBackground(data, mimeType);
+        const newUrl = `data:${result.mimeType};base64,${result.data}`;
+        if (editingImage) {
+            setEditingImage(prev => prev ? ({ ...prev, imageUrl: newUrl }) : null);
+        }
+    } catch (e) {
+        refundCredits(1);
+        setToast({ message: "Background removal failed", type: 'error' });
+    } finally {
+        setIsEditing(false);
+    }
+  }, [editingImage, checkAndDeductCredits, refundCredits]);
+
+
+  if (isAuthLoading) {
+      return <SplashScreen />;
+  }
+
+  if (!user) {
+      // FIX: Pass required onLoginSuccess prop to LoginPage
+      return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
 
   return (
     <ErrorBoundary>
-        {!isOnline && (
-            <div className="fixed top-0 left-0 w-full bg-red-500 text-white text-center py-1 text-sm z-[100] font-medium shadow-md">
-                You are offline. Features may be limited.
-            </div>
-        )}
+        {!isOnline && <div className="fixed top-0 left-0 w-full bg-red-500 text-white text-center py-1 text-sm z-[100] font-medium shadow-md">You are offline. Features may be limited.</div>}
         
-        {showSplash ? (
-            <SplashScreen />
-        ) : !userProfile ? (
-            <LoginPage onLoginSuccess={handleLoginSuccess} />
-        ) : (
-            <div className="relative w-screen h-screen bg-main font-sans flex overflow-hidden">
-                {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-                {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)} aria-hidden="true" />}
+        <div className="relative w-screen h-screen bg-main font-sans flex overflow-hidden">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             
-                <input type="file" ref={imageEditInputRef} className="hidden" accept="image/*" onChange={handleImageEditFileChange} />
-                <input type="file" ref={floatingImageInputRef} className="hidden" accept="image/*" onChange={handleFloatingImageFileChange} />
-                
-                <DashboardSidebar 
-                    onSelectMode={handleSelectMode} 
-                    onSetView={handleSetView}
-                    onStartImageEdit={() => handleStartEdit(undefined, 'background')}
-                    currentView={currentView}
-                    isOpen={isSidebarOpen}
-                    onOpen={() => setIsSidebarOpen(true)}
-                    onClose={() => setIsSidebarOpen(false)}
-                    onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-                    onOpenContentGenerator={handleOpenContentGeneratorModal}
-                    onOpenSupport={handleOpenSupportModal}
-                    onOpenBrandKit={handleOpenBrandKitModal}
-                    isAdmin={isAdmin}
-                    onToggleAdmin={() => setIsAdmin(!isAdmin)}
-                    user={userProfile}
-                    onLogin={() => setIsAuthModalOpen(true)}
-                    onLogout={handleLogout}
-                    onInternalImageDrop={handleInternalImageDrop}
+            <DashboardSidebar 
+                onSelectMode={handleSelectMode} 
+                onSetView={handleSetView}
+                onStartImageEdit={() => handleStartEdit(undefined, 'background')}
+                currentView={currentView}
+                isOpen={isSidebarOpen}
+                // FIX: Add missing onOpen and onClose props
+                onOpen={() => setIsSidebarOpen(true)}
+                onClose={() => setIsSidebarOpen(false)}
+                onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+                onOpenContentGenerator={handleOpenContentGeneratorModal}
+                onOpenSupport={handleOpenSupportModal}
+                onOpenBrandKit={handleOpenBrandKitModal}
+                isAdmin={isAdmin}
+                onToggleAdmin={() => setIsAdmin(!isAdmin)}
+                user={user}
+                onLogin={() => setIsAuthModalOpen(true)}
+                onLogout={handleLogout}
+            />
+
+            <main className="flex-1 flex flex-col overflow-hidden lg:ml-[92px]">
+                {/* VIEW RENDER LOGIC */}
+                 {currentView === View.Dashboard && (
+                    generatedImages.length > 0 || isLoading || error ? (
+                        <MainContent
+                            // FIX: Add all missing props to MainContent
+                            params={params}
+                            frontProductImagePreview={frontProductImagePreview}
+                            generatedImages={generatedImages}
+                            isLoading={isLoading}
+                            error={error}
+                            onReturnToSettings={handleReturnToSettings}
+                            onStartEdit={handleStartEdit}
+                            onSetStoryboardSource={setStoryboardSourceImage}
+                            onSetZoomedImage={setZoomedImage}
+                            isStoryboardResult={isStoryboardResult}
+                            onGenerateCaption={handleGenerateCaption}
+                            generatingCaptionImageId={generatingCaptionImageId}
+                            onOpenABTestModal={handleOpenABTestModal}
+                            onSaveModel={handleSaveModel}
+                        />
+                    ) : (
+                        <Dashboard
+                            onSelectMode={handleSelectMode}
+                            onStartImageEdit={(img) => handleStartEdit(img, 'background')}
+                            onOpenFeedbackModal={handleOpenFeedbackModal}
+                            onOpenPricingModal={handleOpenPricingModal}
+                            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                            userName={user?.name?.split(' ')[0]}
+                            isLoading={isLoading}
+                            // FIX: Add all missing props for floating action bar
+                            floatingPrompt={floatingPrompt}
+                            onFloatingPromptChange={setFloatingPrompt}
+                            floatingImagePreview={floatingImagePreview}
+                            onFloatingGenerate={handleFloatingGenerate}
+                            onRemoveFloatingImage={handleRemoveFloatingImage}
+                            onTriggerFloatingUpload={handleTriggerFloatingUpload}
+                            onOpenContentGenerator={handleOpenContentGeneratorModal}
+                            userTier={userTier}
+                            isAdmin={isAdmin}
+                            onInternalImageDrop={handleInternalImageDrop}
+                            onFloatingImageDrop={onFloatingImageDrop}
+                            floatingMode={floatingMode}
+                            onFloatingModeChange={setFloatingMode}
+                        />
+                    )
+                )}
+                {/* FIX: Add missing onSetView prop to AnalyticsDashboard */}
+                {currentView === View.Analytics && <Suspense fallback={<Spinner />}><AnalyticsDashboard onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onSetView={handleSetView} /></Suspense>}
+                {currentView === View.MyDesigns && <MyDesigns onSetView={handleSetView} onStartEdit={handleStartEdit} onSetZoomedImage={setZoomedImage} onSetStoryboardSource={() => {}} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onRemix={handleRemixDesign} />}
+                {currentView === View.Profile && user && <Suspense fallback={<Spinner />}><ProfilePage user={user} credits={credits} userTier={userTier} onEditProfile={handleOpenProfileEditModal} onUpgradePlan={handleOpenPricingModal} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onSetView={handleSetView} onOpenFeedbackModal={handleOpenFeedbackModal} recentActivity={recentActivity} /></Suspense>}
+                {currentView === View.Inspiration && <Suspense fallback={<Spinner />}><InspirationPage onSetView={handleSetView} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} onRemix={handleRemix} items={inspirationItems} isLoaded={isInspirationLoaded} onItemsLoaded={setInspirationItems} /></Suspense>}
+            </main>
+
+            {activeMode && (
+                <CreativeModal
+                    key={activeMode} 
+                    mode={activeMode}
+                    onClose={() => setActiveMode(null)}
+                    params={params}
+                    onParamsChange={setParams}
+                    onGenerate={handleGenerate}
+                    isLoading={isLoading}
+                    onFileChange={handleFileChange}
+                    frontProductImagePreview={frontProductImagePreview}
+                    setFrontProductImagePreview={setFrontProductImagePreview}
+                    bulkImagePreviews={bulkImagePreviews}
+                    onBulkFilesChange={handleBulkFilesChange}
+                    onRemoveBulkImage={handleRemoveBulkImage}
+                    remixReferenceImagePreview={remixReferenceImagePreview}
+                    setRemixReferenceImagePreview={setRemixReferenceImagePreview}
+                    remixProductImagePreview={remixProductImagePreview}
+                    setRemixProductImagePreview={setRemixProductImagePreview}
+                    onGenerateVariants={() => {}}
+                    storyboardSourceImage={storyboardSourceImage}
+                    onClearStoryboardSource={() => setStoryboardSourceImage(null)}
+                    userTier={userTier}
+                    onOpenPricingModal={handleOpenPricingModal}
+                    freeGenerationsUsed={freeGenerationsUsed}
+                    savedModels={savedModels}
+                    onReset={handleResetParams}
                 />
+            )}
+            
+            <Suspense fallback={null}>
+                {/* FIX: Pass async handler to onRemoveBackground */}
+                {editingImage && <EditModal image={editingImage} onClose={() => setEditingImage(null)} onApplyEdit={handleApplyEdit} onRemoveBackground={handleRemoveBackground} onImageUpdate={handleImageUpdate} isEditing={isEditing} initialTab={editModalInitialTab} />}
+                {zoomedImage && <ZoomModal image={zoomedImage} onClose={() => setZoomedImage(null)} />}
+            </Suspense>
 
-                <main className="flex-1 flex flex-col overflow-hidden lg:ml-[92px]">
-                    {renderCurrentView()}
-                </main>
-
-                {activeMode && (
-                    <CreativeModal
-                        key={activeMode} 
-                        mode={activeMode}
-                        onClose={() => setActiveMode(null)}
-                        params={params}
-                        onParamsChange={setParams}
-                        onGenerate={handleGenerate}
-                        isLoading={isLoading}
-                        storyboardSourceImage={storyboardSourceImage}
-                        onClearStoryboardSource={handleClearStoryboardSource}
-                        
-                        onFileChange={(file, param, setter, opts) => {
-                            if (param === 'frontProductImage') {
-                                if (file) handleBulkFilesChange([file]);
-                                else handleFileChange(null, param, setter, opts);
-                            } else {
-                                handleFileChange(file, param, setter, opts);
-                            }
-                        }}
-                        frontProductImagePreview={frontProductImagePreview}
-                        setFrontProductImagePreview={setFrontProductImagePreview}
-                        
-                        bulkImagePreviews={bulkImagePreviews}
-                        onBulkFilesChange={handleBulkFilesChange}
-                        onRemoveBulkImage={handleRemoveBulkImage}
-
-                        remixReferenceImagePreview={remixReferenceImagePreview}
-                        setRemixReferenceImagePreview={setRemixReferenceImagePreview}
-                        remixProductImagePreview={remixProductImagePreview}
-                        setRemixProductImagePreview={setRemixProductImagePreview}
-                        onGenerateVariants={handleOpenVariantsModal}
-                        userTier={userTier}
-                        onOpenPricingModal={handleOpenPricingModal}
-                        freeGenerationsUsed={freeGenerationsUsed}
-                        savedModels={savedModels}
-                        onReset={handleResetParams}
-                    />
-                )}
-                
-                <Suspense fallback={null}>
-                    {isAuthModalOpen && <AuthModal onClose={() => setIsAuthModalOpen(false)} onLoginSuccess={handleLoginSuccess} />}
-                    {editingImage && <EditModal image={editingImage} onClose={handleCloseEdit} onApplyEdit={handleApplyEdit} onRemoveBackground={handleRemoveBackground} onImageUpdate={handleImageUpdate} isEditing={isEditing} initialTab={editModalInitialTab} />}
-                    {zoomedImage && <ZoomModal image={zoomedImage} onClose={handleClearZoomedImage} />}
-                    {isDeployModalOpen && <DeployModal images={posterBoard} onClose={handleCloseDeployModal} />}
-                    {abTestModalImage && <ABTestModal image={abTestModalImage} onClose={() => setAbTestModalImage(null)} onGenerate={() => { }} onApiError={() => refundCredits(2)} />}
-                    {quickVariantsField && <QuickVariantsModal field={quickVariantsField} isLoading={isVariantsLoading} suggestions={variantSuggestions} error={variantError} onClose={() => setQuickVariantsField(null)} onSelect={handleSelectVariant} />}
-                    {isFeedbackModalOpen && <FeedbackModal onClose={handleCloseFeedbackModal} />}
-                    {isPricingModalOpen && <PricingModal onClose={handleClosePricingModal} />}
-                    {isSupportModalOpen && <SupportModal onClose={handleCloseSupportModal} />}
-                    {isProfileEditModalOpen && userProfile && <ProfileEditModal user={userProfile} onClose={handleCloseProfileEditModal} onSave={handleUpdateProfile} />}
-                    {isContentGeneratorModalOpen && <ContentGenerator onClose={handleCloseContentGeneratorModal} onDeductCredits={checkAndDeductCredits} onRefundCredits={refundCredits} userId={userProfile?.id} />}
-                    {isBrandKitModalOpen && <BrandKitModal initialKit={brandKit} onClose={() => setIsBrandKitModalOpen(false)} onSave={(newKit) => { setBrandKit(newKit); setToast({ message: "Brand identity updated and persisted!", type: "success" }); }} />}
-                </Suspense>
-
-                {(isLoading || isEditing || isSavingDesign) && (
-                    <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-[100]">
+            {(isLoading || isEditing) && (
+                <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-[100]">
                     <Spinner />
-                    <p className="text-white mt-4 text-lg text-center px-4">
-                        { isSavingDesign
-                            ? 'Saving Design...'
-                            : (batchProgress ? `${loadingMessages.title} (${batchProgress.current}/${batchProgress.total})` : loadingMessages.title)
-                        }
-                    </p>
-                    {batchProgress && !isSavingDesign && !isEditing && (
-                        <div className="w-64 h-2 bg-slate-700 rounded-full mt-4 overflow-hidden">
-                            <div 
-                                className="h-full transition-all duration-300 bg-gradient-to-r from-cyan-400 to-primary relative overflow-hidden"
-                                style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
-                            >
-                                <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full"></div>
-                            </div>
-                        </div>
-                    )}
-                    <p className="text-slate-400 mt-2 text-sm text-center px-4">
-                        { isSavingDesign
-                        ? 'Uploading high-resolution assets to storage.'
-                        : loadingMessages.subtext
-                        }
-                    </p>
-                    </div>
-                )}
-            </div>
-        )}
+                    <p className="text-white mt-4 text-lg">{loadingMessages.title}</p>
+                </div>
+            )}
+        </div>
     </ErrorBoundary>
   );
 };

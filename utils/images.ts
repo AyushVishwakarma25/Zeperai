@@ -65,6 +65,84 @@ export const processImageFile = (
   });
 };
 
+export const createThumbnail = async (base64: string, maxWidth: number = 400): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.src = base64;
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if(!ctx) { reject(new Error('No context')); return; }
+      
+      ctx.drawImage(img, 0, 0, w, h);
+      
+      canvas.toBlob(blob => {
+          if(blob) resolve(blob);
+          else reject(new Error('Thumbnail failed'));
+      }, 'image/webp', 0.7); // Low quality WebP for speed
+    };
+    img.onerror = (e) => reject(new Error('Failed to load image for thumbnail'));
+  });
+};
+
+export const compressImage = (
+  source: string | Blob, 
+  options: { quality?: number; type?: 'image/jpeg' | 'image/png' | 'image/webp' } = {}
+): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const { quality = 0.85, type = 'image/webp' } = options;
+    
+    const img = new Image();
+    let objectUrl: string | null = null;
+
+    if (typeof source === 'string') {
+        img.src = source;
+        img.crossOrigin = 'Anonymous';
+    } else {
+        objectUrl = URL.createObjectURL(source);
+        img.src = objectUrl;
+    }
+
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+            reject(new Error('Canvas context unavailable'));
+            return;
+        }
+        
+        // Handle transparency for JPEG (fill white)
+        if (type === 'image/jpeg') {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        ctx.drawImage(img, 0, 0);
+        
+        canvas.toBlob((blob) => {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+            if (blob) resolve(blob);
+            else reject(new Error('Compression failed'));
+        }, type, quality);
+    };
+    
+    img.onerror = (e) => {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        reject(e);
+    };
+  });
+};
+
 export const dataURLtoFile = (dataurl: string, filename: string): File => {
     let arr = dataurl.split(','), 
         mime = arr[0].match(/:(.*?);/)![1],
@@ -147,7 +225,7 @@ export const cropImageToAspectRatio = (dataUrl: string, targetAspectRatio: Aspec
 
 export const generateFilename = (image: GeneratedImage, prefix?: string, index?: number): string => {
     // Basic filename without extension
-    let namePart = 'design';
+    let namePart: string | undefined = 'design';
 
     if (image.params?.productDescription) {
         namePart = image.params.productDescription;
@@ -157,7 +235,7 @@ export const generateFilename = (image: GeneratedImage, prefix?: string, index?:
         namePart = image.params.poseSuggestion;
     }
 
-    const sanitizedName = namePart.trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').substring(0, 50);
+    const sanitizedName = (namePart || '').trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').substring(0, 50);
     const finalPrefix = prefix ? `${prefix}-` : '';
     const finalIndex = index ? `-${index}` : '';
 
@@ -234,7 +312,7 @@ export const fileToGeneratedImage = async (file: File): Promise<GeneratedImage> 
                 else if (ratio < 1) standardAspectRatio = '4:5'; 
                 
                 resolve({
-                    id: `edit-${Date.now()}`,
+                    id: `local-edit-${Date.now()}`, // Temporary ID
                     imageUrl,
                     caption: file.name,
                     hashtags: '',

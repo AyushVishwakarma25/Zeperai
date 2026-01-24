@@ -6,42 +6,56 @@ import { FloatingActionBar } from './FloatingActionBar';
 
 interface ColorfulCardProps {
   title: string;
-  subtitle: string;
+  description: string;
   color: string;
-  textColor: string;
+  accentColor: string;
   iconName: string;
   onClick: () => void;
   isLocked?: boolean;
   onUnlock?: () => void;
 }
 
-const ColorfulCard: React.FC<ColorfulCardProps> = ({ title, subtitle, color, textColor, iconName, onClick, isLocked, onUnlock }) => {
+const ColorfulCard: React.FC<ColorfulCardProps> = ({ title, description, color, accentColor, iconName, onClick, isLocked, onUnlock }) => {
     return (
         <button
             type="button"
             onClick={isLocked && onUnlock ? onUnlock : onClick}
-            className={`relative overflow-hidden w-full h-28 sm:h-32 rounded-2xl p-4 sm:p-5 text-left flex items-center justify-between transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-sm hover:shadow-md group`}
-            style={{ backgroundColor: color }}
+            className="group flex flex-col bg-white rounded-[1.25rem] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 h-full text-left min-h-[320px]"
         >
-            <div className="z-10 flex flex-col justify-center h-full mr-2">
-                <h3 className={`font-batangas font-bold text-base sm:text-lg uppercase leading-tight tracking-wide ${textColor}`}>
-                    {title}
-                </h3>
-                <p className={`font-poppins font-normal text-[10px] sm:text-xs mt-1 opacity-90 ${textColor} line-clamp-2`}>
-                    {subtitle}
-                </p>
-            </div>
-            
-            <div className="h-12 w-12 sm:h-14 sm:w-14 bg-white/90 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-sm z-10 flex-shrink-0 group-hover:rotate-6 transition-transform">
-                {isLocked ? (
-                    <Icon name="lock" className="w-5 h-5 sm:w-6 sm:h-6 text-slate-400" />
-                ) : (
-                    <Icon name={iconName} className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
-                )}
+            {/* Header Section (Colored) */}
+            <div 
+                className="h-44 relative overflow-hidden p-6 flex items-center justify-center transition-colors duration-300"
+                style={{ backgroundColor: color }}
+            >
+                <div className="relative w-20 h-20 bg-white rounded-2xl shadow-lg transform group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-500 flex items-center justify-center">
+                    {isLocked ? (
+                        <Icon name="lock" className="w-8 h-8 text-slate-400" />
+                    ) : (
+                        <div style={{ color: accentColor }}>
+                            <Icon name={iconName} className="w-10 h-10" />
+                        </div>
+                    )}
+                    {isLocked && (
+                        <div className="absolute -top-2 -right-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border border-white">PRO</div>
+                    )}
+                </div>
             </div>
 
-            {/* Decorative background circle */}
-            <div className="absolute -right-4 -bottom-8 w-24 h-24 sm:w-32 sm:h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:bg-white/20 transition-colors"></div>
+            {/* Body Section (White) */}
+            <div className="p-6 flex flex-col flex-grow w-full">
+                <h3 className="text-lg sm:text-xl font-bold mb-2 text-slate-900 group-hover:text-primary transition-colors tracking-tight">
+                    {title}
+                </h3>
+                <p className="text-slate-500 text-sm mb-6 flex-grow leading-relaxed font-medium">
+                    {description}
+                </p>
+                
+                <div className="flex items-center justify-end mt-auto">
+                    <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-primary transition-all duration-300 shadow-sm">
+                        <Icon name="arrow-left" className="w-5 h-5 text-slate-900 group-hover:text-white rotate-180 transition-colors" />
+                    </div>
+                </div>
+            </div>
         </button>
     );
 };
@@ -117,80 +131,87 @@ const DashboardHome: React.FC<DashboardProps> = ({
 
     const isProLocked = !isAdmin && (userTier === 'Free');
 
+    // Updated colors using the requested palette:
+    // card-purple: #EAE3FD
+    // card-pink: #FCD8FC
+    // card-sage: #B8CF8A
+    // card-tan: #E1D9CC
+    // card-teal: #3BC1A8
+
     const tools = [
         {
             title: 'Product Studio',
-            subtitle: 'Studio-ready product visuals',
-            color: '#5071FF',
-            textColor: 'text-white',
+            description: 'Generate professional-grade product visuals for your e-commerce store in seconds.',
+            color: '#EAE3FD', // card-purple
+            accentColor: '#6366F1', // indigo-500
             iconName: 'camera',
             onClick: () => onSelectMode(AppMode.Product)
         },
         {
             title: 'AI UGC Influencer',
-            subtitle: 'Generate diverse models',
-            color: '#8F1EAE',
-            textColor: 'text-white',
+            description: 'Create diverse, realistic influencer content without the logistical overhead.',
+            color: '#FCD8FC', // card-pink
+            accentColor: '#EC4899', // pink-500
             iconName: 'user',
             onClick: () => onSelectMode(AppMode.Influencer)
         },
         {
             title: 'Fashion Studio',
-            subtitle: 'On-model clothing shoots',
-            color: '#010100',
-            textColor: 'text-white',
+            description: 'On-model clothing shoots powered by generative AI. Scale your catalog instantly.',
+            color: '#B8CF8A', // card-sage
+            accentColor: '#166534', // green-700
             iconName: 'shirt',
             onClick: () => onSelectMode(AppMode.Fashion)
         },
         {
             title: 'Ad Generator + BI',
-            subtitle: 'Predictive creative analytics',
-            color: '#C0E957',
-            textColor: 'text-slate-900',
+            description: 'Predictive creative analytics paired with automated high-converting ad layouts.',
+            color: '#E1D9CC', // card-tan
+            accentColor: '#C2410C', // orange-700
             iconName: 'megaphone',
             onClick: () => onSelectMode(AppMode.AdCreative)
         },
         {
             title: 'AI Content Writer',
-            subtitle: 'Captions & copy in seconds',
-            color: '#816FE6',
-            textColor: 'text-white',
+            description: 'High-converting captions, ad copies, and blog posts generated in seconds.',
+            color: '#EAE3FD', // card-purple (Reusing for content/creative vibe)
+            accentColor: '#7C3AED', // violet-600
             iconName: 'pencil-sparkles',
             onClick: onOpenContentGenerator,
             isLocked: isProLocked,
             onUnlock: onOpenPricingModal
         },
         {
-            title: 'Image Restyle',
-            subtitle: 'Remix & modify visuals',
-            color: '#82F0E1',
-            textColor: 'text-slate-900',
-            iconName: 'refresh',
-            onClick: () => onSelectMode(AppMode.Remix)
-        },
-        {
             title: 'Background Remover',
-            subtitle: 'Instant clean cutouts',
-            color: '#F6C796',
-            textColor: 'text-slate-900',
+            description: 'Instant pixel-perfect clean cutouts for any product or lifestyle image.',
+            color: '#FCD8FC', // card-pink (Reusing for edit/utility)
+            accentColor: '#BE185D', // pink-700
             iconName: 'magic-wand',
             onClick: () => onStartImageEdit()
         },
         {
+            title: 'Image Restyle',
+            description: 'Remix and modify visuals using advanced AI style transfer techniques.',
+            color: '#3BC1A8', // card-teal
+            accentColor: '#0F766E', // teal-700
+            iconName: 'image-plus', 
+            onClick: () => onSelectMode(AppMode.Remix)
+        },
+        {
             title: 'Festive Photoshoot',
-            subtitle: 'Seasonal themes & props',
-            color: '#EBD5AF',
-            textColor: 'text-slate-900',
+            description: 'Seasonal themes and props. Transform your products for any holiday instantly.',
+            color: '#E1D9CC', // card-tan
+            accentColor: '#B45309', // amber-700
             iconName: 'lamp',
             onClick: () => onSelectMode(AppMode.Festival)
         }
     ];
 
     return (
-      <div className="py-2 pb-8">
+      <div className="py-2 pb-12">
         <h1 className="text-2xl md:text-3xl font-batangas font-bold text-text-primary text-center">What are we creating today, {userName}?</h1>
         
-        <div className="max-w-3xl mx-auto mt-6 mb-8">
+        <div className="max-w-3xl mx-auto mt-6 mb-12">
             <FloatingActionBar 
                 prompt={floatingPrompt}
                 onPromptChange={onFloatingPromptChange}
@@ -205,7 +226,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 xl:gap-5 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8 max-w-[1600px] mx-auto mb-16 px-4 sm:px-6">
             {tools.map((tool) => (
                 <ColorfulCard 
                     key={tool.title}
@@ -213,16 +234,42 @@ const DashboardHome: React.FC<DashboardProps> = ({
                 />
             ))}
         </div>
+
+        {/* Brand Boost CTA Banner */}
+        <div className="mt-20 p-12 rounded-[2rem] bg-slate-900 text-white relative overflow-hidden text-center max-w-[1600px] mx-auto shadow-2xl mx-6">
+            <div className="absolute inset-0 opacity-20 pointer-events-none">
+                <div className="absolute top-0 left-0 w-64 h-64 bg-primary blur-[120px]"></div>
+                <div className="absolute bottom-0 right-0 w-64 h-64 bg-indigo-400 blur-[120px]"></div>
+            </div>
+            <div className="relative z-10 max-w-2xl mx-auto">
+                <h2 className="text-3xl font-bold mb-4">Ready to boost your brand?</h2>
+                <p className="text-slate-400 mb-8 text-lg">Join 10,000+ marketers using our AI tools to create high-impact content in half the time.</p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <button 
+                        onClick={onOpenPricingModal}
+                        className="w-full sm:w-auto px-8 py-4 bg-primary hover:bg-primary-hover text-white font-bold rounded-full transition-all shadow-lg shadow-primary/20 transform hover:-translate-y-1"
+                    >
+                        Get Started for Free
+                    </button>
+                    <button 
+                        onClick={onOpenPricingModal}
+                        className="w-full sm:w-auto px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-full transition-all backdrop-blur-sm transform hover:-translate-y-1"
+                    >
+                        View Pricing
+                    </button>
+                </div>
+            </div>
+        </div>
       </div>
     )
 };
 
 const DashboardComponent: React.FC<DashboardProps> = (props) => {
     return (
-        <main className="relative w-full h-full flex flex-col overflow-hidden bg-main">
+        <main className="relative w-full h-full flex flex-col overflow-hidden bg-white">
             <Header onOpenFeedbackModal={props.onOpenFeedbackModal} onOpenPricingModal={props.onOpenPricingModal} onToggleSidebar={props.onToggleSidebar} />
-            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300">
-                <div className="px-4 md:px-8 lg:px-8">
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 bg-white">
+                <div className="px-4 md:px-8 lg:px-12 pt-6">
                     <DashboardHome {...props} />
                 </div>
             </div>

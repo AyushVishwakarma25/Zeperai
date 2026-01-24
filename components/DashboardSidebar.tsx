@@ -96,9 +96,12 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
   }, []);
 
   const handleMenuItemClick = (action: () => void) => {
-    action();
     setIsUserMenuOpen(false);
     onClose();
+    // Allow UI to close before triggering action (especially for logout)
+    setTimeout(() => {
+        action();
+    }, 50);
   };
 
   const handleDragEnter = (e: React.DragEvent, mode: AppMode) => {

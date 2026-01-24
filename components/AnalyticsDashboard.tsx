@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import {
   Chart as ChartJS,
@@ -15,10 +14,10 @@ import {
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
 import { Icon } from './ui/Icon';
-import type { GeneratedImage } from '../types';
 import { analyticsService } from '../services/analyticsService';
 import { View } from '../types';
 import { Button } from './ui/Button';
+import { useDesigns } from '../contexts/DesignsContext';
 
 // Register ChartJS components
 ChartJS.register(
@@ -34,7 +33,6 @@ ChartJS.register(
 );
 
 interface AnalyticsDashboardProps {
-    savedDesigns: GeneratedImage[];
     onSetView: (view: View) => void;
     onToggleSidebar: () => void;
 }
@@ -55,8 +53,9 @@ const StatCard: React.FC<{ label: string; value: string; subtext?: string; trend
     </div>
 );
 
-export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ savedDesigns, onSetView, onToggleSidebar }) => {
-    const analytics = useMemo(() => analyticsService.getAnalyticsData(savedDesigns), [savedDesigns]);
+export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onSetView, onToggleSidebar }) => {
+    const { designs } = useDesigns();
+    const analytics = useMemo(() => analyticsService.getAnalyticsData(designs), [designs]);
 
     const commonOptions: ChartOptions<any> = {
         responsive: true,

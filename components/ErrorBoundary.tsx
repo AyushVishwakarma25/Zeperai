@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 
@@ -11,7 +11,10 @@ interface State {
   error: Error | null;
 }
 
-export class ErrorBoundary extends React.Component<Props, State> {
+// FIX: Explicitly extend React.Component to avoid potential import shadowing issues
+// that would cause TypeScript to not find `props` and `setState`.
+// By importing `Component` directly, we ensure there's no shadowing of the `React` object.
+export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,

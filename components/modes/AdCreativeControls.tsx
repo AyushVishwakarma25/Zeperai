@@ -8,6 +8,7 @@ import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
 import { HelpLabel, BestForLabel } from './shared';
 import { CreativeScorecard } from '../CreativeScorecard';
+import { StyleSelector } from '../ui/StyleSelector';
 
 interface AdCreativeControlsProps {
     params: GenerateImageParams;
@@ -25,6 +26,13 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
     };
 
     const layoutOptions = params.isComparisonMode ? COMPARISON_LAYOUT_OPTIONS : AD_LAYOUT_OPTIONS;
+
+    // Convert options to StyleSelector format
+    const styleSelectorOptions = layoutOptions.map(opt => ({
+        label: opt.label,
+        value: opt.value,
+        thumbnail: opt.thumbnail
+    }));
 
     return (
         <>
@@ -51,20 +59,22 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
                 </button>
             </div>
             
-            <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <HelpLabel label="Ad Layout" tooltip="Choose a layout that fits your content strategy." />
-                        <Select label="" value={params.adLayout || ''} onChange={e => handleParamChange('adLayout', e.target.value)}>
-                            {layoutOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                        </Select>
-                    </div>
-                    <div>
-                        <HelpLabel label="Creative Style" tooltip="Define the aesthetic mood of the ad." />
-                        <Select label="" value={params.adStylePreset || '✨ AI Suggested'} onChange={e => handleParamChange('adStylePreset', e.target.value)}>
-                            {AD_STYLE_PRESETS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                        </Select>
-                    </div>
+            <div className="space-y-6">
+                <div>
+                    <HelpLabel label="Ad Layout Preset" tooltip="Choose a layout structure that fits your content strategy." />
+                    <StyleSelector 
+                        options={styleSelectorOptions}
+                        value={params.adLayout || ''}
+                        onChange={(val) => handleParamChange('adLayout', val)}
+                        className="grid-cols-2"
+                    />
+                </div>
+
+                <div>
+                    <HelpLabel label="Creative Style" tooltip="Define the aesthetic mood of the ad." />
+                    <Select label="" value={params.adStylePreset || '✨ AI Suggested'} onChange={e => handleParamChange('adStylePreset', e.target.value)}>
+                        {AD_STYLE_PRESETS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </Select>
                 </div>
                 
                 <FormInput 

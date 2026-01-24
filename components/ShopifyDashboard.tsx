@@ -38,23 +38,39 @@ ChartJS.register(
 interface ShopifyDashboardProps {
     onGenerateAd: (productName: string) => void;
     onToggleSidebar: () => void;
+    report: ShopifyAnalysisResult | null;
+    isLoaded: boolean;
+    onReportUpdate: (report: ShopifyAnalysisResult | null) => void;
 }
 
-export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({ onGenerateAd, onToggleSidebar }) => {
-    const [report, setReport] = useState<ShopifyAnalysisResult | null>(null);
+export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({ 
+    onGenerateAd, onToggleSidebar, report, isLoaded, onReportUpdate 
+}) => {
     const [isLoading, setIsLoading] = useState(false);
-    const [isFetching, setIsFetching] = useState(true);
-    const [insights, setInsights] = useState<string[]>([]);
+    const [isFetching, setIsFetching] = useState(!isLoaded);
+    const [insights, setInsights] = useState<string[]>(report?.aiInsights || []);
     const [generatingInsights, setGeneratingInsights] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Sync insights from report prop if it changes
     useEffect(() => {
+        if (report?.aiInsights) {
+            setInsights(report.aiInsights);
+        }
+    }, [report]);
+
+    useEffect(() => {
+        if (isLoaded) {
+            setIsFetching(false);
+            return;
+        }
+
         let mounted = true;
         setIsFetching(true);
         analysisService.getLatestReport()
             .then(savedReport => {
-                if (mounted && savedReport) {
-                    setReport(savedReport);
+                if (mounted) {
+                    onReportUpdate(savedReport);
                 }
             })
             .catch(err => {
@@ -64,15 +80,22 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({ onGenerateAd
                 if (mounted) setIsFetching(false);
             });
         return () => { mounted = false; };
-    }, []);
+    }, [isLoaded, onReportUpdate]);
 
     useEffect(() => {
         let mounted = true;
+        // Check if report exists but insights are missing, then generate them
         if (report && insights.length === 0 && !generatingInsights) {
             setGeneratingInsights(true);
             shopifyService.generateAIInsights(report)
                 .then(res => {
-                    if (mounted) setInsights(res);
+                    if (mounted) {
+                        setInsights(res);
+                        // Optimistically update the parent state with the new insights to cache them
+                        const updatedReport = { ...report, aiInsights: res };
+                        onReportUpdate(updatedReport);
+                        // Also persist this update to DB if possible (analysisService.saveReport) - skipped for now to avoid double API call overhead
+                    }
                 })
                 .catch(err => {
                     console.error("Failed to auto-generate AI insights:", err);
@@ -83,20 +106,20 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({ onGenerateAd
                 });
         }
         return () => { mounted = false; };
-    }, [report, insights.length, generatingInsights]);
+    }, [report, insights.length, generatingInsights, onReportUpdate]);
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         const file = acceptedFiles[0];
         if (!file) return;
 
         setIsLoading(true);
-        setReport(null);
+        onReportUpdate(null); // Clear previous report in parent
         setInsights([]);
         setError(null);
         try {
             const result = await shopifyService.parseAndAnalyze(file);
             await analysisService.saveReport(result);
-            setReport(result);
+            onReportUpdate(result); // Update parent with new report
         } catch (error: any) {
             console.error("Analysis failed:", error);
             if (error.message && error.message.includes('analysis_reports')) {
@@ -107,7 +130,7 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({ onGenerateAd
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [onReportUpdate]);
     
     // Robust Data sanitization for charts
     const sanitizedSalesTrend = useMemo(() => {
@@ -163,7 +186,7 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({ onGenerateAd
     });
     
     const handleUploadNew = () => {
-        setReport(null);
+        onReportUpdate(null);
         setInsights([]);
         setError(null);
     };

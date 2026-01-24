@@ -5,7 +5,7 @@ export const storageService = {
   /**
    * Uploads a Base64 image or Blob to storage and returns a public URL.
    */
-  async uploadImage(imageData: string | Blob, fileName: string): Promise<string> {
+  async uploadImage(imageData: string | Blob, fileName: string, contentType: string = 'image/png'): Promise<string> {
     let blob: Blob;
     if (typeof imageData === 'string') {
         const response = await fetch(imageData);
@@ -18,7 +18,7 @@ export const storageService = {
     const { data, error } = await supabase.storage
       .from('designs')
       .upload(fileName, blob, {
-        contentType: 'image/png',
+        contentType: contentType,
         upsert: true
       });
 

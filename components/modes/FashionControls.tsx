@@ -1,28 +1,56 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { GenerateImageParams } from '../../types';
 import { FashionGender, FashionShootType, FashionBodyType, FashionAgeBracket, RegionalStyle } from '../../types';
-import { FASHION_CATEGORIES, FASHION_MODEL_LOCKS } from '../../constants';
+import { FASHION_CATEGORIES, FASHION_MODEL_LOCKS, FASHION_POSE_OPTIONS } from '../../constants';
 import { Select } from '../ui/Select';
 import { Icon } from '../ui/Icon';
 import { Toggle } from '../ui/Toggle';
-import { SectionTitle, HelpLabel, BestForLabel } from './shared';
+import { SectionTitle, HelpLabel, BestForLabel, ControlButton } from './shared';
 
 interface FashionControlsProps {
     params: GenerateImageParams;
     handleParamChange: (param: keyof GenerateImageParams, value: any) => void;
     isHyperRealismLocked: boolean;
     onOpenPricingModal: () => void;
+    userTier?: 'Free' | 'Starter' | 'Standard' | 'Agency';
 }
 
 export const FashionControls: React.FC<FashionControlsProps> = ({ 
-    params, handleParamChange, isHyperRealismLocked, onOpenPricingModal 
+    params, handleParamChange, isHyperRealismLocked, onOpenPricingModal, userTier 
 }) => {
     const gender = params.fashionGender || FashionGender.Women;
     const categories = FASHION_CATEGORIES[gender];
     const category = params.fashionCategory || Object.keys(categories)[0];
     const subCategories = categories[category] ? categories[category] : [];
     const locks = FASHION_MODEL_LOCKS[gender] || [];
+
+    const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
+
+    // Handle Pose Toggle
+    const handlePoseToggle = (pose: string) => {
+        const currentPoses = params.fashionPose || [];
+        let newPoses: string[];
+
+        if (currentPoses.includes(pose)) {
+            newPoses = currentPoses.filter(p => p !== pose);
+        } else {
+            newPoses = [...currentPoses, pose];
+        }
+
+        handleParamChange('fashionPose', newPoses);
+        
+        // Auto-update batch size to match number of selected poses (clamped by tier limit)
+        if (newPoses.length > 0) {
+            const newBatchSize = Math.min(newPoses.length, maxBatch);
+            handleParamChange('batchSize', newBatchSize);
+        } else {
+            // Reset to 1 or default logic if no poses selected
+            handleParamChange('batchSize', 1); 
+        }
+    };
+
+    const hasPoseSelection = params.fashionPose && params.fashionPose.length > 0;
 
     return (
         <>
@@ -53,6 +81,47 @@ export const FashionControls: React.FC<FashionControlsProps> = ({
                     </Select>
                 </div>
             )}
+
+            <div className="mt-4">
+                <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-2">
+                        <HelpLabel label="Model Poses" tooltip="Select poses for your shoot. Batch size will auto-update." className="mb-0" />
+                        {hasPoseSelection && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">MULTI-SELECT ON</span>}
+                    </div>
+                    {hasPoseSelection && (
+                        <button 
+                            onClick={() => { handleParamChange('fashionPose', []); handleParamChange('batchSize', 1); }}
+                            className="text-xs text-slate-400 hover:text-red-500 font-medium flex items-center transition-colors px-2 py-1 rounded hover:bg-red-50"
+                        >
+                            <Icon name="remove" className="w-3 h-3 mr-1" />
+                            Clear
+                        </button>
+                    )}
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-200">
+                    {FASHION_POSE_OPTIONS.map((pose) => {
+                        const isSelected = params.fashionPose?.includes(pose);
+                        // Clean up pose label for display (first 4 words)
+                        const label = pose.split(' ').slice(0, 4).join(' ') + '...'; 
+                        return (
+                            <ControlButton
+                                key={pose}
+                                onClick={() => handlePoseToggle(pose)}
+                                selected={isSelected || false}
+                                className="!justify-start text-left h-auto py-2 px-3 !text-xs"
+                            >
+                                <span className="line-clamp-2">{pose}</span>
+                            </ControlButton>
+                        );
+                    })}
+                </div>
+                {!hasPoseSelection && (
+                    <p className="text-xs text-slate-400 mt-2 italic">
+                        No specific poses selected. AI will auto-generate varied poses based on batch size.
+                    </p>
+                )}
+            </div>
 
             <div className="grid grid-cols-2 gap-4 mt-4">
                 <div>

@@ -218,11 +218,13 @@ export interface GenerateImageParams {
   competitorImage?: File;
   marketplacePreset?: MarketplacePreset;
   storyboardScenes?: string[];
+  fashionPose?: string[];
 }
 
 export interface GeneratedImage {
   id: string;
   imageUrl: string;
+  thumbnailUrl?: string; // Optimized image for grid view
   caption: string;
   hashtags: string;
   aspectRatio: string;

@@ -10,20 +10,27 @@ interface InspirationPageProps {
   onSetView: (view: View) => void;
   onToggleSidebar: () => void;
   onRemix: (item: InspirationItem) => void;
+  items: InspirationItem[];
+  isLoaded: boolean;
+  onItemsLoaded: (items: InspirationItem[]) => void;
 }
 
-const InspirationPage: React.FC<InspirationPageProps> = ({ onSetView, onToggleSidebar, onRemix }) => {
-  const [items, setItems] = useState<InspirationItem[]>([]);
-  const [loading, setLoading] = useState(true);
+const InspirationPage: React.FC<InspirationPageProps> = ({ onSetView, onToggleSidebar, onRemix, items, isLoaded, onItemsLoaded }) => {
+  const [loading, setLoading] = useState(!isLoaded);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [activeCategory, setActiveCategory] = useState('All');
 
   useEffect(() => {
+      if (isLoaded) {
+          setLoading(false);
+          return;
+      }
+      
       const loadInspirations = async () => {
           setLoading(true);
           try {
               const data = await inspirationService.getInspirations();
-              setItems(data);
+              onItemsLoaded(data);
           } catch (e) {
               console.error("Failed to load inspirations", e);
           } finally {
@@ -31,7 +38,7 @@ const InspirationPage: React.FC<InspirationPageProps> = ({ onSetView, onToggleSi
           }
       };
       loadInspirations();
-  }, []);
+  }, [isLoaded, onItemsLoaded]);
 
   const categories = ['All', ...Array.from(new Set(items.map(img => img.category)))];
 

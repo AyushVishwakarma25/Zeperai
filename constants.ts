@@ -42,6 +42,7 @@ export const INITIAL_GENERATE_PARAMS: GenerateImageParams = {
   isComparisonMode: false,
   productAFeatures: '',
   productBFeatures: '',
+  fashionPose: [],
 };
 
 export const STORAGE_LIMITS: Record<string, number> = {
@@ -58,6 +59,21 @@ export const UGC_STYLE_OPTIONS = [
     { value: 'Glamour Close-Up', label: 'Glamour Close-Up', prompt: 'Extreme close-up of an Indian model with bold lipstick holding [product] near lips. Luxurious styling with gold chain accessory. Dramatic ring lighting.' },
     { value: 'Morning Glow', label: 'Morning Glow', prompt: 'Natural light shot of an Indian model with a towel wrap on head, holding [product] up to sunlight. Fresh, no-makeup look, golden hour flare.' },
     { value: 'Mirror Ritual', label: 'Mirror Ritual', prompt: 'Indian model looking into a vanity mirror while applying/holding [product]. Reflection visible. Bathroom setting, clean white aesthetic.' },
+];
+
+export const FASHION_POSE_OPTIONS = [
+    'Full length front view hero shot, standing confidently looking at camera',
+    'Mid-shot (thigh-high) 45-degree angle, one hand on waist, sophisticated expression',
+    'Close-up portrait showing garment neckline and jewelry detail',
+    'Full length side profile, showcasing the silhouette and fit',
+    'Full length back view, looking slightly over the shoulder',
+    'Detailed close-up on fabric texture and embroidery',
+    'Sitting elegantly on a minimal stool, showcasing drape',
+    'Walking motion shot, capturing natural movement of the fabric',
+    'High-angle creative shot looking down at the model',
+    'Low-angle hero shot for dramatic flair and height',
+    'Natural candid smile, lifestyle vibe',
+    'Adjusting garment (pallu or sleeve) naturally'
 ];
 
 export const FASHION_MODEL_LOCKS = {
@@ -197,16 +213,51 @@ export const FESTIVAL_STYLE_OPTIONS = [
 ];
 
 export const AD_LAYOUT_OPTIONS = [
-  { value: AdLayout.TextRightImageLeft, label: 'Image Left', icon: 'layout-image-left' },
-  { value: AdLayout.TextLeftImageRight, label: 'Image Right', icon: 'layout-image-right' },
-  { value: AdLayout.TextTopBottomImageCenter, label: 'Image Center', icon: 'layout-image-center' },
-  { value: AdLayout.ProductShowcase, label: 'Showcase', icon: 'layout-showcase' },
+  { 
+      value: AdLayout.TextRightImageLeft, 
+      label: 'Image Left', 
+      icon: 'layout-image-left',
+      thumbnail: 'https://placehold.co/400x500/F1F5F9/334155?text=IMG+LEFT%0A+%0AText+Right'
+  },
+  { 
+      value: AdLayout.TextLeftImageRight, 
+      label: 'Image Right', 
+      icon: 'layout-image-right',
+      thumbnail: 'https://placehold.co/400x500/F1F5F9/334155?text=Text+Left%0A+%0AIMG+RIGHT'
+  },
+  { 
+      value: AdLayout.TextTopBottomImageCenter, 
+      label: 'Image Center', 
+      icon: 'layout-image-center',
+      thumbnail: 'https://placehold.co/400x500/F1F5F9/334155?text=Headline%0A+%0AIMG+CENTER%0A+%0ACTA'
+  },
+  { 
+      value: AdLayout.ProductShowcase, 
+      label: 'Showcase', 
+      icon: 'layout-showcase',
+      thumbnail: 'https://placehold.co/400x500/F1F5F9/334155?text=PRODUCT%0AFOCUS%0A(Minimal+Text)'
+  },
 ];
 
 export const COMPARISON_LAYOUT_OPTIONS = [
-  { value: AdLayout.ComparisonSplit, label: 'Split Layout', icon: 'layout-banner' },
-  { value: AdLayout.ComparisonOverlay, label: 'Overlay Layout', icon: 'image' },
-  { value: AdLayout.ComparisonTable, label: 'Table Layout', icon: 'board' },
+  { 
+      value: AdLayout.ComparisonSplit, 
+      label: 'Split Layout', 
+      icon: 'layout-banner',
+      thumbnail: 'https://placehold.co/400x500/F1F5F9/334155?text=US+vs+THEM%0A(Split+Screen)'
+  },
+  { 
+      value: AdLayout.ComparisonOverlay, 
+      label: 'Overlay Layout', 
+      icon: 'image',
+      thumbnail: 'https://placehold.co/400x500/F1F5F9/334155?text=Product%0A+%0AOverlay+Stats'
+  },
+  { 
+      value: AdLayout.ComparisonTable, 
+      label: 'Table Layout', 
+      icon: 'board',
+      thumbnail: 'https://placehold.co/400x500/F1F5F9/334155?text=Feature%0AChecklist%0ATable'
+  },
 ];
 
 export const OUTPUT_FORMAT_OPTIONS = [
