@@ -3,6 +3,7 @@ import React from 'react';
 import type { GenerateImageParams } from '../../types';
 import { AspectRatio } from '../../types';
 import { Icon } from './Icon';
+import { INITIAL_GENERATE_PARAMS } from '../../constants';
 
 interface LivePreviewProps {
   params: GenerateImageParams;
@@ -10,7 +11,9 @@ interface LivePreviewProps {
 }
 
 export const LivePreview: React.FC<LivePreviewProps> = ({ params, productImageUrl }) => {
-  const { aspectRatios, backgroundStyle, modelGender, adTitle, overlayText } = params;
+  // Defensive fallback to prevent "Cannot convert undefined or null to object"
+  const safeParams = params || INITIAL_GENERATE_PARAMS;
+  const { aspectRatios, backgroundStyle, modelGender, adTitle, overlayText } = safeParams;
   const aspectRatio = (aspectRatios && aspectRatios.length > 0) ? aspectRatios[0] : AspectRatio.PortraitPost;
 
   const getBackgroundColor = () => {
@@ -59,7 +62,7 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ params, productImageUr
       >
         <img src={productImageUrl} alt="Product Preview" className="max-h-full max-w-full object-contain shadow-2xl" />
 
-        {params.appMode === 'Influencer' && (
+        {safeParams.appMode === 'Influencer' && (
           <div className="absolute bottom-4 left-4 bg-black/60 text-white text-xs p-3 rounded-lg backdrop-blur-md border border-white/10">
             <p className="mb-1"><strong className="text-primary-300">Model:</strong> {modelGender} persona</p>
             <p><strong className="text-primary-300">Scene:</strong> {backgroundStyle}</p>

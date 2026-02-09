@@ -214,6 +214,7 @@ export interface GenerateImageParams {
   modelLockId?: string;
   hyperRealism?: boolean;
   festivalStyle?: string;
+  festivalStylePresets?: string[];
   adStylePreset?: string;
   competitorImage?: File;
   marketplacePreset?: MarketplacePreset;

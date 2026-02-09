@@ -26,47 +26,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     let isMounted = true;
 
-    // Failsafe: If auth check takes longer than 10s, force stop loading
-    const safetyTimer = setTimeout(() => {
-      if (isMounted && isLoading) {
-        console.warn("Auth check timed out. Proceeding to fallback state.");
-        setIsLoading(false);
-      }
-    }, 10000);
-
-    const checkSession = async () => {
+    const initializeAuth = async () => {
       try {
         const currentSession = await authService.getSession();
         if (isMounted) {
           if (currentSession) {
             setSession(currentSession);
             setUser(currentSession.user);
+          } else {
+            // If no session is found, keep user as null so the app shows login page
+            setUser(null);
           }
         }
       } catch (e) {
-        console.error("Failed to get session on load", e);
+        console.error("Auth initialization error:", e);
+        if (isMounted) setUser(null);
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-          clearTimeout(safetyTimer);
-        }
+        if (isMounted) setIsLoading(false);
       }
     };
     
-    checkSession();
+    initializeAuth();
 
     const { unsubscribe } = authService.subscribe((event, session) => {
         if (isMounted) {
             setSession(session);
             setUser(session ? session.user : null);
-            // If an external event signs us in/out, we definitely aren't "loading" anymore
             setIsLoading(false);
         }
     });
 
     return () => {
         isMounted = false;
-        clearTimeout(safetyTimer);
         unsubscribe();
     }
   }, []);
@@ -87,15 +78,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = useCallback(async () => {
     await authService.signOut();
-    setSession(null);
     setUser(null);
+    setSession(null);
   }, []);
 
-
-  const value = { session, user, isLoading, signIn, signUp, signOut, setUser };
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ session, user, isLoading, signIn, signUp, signOut, setUser }}>
       {children}
     </AuthContext.Provider>
   );
@@ -103,8 +91,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

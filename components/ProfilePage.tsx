@@ -103,14 +103,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                       Edit
                   </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+              <div className="grid grid-cols-1 gap-6 text-sm">
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                   <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">Email Address</label>
                   <p className="text-text-primary font-medium break-all">{user.email}</p>
-                </div>
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">Location</label>
-                  <p className="text-text-primary font-medium">{user.location}</p>
                 </div>
               </div>
             </div>

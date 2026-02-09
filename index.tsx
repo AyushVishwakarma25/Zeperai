@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { DesignsProvider } from './contexts/DesignsContext';
@@ -14,11 +15,13 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <AuthProvider>
-        <DesignsProvider>
-          <App />
-        </DesignsProvider>
-      </AuthProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <DesignsProvider>
+            <App />
+          </DesignsProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </ErrorBoundary>
   </React.StrictMode>
 );

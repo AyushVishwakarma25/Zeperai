@@ -54,11 +54,12 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
 
     // Sync insights from report prop if it changes
     useEffect(() => {
-        if (report?.aiInsights) {
+        if (report?.aiInsights && report.aiInsights.length > 0) {
             setInsights(report.aiInsights);
         }
     }, [report]);
 
+    // Load saved report on mount
     useEffect(() => {
         if (isLoaded) {
             setIsFetching(false);
@@ -69,7 +70,7 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
         setIsFetching(true);
         analysisService.getLatestReport()
             .then(savedReport => {
-                if (mounted) {
+                if (mounted && savedReport) {
                     onReportUpdate(savedReport);
                 }
             })
@@ -82,19 +83,25 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
         return () => { mounted = false; };
     }, [isLoaded, onReportUpdate]);
 
+    // Trigger AI Insights ONLY if we have a report but no insights yet
     useEffect(() => {
         let mounted = true;
-        // Check if report exists but insights are missing, then generate them
-        if (report && insights.length === 0 && !generatingInsights) {
+        
+        const shouldGenerate = report && 
+                               !generatingInsights && 
+                               (report.aiInsights?.length === 0 || !report.aiInsights) &&
+                               insights.length === 0;
+
+        if (shouldGenerate) {
             setGeneratingInsights(true);
-            shopifyService.generateAIInsights(report)
+            shopifyService.generateAIInsights(report!)
                 .then(res => {
                     if (mounted) {
                         setInsights(res);
-                        // Optimistically update the parent state with the new insights to cache them
-                        const updatedReport = { ...report, aiInsights: res };
+                        // Save the full report with insights to state and DB
+                        const updatedReport = { ...report!, aiInsights: res };
                         onReportUpdate(updatedReport);
-                        // Also persist this update to DB if possible (analysisService.saveReport) - skipped for now to avoid double API call overhead
+                        analysisService.saveReport(updatedReport).catch(e => console.warn("Background save failed", e));
                     }
                 })
                 .catch(err => {
@@ -106,79 +113,36 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                 });
         }
         return () => { mounted = false; };
-    }, [report, insights.length, generatingInsights, onReportUpdate]);
+    }, [report, generatingInsights, onReportUpdate, insights.length]);
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         const file = acceptedFiles[0];
         if (!file) return;
 
         setIsLoading(true);
-        onReportUpdate(null); // Clear previous report in parent
+        onReportUpdate(null); 
         setInsights([]);
         setError(null);
         try {
+            // 1. Instant JS Analysis
             const result = await shopifyService.parseAndAnalyze(file);
-            await analysisService.saveReport(result);
-            onReportUpdate(result); // Update parent with new report
+            onReportUpdate(result); // Show dashboard immediately
+            
+            // 2. Trigger async save (don't await blocking UI)
+            analysisService.saveReport(result).catch(e => {
+                if (e.message?.includes('analysis_reports')) {
+                    setError("Report generated but not saved: Database table missing.");
+                }
+            });
+
         } catch (error: any) {
             console.error("Analysis failed:", error);
-            if (error.message && error.message.includes('analysis_reports')) {
-                setError("Database Error: The 'analysis_reports' table is missing. Please copy the latest setup SQL from the login page and run it in your Supabase dashboard to enable saving reports.");
-            } else {
-                setError(`Analysis failed: ${error.message}`);
-            }
+            setError(`Analysis failed: ${error.message}`);
         } finally {
             setIsLoading(false);
         }
     }, [onReportUpdate]);
     
-    // Robust Data sanitization for charts
-    const sanitizedSalesTrend = useMemo(() => {
-        if (!report?.salesTrend || !Array.isArray(report.salesTrend)) return [];
-        
-        try {
-            const validData = report.salesTrend.map((item: any) => {
-                const val = item.revenue ?? item.sales ?? item.amount ?? item.total ?? 0;
-                const dateVal = item.date ?? item.day ?? item.time ?? '';
-                
-                let num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[^0-9.-]+/g, ""));
-                return {
-                    date: dateVal,
-                    revenue: isNaN(num) ? 0 : num
-                };
-            }).filter(item => item.date);
-
-            return validData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        } catch (e) {
-            console.error("Chart data sanitization error:", e);
-            return [];
-        }
-    }, [report]);
-
-    const sanitizedTopProducts = useMemo(() => {
-        if (!report?.topProducts || !Array.isArray(report.topProducts)) return [];
-        
-        try {
-            return report.topProducts.map((item: any) => {
-                const val = item.revenue ?? item.sales ?? item.amount ?? 0;
-                const nameVal = item.name ?? item.title ?? item.product ?? 'Unknown Product';
-                let num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[^0-9.-]+/g, ""));
-                
-                return {
-                    name: nameVal,
-                    revenue: isNaN(num) ? 0 : num
-                };
-            })
-            .filter(item => item.name && item.revenue > 0)
-            .sort((a, b) => b.revenue - a.revenue)
-            .slice(0, 5);
-        } catch (e) {
-            console.error("Product data sanitization error:", e);
-            return [];
-        }
-    }, [report]);
-
-
     const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
         onDrop, 
         accept: { 'text/csv': ['.csv'] },
@@ -191,7 +155,7 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
         setError(null);
     };
 
-    // Chart Configuration
+    // Chart Options
     const commonOptions: ChartOptions<any> = {
         responsive: true,
         maintainAspectRatio: false,
@@ -233,24 +197,9 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
         }
     };
 
-    const salesData = {
-        labels: sanitizedSalesTrend.map(d => d.date),
-        datasets: [
-            {
-                label: 'Revenue',
-                data: sanitizedSalesTrend.map(d => d.revenue),
-                borderColor: '#10B981',
-                backgroundColor: '#10B981',
-                tension: 0.4,
-                pointRadius: 3,
-                pointHoverRadius: 5,
-            }
-        ]
-    };
-
     const horizontalBarOptions: ChartOptions<any> = {
         ...commonOptions,
-        indexAxis: 'y', // Horizontal Bar
+        indexAxis: 'y',
         plugins: {
             ...commonOptions.plugins,
             tooltip: {
@@ -269,7 +218,7 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
         },
         scales: {
             x: {
-                ...commonOptions.scales?.y, // Swap X and Y logic for horizontal
+                ...commonOptions.scales?.y,
                 grid: { color: '#F1F5F9', drawBorder: false },
                 ticks: { display: false }
             },
@@ -280,27 +229,13 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                     color: '#334155', 
                     font: { family: 'Inter', size: 11 },
                     autoSkip: false,
-                    callback: function(val, index) {
-                        // ChartJS passes index, lookup label
+                    callback: function(val) {
                         const label = this.getLabelForValue(val as number);
                         return label.length > 15 ? label.substring(0, 15) + '...' : label;
                     }
                 }
             }
         }
-    };
-
-    const topProductsData = {
-        labels: sanitizedTopProducts.map(d => d.name),
-        datasets: [
-            {
-                label: 'Revenue',
-                data: sanitizedTopProducts.map(d => d.revenue),
-                backgroundColor: '#6A5AE0',
-                borderRadius: 4,
-                barThickness: 24,
-            }
-        ]
     };
 
     if (isFetching) {
@@ -329,9 +264,9 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                 <main className="flex-grow flex items-center justify-center p-6">
                     <div className="text-center w-full max-w-lg">
                         {isLoading ? (
-                            <div className="flex flex-col items-center">
+                            <div className="flex flex-col items-center animate-fade-in-scale-up">
                                 <Spinner />
-                                <p className="mt-4 text-slate-600">Analyzing your CSV with AI...</p>
+                                <p className="mt-4 text-slate-600">Processing Data...</p>
                             </div>
                         ) : (
                             <>
@@ -340,7 +275,7 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                                         <div className="flex">
                                             <Icon name="close" className="w-5 h-5 mr-3 mt-0.5 text-red-600 flex-shrink-0" />
                                             <div>
-                                                <p className="font-bold">Analysis Failed</p>
+                                                <p className="font-bold">Notice</p>
                                                 <p className="text-sm mt-1">{error}</p>
                                             </div>
                                         </div>
@@ -357,7 +292,7 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                                     <h3 className="text-lg font-bold text-slate-800 mb-2">Upload Shopify CSV</h3>
                                     <p className="text-sm text-slate-500 mb-6">
                                         Drag & drop any <strong>Sales</strong> or <strong>Product</strong> export file here.
-                                        <br/>The AI will automatically map the columns.
+                                        <br/>We support standard Shopify exports.
                                     </p>
                                     <Button variant="secondary">Select File</Button>
                                 </div>
@@ -378,13 +313,13 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                     </button>
                     <div>
                         <h1 className="text-xl font-bold text-slate-800">Analytics Report</h1>
-                        <p className="text-xs text-slate-500">Based on your last analysis</p>
+                        <p className="text-xs text-slate-500">Instant analysis for {new Date().toLocaleDateString()}</p>
                     </div>
                 </div>
                 <Button onClick={handleUploadNew} variant="ghost" className="text-sm">Upload New</Button>
             </header>
 
-            <main className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
+            <main className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full animate-fade-in">
                 {/* KPI Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -406,24 +341,29 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                 </div>
 
                 {/* AI Insights */}
-                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 p-6 rounded-xl">
-                    <div className="flex items-center mb-3">
+                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 p-6 rounded-xl relative overflow-hidden">
+                    <div className="flex items-center mb-3 relative z-10">
                         <Icon name="sparkles" className="w-5 h-5 text-emerald-600 mr-2" />
                         <h3 className="font-bold text-emerald-800">AI Strategic Insights</h3>
                     </div>
                     {generatingInsights ? (
-                        <div className="flex items-center text-emerald-600 text-sm">
-                            <Spinner /> <span className="ml-2">Analyzing trends...</span>
+                        <div className="flex items-center text-emerald-600 text-sm animate-pulse relative z-10">
+                            <Spinner /> <span className="ml-2 font-medium">Gemini is analyzing your data trends...</span>
                         </div>
                     ) : (
-                        <ul className="space-y-2">
+                        <ul className="space-y-2 relative z-10">
                             {insights.map((insight, idx) => (
                                 <li key={idx} className="flex items-start text-sm text-emerald-700">
-                                    <span className="mr-2">•</span> {insight}
+                                    <span className="mr-2 mt-1">•</span> 
+                                    <span>{insight}</span>
                                 </li>
                             ))}
+                            {insights.length === 0 && <li className="text-sm text-emerald-600">No insights available.</li>}
                         </ul>
                     )}
+                    <div className="absolute right-0 bottom-0 opacity-10">
+                        <Icon name="trend-up" className="w-32 h-32 text-emerald-300" />
+                    </div>
                 </div>
 
                 {/* Charts Row */}
@@ -432,11 +372,20 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
                         <h4 className="font-bold text-slate-700 mb-4">Revenue Trend</h4>
                         <div style={{ width: '100%', height: 300 }}>
-                            {sanitizedSalesTrend.length > 0 ? (
-                                <Line options={commonOptions} data={salesData} />
+                            {report.salesTrend.length > 0 ? (
+                                <Line options={commonOptions} data={{
+                                    labels: report.salesTrend.map(d => d.date),
+                                    datasets: [{
+                                        label: 'Revenue',
+                                        data: report.salesTrend.map(d => d.revenue),
+                                        borderColor: '#10B981',
+                                        backgroundColor: '#10B981',
+                                        tension: 0.4,
+                                        pointRadius: 2,
+                                    }]
+                                }} />
                             ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-sm text-slate-400 bg-slate-50 rounded-lg">
-                                    <Icon name="chart-bar" className="w-8 h-8 mb-2 text-slate-300" />
                                     No sales trend data available.
                                 </div>
                             )}
@@ -447,11 +396,19 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
                         <h4 className="font-bold text-slate-700 mb-4">Top 5 Products</h4>
                         <div style={{ width: '100%', height: 300 }}>
-                            {sanitizedTopProducts.length > 0 ? (
-                                <Bar options={horizontalBarOptions} data={topProductsData} />
+                            {report.topProducts.length > 0 ? (
+                                <Bar options={horizontalBarOptions} data={{
+                                    labels: report.topProducts.map(d => d.name),
+                                    datasets: [{
+                                        label: 'Revenue',
+                                        data: report.topProducts.map(d => d.revenue),
+                                        backgroundColor: '#6A5AE0',
+                                        borderRadius: 4,
+                                        barThickness: 24,
+                                    }]
+                                }} />
                             ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-sm text-slate-400 bg-slate-50 rounded-lg">
-                                    <Icon name="shopping-bag" className="w-8 h-8 mb-2 text-slate-300" />
                                     No product data available.
                                 </div>
                             )}
@@ -461,30 +418,24 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
 
                 {/* Zone Analysis */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Green Zone */}
                     <ZoneList 
                         title="Green Zone (High Performers)" 
                         products={report.productZones.green} 
                         color="bg-green-100 text-green-800" 
-                        icon="trending-up"
                         onAction={onGenerateAd}
                         actionLabel="Scale Ad"
                     />
-                    {/* Yellow Zone */}
                     <ZoneList 
                         title="Yellow Zone (Average)" 
                         products={report.productZones.yellow} 
                         color="bg-yellow-100 text-yellow-800" 
-                        icon="minus" 
                         onAction={onGenerateAd}
                         actionLabel="Boost"
                     />
-                    {/* Red Zone */}
                     <ZoneList 
                         title="Red Zone (At Risk)" 
                         products={report.productZones.red} 
                         color="bg-red-100 text-red-800" 
-                        icon="arrow-down" 
                         onAction={onGenerateAd}
                         actionLabel="Clearance Ad"
                     />
@@ -498,37 +449,31 @@ const ZoneList: React.FC<{
     title: string; 
     products: ProductZoneItem[]; 
     color: string; 
-    icon: string;
-    onAction: (name: string) => void;
+    onAction: (name: string) => void; 
     actionLabel: string;
-}> = ({ title, products, color, icon, onAction, actionLabel }) => (
+}> = ({ title, products, color, onAction, actionLabel }) => (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-96">
         <div className={`p-4 rounded-t-xl flex items-center justify-between ${color.replace('text-', 'bg-').replace('100', '50')}`}>
             <span className={`text-xs font-bold uppercase tracking-wider ${color}`}>{title}</span>
             <span className="text-xs font-bold">{products.length} SKUs</span>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-thin">
-            {products.slice(0, 50).map((p, i) => {
-                const val = p.revenue;
-                const revenueAsNumber = typeof val === 'number' ? val : parseFloat(String(val).replace(/[^0-9.-]+/g, ""));
-                
-                return (
-                    <div key={i} className="p-3 bg-slate-50 rounded-lg flex justify-between items-center group hover:bg-slate-100 transition-colors">
-                        <div className="min-w-0 flex-1 mr-2">
-                            <p className="text-xs font-bold text-slate-800 truncate">{p.name}</p>
-                            <p className="text-[10px] text-slate-500">
-                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(isNaN(revenueAsNumber) ? 0 : revenueAsNumber)} Sales
-                            </p>
-                        </div>
-                        <button 
-                            onClick={() => onAction(p.name)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-slate-200 text-[10px] font-bold px-2 py-1 rounded hover:bg-primary hover:text-white hover:border-primary shadow-sm"
-                        >
-                            {actionLabel}
-                        </button>
+            {products.slice(0, 50).map((p, i) => (
+                <div key={i} className="p-3 bg-slate-50 rounded-lg flex justify-between items-center group hover:bg-slate-100 transition-colors">
+                    <div className="min-w-0 flex-1 mr-2">
+                        <p className="text-xs font-bold text-slate-800 truncate">{p.name}</p>
+                        <p className="text-[10px] text-slate-500">
+                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(p.revenue as number)} Sales
+                        </p>
                     </div>
-                );
-            })}
+                    <button 
+                        onClick={() => onAction(p.name)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-slate-200 text-[10px] font-bold px-2 py-1 rounded hover:bg-primary hover:text-white hover:border-primary shadow-sm"
+                    >
+                        {actionLabel}
+                    </button>
+                </div>
+            ))}
             {products.length === 0 && <p className="text-center text-xs text-slate-400 mt-10">No products in this zone.</p>}
         </div>
     </div>

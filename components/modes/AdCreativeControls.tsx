@@ -27,8 +27,15 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
 
     const layoutOptions = params.isComparisonMode ? COMPARISON_LAYOUT_OPTIONS : AD_LAYOUT_OPTIONS;
 
-    // Convert options to StyleSelector format
+    // Convert layout options to StyleSelector format
     const styleSelectorOptions = layoutOptions.map(opt => ({
+        label: opt.label,
+        value: opt.value,
+        thumbnail: opt.thumbnail
+    }));
+
+    // Convert ad style presets to StyleSelector format
+    const stylePresetOptions = AD_STYLE_PRESETS.map(opt => ({
         label: opt.label,
         value: opt.value,
         thumbnail: opt.thumbnail
@@ -72,9 +79,12 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
 
                 <div>
                     <HelpLabel label="Creative Style" tooltip="Define the aesthetic mood of the ad." />
-                    <Select label="" value={params.adStylePreset || '✨ AI Suggested'} onChange={e => handleParamChange('adStylePreset', e.target.value)}>
-                        {AD_STYLE_PRESETS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </Select>
+                    <StyleSelector 
+                        options={stylePresetOptions}
+                        value={params.adStylePreset || '✨ AI Suggested'}
+                        onChange={(val) => handleParamChange('adStylePreset', val)}
+                        className="grid-cols-2 sm:grid-cols-3"
+                    />
                 </div>
                 
                 <FormInput 

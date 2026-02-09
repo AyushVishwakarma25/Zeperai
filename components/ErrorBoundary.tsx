@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 
@@ -11,29 +11,40 @@ interface State {
   error: Error | null;
 }
 
-// FIX: Explicitly extend React.Component to avoid potential import shadowing issues
-// that would cause TypeScript to not find `props` and `setState`.
-// By importing `Component` directly, we ensure there's no shadowing of the `React` object.
-export class ErrorBoundary extends Component<Props, State> {
+export class ErrorBoundary extends React.Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,
   };
 
-  public static getDerivedStateFromError(error: Error): State {
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+    };
+  }
+
+  static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
   }
 
-  private handleRetry = () => {
+  handleRetry = () => {
     this.setState({ hasError: false, error: null });
+    // Optional: clear local storage if error persists to reset corrupt state
+    // localStorage.removeItem('krackx_last_params'); 
   }
 
-  public render() {
+  render() {
     if (this.state.hasError) {
+      const errorMessage = this.state.error instanceof Error 
+        ? this.state.error.message 
+        : String(this.state.error || 'Unknown error occurred');
+
       return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4 text-center">
           <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md border border-slate-200">
@@ -46,7 +57,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </p>
             <div className="bg-slate-100 p-3 rounded-lg text-left mb-6 overflow-hidden">
                 <p className="text-xs font-mono text-slate-600 break-words line-clamp-4">
-                    {this.state.error?.message}
+                    {errorMessage}
                 </p>
             </div>
             <div className="flex gap-3 justify-center">

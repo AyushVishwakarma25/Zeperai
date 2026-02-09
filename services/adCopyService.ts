@@ -20,16 +20,9 @@
  * - Enforces JSON schema for structured output.
  */
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
 import type { GenerateAdCopyParams, AdCopy } from '../types';
-
-const getAI = () => {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey || apiKey === 'undefined' || apiKey === '') {
-        throw new Error("API Key is missing. Please set VITE_API_KEY in your environment variables.");
-    }
-    return new GoogleGenAI({ apiKey });
-};
+import { getAI } from '../config/ai';
 
 export const generateAdCopy = async (params: GenerateAdCopyParams): Promise<AdCopy[]> => {
     // 1. Validate input

@@ -1,157 +1,113 @@
 
 import Papa from 'papaparse';
-import { ShopifyAnalysisResult } from '../types';
-import { GoogleGenAI, Type } from "@google/genai";
+import { ShopifyAnalysisResult, ProductZoneItem } from '../types';
+import { Type } from "@google/genai";
+import { getAI } from '../config/ai';
+import { env } from '../utils/env';
 
-const getAI = () => {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey || apiKey === 'undefined' || apiKey === '') {
-        throw new Error("API Key is missing.");
-    }
-    return new GoogleGenAI({ apiKey });
+// Helper to parse currency strings "$1,200.50" -> 1200.50
+const parseCurrency = (value: any): number => {
+    if (typeof value === 'number') return value;
+    if (!value) return 0;
+    return parseFloat(String(value).replace(/[^0-9.-]+/g, "")) || 0;
 };
 
-// This new function offloads the entire analysis to Gemini.
-async function getAIAnalysis(rows: any[]): Promise<ShopifyAnalysisResult> {
-    const ai = getAI();
-    const rowLimit = 1000;
-    const isTruncated = rows.length > rowLimit;
-    const rowsToAnalyze = isTruncated ? rows.slice(0, rowLimit) : rows;
-
-    const analysisSchema = {
-        type: Type.OBJECT,
-        properties: {
-            totalRevenue: { type: Type.NUMBER, description: "Total revenue from all sales." },
-            totalOrders: { type: Type.NUMBER, description: "Total count of unique orders." },
-            avgOrderValue: { type: Type.NUMBER, description: "Average value per order." },
-            topProducts: {
-                type: Type.ARRAY,
-                description: "Top 5 products by revenue.",
-                items: {
-                    type: Type.OBJECT,
-                    properties: {
-                        name: { type: Type.STRING },
-                        revenue: { type: Type.NUMBER },
-                        quantity: { type: Type.NUMBER },
-                    },
-                    required: ['name', 'revenue', 'quantity'],
-                },
-            },
-            salesTrend: {
-                type: Type.ARRAY,
-                description: "Daily sales revenue, sorted chronologically.",
-                items: {
-                    type: Type.OBJECT,
-                    properties: {
-                        date: { type: Type.STRING, description: 'Date in YYYY-MM-DD format' },
-                        revenue: { type: Type.NUMBER },
-                    },
-                    required: ['date', 'revenue'],
-                },
-            },
-            productZones: {
-                type: Type.OBJECT,
-                description: "Products categorized into performance zones.",
-                properties: {
-                    green: {
-                        type: Type.ARRAY,
-                        description: "Top 20% of products by revenue.",
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                name: { type: Type.STRING },
-                                revenue: { type: Type.NUMBER },
-                                quantity: { type: Type.NUMBER },
-                            },
-                            required: ['name', 'revenue', 'quantity'],
-                        },
-                    },
-                    yellow: {
-                        type: Type.ARRAY,
-                        description: "Middle 60% of products by revenue.",
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                name: { type: Type.STRING },
-                                revenue: { type: Type.NUMBER },
-                                quantity: { type: Type.NUMBER },
-                            },
-                            required: ['name', 'revenue', 'quantity'],
-                        },
-                    },
-                    red: {
-                        type: Type.ARRAY,
-                        description: "Bottom 20% of products by revenue.",
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                name: { type: Type.STRING },
-                                revenue: { type: Type.NUMBER },
-                                quantity: { type: Type.NUMBER },
-                            },
-                            required: ['name', 'revenue', 'quantity'],
-                        },
-                    },
-                },
-                required: ['green', 'yellow', 'red'],
-            },
-        },
-        required: ['totalRevenue', 'totalOrders', 'avgOrderValue', 'topProducts', 'salesTrend', 'productZones'],
-    };
-
-    const truncationWarning = isTruncated ? `\nNOTE: The provided data is a truncated sample of the first ${rowLimit} rows out of a total of ${rows.length}. Perform the analysis based on this sample.` : '';
-
-    const prompt = `
-        You are an expert data analyst for e-commerce brands. I will provide you with data from a sales report as a JSON array of objects. Your task is to analyze this data and return a complete summary in a specific JSON format.
-
-        First, intelligently identify the correct columns for product title, sales figures (like 'Net Sales' or 'Total'), quantity sold, date of sale, and a unique order identifier. These names can vary.
-
-        Then, perform the following calculations on the entire dataset provided:
-        1.  **totalRevenue**: The sum of all sales. Handle various currency formats (e.g., "$1,234.56", "500.00") by converting them to numbers.
-        2.  **totalOrders**: The count of unique orders. If an order identifier is not clear, use the number of rows as a fallback.
-        3.  **avgOrderValue**: Calculated as totalRevenue / totalOrders. If totalOrders is zero, this should be zero.
-        4.  **topProducts**: An array of the top 5 products sorted by their total revenue in descending order. Each object must include 'name', 'revenue', and 'quantity'.
-        5.  **salesTrend**: An array of objects, each with a 'date' (formatted as YYYY-MM-DD) and the total 'revenue' for that day. This array must be sorted chronologically by date.
-        6.  **productZones**: Classify all products into three zones based on revenue:
-            *   'green': The top 20% of products by revenue.
-            *   'yellow': The middle 60% of products by revenue.
-            *   'red': The bottom 20% of products by revenue.
-            Each zone should be an array of product objects, including 'name', 'revenue', and 'quantity', sorted by revenue.
-
-        Here are the records:
-        ${JSON.stringify(rowsToAnalyze)}
-        ${truncationWarning}
-
-        Provide your final analysis strictly in the required JSON format.
-    `;
-
+// Helper to normalize dates
+const normalizeDate = (dateStr: string): string => {
     try {
-        const response = await getAI().models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: analysisSchema
-            }
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return 'Unknown Date';
+        return date.toISOString().split('T')[0];
+    } catch {
+        return 'Unknown Date';
+    }
+};
+
+// Deterministic Analysis (Instant)
+const calculateMetrics = (data: any[]): ShopifyAnalysisResult => {
+    let totalRevenue = 0;
+    const uniqueOrders = new Set<string>();
+    const productMap = new Map<string, { revenue: number; quantity: number }>();
+    const salesByDate = new Map<string, number>();
+
+    // 1. Identify Columns (Heuristic Mapping)
+    const headers = Object.keys(data[0] || {});
+    const colRevenue = headers.find(h => /net sales|total sales|total|price|amount/i.test(h)) || 'Net Sales';
+    const colProduct = headers.find(h => /product title|product|title|item name/i.test(h)) || 'Product Title';
+    const colOrder = headers.find(h => /order name|order id|name|id/i.test(h)) || 'Name';
+    const colDate = headers.find(h => /day|date|created at|time/i.test(h)) || 'Day';
+    const colQty = headers.find(h => /net quantity|quantity|qty/i.test(h)) || 'Net Quantity';
+
+    // 2. Aggregate Data
+    data.forEach(row => {
+        const revenue = parseCurrency(row[colRevenue]);
+        const product = row[colProduct] || 'Unknown Product';
+        const orderId = row[colOrder];
+        const date = normalizeDate(row[colDate]);
+        const qty = parseCurrency(row[colQty]);
+
+        if (revenue === 0 && qty === 0) return; // Skip empty rows
+
+        // KPIs
+        totalRevenue += revenue;
+        if (orderId) uniqueOrders.add(orderId);
+
+        // Product Aggregation
+        const currentProd = productMap.get(product) || { revenue: 0, quantity: 0 };
+        productMap.set(product, {
+            revenue: currentProd.revenue + revenue,
+            quantity: currentProd.quantity + qty
         });
 
-        const result = JSON.parse(response.text || '{}') as ShopifyAnalysisResult;
+        // Sales Trend
+        const currentDaily = salesByDate.get(date) || 0;
+        salesByDate.set(date, currentDaily + revenue);
+    });
 
-        // Basic validation of the AI's output
-        if (typeof result.totalRevenue !== 'number' || !Array.isArray(result.topProducts)) {
-             throw new Error("AI returned an invalid data structure.");
-        }
-        
-        // Ensure salesTrend is sorted, as AI can sometimes miss this instruction
-        result.salesTrend.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // 3. Process Collections
+    const totalOrders = uniqueOrders.size || data.length; // Fallback if no order ID column
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
+    const allProducts: ProductZoneItem[] = Array.from(productMap.entries()).map(([name, stats]) => ({
+        name,
+        revenue: stats.revenue,
+        quantity: stats.quantity
+    })).sort((a, b) => b.revenue - a.revenue); // Descending by revenue
 
-        return { ...result, aiInsights: [] }; // aiInsights will be added in the next step
-    } catch (e) {
-        console.error("Error getting AI analysis:", e);
-        throw new Error("The AI failed to analyze the data. Please check the CSV format or try again.");
-    }
-}
+    const salesTrend = Array.from(salesByDate.entries())
+        .map(([date, revenue]) => ({ date, revenue }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // 4. Calculate Zones (ABC Analysis)
+    const zones = {
+        green: [] as ProductZoneItem[],
+        yellow: [] as ProductZoneItem[],
+        red: [] as ProductZoneItem[]
+    };
+
+    // Pareto Principle (80/20 rule rough approximation for zones)
+    // Green: Top 20% of catalog count OR products contributing to top 50% revenue
+    // For simplicity in this app: Top 20% items = Green, Next 60% = Yellow, Bottom 20% = Red
+    const totalCount = allProducts.length;
+    const greenCutoff = Math.ceil(totalCount * 0.2);
+    const yellowCutoff = Math.ceil(totalCount * 0.8);
+
+    allProducts.forEach((p, index) => {
+        if (index < greenCutoff) zones.green.push(p);
+        else if (index < yellowCutoff) zones.yellow.push(p);
+        else zones.red.push(p);
+    });
+
+    return {
+        totalRevenue,
+        totalOrders,
+        avgOrderValue,
+        topProducts: allProducts.slice(0, 5),
+        salesTrend,
+        productZones: zones,
+        aiInsights: [] // To be filled by AI later
+    };
+};
 
 export const shopifyService = {
     parseAndAnalyze(file: File): Promise<ShopifyAnalysisResult> {
@@ -159,17 +115,19 @@ export const shopifyService = {
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
-                complete: async (results) => {
+                complete: (results) => {
                     try {
                         const data = results.data as any[];
                         if (data.length === 0) {
                             throw new Error("CSV file is empty or could not be parsed.");
                         }
                         
-                        // Use AI to perform the entire analysis
-                        const report = await getAIAnalysis(data);
+                        // Use Deterministic JS Calculation (Instant)
+                        // No more waiting for Gemini to calculate totals
+                        const report = calculateMetrics(data);
                         resolve(report);
                     } catch (e) {
+                        console.error("Analysis Error", e);
                         reject(e);
                     }
                 },
@@ -181,19 +139,32 @@ export const shopifyService = {
     },
 
     async generateAIInsights(data: ShopifyAnalysisResult): Promise<string[]> {
-        if (!process.env.API_KEY) return ["Set API Key to get insights."];
+        if (!env.API_KEY) return ["Set API Key to get insights."];
+        
         const ai = getAI();
-        const topNames = data.topProducts.map(p => p.name).join(', ');
-        const redNames = data.productZones.red.slice(0, 3).map(p => p.name).join(', ');
         
-        const prompt = `Analyze this e-commerce data summary:
-        Total Revenue: ${data.totalRevenue.toFixed(2)}
-        Top Selling Products (Green Zone): ${topNames || 'None'}
-        Underperforming Products (Red Zone): ${redNames || 'None'}
+        // Prepare a lightweight summary for the AI
+        const summary = {
+            revenue: Math.round(data.totalRevenue),
+            orders: data.totalOrders,
+            aov: Math.round(data.avgOrderValue),
+            topSellers: data.topProducts.map(p => p.name).join(', '),
+            underperformers: data.productZones.red.slice(0, 5).map(p => p.name).join(', '),
+            trend: data.salesTrend.length > 7 ? 'Available' : 'Insufficient Data'
+        };
         
-        Provide 3 short, actionable marketing insights or ad campaign ideas. 
-        Focus on how to boost the Red Zone items or scale the Green Zone items.
-        Return as a JSON array of strings.`;
+        const prompt = `
+        Act as a senior e-commerce strategist. Analyze this Shopify data summary:
+        ${JSON.stringify(summary)}
+
+        Provide 3 specific, actionable, and short marketing insights or ad campaign ideas.
+        1. How to scale the top sellers (Green Zone).
+        2. How to clear the underperformers (Red Zone) or bundle them.
+        3. A general observation on AOV or strategy.
+
+        Format: Return ONLY a raw JSON array of strings. Example: ["Insight 1", "Insight 2", "Insight 3"].
+        Do not use markdown formatting.
+        `;
 
         try {
             const response = await ai.models.generateContent({
@@ -214,10 +185,14 @@ export const shopifyService = {
             });
             
             const result = JSON.parse(response.text || '{}');
-            return result.insights || ["Focus on bundling slow movers with best sellers.", "Run a flash sale for top items."];
+            return result.insights || [
+                "Bundle your top sellers to increase AOV.",
+                "Run a flash sale on red zone items to clear inventory.",
+                "Create lookalike audiences based on your high-value customers."
+            ];
         } catch (e) {
             console.error("AI Insight Gen Failed", e);
-            return ["Data analysis complete. Check the charts for trends."];
+            return ["Focus on bundling slow movers with best sellers.", "Run a flash sale for top items."];
         }
     }
 };

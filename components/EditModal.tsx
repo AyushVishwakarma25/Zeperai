@@ -43,6 +43,7 @@ const EditModal: React.FC<EditModalProps> = ({
   const [mode, setMode] = useState<'inpaint' | 'crop' | 'background'>(initialTab);
   const [showOriginalBg, setShowOriginalBg] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Inpaint state
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -73,7 +74,7 @@ const EditModal: React.FC<EditModalProps> = ({
           setShowReplacement(false);
           setShowOriginalBg(false);
       }
-  }, [image.imageUrl, replacementPreview]);
+  }, [image.imageUrl]);
 
   const clearCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -118,22 +119,15 @@ const EditModal: React.FC<EditModalProps> = ({
 
   useEffect(() => {
       if (mode !== 'crop' || !image.imageUrl) return;
-      
       const img = imageRef.current;
       if (!img) return;
-
-      if (img.complete) {
-          resetCrop();
-      } else {
-          img.onload = resetCrop;
-      }
+      if (img.complete) resetCrop();
+      else img.onload = resetCrop;
   }, [mode, image.imageUrl, resetCrop]);
   
   useEffect(() => {
     return () => {
-      if (replacementPreview) {
-        URL.revokeObjectURL(replacementPreview);
-      }
+      if (replacementPreview) URL.revokeObjectURL(replacementPreview);
     };
   }, [replacementPreview]);
 
@@ -148,7 +142,7 @@ const EditModal: React.FC<EditModalProps> = ({
                   onImageUpdate(image.id, result, result);
               };
           } catch (e) {
-              console.error("Failed to process uploaded image", e);
+              console.error("Upload failed", e);
           }
       }
   }, [image.id, onImageUpdate]);
@@ -158,62 +152,38 @@ const EditModal: React.FC<EditModalProps> = ({
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
-
     if (file) {
       try {
         const processedFile = await processImageFile(file, { maxWidth: 1024, maxHeight: 1024 });
         setReplacementImage(processedFile);
         setReplacementPreview(URL.createObjectURL(processedFile));
       } catch (error) {
-        console.error("Error processing replacement image:", error);
-        setReplacementImage(null);
+        console.error("Replacement failed", error);
       }
-    } else {
-      setReplacementImage(null);
     }
   }, []);
 
-  // Listen for dropped images from generated results
   useEffect(() => {
     const handleKrackxDrop = (e: any) => {
-        const { id, image } = e.detail;
-        const fileName = `internal-${image.id}.png`;
-        const file = dataURLtoFile(image.imageUrl, fileName);
-
-        if (id === 'editor-upload') {
-            handleMainFileUpload(file);
-        } else if (id === 'replacement-upload') {
-            handleFileSelected(file);
-        }
+        const { id, image: droppedImg } = e.detail;
+        const file = dataURLtoFile(droppedImg.imageUrl, `internal-${droppedImg.id}.png`);
+        if (id === 'editor-upload') handleMainFileUpload(file);
+        else if (id === 'replacement-upload') handleFileSelected(file);
     };
     window.addEventListener('krackx-internal-image-drop', handleKrackxDrop);
     return () => window.removeEventListener('krackx-internal-image-drop', handleKrackxDrop);
   }, [handleMainFileUpload, handleFileSelected]);
 
-  const getCropCoords = (e: React.MouseEvent | React.PointerEvent) => {
-    const container = cropContainerRef.current;
-    if (!container) return { x: 0, y: 0 };
-    const rect = container.getBoundingClientRect();
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
-  };
-
-  const getCanvasCoords = (e: React.MouseEvent | React.PointerEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
+  const getCoords = (e: React.MouseEvent | React.PointerEvent, ref: React.RefObject<HTMLElement>) => {
+    if (!ref.current) return { x: 0, y: 0 };
+    const rect = ref.current.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
   const startDrawing = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     setIsDrawing(true);
-    lastPointRef.current = getCanvasCoords(e);
+    lastPointRef.current = getCoords(e, canvasRef);
   };
   
   const stopDrawing = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -224,13 +194,9 @@ const EditModal: React.FC<EditModalProps> = ({
 
   const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
-    e.preventDefault(); 
-    
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
+    const ctx = canvasRef.current?.getContext('2d');
     if (!ctx || !lastPointRef.current) return;
-
-    const currentPoint = getCanvasCoords(e);
+    const currentPoint = getCoords(e, canvasRef);
     ctx.beginPath();
     ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
     ctx.lineTo(currentPoint.x, currentPoint.y);
@@ -239,121 +205,63 @@ const EditModal: React.FC<EditModalProps> = ({
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
-
     lastPointRef.current = currentPoint;
   };
 
   const handleApplyInpaint = () => {
-    if (!isOnline) {
-        alert("You are offline. Inpainting requires an internet connection.");
-        return;
-    }
+    if (!isOnline) return;
     if (!image.imageUrl) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const context = canvas.getContext('2d');
-    if (!context) return;
-    
-    let hasDrawing = false;
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return;
     try {
-        const pixelBuffer = new Uint32Array(context.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
-        hasDrawing = pixelBuffer.some(color => color !== 0);
+        const hasDrawing = new Uint32Array(ctx.getImageData(0, 0, canvasRef.current!.width, canvasRef.current!.height).data.buffer).some(c => c !== 0);
+        if (!hasDrawing) { alert("Brush over an area first."); return; }
+        if (!prompt.trim()) { alert("Enter instructions."); return; }
+        onApplyEdit({ originalImageUrl: image.imageUrl, maskDataUrl: canvasRef.current!.toDataURL('image/png'), prompt, replacementImage });
     } catch (e) {
-        if (e instanceof DOMException && e.name === 'SecurityError') {
-            alert("Security Error: Cannot edit this image due to cross-origin restrictions. Please try downloading it and uploading it again from your device.");
-            return;
-        }
-        throw e;
+        alert("Security Error: Try re-uploading from device.");
     }
-
-
-    if (!hasDrawing) {
-        alert("Please brush over the area you want to edit.");
-        return;
-    }
-    if (!prompt.trim()) {
-        alert("Please provide instructions for the edit.");
-        return;
-    }
-    const maskDataUrl = canvas.toDataURL('image/png');
-    onApplyEdit({
-      originalImageUrl: image.imageUrl,
-      maskDataUrl,
-      prompt,
-      replacementImage
-    });
   }
 
   const handleCropPointerDown = (e: React.PointerEvent, handle: string) => {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     setDraggingHandle(handle);
-    const { x, y } = getCropCoords(e);
+    const { x, y } = getCoords(e, cropContainerRef);
     dragStartRef.current = { mouseX: x, mouseY: y, crop };
   };
 
   const handleCropPointerMove = (e: React.PointerEvent) => {
     if (!draggingHandle) return;
-    e.stopPropagation();
-    e.preventDefault(); 
-    const { x: mouseX, y: mouseY } = getCropCoords(e);
+    const { x: mouseX, y: mouseY } = getCoords(e, cropContainerRef);
     const { mouseX: startX, mouseY: startY, crop: startCrop } = dragStartRef.current;
     let newCrop = { ...startCrop };
     const dx = mouseX - startX;
     const dy = mouseY - startY;
-
     const imgBounds = imageRef.current?.getBoundingClientRect() ?? { width: 0, height: 0 };
     const parsedRatio = cropAspectRatio !== 'free' ? parseFloat(cropAspectRatio.split(':')[0]) / parseFloat(cropAspectRatio.split(':')[1]) : null;
 
     switch (draggingHandle) {
-        case 'move':
-            newCrop.x += dx;
-            newCrop.y += dy;
-            break;
-        case 'topLeft':
-            newCrop.width -= dx; newCrop.x += dx;
-            newCrop.height -= dy; newCrop.y += dy;
-            break;
-        case 'topRight':
-            newCrop.width += dx;
-            newCrop.height -= dy; newCrop.y += dy;
-            break;
-        case 'bottomLeft':
-            newCrop.width -= dx; newCrop.x += dx;
-            newCrop.height += dy;
-            break;
-        case 'bottomRight':
-            newCrop.width += dx;
-            newCrop.height += dy;
-            break;
-        case 'top':
-            newCrop.height -= dy; newCrop.y += dy;
-            break;
-        case 'bottom':
-            newCrop.height += dy;
-            break;
-        case 'left':
-            newCrop.width -= dx; newCrop.x += dx;
-            break;
-        case 'right':
-            newCrop.width += dx;
-            break;
+        case 'move': newCrop.x += dx; newCrop.y += dy; break;
+        case 'topLeft': newCrop.width -= dx; newCrop.x += dx; newCrop.height -= dy; newCrop.y += dy; break;
+        case 'topRight': newCrop.width += dx; newCrop.height -= dy; newCrop.y += dy; break;
+        case 'bottomLeft': newCrop.width -= dx; newCrop.x += dx; newCrop.height += dy; break;
+        case 'bottomRight': newCrop.width += dx; newCrop.height += dy; break;
+        case 'top': newCrop.height -= dy; newCrop.y += dy; break;
+        case 'bottom': newCrop.height += dy; break;
+        case 'left': newCrop.width -= dx; newCrop.x += dx; break;
+        case 'right': newCrop.width += dx; break;
     }
 
     if (parsedRatio && draggingHandle !== 'move') {
-        if (['topLeft', 'topRight', 'bottomLeft', 'bottomRight', 'right', 'left'].includes(draggingHandle)) {
-            newCrop.height = newCrop.width / parsedRatio;
-        } else {
-            newCrop.width = newCrop.height * parsedRatio;
-        }
+        if (['topLeft', 'topRight', 'bottomLeft', 'bottomRight', 'right', 'left'].includes(draggingHandle)) newCrop.height = newCrop.width / parsedRatio;
+        else newCrop.width = newCrop.height * parsedRatio;
     }
     
     newCrop.width = Math.max(MIN_CROP_SIZE, newCrop.width);
     newCrop.height = Math.max(MIN_CROP_SIZE, newCrop.height);
-
     newCrop.x = Math.max(0, Math.min(newCrop.x, imgBounds.width - newCrop.width));
     newCrop.y = Math.max(0, Math.min(newCrop.y, imgBounds.height - newCrop.height));
-
     setCrop(newCrop);
   };
   
@@ -364,72 +272,34 @@ const EditModal: React.FC<EditModalProps> = ({
 
   const handleSetAspectRatio = (ratio: string) => {
     setCropAspectRatio(ratio);
-    const img = imageRef.current;
-    if (!img) return;
-    const { width: viewW, height: viewH } = img.getBoundingClientRect();
-    
-    if (ratio === 'free') return;
-
+    if (!imageRef.current || ratio === 'free') return;
+    const { width: viewW, height: viewH } = imageRef.current.getBoundingClientRect();
     const [w, h] = ratio.split(':').map(Number);
     const ratioVal = w / h;
-    
-    let newWidth = viewW * 0.8;
-    let newHeight = newWidth / ratioVal;
-
-    if (newHeight > viewH * 0.8) {
-        newHeight = viewH * 0.8;
-        newWidth = newHeight * ratioVal;
-    }
-    
-    const newX = (viewW - newWidth) / 2;
-    const newY = (viewH - newHeight) / 2;
-    
-    setCrop({ x: newX, y: newY, width: newWidth, height: newHeight });
+    let nWidth = viewW * 0.8;
+    let nHeight = nWidth / ratioVal;
+    if (nHeight > viewH * 0.8) { nHeight = viewH * 0.8; nWidth = nHeight * ratioVal; }
+    setCrop({ x: (viewW - nWidth) / 2, y: (viewH - nHeight) / 2, width: nWidth, height: nHeight });
   };
   
   const handleApplyCrop = () => {
-    if (!image.imageUrl) return;
-    const img = imageRef.current;
-    if (!img) return;
-
-    const scaleX = img.naturalWidth / img.width;
-    const scaleY = img.naturalHeight / img.height;
-
-    const sourceX = crop.x * scaleX;
-    const sourceY = crop.y * scaleY;
-    const sourceWidth = crop.width * scaleX;
-    const sourceHeight = crop.height * scaleY;
-
+    if (!image.imageUrl || !imageRef.current) return;
+    const scaleX = imageRef.current.naturalWidth / imageRef.current.width;
+    const scaleY = imageRef.current.naturalHeight / imageRef.current.height;
     const cropCanvas = document.createElement('canvas');
-    cropCanvas.width = sourceWidth;
-    cropCanvas.height = sourceHeight;
-    const ctx = cropCanvas.getContext('2d');
-    if (!ctx) return;
-    
-    ctx.drawImage(
-      img,
-      sourceX, sourceY, sourceWidth, sourceHeight,
-      0, 0, sourceWidth, sourceHeight
-    );
-    
-    const dataUrl = cropCanvas.toDataURL(image.imageUrl.split(';')[0].split('/')[1] || 'image/jpeg');
-    onImageUpdate(image.id, dataUrl);
+    cropCanvas.width = crop.width * scaleX;
+    cropCanvas.height = crop.height * scaleY;
+    cropCanvas.getContext('2d')?.drawImage(imageRef.current, crop.x * scaleX, crop.y * scaleY, crop.width * scaleX, crop.height * scaleY, 0, 0, cropCanvas.width, cropCanvas.height);
+    onImageUpdate(image.id, cropCanvas.toDataURL(image.imageUrl.split(';')[0].split('/')[1] || 'image/jpeg'));
   };
 
   const handleDownload = async () => {
-      if (!image.imageUrl) return;
-      await downloadImage(image.imageUrl, `edited-${Date.now()}`, downloadFormat);
-  };
-
-  const cropHandles = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight', 'top', 'bottom', 'left', 'right'];
-
-  const handleOverlayClick = () => {
-      if (prompt.trim() || replacementImage) {
-          if (window.confirm("You have unsaved edits. Are you sure you want to close?")) {
-              onClose();
-          }
-      } else {
-          onClose();
+      if (!image.imageUrl || isDownloading) return;
+      setIsDownloading(true);
+      try {
+          await downloadImage(image.imageUrl, `edited-${Date.now()}`, downloadFormat);
+      } finally {
+          setIsDownloading(false);
       }
   };
 
@@ -447,13 +317,22 @@ const EditModal: React.FC<EditModalProps> = ({
       : image.imageUrl;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4" onClick={handleOverlayClick}>
-      <div 
-        className="bg-main w-full max-w-5xl h-[90vh] rounded-2xl shadow-xl flex flex-col overflow-hidden" 
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="p-4 border-b border-slate-200 flex justify-between items-center flex-shrink-0 bg-white z-20">
-            <h2 className="text-xl font-bold text-slate-800">{getModalTitle()}</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4" onClick={() => (prompt.trim() || replacementImage) ? window.confirm("Discard edits?") && onClose() : onClose()}>
+      <div className="bg-main w-full max-w-5xl h-[90vh] rounded-2xl shadow-xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <header className="p-4 border-b border-slate-200 flex justify-between items-center bg-white z-20">
+            <div className="flex items-center gap-4">
+                <h2 className="text-xl font-bold text-slate-800">{getModalTitle()}</h2>
+                {image.imageUrl && (
+                    <button 
+                        onClick={handleDownload}
+                        disabled={isDownloading}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-sm font-bold transition-all"
+                    >
+                        <Icon name="download" className="w-4 h-4" />
+                        {isDownloading ? 'Downloading...' : 'Download Result'}
+                    </button>
+                )}
+            </div>
             <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
                 <Icon name="close" className="w-5 h-5"/>
             </button>
@@ -465,47 +344,26 @@ const EditModal: React.FC<EditModalProps> = ({
                 className={`relative flex-shrink-0 min-h-[40vh] lg:flex-1 lg:h-full bg-slate-100 flex flex-col items-center justify-center lg:overflow-auto ${mode === 'background' ? 'bg-[url("https://www.transparenttextures.com/patterns/cubes.png")]' : ''}`}
                 onPointerMove={mode === 'crop' ? handleCropPointerMove : undefined}
                 onPointerUp={mode === 'crop' ? handleCropPointerUp : undefined}
-                onPointerLeave={mode === 'crop' ? handleCropPointerUp : undefined}
             >
                 {displayImage ? (
                     <div className="relative shadow-lg touch-none py-8 px-4">
                         <img 
-                          ref={imageRef} 
-                          src={displayImage} 
-                          alt="Editing" 
+                          ref={imageRef} src={displayImage} alt="Editing" 
                           className="max-w-full max-h-[60vh] lg:max-h-[80vh] object-contain select-none pointer-events-none"
                           crossOrigin="anonymous"
                         />
-                        {mode === 'background' && image.sourceProductImageUrl && (
-                            <div className="absolute top-2 right-6 bg-black/70 text-white text-xs px-2 py-1 rounded backdrop-blur-sm pointer-events-none">
-                                {showOriginalBg ? 'Original' : 'Result'}
-                            </div>
-                        )}
                         {mode === 'inpaint' && (
                           <>
                             <canvas
-                              ref={canvasRef}
-                              className="absolute top-0 left-0 cursor-crosshair touch-none"
-                              style={{ top: 32, left: 16 }} 
-                              onPointerDown={startDrawing}
-                              onPointerUp={stopDrawing}
-                              onPointerLeave={stopDrawing}
-                              onPointerEnter={() => setIsCursorOnCanvas(true)}
-                              onPointerOut={() => setIsCursorOnCanvas(false)}
-                              onPointerMove={(e) => {
-                                setCursorPos(getCanvasCoords(e));
-                                draw(e);
-                              }}
+                              ref={canvasRef} className="absolute top-0 left-0 cursor-crosshair touch-none"
+                              style={{ top: 32, left: 16 }}
+                              onPointerDown={startDrawing} onPointerUp={stopDrawing}
+                              onPointerLeave={stopDrawing} onPointerEnter={() => setIsCursorOnCanvas(true)} onPointerOut={() => setIsCursorOnCanvas(false)}
+                              onPointerMove={(e) => { setCursorPos(getCoords(e, canvasRef)); draw(e); }}
                             />
                             {isCursorOnCanvas && (
-                              <div
-                                className="absolute rounded-full border-2 border-white bg-black/30 pointer-events-none -translate-x-1/2 -translate-y-1/2"
-                                style={{
-                                    left: cursorPos.x + 16,
-                                    top: cursorPos.y + 32,
-                                    width: brushSize,
-                                    height: brushSize,
-                                }}
+                              <div className="absolute rounded-full border-2 border-white bg-black/30 pointer-events-none -translate-x-1/2 -translate-y-1/2"
+                                style={{ left: cursorPos.x + 16, top: cursorPos.y + 32, width: brushSize, height: brushSize }}
                               />
                             )}
                           </>
@@ -518,22 +376,12 @@ const EditModal: React.FC<EditModalProps> = ({
                                     style={{ left: crop.x, top: crop.y, width: crop.width, height: crop.height, pointerEvents: 'auto' }}
                                     onPointerDown={(e) => handleCropPointerDown(e, 'move')}
                                  >
-                                     {cropHandles.map(handle => {
-                                         const getHandleStyle = () => {
-                                             switch (handle) {
-                                                 case 'topLeft': return { top: -6, left: -6, cursor: 'nwse-resize' };
-                                                 case 'topRight': return { top: -6, right: -6, cursor: 'nesw-resize' };
-                                                 case 'bottomLeft': return { bottom: -6, left: -6, cursor: 'nesw-resize' };
-                                                 case 'bottomRight': return { bottom: -6, right: -6, cursor: 'nwse-resize' };
-                                                 case 'top': return { top: -6, left: '50%', transform: 'translateX(-50%)', cursor: 'ns-resize' };
-                                                 case 'bottom': return { bottom: -6, left: '50%', transform: 'translateX(-50%)', cursor: 'ns-resize' };
-                                                 case 'left': return { top: '50%', left: -6, transform: 'translateY(-50%)', cursor: 'ew-resize' };
-                                                 case 'right': return { top: '50%', right: -6, transform: 'translateY(-50%)', cursor: 'ew-resize' };
-                                                 default: return {};
-                                             }
-                                         };
-                                         return <div key={handle} onPointerDown={(e) => handleCropPointerDown(e, handle)} className="absolute w-4 h-4 bg-white rounded-full border border-slate-400 touch-none" style={getHandleStyle()} />;
-                                     })}
+                                     {['topLeft', 'topRight', 'bottomLeft', 'bottomRight', 'top', 'bottom', 'left', 'right'].map(handle => (
+                                         <div key={handle} onPointerDown={(e) => handleCropPointerDown(e, handle)} 
+                                            className="absolute w-4 h-4 bg-white rounded-full border border-slate-400 touch-none" 
+                                            style={handle === 'topLeft' ? { top: -6, left: -6, cursor: 'nwse-resize' } : handle === 'topRight' ? { top: -6, right: -6, cursor: 'nesw-resize' } : handle === 'bottomLeft' ? { bottom: -6, left: -6, cursor: 'nesw-resize' } : handle === 'bottomRight' ? { bottom: -6, right: -6, cursor: 'nwse-resize' } : handle === 'top' ? { top: -6, left: '50%', transform: 'translateX(-50%)', cursor: 'ns-resize' } : handle === 'bottom' ? { bottom: -6, left: '50%', transform: 'translateX(-50%)', cursor: 'ns-resize' } : handle === 'left' ? { top: '50%', left: -6, transform: 'translateY(-50%)', cursor: 'ew-resize' } : { top: '50%', right: -6, transform: 'translateY(-50%)', cursor: 'ew-resize' }} 
+                                         />
+                                     ))}
                                  </div>
                             </div>
                         )}
@@ -541,153 +389,76 @@ const EditModal: React.FC<EditModalProps> = ({
                 ) : (
                     <div className="w-full h-full p-8 flex items-center justify-center">
                         <div className="w-full max-w-md aspect-square bg-white rounded-xl shadow-sm">
-                            <ImageDropzone 
-                                id="editor-upload" 
-                                prompt="Upload an image to edit" 
-                                previewUrl={null} 
-                                onFileChange={handleMainFileUpload} 
-                                className="w-full h-full border-2 border-dashed border-slate-300 rounded-xl hover:border-primary/50 transition-colors"
-                            />
+                            <ImageDropzone id="editor-upload" prompt="Upload to edit" previewUrl={null} onFileChange={handleMainFileUpload} className="w-full h-full" />
                         </div>
                     </div>
                 )}
-                {image.imageUrl && <p className="text-xs text-slate-400 mt-2 lg:hidden text-center pb-4">Scroll outside image to move page</p>}
             </main>
 
             <aside className="flex-shrink-0 w-full lg:w-80 bg-white flex flex-col border-t lg:border-t-0 lg:border-l border-slate-200 lg:h-full z-10">
                 <div className="p-6 flex-grow lg:overflow-y-auto">
-                    <div className="p-1 bg-slate-100 rounded-lg flex space-x-1 mb-6 overflow-x-auto">
+                    <div className="p-1 bg-slate-100 rounded-lg flex space-x-1 mb-6">
                         <TabButton active={mode === 'inpaint'} onClick={() => setMode('inpaint')}>Inpaint</TabButton>
                         <TabButton active={mode === 'crop'} onClick={() => setMode('crop')}>Crop</TabButton>
                         <TabButton active={mode === 'background'} onClick={() => setMode('background')}>Remove BG</TabButton>
                     </div>
 
-                    {!image.imageUrl && (
-                        <div className="text-center p-4 bg-slate-50 rounded-lg text-slate-500 text-sm">
-                            Upload an image on the left to start editing.
-                        </div>
-                    )}
-
-                    {image.imageUrl && mode === 'inpaint' && (
+                    {image.imageUrl && (
                         <div className="space-y-6">
-                            <div>
-                                <label className="block text-sm font-semibold text-black mb-2">1. Brush the area to change</label>
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="text-xs text-slate-500">Brush Size</label>
-                                        <div className="flex items-center space-x-2 mt-1">
-                                            <div className="flex-grow">
-                                                <input type="range" min="5" max="100" value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" />
-                                            </div>
-                                            <span className="text-sm font-semibold w-8 text-center">{brushSize}</span>
-                                        </div>
+                            {mode === 'inpaint' && (
+                                <>
+                                    <label className="block text-sm font-semibold text-black">1. Brush area | 2. Describe</label>
+                                    <div className="flex items-center gap-3">
+                                        <input type="range" min="5" max="100" value={brushSize} onChange={e => setBrushSize(Number(e.target.value))} className="flex-grow h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" />
+                                        <Button onClick={clearCanvas} variant="secondary" className="!py-1 !px-2 !text-xs">Clear</Button>
                                     </div>
-                                    <Button onClick={clearCanvas} fullWidth variant="secondary">Clear Mask</Button>
-                                </div>
-                            </div>
+                                    <textarea value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="e.g. Change color to gold" className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl text-sm" rows={4} />
+                                    <Button onClick={handleApplyInpaint} disabled={!isOnline || isEditing} fullWidth isLoading={isEditing}>Generate Edit</Button>
+                                    <div className="border-t border-slate-200 pt-4">
+                                        <button onClick={() => setShowReplacement(!showReplacement)} className="text-xs text-primary font-bold hover:underline mb-2">
+                                            {showReplacement ? 'Hide Replacement' : '+ Add Replacement Asset'}
+                                        </button>
+                                        {showReplacement && <ImageDropzone id="replacement-upload" previewUrl={replacementPreview} onFileChange={handleFileSelected} prompt="Upload Object" className="aspect-[3/2]" />}
+                                    </div>
+                                </>
+                            )}
                             
-                            <div>
-                                <label htmlFor="edit-prompt" className="block text-sm font-semibold text-black mb-2">2. Describe your edit</label>
-                                <textarea id="edit-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., Change the color to blue" className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-sm text-slate-900" rows={4} />
-                            </div>
-
-                            <Button onClick={handleApplyInpaint} disabled={!isOnline || isEditing} fullWidth isLoading={isEditing}>
-                                {isOnline ? 'Generate Edit' : 'Offline'}
-                            </Button>
-
-                            <div className="border-t border-slate-200 pt-5">
-                                {!showReplacement ? (
-                                    <Button variant="secondary" fullWidth onClick={() => setShowReplacement(true)}>
-                                        <Icon name="swap" className="w-4 h-4 mr-2" />
-                                        Replace Object (Optional)
-                                    </Button>
-                                ) : (
-                                    <div>
-                                        <div className="flex justify-between items-center mb-2">
-                                            <label className="block text-sm font-semibold text-black">3. Upload replacement</label>
-                                            <button onClick={() => setShowReplacement(false)} className="text-xs text-slate-500 hover:text-red-500 font-semibold">
-                                                Cancel
-                                            </button>
-                                        </div>
-                                        <ImageDropzone 
-                                            id="replacement-upload" 
-                                            previewUrl={replacementPreview} 
-                                            onFileChange={handleFileSelected} 
-                                            prompt="Upload Object/Style" 
-                                            className="aspect-[4/1] lg:aspect-[3/2]"
-                                        />
+                            {mode === 'crop' && (
+                                <div className="space-y-4">
+                                    <Button onClick={resetCrop} fullWidth variant="secondary">Reset Crop</Button>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {['free', '1:1', '4:5', '16:9'].map(r => (
+                                            <button key={r} onClick={() => handleSetAspectRatio(r)} className={`p-2 text-xs font-bold rounded-lg border ${cropAspectRatio === r ? 'bg-primary text-white border-primary' : 'bg-slate-100 text-slate-700'}`}>{r.toUpperCase()}</button>
+                                        ))}
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                    
-                    {image.imageUrl && mode === 'crop' && (
-                        <div className="space-y-6">
-                             <Button onClick={resetCrop} fullWidth variant="secondary">Reset Crop</Button>
-                             <div>
-                                <label className="block text-sm font-semibold text-black mb-2">Aspect Ratio</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button onClick={() => handleSetAspectRatio('free')} className={`p-2 text-xs font-semibold rounded-lg border transition-colors ${cropAspectRatio === 'free' ? 'bg-primary text-white border-primary shadow-md' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'}`}>Free</button>
-                                    <button onClick={() => handleSetAspectRatio('1:1')} className={`p-2 text-xs font-semibold rounded-lg border transition-colors ${cropAspectRatio === '1:1' ? 'bg-primary text-white border-primary shadow-md' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'}`}>1:1 Square</button>
-                                    <button onClick={() => handleSetAspectRatio('4:5')} className={`p-2 text-xs font-semibold rounded-lg border transition-colors ${cropAspectRatio === '4:5' ? 'bg-primary text-white border-primary shadow-md' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'}`}>4:5 Portrait</button>
-                                    <button onClick={() => handleSetAspectRatio('16:9')} className={`p-2 text-xs font-semibold rounded-lg border transition-colors ${cropAspectRatio === '16:9' ? 'bg-primary text-white border-primary shadow-md' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'}`}>16:9 Wide</button>
+                                    <Button onClick={handleApplyCrop} fullWidth>Apply Crop</Button>
                                 </div>
-                             </div>
-                        </div>
-                    )}
+                            )}
 
-                    {image.imageUrl && mode === 'background' && (
-                        <div className="space-y-6 flex flex-col justify-start pt-2">
-                            <div className="text-center p-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                                <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Icon name="magic-wand" className="w-8 h-8 text-primary" />
-                                </div>
-                                <h3 className="text-lg font-bold text-slate-800 mb-2">Instant Removal</h3>
-                                <p className="text-sm text-slate-500 mb-6">
-                                    Automatically detect and isolate the main subject. This action costs 1 Credit.
-                                </p>
-                                <Button onClick={isOnline ? onRemoveBackground : undefined} disabled={!isOnline || isEditing} fullWidth isLoading={isEditing}>
-                                    {isOnline ? 'Remove Background (1 Credit)' : 'Offline'}
-                                </Button>
-                                
-                                {image.sourceProductImageUrl && (
-                                    <div className="mt-4">
-                                        <Button 
-                                            onClick={() => setShowOriginalBg(!showOriginalBg)} 
-                                            fullWidth 
-                                            variant="secondary"
-                                            className="mb-2"
-                                        >
-                                            <Icon name="swap" className="w-4 h-4 mr-2" />
-                                            {showOriginalBg ? 'Show Result' : 'Compare Original'}
+                            {mode === 'background' && (
+                                <div className="space-y-4 text-center">
+                                    <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-2"><Icon name="magic-wand" className="w-8 h-8 text-primary" /></div>
+                                    <h3 className="font-bold text-slate-800">Auto BG Remover</h3>
+                                    <Button onClick={onRemoveBackground} disabled={!isOnline || isEditing} fullWidth isLoading={isEditing}>Process (1 Credit)</Button>
+                                    {image.sourceProductImageUrl && <Button onClick={() => setShowOriginalBg(!showOriginalBg)} fullWidth variant="secondary">{showOriginalBg ? 'Show Result' : 'Show Original'}</Button>}
+                                    
+                                    <div className="pt-4 border-t border-slate-200">
+                                        <p className="text-[10px] text-slate-400 mb-2 uppercase font-bold">Download Format</p>
+                                        <div className="flex gap-2 mb-4">
+                                            {['png', 'jpeg', 'webp'].map(f => (
+                                                <button key={f} onClick={() => setDownloadFormat(f as any)} className={`flex-1 py-1 text-xs font-bold rounded-lg border ${downloadFormat === f ? 'bg-slate-800 text-white' : 'bg-white text-slate-600'}`}>{f.toUpperCase()}</button>
+                                            ))}
+                                        </div>
+                                        <Button onClick={handleDownload} fullWidth variant="secondary" isLoading={isDownloading}>
+                                            <Icon name="download" className="w-4 h-4 mr-2" />
+                                            Download Now
                                         </Button>
                                     </div>
-                                )}
-
-                                <div className="mt-4 pt-4 border-t border-slate-200">
-                                    <div className="flex gap-2 mb-2">
-                                        <Button onClick={() => setDownloadFormat('png')} variant={downloadFormat === 'png' ? 'primary' : 'ghost'} className={`flex-1 !text-xs !py-1 ${downloadFormat === 'png' ? '' : '!bg-white border border-slate-200'}`}>PNG</Button>
-                                        <Button onClick={() => setDownloadFormat('jpeg')} variant={downloadFormat === 'jpeg' ? 'primary' : 'ghost'} className={`flex-1 !text-xs !py-1 ${downloadFormat === 'jpeg' ? '' : '!bg-white border border-slate-200'}`}>JPG</Button>
-                                        <Button onClick={() => setDownloadFormat('webp')} variant={downloadFormat === 'webp' ? 'primary' : 'ghost'} className={`flex-1 !text-xs !py-1 ${downloadFormat === 'webp' ? '' : '!bg-white border border-slate-200'}`}>WEBP</Button>
-                                    </div>
-                                    <Button onClick={handleDownload} fullWidth variant="secondary">
-                                        <Icon name="download" className="w-4 h-4 mr-2" />
-                                        Download Image
-                                    </Button>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     )}
                 </div>
-                
-                {image.imageUrl && mode === 'crop' && (
-                    <div className="p-4 border-t border-slate-200 bg-slate-50 lg:sticky lg:bottom-0 z-20">
-                        <Button onClick={handleApplyCrop} fullWidth>
-                            Apply Crop
-                        </Button>
-                    </div>
-                )}
             </aside>
         </div>
       </div>

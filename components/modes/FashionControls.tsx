@@ -20,9 +20,14 @@ export const FashionControls: React.FC<FashionControlsProps> = ({
     params, handleParamChange, isHyperRealismLocked, onOpenPricingModal, userTier 
 }) => {
     const gender = params.fashionGender || FashionGender.Women;
-    const categories = FASHION_CATEGORIES[gender];
-    const category = params.fashionCategory || Object.keys(categories)[0];
-    const subCategories = categories[category] ? categories[category] : [];
+    
+    // Safely get categories, defaulting to Women if the gender key is invalid or missing
+    const categories = FASHION_CATEGORIES[gender] || FASHION_CATEGORIES[FashionGender.Women];
+    
+    // Safely get category key, ensuring categories exists before calling Object.keys
+    const category = params.fashionCategory || (categories ? Object.keys(categories)[0] : '');
+    
+    const subCategories = (categories && category) ? (categories[category] || []) : [];
     const locks = FASHION_MODEL_LOCKS[gender] || [];
 
     const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
@@ -143,10 +148,10 @@ export const FashionControls: React.FC<FashionControlsProps> = ({
                 <HelpLabel label="Category" />
                 <Select label="" value={params.fashionCategory || ''} onChange={e => handleParamChange('fashionCategory', e.target.value)}>
                     <option value="">Select Category</option>
-                    {Object.keys(categories).map(c => <option key={c} value={c}>{c}</option>)}
+                    {categories && Object.keys(categories).map(c => <option key={c} value={c}>{c}</option>)}
                 </Select>
             </div>
-            {category && (
+            {category && subCategories.length > 0 && (
                 <div className="mt-4">
                     <HelpLabel label="Apparel Type" />
                     <Select label="" value={params.fashionSubCategory || ''} onChange={e => handleParamChange('fashionSubCategory', e.target.value)}>

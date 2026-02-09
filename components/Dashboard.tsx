@@ -2,7 +2,6 @@
 import React from 'react';
 import { Icon } from './ui/Icon';
 import { AppMode, GeneratedImage } from '../types';
-import { FloatingActionBar } from './FloatingActionBar';
 
 interface ColorfulCardProps {
   title: string;
@@ -113,20 +112,10 @@ const DashboardHome: React.FC<DashboardProps> = ({
     onSelectMode, 
     onStartImageEdit, 
     onOpenContentGenerator,
-    floatingPrompt,
-    onFloatingPromptChange,
-    floatingImagePreview,
-    onFloatingGenerate,
-    onRemoveFloatingImage,
-    onTriggerFloatingUpload,
-    onFloatingImageDrop,
-    isLoading,
     userTier = 'Free', 
     onOpenPricingModal,
     isAdmin = false,
     userName = 'there',
-    floatingMode,
-    onFloatingModeChange
 }) => {
 
     const isProLocked = !isAdmin && (userTier === 'Free');
@@ -209,23 +198,8 @@ const DashboardHome: React.FC<DashboardProps> = ({
 
     return (
       <div className="py-2 pb-12">
-        <h1 className="text-2xl md:text-3xl font-batangas font-bold text-text-primary text-center">What are we creating today, {userName}?</h1>
+        <h1 className="text-2xl md:text-3xl font-batangas font-bold text-text-primary text-center mb-12">What are we creating today, {userName}?</h1>
         
-        <div className="max-w-3xl mx-auto mt-6 mb-12">
-            <FloatingActionBar 
-                prompt={floatingPrompt}
-                onPromptChange={onFloatingPromptChange}
-                imagePreviewUrl={floatingImagePreview}
-                onUploadClick={onTriggerFloatingUpload}
-                onRemoveImage={onRemoveFloatingImage}
-                onGenerate={onFloatingGenerate}
-                onImageDrop={onFloatingImageDrop}
-                isGenerating={isLoading}
-                floatingMode={floatingMode}
-                onFloatingModeChange={onFloatingModeChange}
-            />
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8 max-w-[1600px] mx-auto mb-16 px-4 sm:px-6">
             {tools.map((tool) => (
                 <ColorfulCard 

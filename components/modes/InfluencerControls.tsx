@@ -23,12 +23,19 @@ export const InfluencerControls: React.FC<InfluencerControlsProps> = ({
     params, handleParamChange, onGenerateVariants, savedModels 
 }) => {
     
-    const backgroundOptionsForCategory = ALL_BACKGROUND_OPTIONS[params.productCategory] || ALL_BACKGROUND_OPTIONS[ProductCategory.Generic];
-    const backgroundOptions = Object.keys(backgroundOptionsForCategory).map((group) => (
-        <optgroup label={group} key={group}>
-            {backgroundOptionsForCategory[group].map(option => <option key={option} value={option}>{option}</option>)}
-        </optgroup>
-    ));
+    // Safely retrieve background options, ensuring fallback exists
+    const backgroundOptionsForCategory = 
+        (params.productCategory && ALL_BACKGROUND_OPTIONS[params.productCategory]) 
+        ? ALL_BACKGROUND_OPTIONS[params.productCategory] 
+        : ALL_BACKGROUND_OPTIONS[ProductCategory.Generic];
+
+    const backgroundOptions = backgroundOptionsForCategory 
+        ? Object.keys(backgroundOptionsForCategory).map((group) => (
+            <optgroup label={group} key={group}>
+                {backgroundOptionsForCategory[group].map(option => <option key={option} value={option}>{option}</option>)}
+            </optgroup>
+          ))
+        : null;
 
     const isBackgroundSet = params.backgroundStyle && params.backgroundStyle !== AI_SUGGESTED;
     const isUgcStyleSet = params.ugcStyle && params.ugcStyle !== '';

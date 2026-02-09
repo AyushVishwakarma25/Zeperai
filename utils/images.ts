@@ -1,5 +1,5 @@
 
-import type { AspectRatio, GeneratedImage } from '../types';
+import type { AspectRatio, GeneratedImage, GenerateImageParams } from '../types';
 import { AppMode } from '../types';
 import { INITIAL_GENERATE_PARAMS } from '../constants';
 
@@ -224,22 +224,56 @@ export const cropImageToAspectRatio = (dataUrl: string, targetAspectRatio: Aspec
 };
 
 export const generateFilename = (image: GeneratedImage, prefix?: string, index?: number): string => {
-    // Basic filename without extension
-    let namePart: string | undefined = 'design';
+    const params = (image.params || {}) as Partial<GenerateImageParams>;
+    const parts: string[] = [];
 
-    if (image.params?.productDescription) {
-        namePart = image.params.productDescription;
-    } else if (image.params?.appMode === AppMode.Product && image.params.productStylePreset) {
-        namePart = image.params.productStylePreset.includes('|') ? image.params.productStylePreset.split('|')[1] : image.params.productStylePreset;
-    } else if (image.params?.appMode === AppMode.Influencer && image.params.poseSuggestion) {
-        namePart = image.params.poseSuggestion;
+    // 1. Prefix (e.g. 'campaign')
+    if (prefix) parts.push(prefix);
+
+    // 2. Identify Preset Name (High Priority for Thumbnails/Asset Management)
+    let presetName = '';
+    
+    if (params.appMode === AppMode.Festival && params.festivalStyle) {
+        presetName = params.festivalStyle;
+    } else if (params.appMode === AppMode.Product && params.productStylePreset && params.productStylePreset !== 'AI Suggested') {
+        presetName = params.productStylePreset;
+    } else if (params.appMode === AppMode.Influencer && params.ugcStyle) {
+        presetName = params.ugcStyle;
+    } else if (params.appMode === AppMode.AdCreative && params.adStylePreset && params.adStylePreset !== '✨ AI Suggested') {
+        presetName = params.adStylePreset;
     }
 
-    const sanitizedName = (namePart || '').trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').substring(0, 50);
-    const finalPrefix = prefix ? `${prefix}-` : '';
-    const finalIndex = index ? `-${index}` : '';
+    // Clean preset name (remove Category| prefix)
+    if (presetName) {
+        const cleanPreset = presetName.includes('|') ? presetName.split('|')[1] : presetName;
+        parts.push(cleanPreset);
+    }
 
-    return `${finalPrefix}${sanitizedName}${finalIndex}`;
+    // 3. Product Description (Context)
+    if (params.productDescription) {
+        // Truncate to keep filename manageable
+        parts.push(params.productDescription.substring(0, 30));
+    } else if (params.appMode === AppMode.Influencer && params.poseSuggestion) {
+        parts.push(params.poseSuggestion.substring(0, 30));
+    } else if (parts.length === 0) {
+        // Fallback if totally empty
+        parts.push('design');
+    }
+
+    // 4. Index
+    if (index !== undefined) parts.push(String(index));
+
+    // Join and Sanitize
+    const rawString = parts.join('-');
+    const sanitizedName = rawString
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '') // Remove symbols
+        .replace(/\s+/g, '-') // Replace spaces with hyphens
+        .replace(/-+/g, '-'); // Remove double hyphens
+
+    const extension = image.imageUrl.split(';')[0].split('/')[1] || 'png';
+    return `${sanitizedName}.${extension}`;
 }
 
 export const downloadImage = async (url: string, filename: string, format: 'png' | 'jpeg' | 'webp' = 'png') => {
@@ -277,7 +311,12 @@ export const downloadImage = async (url: string, filename: string, format: 'png'
         const convertedDataUrl = canvas.toDataURL(mimeType, 0.95);
         const link = document.createElement('a');
         link.href = convertedDataUrl;
-        link.download = `${filename}.${format === 'jpeg' ? 'jpg' : format}`;
+        
+        // Strip any existing extension and append the correct one for the requested format
+        const cleanFilename = filename.replace(/\.(png|jpe?g|webp)$/i, "");
+        const extension = format === 'jpeg' ? 'jpg' : format;
+        link.download = `${cleanFilename}.${extension}`;
+        
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -289,7 +328,14 @@ export const downloadImage = async (url: string, filename: string, format: 'png'
         // Fallback to direct download
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${filename}.png`; 
+        
+        // Even in fallback, try to fix extension if we can, though content type might mismatch if conversion failed
+        const cleanFilename = filename.replace(/\.(png|jpe?g|webp)$/i, "");
+        // If conversion failed, we might be downloading a PNG as .jpg, which is not ideal but better than failing
+        // However, better to just fallback to original extension if we can't convert
+        const extension = filename.includes('.') ? filename.split('.').pop() : 'png';
+        link.download = `${cleanFilename}.${extension}`;
+        
         link.target = '_blank';
         document.body.appendChild(link);
         link.click();

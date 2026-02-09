@@ -247,7 +247,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                                     
                                     // Use bulk props for multi-file support in main modes, except Influencer or Comparison Ad
                                     multiple={!isInfluencerMode && !isComparisonAd}
-                                    maxFiles={isInfluencerMode || isComparisonAd ? 1 : 3}
+                                    maxFiles={isInfluencerMode || isComparisonAd ? 1 : 5}
                                     previewUrls={isInfluencerMode || isComparisonAd ? undefined : bulkImagePreviews} 
                                     onFilesChange={isInfluencerMode || isComparisonAd ? undefined : onBulkFilesChange}
                                     onRemoveFile={isInfluencerMode || isComparisonAd ? undefined : onRemoveBulkImage}
