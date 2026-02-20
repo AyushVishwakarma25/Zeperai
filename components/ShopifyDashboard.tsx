@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Chart as ChartJS,
@@ -41,10 +41,11 @@ interface ShopifyDashboardProps {
     report: ShopifyAnalysisResult | null;
     isLoaded: boolean;
     onReportUpdate: (report: ShopifyAnalysisResult | null) => void;
+    onDeductCredits: (cost: number) => boolean;
 }
 
 export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({ 
-    onGenerateAd, onToggleSidebar, report, isLoaded, onReportUpdate 
+    onGenerateAd, onToggleSidebar, report, isLoaded, onReportUpdate, onDeductCredits
 }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isFetching, setIsFetching] = useState(!isLoaded);
@@ -83,37 +84,29 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
         return () => { mounted = false; };
     }, [isLoaded, onReportUpdate]);
 
-    // Trigger AI Insights ONLY if we have a report but no insights yet
-    useEffect(() => {
-        let mounted = true;
+    const handleGenerateInsights = () => {
+        if (!report) return;
         
-        const shouldGenerate = report && 
-                               !generatingInsights && 
-                               (report.aiInsights?.length === 0 || !report.aiInsights) &&
-                               insights.length === 0;
+        // CREDIT CHECK
+        if (!onDeductCredits(1)) return;
 
-        if (shouldGenerate) {
-            setGeneratingInsights(true);
-            shopifyService.generateAIInsights(report!)
-                .then(res => {
-                    if (mounted) {
-                        setInsights(res);
-                        // Save the full report with insights to state and DB
-                        const updatedReport = { ...report!, aiInsights: res };
-                        onReportUpdate(updatedReport);
-                        analysisService.saveReport(updatedReport).catch(e => console.warn("Background save failed", e));
-                    }
-                })
-                .catch(err => {
-                    console.error("Failed to auto-generate AI insights:", err);
-                    if (mounted) setInsights(["AI insights could not be generated for this report."]);
-                })
-                .finally(() => {
-                    if (mounted) setGeneratingInsights(false);
-                });
-        }
-        return () => { mounted = false; };
-    }, [report, generatingInsights, onReportUpdate, insights.length]);
+        setGeneratingInsights(true);
+        shopifyService.generateAIInsights(report)
+            .then(res => {
+                setInsights(res);
+                // Save the full report with insights to state and DB
+                const updatedReport = { ...report, aiInsights: res };
+                onReportUpdate(updatedReport);
+                analysisService.saveReport(updatedReport).catch(e => console.warn("Background save failed", e));
+            })
+            .catch(err => {
+                console.error("Failed to generate AI insights:", err);
+                setInsights(["AI insights could not be generated for this report."]);
+            })
+            .finally(() => {
+                setGeneratingInsights(false);
+            });
+    };
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         const file = acceptedFiles[0];
@@ -350,7 +343,7 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                         <div className="flex items-center text-emerald-600 text-sm animate-pulse relative z-10">
                             <Spinner /> <span className="ml-2 font-medium">Gemini is analyzing your data trends...</span>
                         </div>
-                    ) : (
+                    ) : insights.length > 0 ? (
                         <ul className="space-y-2 relative z-10">
                             {insights.map((insight, idx) => (
                                 <li key={idx} className="flex items-start text-sm text-emerald-700">
@@ -358,8 +351,14 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                                     <span>{insight}</span>
                                 </li>
                             ))}
-                            {insights.length === 0 && <li className="text-sm text-emerald-600">No insights available.</li>}
                         </ul>
+                    ) : (
+                        <div className="relative z-10">
+                            <p className="text-sm text-emerald-600 mb-3">Unlock data-driven strategies to boost sales.</p>
+                            <Button onClick={handleGenerateInsights} className="bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-md !text-xs !py-2">
+                                Generate Strategic Insights (1 Credit)
+                            </Button>
+                        </div>
                     )}
                     <div className="absolute right-0 bottom-0 opacity-10">
                         <Icon name="trend-up" className="w-32 h-32 text-emerald-300" />

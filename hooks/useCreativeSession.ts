@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { GenerateImageParams, GeneratedImage, BrandKit, AspectRatio } from '../types';
 import { AppMode, ResolutionQuality } from '../types';
@@ -141,15 +142,37 @@ export const useCreativeSession = (
         if (isGeneratingRef.current) return;
         isGeneratingRef.current = true;
         
-        const cost = calculateGenerationCost(currentParams, userTier);
-        const isFreeTrialGeneration = userTier === 'Free' && currentParams.resolutionQuality === ResolutionQuality.Standard && cost > 0 && cost <= (FREE_TRIAL_LIMIT - freeGenerationsUsed);
+        // Critical Fix: Sync state race condition
+        // If frontProductImage is missing in params but exists in preview (common after fresh login/upload), restore it.
+        let finalParams = { ...currentParams };
+        if (!finalParams.frontProductImage && previewUrlOverride && previewUrlOverride.startsWith('blob:')) {
+            try {
+                const response = await fetch(previewUrlOverride);
+                const blob = await response.blob();
+                const restoredFile = new File([blob], "restored_upload.png", { type: blob.type });
+                finalParams.frontProductImage = restoredFile;
+            } catch (e) {
+                console.warn("Failed to sync file from preview", e);
+            }
+        }
+
+        const cost = calculateGenerationCost(finalParams, userTier);
+        
+        // Limit check: Max 5 generations per request
+        if (cost > 5) {
+            setError("You can only generate up to 5 images at once. Please deselect some options.");
+            isGeneratingRef.current = false;
+            return;
+        }
+
+        const isFreeTrialGeneration = userTier === 'Free' && finalParams.resolutionQuality === ResolutionQuality.Standard && cost > 0 && cost <= (FREE_TRIAL_LIMIT - freeGenerationsUsed);
         
         if (!isFreeTrialGeneration && !checkAndDeductCredits(cost)) { 
             isGeneratingRef.current = false; 
             return; 
         }
         
-        generationModeRef.current = currentParams.appMode;
+        generationModeRef.current = finalParams.appMode;
         setIsLoading(true);
         setError(null);
         setActiveMode(null); 
@@ -157,7 +180,7 @@ export const useCreativeSession = (
         
         try {
             const results = await generateImages(
-                currentParams, 
+                finalParams, 
                 userTier, 
                 brandKit, 
                 previewUrlOverride ?? frontProductImagePreview ?? undefined, 

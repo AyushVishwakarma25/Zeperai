@@ -16,6 +16,7 @@ interface BrandKitModalProps {
   onClose: () => void;
   onSave: (kit: BrandKit) => void;
   initialKit: BrandKit | null;
+  onDeductCredits: (cost: number) => boolean;
 }
 
 const SectionTitle: React.FC<{ title: string; className?: string }> = ({ title, className }) => (
@@ -134,7 +135,7 @@ const DEFAULT_KIT: BrandKit = {
     negativeConstraints: '',
 };
 
-const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialKit }) => {
+const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialKit, onDeductCredits }) => {
   const isOnline = useNetworkStatus();
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -178,6 +179,10 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
 
   const handleAnalyze = async () => {
       if (!logoFile) return;
+      
+      // CREDIT CHECK
+      if (!onDeductCredits(1)) return;
+
       setAnalyzing(true);
       try {
           const base64 = await fileToBase64(logoFile);
@@ -311,7 +316,7 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
                 variant="secondary" 
                 className="w-full mb-4 !text-xs"
             >
-                {analyzing ? 'Analyzing Vibe...' : 'Auto-Fill from Logo'}
+                {analyzing ? 'Analyzing Vibe...' : 'Auto-Fill from Logo (1 Credit)'}
             </Button>
 
             <div className="text-center px-2">

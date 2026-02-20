@@ -133,8 +133,14 @@ const AppInternal: React.FC = () => {
       if ('remixParams' in item) {
           creative.setLastActiveMode(item.appMode);
           remixParams = item.remixParams;
-          creative.setParams(prev => ({ ...INITIAL_GENERATE_PARAMS, ...getModeDefaults(item.appMode, INITIAL_GENERATE_PARAMS), ...remixParams, appMode: item.appMode }));
+          creative.setParams(prev => ({ 
+              ...INITIAL_GENERATE_PARAMS, 
+              ...getModeDefaults(item.appMode, INITIAL_GENERATE_PARAMS), 
+              ...remixParams, 
+              appMode: item.appMode 
+          }));
           creative.setActiveMode(item.appMode);
+          setToast({ message: "Style settings applied! Upload your product to continue.", type: 'success' });
       } else {
           handleRemixDesign(item);
           return;
@@ -217,17 +223,21 @@ const AppInternal: React.FC = () => {
     const imageToCaption = creative.generatedImages.find(img => img.id === imageId) || designs.find(d => d.id === imageId);
     if (!imageToCaption) return;
     
+    // Credit Check for Caption
+    if (!handleCheckCredits(1)) return;
+
     setGeneratingCaptionImageId(imageId);
     try {
       const result = await generateCaption({ imageUrl: imageToCaption.imageUrl, ...captionParams }, appData.brandKit);
       creative.setGeneratedImages(prev => prev.map(img => img.id === imageId ? { ...img, caption: result.caption, hashtags: result.hashtags || '' } : img));
       updateDesign({ ...imageToCaption, caption: result.caption, hashtags: result.hashtags || '' });
     } catch(err: any) {
+      handleRefundCredits(1);
       setToast({ message: `Caption generation failed`, type: 'error' });
     } finally {
       setGeneratingCaptionImageId(null);
     }
-  }, [creative.generatedImages, designs, appData.brandKit, updateDesign, creative.setGeneratedImages]);
+  }, [creative.generatedImages, designs, appData.brandKit, updateDesign, creative.setGeneratedImages, handleCheckCredits, handleRefundCredits]);
 
   // Floating Bar Handlers
   const handleFloatingGenerate = useCallback(() => {
@@ -368,6 +378,7 @@ const AppInternal: React.FC = () => {
                 isShopifyReportLoaded={isShopifyReportLoaded}
                 onReportUpdate={(r) => { setShopifyReport(r); if(r) setIsShopifyReportLoaded(true); }}
                 onGenerateAdFromShopify={handleGenerateAdFromShopify}
+                onDeductCredits={handleCheckCredits} // Pass credit handler
 
                 onRemix={handleRemix}
                 inspirationItems={inspirationItems}
@@ -407,6 +418,7 @@ const AppInternal: React.FC = () => {
                 freeGenerationsUsed={freeGenerationsUsed}
                 savedModels={appData.savedModels}
                 onReset={creative.handleResetParams}
+                brandKit={appData.brandKit}
             />
         )}
         

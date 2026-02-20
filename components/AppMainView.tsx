@@ -59,6 +59,7 @@ interface AppMainViewProps {
     isShopifyReportLoaded: boolean;
     onReportUpdate: (report: ShopifyAnalysisResult | null) => void;
     onGenerateAdFromShopify: (productName: string) => void;
+    onDeductCredits: (cost: number) => boolean;
 
     // My Designs & Inspiration
     onRemix: (item: InspirationItem | GeneratedImage) => void;
@@ -136,7 +137,8 @@ export const AppMainView: React.FC<AppMainViewProps> = (props) => {
                     onGenerateAd={props.onGenerateAdFromShopify} 
                     report={props.shopifyReport} 
                     isLoaded={props.isShopifyReportLoaded} 
-                    onReportUpdate={props.onReportUpdate} 
+                    onReportUpdate={props.onReportUpdate}
+                    onDeductCredits={props.onDeductCredits}
                 />
             )}
             

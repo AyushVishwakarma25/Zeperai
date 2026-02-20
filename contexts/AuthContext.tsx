@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { authService, AuthSession } from '../services/authService';
 import { UserProfileData } from '../services/userService';
@@ -18,13 +19,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<AuthSession | null>(null);
   const [user, setUser] = useState<UserProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const authCheckStarted = useRef(false);
-
   useEffect(() => {
-    if (authCheckStarted.current) return;
-    authCheckStarted.current = true;
-
     let isMounted = true;
+
+    // SAFETY TIMEOUT: If auth check takes more than 4 seconds, force stop loading.
+    // This prevents being stuck on splash screen if Supabase is unreachable.
+    const safetyTimer = setTimeout(() => {
+      if (isMounted && isLoading) {
+        console.warn("Auth initialization timed out. Proceeding to login.");
+        setIsLoading(false);
+      }
+    }, 4000);
 
     const initializeAuth = async () => {
       try {
@@ -34,7 +39,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSession(currentSession);
             setUser(currentSession.user);
           } else {
-            // If no session is found, keep user as null so the app shows login page
             setUser(null);
           }
         }
@@ -42,7 +46,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error("Auth initialization error:", e);
         if (isMounted) setUser(null);
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (isMounted) {
+            clearTimeout(safetyTimer);
+            setIsLoading(false);
+        }
       }
     };
     
@@ -58,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
         isMounted = false;
+        clearTimeout(safetyTimer);
         unsubscribe();
     }
   }, []);

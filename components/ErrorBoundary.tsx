@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 
@@ -11,35 +11,25 @@ interface State {
   error: Error | null;
 }
 
-export class ErrorBoundary extends React.Component<Props, State> {
+export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,
   };
 
-  constructor(props: Props) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-    };
-  }
-
-  static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
   }
 
-  handleRetry = () => {
+  public handleRetry = () => {
     this.setState({ hasError: false, error: null });
-    // Optional: clear local storage if error persists to reset corrupt state
-    // localStorage.removeItem('krackx_last_params'); 
-  }
+  };
 
-  render() {
+  public render() {
     if (this.state.hasError) {
       const errorMessage = this.state.error instanceof Error 
         ? this.state.error.message 

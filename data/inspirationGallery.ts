@@ -89,7 +89,9 @@ export const INSPIRATION_GALLERY: InspirationItem[] = [
     isRemixable: true,
     badge: 'Seasonal',
     remixParams: {
-        festivalStyle: 'Diwali Sparkle',
+        // Updated to match the Category|Name structure in FESTIVAL_PRESETS
+        festivalStyle: '🪔 Diwali|Golden Diya Glow',
+        festivalStylePresets: ['🪔 Diwali|Golden Diya Glow'],
         aspectRatios: [AspectRatio.PortraitPost],
         productDescription: 'Gift hamper box.',
     }

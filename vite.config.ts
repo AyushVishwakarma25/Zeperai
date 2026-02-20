@@ -6,11 +6,13 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, (process as any).cwd(), '');
 
   // Priority: 
-  // 1. env.API_KEY (Local .env file)
-  // 2. process.env.API_KEY (Vercel System Env)
-  // 3. env.VITE_API_KEY (Vercel Public Env Convention)
-  // 4. process.env.VITE_API_KEY (Fallback)
-  const apiKey = env.API_KEY || process.env.API_KEY || env.VITE_API_KEY || process.env.VITE_API_KEY;
+  // 1. env.GEMINI_API_KEY (System Default)
+  // 2. process.env.GEMINI_API_KEY
+  // 3. env.API_KEY (Local .env file)
+  // 4. process.env.API_KEY (Vercel System Env)
+  // 5. env.VITE_API_KEY (Vercel Public Env Convention)
+  // 6. process.env.VITE_API_KEY (Fallback)
+  const apiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY || env.API_KEY || process.env.API_KEY || env.VITE_API_KEY || process.env.VITE_API_KEY;
 
   return {
     plugins: [react()],

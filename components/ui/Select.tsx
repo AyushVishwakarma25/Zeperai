@@ -227,7 +227,8 @@ export const Select: React.FC<SelectProps> = ({ label, children, value, onChange
     <div 
         ref={dropdownRef}
         onWheel={handleWheel}
-        className="fixed z-[100] bg-white/80 border border-border-light rounded-xl shadow-lg max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 backdrop-blur-md p-1"
+        // FIX: Increased z-index from 100 to 150 to ensure it appears above drawers/modals
+        className="fixed z-[150] bg-white/80 border border-border-light rounded-xl shadow-lg max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 backdrop-blur-md p-1"
         role="listbox"
         style={dropdownStyle}
     >

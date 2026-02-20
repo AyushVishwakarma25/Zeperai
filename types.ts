@@ -220,6 +220,7 @@ export interface GenerateImageParams {
   marketplacePreset?: MarketplacePreset;
   storyboardScenes?: string[];
   fashionPose?: string[];
+  applyBrandIdentity?: boolean;
 }
 
 export interface GeneratedImage {

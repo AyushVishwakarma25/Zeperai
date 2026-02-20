@@ -44,6 +44,7 @@ export const INITIAL_GENERATE_PARAMS: GenerateImageParams = {
   productBFeatures: '',
   fashionPose: [],
   festivalStylePresets: [],
+  applyBrandIdentity: true,
 };
 
 export const STORAGE_LIMITS: Record<string, number> = {
@@ -558,7 +559,8 @@ export const PRO_PRODUCT_STYLE_PRESETS: ProProductStyleCategory[] = [
       { "name": "Vibrant Breakfast Scene", "prompt": "A vibrant, energetic lifestyle shot of [product] as part of a breakfast scene. Includes a bowl of the product, a glass of milk, and other relevant props. The shot can be from a top-down or a dynamic three-quarter angle, possibly featuring a hand interacting with the scene (e.g., holding a spoon, pouring milk). The background is a bright, solid color and the lighting is hard, creating crisp shadows for a playful, modern feel.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-vibrant-breakfast-scene.webp" },
       { "name": "Quickcommerce Style", "prompt": "A professional studio shot of the [product] placed centrally in a scene with its key ingredients and final form (e.g., brownies, a prepared dish) artfully scattered around it. The background is a clean, warm, soft-focus gradient that complements the product's colors. The lighting is dramatic yet soft, creating an appetizing and high-quality commercial look. Include dynamic elements like small splashes or floating ingredients for a vibrant, premium feel.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-quickcommerce-style.webp" },
       { "name": "Blinkit Style 2", "prompt": "Studio shot of a standing [product] on a sky or smooth gradient background, with a soft spotlight from the corners and subtle shadows. Add realistic water droplets on the packaging if appropriate for the product. Surround the [product] with its key ingredients, artfully arranged in a rich food styling composition. Premium commercial photography style with crisp details and a shallow depth of field. Do not add any other elements. The [product] should be the main focus, filling approximately 85% of the frame.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-blinkit-style-2.webp" },
-      { "name": "Color Block Pop", "prompt": "Three [product] items displayed against a vibrant background featuring bold diagonal color blocks (purple, red, blue). Hard directional lighting creates long, dramatic shadows. Graphic, high-contrast pop-art aesthetic.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-color-block-pop.webp" }
+      { "name": "Color Block Pop", "prompt": "Three [product] items displayed against a vibrant background featuring bold diagonal color blocks (purple, red, blue). Hard directional lighting creates long, dramatic shadows. Graphic, high-contrast pop-art aesthetic.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-color-block-pop.webp" },
+      { "name": "Hero Product", "prompt": "A stunning 'Hero Product' composition of [product]. The background is a solid, vibrant color that dynamically matches the product's primary branding color for a seamless, monochromatic look. The product stands boldly in the center. In the foreground, a bowl or artful arrangement of the product's key ingredients (e.g., grains, fruits, nuts, spices) is displayed to showcase flavor and quality. The lighting is soft yet defining, highlighting the texture of the packaging and the freshness of the ingredients. High-end commercial aesthetic.", "thumbnail": "https://placehold.co/300x300/5b21b6/ffffff?text=Hero+Product" }
     ]
   },
   {
@@ -628,6 +630,36 @@ export const CAPTION_LANGUAGE_OPTIONS = [
 
 export const FESTIVAL_PRESETS: ProProductStyleCategory[] = [
   {
+    category: "🎨 Holi",
+    presets: [
+      {
+        name: "Herbal Gulal Box",
+        prompt: "A festive Holi composition. The [product] is placed centrally on a rustic wooden surface covered with small heaps of vibrant gulal powder (pink, yellow, green). Background features blurred colorful powder explosions or traditional thali. House of Veda aesthetic, organic and premium vibe.",
+        thumbnail: "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Festiveshoot/Herbal%20Gulal%20Box.webp"
+      },
+      {
+        name: "Vibrant Color Spread",
+        prompt: "A bright, high-key commercial shot. [product] arranged alongside open bowls of herbal gulal and folded paper packets of colors (Yellow, Pink, Green). Clean white or light yellow background to make colors pop. Geometric and modern composition. Joyful and energetic lighting.",
+        thumbnail: "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Festiveshoot/Vibrant%20Color%20Spread.webp"
+      },
+      {
+        name: "Festive Gift Hamper",
+        prompt: "A celebratory Holi gift hamper setup. [product] nestled in a box with Indian sweets (mithai), playing cards (UNO), and Rakhis. Warm, golden-hour lighting suggesting a family gathering. Joyful background with soft colors.",
+        thumbnail: "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Festiveshoot/Festive%20Gift%20Hamper.webp"
+      },
+      {
+        name: "Vibrant Gulal Explosion",
+        prompt: "A high-energy action shot. The [product] is surrounded by exploding clouds of pink, yellow, and blue herbal powder (gulal). The lighting is bright and crisp to freeze the motion. The vibe is energetic, messy, and joyful.",
+        thumbnail: "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Festiveshoot/design-vibrant-gulal-explosion.webp"
+      },
+      {
+        name: "Elegant White & Pastel",
+        prompt: "A clean, minimalist Holi theme. The [product] is placed on a pristine white surface, with delicate splashes of pastel-colored gulal and a few fresh white flowers (like jasmine or tuberose). Soft, airy lighting. The focus is on subtle color and sophistication.",
+        thumbnail: "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Festiveshoot/design-elegant-white-pastel.webp"
+      }
+    ]
+  },
+  {
     category: "🪔 Diwali",
     presets: [
       {
@@ -649,21 +681,6 @@ export const FESTIVAL_PRESETS: ProProductStyleCategory[] = [
         name: "Mythological Art Style",
         prompt: "A creative, illustrated-style background inspired by Indian truck art or traditional meta-paintings (like Ramayana scenes). The [product] is integrated into this colorful, quirky, and culturally rich tableau.",
         thumbnail: "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Festiveshoot/Mythological%20Art%20style.webp"
-      }
-    ]
-  },
-  {
-    category: "🎨 Holi",
-    presets: [
-      {
-        name: "Vibrant Gulal Explosion",
-        prompt: "A high-energy action shot. The [product] is surrounded by exploding clouds of pink, yellow, and blue herbal powder (gulal). The lighting is bright and crisp to freeze the motion. The vibe is energetic, messy, and joyful.",
-        thumbnail: "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Festiveshoot/design-vibrant-gulal-explosion.webp"
-      },
-      {
-        name: "Elegant White & Pastel",
-        prompt: "A clean, minimalist Holi theme. The [product] is placed on a pristine white surface, with delicate splashes of pastel-colored gulal and a few fresh white flowers (like jasmine or tuberose). Soft, airy lighting. The focus is on subtle color and sophistication.",
-        thumbnail: "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Festiveshoot/design-elegant-white-pastel.webp"
       }
     ]
   },

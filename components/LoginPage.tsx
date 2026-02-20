@@ -30,10 +30,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setError(null);
     setShowSql(false);
 
+    // Safety timeout for login UI
+    const loginTimeout = setTimeout(() => {
+        if (isLoading) {
+            setIsLoading(false);
+            setError("Login request timed out. The server is taking too long to respond. Please check your internet connection and try again.");
+        }
+    }, 35000); // Slightly longer than authService timeout
+
     try {
       const session = await authService.signInWithPassword(email, password);
+      clearTimeout(loginTimeout);
       onLoginSuccess(session);
     } catch (err: any) {
+      clearTimeout(loginTimeout);
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
       
@@ -47,7 +57,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           setShowSql(true);
       }
     } finally {
+      // Only clear loading if we haven't timed out (which clears it)
+      // But actually, we can just clear it here safely because if timeout fired, isLoading is already false (or will be set to false again, which is fine)
+      // Wait, if success, we want to keep loading until unmount? No, usually fine.
+      // But if onLoginSuccess triggers unmount, this finally block might run on unmounted component.
+      // React handles this gracefully usually, but let's be safe.
       setIsLoading(false);
+      clearTimeout(loginTimeout);
     }
   };
 

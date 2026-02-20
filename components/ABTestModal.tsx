@@ -6,7 +6,7 @@
  * - Generates and displays A/B testing ideas for an image.
  * 
  * FLOW:
- * OnMount → /api/gemini/suggestions → Display List
+ * Manual Trigger -> Credit Check -> /api/gemini/suggestions -> Display List
  * 
  * INPUT:
  * - image: GeneratedImage
@@ -18,7 +18,7 @@
  * - Offline protected (skips fetch).
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import type { GeneratedImage, ABTestSuggestion } from '../types';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
@@ -31,37 +31,36 @@ interface ABTestModalProps {
   onClose: () => void;
   onGenerate: (params: any) => void;
   onApiError?: () => void;
+  onDeductCredits: (cost: number) => boolean;
 }
 
-const ABTestModal: React.FC<ABTestModalProps> = ({ image, onClose, onGenerate, onApiError }) => {
+const ABTestModal: React.FC<ABTestModalProps> = ({ image, onClose, onGenerate, onApiError, onDeductCredits }) => {
     const isOnline = useNetworkStatus();
     const [suggestions, setSuggestions] = useState<ABTestSuggestion[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [hasGenerated, setHasGenerated] = useState(false);
 
-    useEffect(() => {
-        if (!isOnline) {
+    const handleGenerateAnalysis = async () => {
+        if (!isOnline) return;
+        
+        // CREDIT CHECK
+        if (!onDeductCredits(1)) return;
+
+        setIsLoading(true);
+        setError(null);
+        try {
+            const result = await getABTestSuggestions(image);
+            setSuggestions(result);
+            setHasGenerated(true);
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'An unknown error occurred.';
+            setError(msg);
+            if (onApiError) onApiError();
+        } finally {
             setIsLoading(false);
-            return;
         }
-
-        const fetchSuggestions = async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                const result = await getABTestSuggestions(image);
-                setSuggestions(result);
-            } catch (err) {
-                const msg = err instanceof Error ? err.message : 'An unknown error occurred.';
-                setError(msg);
-                if (onApiError) onApiError();
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchSuggestions();
-    }, [image, isOnline]); 
+    };
     
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -87,13 +86,26 @@ const ABTestModal: React.FC<ABTestModalProps> = ({ image, onClose, onGenerate, o
                             Product: {image.params.productDescription || 'N/A'}
                         </p>
                     </aside>
-                    <main className="flex-1 p-6 overflow-y-auto">
+                    <main className="flex-1 p-6 overflow-y-auto flex flex-col">
                         <h3 className="font-semibold text-slate-800 mb-4">AI-Suggested Variants for Better Engagement</h3>
                         
                         {!isOnline ? (
                             <div className="flex flex-col items-center justify-center h-48 text-slate-500">
                                 <Icon name="close" className="w-10 h-10 mb-2 text-slate-300" />
                                 <p>Offline Mode: Cannot fetch AI suggestions.</p>
+                            </div>
+                        ) : !hasGenerated && !isLoading ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center">
+                                <div className="bg-primary/10 p-4 rounded-full mb-4">
+                                    <Icon name="strategy" className="w-8 h-8 text-primary" />
+                                </div>
+                                <p className="text-slate-600 mb-6 max-w-sm">
+                                    Generate 3 data-driven variation ideas to improve CTR. 
+                                    <br/>Based on visual analysis of your creative.
+                                </p>
+                                <Button onClick={handleGenerateAnalysis}>
+                                    Generate Analysis (1 Credit)
+                                </Button>
                             </div>
                         ) : isLoading ? (
                             <div className="flex justify-center items-center h-full"><Spinner /></div>

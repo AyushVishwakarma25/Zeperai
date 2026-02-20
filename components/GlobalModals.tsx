@@ -1,3 +1,4 @@
+
 import React, { Suspense, lazy } from 'react';
 import type { GeneratedImage, EditImageParams, BrandKit, SavedModel } from '../types';
 import type { UserProfileData } from '../services/userService';
@@ -84,7 +85,8 @@ export const GlobalModals: React.FC<GlobalModalsProps> = (props) => {
                 <BrandKitModal 
                     onClose={props.onCloseBrandKit} 
                     onSave={props.onSaveBrandKit} 
-                    initialKit={props.brandKit} 
+                    initialKit={props.brandKit}
+                    onDeductCredits={props.onDeductCredits}
                 />
             )}
             
@@ -107,6 +109,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = (props) => {
                     image={props.abTestModalImage} 
                     onClose={props.onCloseABTest} 
                     onGenerate={() => {}} 
+                    onDeductCredits={props.onDeductCredits}
                 />
             )}
         </Suspense>
