@@ -192,6 +192,10 @@ export interface GenerateImageParams {
   remixReferenceImage?: File;
   remixProductImage?: File;
   remixReferenceImageUrl?: string;
+  remixSubject?: string;
+  remixBackground?: string;
+  remixElements?: string;
+  remixNegativePrompt?: string;
   modelSourceOption?: 'new' | 'existing';
   isComparisonMode?: boolean;
   productAFeatures?: string;

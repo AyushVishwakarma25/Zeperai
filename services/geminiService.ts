@@ -123,7 +123,8 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
         modelGender, modelPersona, poseSuggestion, backgroundStyle, clothingType,
         adLayout, adTitle, ugcStyle, adStylePreset,
         isComparisonMode, competitorImage, productAFeatures, productBFeatures,
-        remixReferenceImageUrl, logoImage
+        remixReferenceImageUrl, logoImage,
+        remixSubject, remixBackground, remixElements, remixNegativePrompt
     } = params;
     
     let parts: any[] = [];
