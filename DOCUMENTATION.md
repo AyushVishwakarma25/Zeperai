@@ -67,11 +67,17 @@ The system leverages **Google Gemini 2.5 & 3.0** models for multimodal generatio
 ### 4.1 Generative Engine (`geminiService.ts`)
 This service contains the sophisticated "Prompt Engineering" logic.
 -   **Dynamic Prompt Building:** It assembles a prompt based on `AppMode` (Product, Influencer, Fashion). It injects Brand Kit constraints (colors, fonts, negative prompts) automatically into every request.
+-   **Advanced Prompt Chaining:** To scale quality, the system employs a two-step strategy:
+    1.  **The Critic/Optimizer Step:** A small Gemini call "expands" a simple user prompt into a high-fidelity "Diffusion-style" prompt using the Brand Kit.
+    2.  **The Generation Step:** The actual multimodal call uses this optimized prompt to ensure Brand Persistence is hard-coded into the visual output.
+-   **Safety Filters:** The system gracefully handles Gemini's safety triggers (e.g., blocked content) by catching specific error codes and returning user-friendly messages instead of crashing.
 -   **Multimodal Input:** Handles mixing text prompts with multiple reference images (Scene + Product).
 -   **Fallback & Retry:** Implements exponential backoff for API rate limits.
 
 ### 4.2 Commerce Intelligence (`shopifyService.ts` & `ShopifyDashboard.tsx`)
 -   **Ingestion:** Parses raw CSV exports from Shopify using `PapaParse`.
+    -   **CSV Sanitization:** Configured with `skipEmptyLines: true` and `dynamicTyping: true` to handle messy Shopify exports and prevent ingestion errors.
+    -   **Token Limits:** The service monitors the size of the CSV data to ensure it fits within the model's context window, truncating or batching if necessary.
 -   **AI Analysis:** Sends the raw data to Gemini-3-Pro (via Proxy) to categorize products into performance zones:
     -   🟢 **Green Zone:** Top 20% revenue drivers (Scale Ad).
     -   🟡 **Yellow Zone:** Middle 60% (Boost).
@@ -88,6 +94,17 @@ This service contains the sophisticated "Prompt Engineering" logic.
     -   AI Copywriting: 2 Credits.
     -   High Res / Fashion Batch: 4 Credits.
 -   **Top-up:** Webhooks listen for Stripe events to increment the `user_credits` table safely.
+
+### 4.5 Rate Limiting & Concurrency Management
+To protect API margins and prevent Google Gemini `429 Too Many Requests` errors during high-volume usage, the application utilizes a hybrid concurrency model:
+
+| Component | Location | Action | Limit / Behavior |
+| :--- | :--- | :--- | :--- |
+| **Frontend** | `geminiService.ts` | Parallel Requests | Uses `Promise.all` to send all batch image requests (e.g., 4 variations) to the backend simultaneously, rather than waiting for each to finish sequentially. |
+| **Backend** | `server.ts` | Global Task Queue | Implements a custom `TaskQueue` class that intercepts all incoming generation requests. |
+| **Gemini API** | `server.ts` -> Google | Concurrency Cap | The backend queue strictly limits active API calls to **2 concurrent requests globally**. Excess requests are safely held in memory and processed immediately as slots open up. |
+
+This architecture cuts user wait times in half for batch generations while mathematically guaranteeing the system will never exceed its defined API rate limits.
 
 ---
 
@@ -116,7 +133,9 @@ Required in `.env` (Local) and Vercel/Supabase (Production):
 ### Image Processing Pipeline
 1.  **Upload:** Browser resizes images to max 2048px (to save bandwidth).
 2.  **Generation:** Gemini returns Base64.
-3.  **Persistence:** App uploads Base64 to Supabase Storage (`/designs` bucket) and saves the returned public URL to the Database. This ensures long-term access.
+3.  **Transactional Persistence:**
+    -   Uses a **Supabase Database Webhook** or a single **Edge Function** to handle both the Storage upload and DB record creation in one transactional flow.
+    -   This ensures data integrity and prevents orphaned files or records.
 
 ---
 *Documentation maintained by ZeperAi Engineering.*

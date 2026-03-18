@@ -27,11 +27,48 @@ const parseGeminiJson = <T>(text: string | undefined, fallback: T): T => {
 };
 
 const getAI = () => {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey || apiKey === 'undefined' || apiKey === '') {
-        throw new Error("API Key is missing. Please select an API key to continue.");
-    }
-    return new GoogleGenAI({ apiKey });
+    return {
+        models: {
+            generateContent: async (request: any) => {
+                const response = await fetch('/api/gemini/proxy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(request)
+                });
+                
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    let errorMessage = err.error || 'API Request Failed';
+                    
+                    // Map technical errors to user-friendly messages
+                    if (response.status === 429 || errorMessage.includes('429') || errorMessage.includes('quota')) {
+                        errorMessage = "Our servers are currently experiencing high demand. Please wait a moment and try again.";
+                    } else if (response.status >= 500) {
+                        errorMessage = "We encountered an unexpected issue on our end. Please try again.";
+                    } else if (errorMessage.includes('SAFETY')) {
+                        errorMessage = "Your request was blocked by safety filters. Please adjust your prompt and try again.";
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+                
+                const data = await response.json();
+                
+                // Reconstruct the response object format expected by the rest of the code
+                return {
+                    text: data.text,
+                    candidates: [
+                        {
+                            finishReason: data.finishReason,
+                            content: {
+                                parts: data.parts
+                            }
+                        }
+                    ]
+                };
+            }
+        }
+    };
 };
 
 // Standard file to base64
@@ -115,6 +152,43 @@ const urlToBase64 = async (url: string): Promise<string> => {
     }
 };
 
+// Helper to optimize prompt using Gemini Text Model (The Critic/Optimizer Step)
+async function optimizePromptWithBrandKit(originalPrompt: string, brandKit?: BrandKit | null, appMode?: AppMode): Promise<string> {
+    // Skip optimization for simple/empty prompts or if no brand kit to enforce
+    if (!originalPrompt || originalPrompt.length < 5) return originalPrompt;
+    
+    const ai = getAI();
+    const modeContext = appMode ? `Context: Generating a ${appMode} image.` : '';
+    const brandContext = brandKit ? `
+    Brand Identity to Enforce:
+    - Voice: ${brandKit.voice}
+    - Colors: ${brandKit.primaryColor}, ${brandKit.secondaryColor}
+    - Avoid: ${brandKit.negativeConstraints}
+    ` : '';
+
+    const systemInstruction = `
+    You are a Prompt Engineer for a high-end AI Image Generator.
+    Your goal is to rewrite the user's raw input into a detailed, high-fidelity prompt.
+    
+    RULES:
+    1. Keep the core subject/product exactly as described.
+    2. Enhance lighting, texture, and composition details.
+    3. If a Brand Kit is provided, strictly weave its aesthetic into the description.
+    4. Output ONLY the optimized prompt text. No explanations.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: `${systemInstruction}\n\nUser Input: "${originalPrompt}"\n${modeContext}\n${brandContext}`,
+        });
+        return response.text?.trim() || originalPrompt;
+    } catch (e) {
+        console.warn("Prompt optimization failed, using original.", e);
+        return originalPrompt;
+    }
+}
+
 async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit | null, activeImages?: File[], pose?: string, modelSeedUrl?: string): Promise<any[]> {
     const { 
         productDescription, appMode, marketplacePreset, hyperRealism, 
@@ -127,6 +201,13 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
         remixSubject, remixBackground, remixElements, remixNegativePrompt
     } = params;
     
+    // --- PROMPT CHAINING: OPTIMIZER STEP ---
+    // We optimize the core description BEFORE building the final technical prompt
+    let optimizedDescription = productDescription;
+    if (appMode !== AppMode.Remix && productDescription) { // Skip for Remix as it has its own strict protocol
+         optimizedDescription = await optimizePromptWithBrandKit(productDescription, brandKit, appMode);
+    }
+
     let parts: any[] = [];
     let corePrompt = '';
 
@@ -208,7 +289,7 @@ STRICT EXECUTION RULES:
         switch (appMode) {
             case AppMode.Product:
             case AppMode.Festival:
-                const baseSubject = productDescription || 'the product';
+                const baseSubject = optimizedDescription || 'the product';
                 let finalPrompt = "";
                 if (appMode === AppMode.Festival && params.festivalStyle) {
                     let searchName = params.festivalStyle.includes('|') ? params.festivalStyle.split('|')[1] : params.festivalStyle;
@@ -235,13 +316,13 @@ STRICT EXECUTION RULES:
             case AppMode.Influencer:
                 if (ugcStyle) {
                     const foundUgcPreset = UGC_STYLE_OPTIONS.find(p => p.value === ugcStyle);
-                    corePrompt = foundUgcPreset ? foundUgcPreset.prompt.replace(/\[product\]/g, productDescription || 'the product') : `Influencer photo of ${productDescription}.`;
+                    corePrompt = foundUgcPreset ? foundUgcPreset.prompt.replace(/\[product\]/g, optimizedDescription || 'the product') : `Influencer photo of ${optimizedDescription}.`;
                 } else {
-                    corePrompt = `Influencer photo. Product: ${productDescription}. Model: ${modelGender} influencer. Setting: ${backgroundStyle || 'Aesthetic'}.`;
+                    corePrompt = `Influencer photo. Product: ${optimizedDescription}. Model: ${modelGender} influencer. Setting: ${backgroundStyle || 'Aesthetic'}.`;
                 }
                 break;
             case AppMode.Fashion:
-                corePrompt = `Fashion Photography. Subject: ${productDescription || 'Clothing'}. Pose: ${pose || 'Standard'}.`;
+                corePrompt = `Fashion Photography. Subject: ${optimizedDescription || 'Clothing'}. Pose: ${pose || 'Standard'}.`;
                 if (modelLockId) corePrompt += ` Use fixed model persona: ${modelLockId}.`;
                 break;
             case AppMode.AdCreative:
@@ -250,10 +331,10 @@ STRICT EXECUTION RULES:
                     const foundAdPreset = AD_STYLE_PRESETS.find(p => p.value === adStylePreset);
                     if (foundAdPreset) adStyle = foundAdPreset.prompt;
                 }
-                corePrompt = `Commercial Ad. Product: ${productDescription}. Layout: ${adLayout}. Style: ${adStyle} Headline: "${adTitle || ''}".`;
+                corePrompt = `Commercial Ad. Product: ${optimizedDescription}. Layout: ${adLayout}. Style: ${adStyle} Headline: "${adTitle || ''}".`;
                 break;
             default:
-                corePrompt = `Commercial photography for ${productDescription}.`;
+                corePrompt = `Commercial photography for ${optimizedDescription}.`;
                 break;
         }
     }
@@ -299,6 +380,11 @@ async function generateSingleImage(params: GenerateImageParams, aspectRatio: Asp
         }
         
         if (!imageUrl) throw new Error("AI failed to return an image.");
+
+        // SAFETY FILTER CHECK
+        if (response.candidates?.[0]?.finishReason === 'SAFETY') {
+            throw new Error("Generation blocked by safety filters. Please modify your prompt to avoid restricted concepts.");
+        }
         
         return {
             id: `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -388,13 +474,11 @@ export const generateImages = async (params: GenerateImageParams, userTier: 'Fre
 
     const totalOps = aspectRatios.length * variations.length;
 
-    // --- EXECUTE ---
+    // --- EXECUTE IN PARALLEL ---
+    const promises: Promise<GeneratedImage>[] = [];
+    
     for (const ratio of aspectRatios) {
         for (const variation of variations) {
-            completedJobs++;
-            if (onProgress) onProgress(completedJobs, totalOps);
-
-            // Construct overridden params for this specific generation
             const singleRunParams = { ...params };
             
             if (variation.preset) {
@@ -405,7 +489,7 @@ export const generateImages = async (params: GenerateImageParams, userTier: 'Fre
             // Map angle or pose to the 'pose' argument
             const poseOrAngle = variation.pose || variation.angle;
 
-            const res = await generateSingleImage(
+            const promise = generateSingleImage(
                 singleRunParams, 
                 ratio, 
                 userTier, 
@@ -414,12 +498,19 @@ export const generateImages = async (params: GenerateImageParams, userTier: 'Fre
                 poseOrAngle, 
                 sourceProductImageUrl, 
                 modelSeedUrl
-            );
-            allResults.push(res);
+            ).then(res => {
+                completedJobs++;
+                if (onProgress) onProgress(completedJobs, totalOps);
+                return res;
+            });
             
-            if (completedJobs < totalOps) await wait(1500);
+            promises.push(promise);
         }
     }
+    
+    const results = await Promise.all(promises);
+    allResults.push(...results);
+    
     return allResults;
 };
 

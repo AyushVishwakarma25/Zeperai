@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, BrandKit, ShopifyAnalysisResult, GenerateCaptionParams } from './types';
 import { editImage, generateCaption, removeBackground } from './services/geminiService';
 import { userService, UserProfileData } from './services/userService';
@@ -305,6 +305,13 @@ const AppInternal: React.FC = () => {
         timestamp: img.timestamp
     }));
   }, [designs, user]);
+
+  useEffect(() => {
+      if (creative.error) {
+          setToast({ message: creative.error, type: 'error' });
+          creative.setError(null);
+      }
+  }, [creative.error, creative.setError]);
 
   if (isAuthLoading) {
       return <SplashScreen />;

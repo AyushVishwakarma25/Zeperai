@@ -115,6 +115,7 @@ export const shopifyService = {
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
+                dynamicTyping: true, // Auto-convert numbers and booleans
                 complete: (results) => {
                     try {
                         const data = results.data as any[];

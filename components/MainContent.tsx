@@ -152,8 +152,6 @@ const MainContentComponent: React.FC<MainContentProps> = (props) => {
       }
   };
 
-  if (props.error) { return ( <div className="flex flex-col items-center justify-center h-full text-center p-6 bg-white rounded-2xl shadow-sm border border-slate-100"> <div className="bg-red-50 p-4 rounded-full mb-4"><Icon name="close" className="w-6 h-6 text-red-500" /></div> <h3 className="text-lg font-black text-slate-900 mb-1 uppercase tracking-tight">Shoot Failed</h3> <p className="text-slate-500 max-w-sm text-[10px]">{props.error}</p> <Button onClick={props.onReturnToSettings} variant="secondary" className="mt-4 !rounded-lg !px-6 !py-2 !text-xs">Retry Shoot</Button> </div> ); }
-  
   // SKELETON LOADING STATE
   if (props.isLoading) {
     return (
