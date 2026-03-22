@@ -11,6 +11,7 @@ import { getModeDefaults } from './utils/configLogic';
 import { CreativeModal } from './components/CreativeModal';
 import { Toast } from './components/ui/Toast';
 import { LoginPage } from './components/LoginPage';
+import { SignupPage } from './components/SignupPage';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuth } from './contexts/AuthContext';
 import { useDesigns } from './contexts/DesignsContext';
@@ -22,6 +23,12 @@ import { AppMainView } from './components/AppMainView';
 import { Layout } from './components/Layout';
 import { Spinner } from './components/ui/Spinner';
 import { SplashScreen } from './components/SplashScreen';
+
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { LandingPage } from './src/landing/LandingPage';
+import { PrivacyPolicyPage } from './src/landing/PrivacyPolicyPage';
+import { TermsPage } from './src/landing/TermsPage';
+import { BlogPage } from './src/landing/BlogPage';
 
 const dataURLToParts = (dataURL: string) => {
     const parts = dataURL.split(',');
@@ -317,159 +324,168 @@ const AppInternal: React.FC = () => {
       return <SplashScreen />;
   }
 
-  if (!user) {
-      return <LoginPage onLoginSuccess={(session) => setUserProfile(session.user)} />;
-  }
-
   const isStoryboardResult = !!creative.params.storyboardScenes && creative.params.storyboardScenes.length > 0;
 
   return (
-    <>
-        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-        
-        <Layout
-            isSidebarOpen={isSidebarOpen}
-            setIsSidebarOpen={setIsSidebarOpen}
-            currentView={currentView}
-            onSetView={setCurrentView}
-            onSelectMode={creative.handleSelectMode}
-            onStartImageEdit={() => handleStartEdit(undefined, 'background')}
-            onOpenContentGenerator={modals.openContentGenerator}
-            onOpenSupport={modals.openSupport}
-            onOpenBrandKit={modals.openBrandKit}
-            isAdmin={isAdmin}
-            onToggleAdmin={() => setIsAdmin(!isAdmin)}
-            user={user}
-            onLogout={handleLogout}
-            onInternalImageDrop={handleInternalImageDrop}
-        >
-            <AppMainView 
+    <Routes>
+      <Route path="/" element={!user ? <LandingPage /> : <Navigate to="/dashboard" replace />} />
+      <Route path="/privacy" element={<PrivacyPolicyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/blog" element={<BlogPage />} />
+      <Route path="/login" element={!user ? <LoginPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to="/dashboard" replace />} />
+      <Route path="/signup" element={!user ? <SignupPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to="/dashboard" replace />} />
+      <Route path="/dashboard" element={
+        !user ? <Navigate to="/login" replace /> : (
+          <>
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+            
+            <Layout
+                isSidebarOpen={isSidebarOpen}
+                setIsSidebarOpen={setIsSidebarOpen}
                 currentView={currentView}
-                generatedImages={creative.generatedImages}
-                isLoading={creative.isLoading}
-                error={creative.error}
-                params={creative.params}
-                frontProductImagePreview={creative.frontProductImagePreview}
-                
-                onSelectMode={creative.handleSelectMode}
-                onStartEdit={handleStartEdit}
-                onReturnToSettings={() => { creative.setGeneratedImages([]); creative.setActiveMode(creative.lastActiveMode); }}
-                onSetStoryboardSource={setStoryboardSourceImage}
-                onSetZoomedImage={setZoomedImage}
-                onGenerateCaption={handleGenerateCaption}
-                generatingCaptionImageId={generatingCaptionImageId}
-                onOpenABTestModal={(img) => setAbTestModalImage(img)}
-                onSaveModel={handleSaveModel}
-                
-                onOpenFeedbackModal={modals.openFeedback}
-                onOpenPricingModal={modals.openPricing}
-                onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                user={user}
-                floatingPrompt={floatingPrompt}
-                setFloatingPrompt={setFloatingPrompt}
-                floatingImagePreview={floatingImagePreview}
-                onFloatingGenerate={handleFloatingGenerate}
-                onRemoveFloatingImage={() => handleFloatingImageFileChange(null)}
-                onTriggerFloatingUpload={handleTriggerFloatingUpload}
-                onOpenContentGenerator={modals.openContentGenerator}
-                userTier={userTier}
-                isAdmin={isAdmin}
-                onInternalImageDrop={handleInternalImageDrop}
-                onFloatingImageDrop={handleFloatingImageFileChange}
-                floatingMode={floatingMode}
-                setFloatingMode={setFloatingMode}
-                isStoryBoardResult={isStoryboardResult}
-
                 onSetView={setCurrentView}
-                shopifyReport={shopifyReport}
-                isShopifyReportLoaded={isShopifyReportLoaded}
-                onReportUpdate={(r) => { setShopifyReport(r); if(r) setIsShopifyReportLoaded(true); }}
-                onGenerateAdFromShopify={handleGenerateAdFromShopify}
-                onDeductCredits={handleCheckCredits} // Pass credit handler
+                onSelectMode={creative.handleSelectMode}
+                onStartImageEdit={() => handleStartEdit(undefined, 'background')}
+                onOpenContentGenerator={modals.openContentGenerator}
+                onOpenSupport={modals.openSupport}
+                onOpenBrandKit={modals.openBrandKit}
+                isAdmin={isAdmin}
+                onToggleAdmin={() => setIsAdmin(!isAdmin)}
+                user={user}
+                onLogout={handleLogout}
+                onInternalImageDrop={handleInternalImageDrop}
+            >
+                <AppMainView 
+                    currentView={currentView}
+                    generatedImages={creative.generatedImages}
+                    isLoading={creative.isLoading}
+                    error={creative.error}
+                    params={creative.params}
+                    frontProductImagePreview={creative.frontProductImagePreview}
+                    
+                    onSelectMode={creative.handleSelectMode}
+                    onStartEdit={handleStartEdit}
+                    onReturnToSettings={() => { creative.setGeneratedImages([]); creative.setActiveMode(creative.lastActiveMode); }}
+                    onSetStoryboardSource={setStoryboardSourceImage}
+                    onSetZoomedImage={setZoomedImage}
+                    onGenerateCaption={handleGenerateCaption}
+                    generatingCaptionImageId={generatingCaptionImageId}
+                    onOpenABTestModal={(img) => setAbTestModalImage(img)}
+                    onSaveModel={handleSaveModel}
+                    
+                    onOpenFeedbackModal={modals.openFeedback}
+                    onOpenPricingModal={modals.openPricing}
+                    onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                    user={user}
+                    floatingPrompt={floatingPrompt}
+                    setFloatingPrompt={setFloatingPrompt}
+                    floatingImagePreview={floatingImagePreview}
+                    onFloatingGenerate={handleFloatingGenerate}
+                    onRemoveFloatingImage={() => handleFloatingImageFileChange(null)}
+                    onTriggerFloatingUpload={handleTriggerFloatingUpload}
+                    onOpenContentGenerator={modals.openContentGenerator}
+                    userTier={userTier}
+                    isAdmin={isAdmin}
+                    onInternalImageDrop={handleInternalImageDrop}
+                    onFloatingImageDrop={handleFloatingImageFileChange}
+                    floatingMode={floatingMode}
+                    setFloatingMode={setFloatingMode}
+                    isStoryBoardResult={isStoryboardResult}
 
-                onRemix={handleRemix}
-                inspirationItems={inspirationItems}
-                isInspirationLoaded={isInspirationLoaded}
-                onItemsLoaded={setInspirationItems}
+                    onSetView={setCurrentView}
+                    shopifyReport={shopifyReport}
+                    isShopifyReportLoaded={isShopifyReportLoaded}
+                    onReportUpdate={(r) => { setShopifyReport(r); if(r) setIsShopifyReportLoaded(true); }}
+                    onGenerateAdFromShopify={handleGenerateAdFromShopify}
+                    onDeductCredits={handleCheckCredits} // Pass credit handler
 
-                credits={appData.credits}
-                onOpenProfileEdit={modals.openProfileEdit}
-                recentActivity={recentActivity}
-            />
-        </Layout>
+                    onRemix={handleRemix}
+                    inspirationItems={inspirationItems}
+                    isInspirationLoaded={isInspirationLoaded}
+                    onItemsLoaded={setInspirationItems}
 
-        {creative.activeMode && (
-            <CreativeModal
-                key={creative.activeMode} 
-                mode={creative.activeMode}
-                onClose={() => creative.setActiveMode(null)}
-                params={creative.params}
-                onParamsChange={creative.setParams}
-                onGenerate={handleGenerateWrapper}
-                isLoading={creative.isLoading}
-                onFileChange={creative.handleFileChange}
-                frontProductImagePreview={creative.frontProductImagePreview}
-                setFrontProductImagePreview={creative.setFrontProductImagePreview}
-                bulkImagePreviews={creative.bulkImagePreviews}
-                onBulkFilesChange={creative.handleBulkFilesChange}
-                onRemoveBulkImage={creative.handleRemoveBulkImage}
-                remixReferenceImagePreview={creative.remixReferenceImagePreview}
-                setRemixReferenceImagePreview={creative.setRemixReferenceImagePreview}
-                remixProductImagePreview={creative.remixProductImagePreview}
-                setRemixProductImagePreview={creative.setRemixProductImagePreview}
-                onGenerateVariants={() => {}}
-                storyboardSourceImage={storyboardSourceImage}
-                onClearStoryboardSource={() => setStoryboardSourceImage(null)}
-                userTier={userTier}
-                onOpenPricingModal={modals.openPricing}
-                freeGenerationsUsed={freeGenerationsUsed}
-                savedModels={appData.savedModels}
-                onReset={creative.handleResetParams}
+                    credits={appData.credits}
+                    onOpenProfileEdit={modals.openProfileEdit}
+                    recentActivity={recentActivity}
+                />
+            </Layout>
+
+            {creative.activeMode && (
+                <CreativeModal
+                    key={creative.activeMode} 
+                    mode={creative.activeMode}
+                    onClose={() => creative.setActiveMode(null)}
+                    params={creative.params}
+                    onParamsChange={creative.setParams}
+                    onGenerate={handleGenerateWrapper}
+                    isLoading={creative.isLoading}
+                    onFileChange={creative.handleFileChange}
+                    frontProductImagePreview={creative.frontProductImagePreview}
+                    setFrontProductImagePreview={creative.setFrontProductImagePreview}
+                    bulkImagePreviews={creative.bulkImagePreviews}
+                    onBulkFilesChange={creative.handleBulkFilesChange}
+                    onRemoveBulkImage={creative.handleRemoveBulkImage}
+                    remixReferenceImagePreview={creative.remixReferenceImagePreview}
+                    setRemixReferenceImagePreview={creative.setRemixReferenceImagePreview}
+                    remixProductImagePreview={creative.remixProductImagePreview}
+                    setRemixProductImagePreview={creative.setRemixProductImagePreview}
+                    onGenerateVariants={() => {}}
+                    storyboardSourceImage={storyboardSourceImage}
+                    onClearStoryboardSource={() => setStoryboardSourceImage(null)}
+                    userTier={userTier}
+                    onOpenPricingModal={modals.openPricing}
+                    freeGenerationsUsed={freeGenerationsUsed}
+                    savedModels={appData.savedModels}
+                    onReset={creative.handleResetParams}
+                    brandKit={appData.brandKit}
+                />
+            )}
+            
+            <GlobalModals 
+                editingImage={editingImage}
+                isEditing={isEditing}
+                editModalInitialTab={editModalInitialTab}
+                onCloseEdit={() => setEditingImage(null)}
+                onApplyEdit={handleApplyEdit}
+                onRemoveBackground={handleRemoveBackgroundAction}
+                onImageUpdate={handleImageUpdate}
+
+                zoomedImage={zoomedImage}
+                onCloseZoom={() => setZoomedImage(null)}
+
+                isContentGeneratorModalOpen={modals.isContentGeneratorOpen}
+                onCloseContentGenerator={modals.closeContentGenerator}
+                onDeductCredits={handleCheckCredits}
+                onRefundCredits={handleRefundCredits}
+                userId={user.id}
+
+                isBrandKitModalOpen={modals.isBrandKitOpen}
+                onCloseBrandKit={modals.closeBrandKit}
+                onSaveBrandKit={handleSaveBrandKit}
                 brandKit={appData.brandKit}
+
+                isFeedbackModalOpen={modals.isFeedbackOpen}
+                onCloseFeedback={modals.closeFeedback}
+
+                isPricingModalOpen={modals.isPricingOpen}
+                onClosePricing={modals.closePricing}
+
+                isSupportModalOpen={modals.isSupportOpen}
+                onCloseSupport={modals.closeSupport}
+
+                isProfileEditModalOpen={modals.isProfileEditOpen}
+                onCloseProfileEdit={modals.closeProfileEdit}
+                user={user}
+                onUpdateProfile={handleUpdateProfile}
+
+                abTestModalImage={abTestModalImage}
+                onCloseABTest={() => setAbTestModalImage(null)}
             />
-        )}
-        
-        <GlobalModals 
-            editingImage={editingImage}
-            isEditing={isEditing}
-            editModalInitialTab={editModalInitialTab}
-            onCloseEdit={() => setEditingImage(null)}
-            onApplyEdit={handleApplyEdit}
-            onRemoveBackground={handleRemoveBackgroundAction}
-            onImageUpdate={handleImageUpdate}
-
-            zoomedImage={zoomedImage}
-            onCloseZoom={() => setZoomedImage(null)}
-
-            isContentGeneratorModalOpen={modals.isContentGeneratorOpen}
-            onCloseContentGenerator={modals.closeContentGenerator}
-            onDeductCredits={handleCheckCredits}
-            onRefundCredits={handleRefundCredits}
-            userId={user.id}
-
-            isBrandKitModalOpen={modals.isBrandKitOpen}
-            onCloseBrandKit={modals.closeBrandKit}
-            onSaveBrandKit={handleSaveBrandKit}
-            brandKit={appData.brandKit}
-
-            isFeedbackModalOpen={modals.isFeedbackOpen}
-            onCloseFeedback={modals.closeFeedback}
-
-            isPricingModalOpen={modals.isPricingOpen}
-            onClosePricing={modals.closePricing}
-
-            isSupportModalOpen={modals.isSupportOpen}
-            onCloseSupport={modals.closeSupport}
-
-            isProfileEditModalOpen={modals.isProfileEditOpen}
-            onCloseProfileEdit={modals.closeProfileEdit}
-            user={user}
-            onUpdateProfile={handleUpdateProfile}
-
-            abTestModalImage={abTestModalImage}
-            onCloseABTest={() => setAbTestModalImage(null)}
-        />
-    </>
+          </>
+        )
+      } />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 };
 

@@ -104,129 +104,96 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-main flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10">
-        {/* Left Side - Brand / Info */}
-        <div className="w-full md:w-1/2 bg-black p-8 md:p-12 text-white flex flex-col justify-between relative overflow-hidden">
-            <div className="relative z-10">
-                <div className="mb-8">
-                    <BrandLogo variant="full" color="white" className="w-40 h-auto" />
-                </div>
-                <h1 className="text-4xl md:text-5xl font-batangas font-extrabold tracking-tight leading-tight mb-4 text-white">
-                    Creative Intelligence <br/>for Growth.
-                </h1>
-                <p className="text-lg text-gray-400 font-medium max-w-md">
-                    Intelligent, business-grade, brand-aware AI.
-                </p>
-            </div>
-            
-            <div className="relative z-10 mt-12 space-y-4">
-                <div className="flex items-center space-x-3 text-sm font-medium text-gray-300">
-                    <div className="bg-white/10 p-1 rounded-full"><Icon name="check-circle" className="w-4 h-4 text-white" /></div>
-                    <span>Brand-aware creative intelligence</span>
-                </div>
-                <div className="flex items-center space-x-3 text-sm font-medium text-gray-300">
-                    <div className="bg-white/10 p-1 rounded-full"><Icon name="check-circle" className="w-4 h-4 text-white" /></div>
-                    <span>Learns your colors, fonts & tone</span>
-                </div>
-                <div className="flex items-center space-x-3 text-sm font-medium text-gray-300">
-                    <div className="bg-white/10 p-1 rounded-full"><Icon name="check-circle" className="w-4 h-4 text-white" /></div>
-                    <span>Campaign-ready outputs in seconds</span>
-                </div>
-            </div>
-
-            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
+    <div className="min-h-screen w-full bg-slate-50 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-[420px]">
+        {/* Logo aligned to the left of the card */}
+        <div className="mb-6 flex items-center">
+          <Link to="/">
+            <BrandLogo variant="full" color="black" className="w-32 h-auto" />
+          </Link>
         </div>
+        
+        <div className="bg-white w-full rounded-2xl shadow-xl border border-slate-100 p-6 sm:p-8">
+          <h2 className="text-2xl font-bold text-slate-900 mb-6">Log in</h2>
 
-        {/* Right Side - Form */}
-        <div className="w-full md:w-1/2 p-8 md:p-12 bg-white flex flex-col justify-center overflow-y-auto max-h-[90vh]">
-            <div className="text-center md:text-left mb-8">
-                <h2 className="text-2xl font-bold text-slate-800 font-batangas">
-                    Welcome Back
-                </h2>
-                <p className="text-slate-500 text-sm mt-2">
-                    Please enter your details to sign in.
-                </p>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <FormInput 
+              label="Email" 
+              id="login-email" 
+              type="email" 
+              placeholder="Enter email" 
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+            />
+            <FormInput 
+              label="Password" 
+              id="login-password" 
+              type="password" 
+              placeholder="Enter password" 
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+            />
+
+            <div className="flex justify-between items-center text-sm">
+              <label className="flex items-center text-slate-600 cursor-pointer">
+                <input type="checkbox" className="mr-2 rounded border-slate-300 text-[#4452FB] focus:ring-[#4452FB]" />
+                Remember me
+              </label>
+              <a href="#" className="text-slate-500 hover:text-[#4452FB] transition-colors">Forgot password?</a>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <FormInput 
-                    label="Email Address" 
-                    id="login-email" 
-                    type="email" 
-                    placeholder="name@company.com" 
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    required
-                />
-                <FormInput 
-                    label="Password" 
-                    id="login-password" 
-                    type="password" 
-                    placeholder="••••••••" 
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    required
-                />
-
-                {error && (
-                    <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg flex flex-col items-start">
-                        <div className="flex items-center">
-                            <Icon name="close" className="w-4 h-4 mr-2 flex-shrink-0" />
-                            <span className="break-words">{error}</span>
-                        </div>
-                        {showSql && isDev && (
-                            <SqlHelper sql={SUPABASE_SETUP_SQL} />
-                        )}
-                    </div>
+            {error && (
+              <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg flex flex-col items-start">
+                <div className="flex items-center">
+                  <Icon name="close" className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <span className="break-words">{error}</span>
+                </div>
+                {showSql && isDev && (
+                  <SqlHelper sql={SUPABASE_SETUP_SQL} />
                 )}
+              </div>
+            )}
 
-                <Button 
-                    type="submit" 
-                    fullWidth 
-                    isLoading={isLoading} 
-                    className="!py-3 !text-base mt-4"
+            <Button 
+              type="submit" 
+              fullWidth 
+              isLoading={isLoading} 
+              className="!py-3 !text-base bg-[#4452FB] hover:bg-[#3641C9] text-white rounded-xl w-full mt-2"
+            >
+              Log in
+            </Button>
+            
+            <div className="flex items-center justify-start gap-4 pt-2">
+              <span className="text-sm text-slate-500">Log in with</span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-[#4452FB] hover:text-white transition-colors"
+                  title="Guest Mode"
                 >
-                    Sign In
-                </Button>
-                
-                <div className="relative flex py-2 items-center">
-                    <div className="flex-grow border-t border-slate-200"></div>
-                    <span className="flex-shrink mx-4 text-slate-400 text-[10px] font-bold uppercase tracking-wider">Alternative Access</span>
-                    <div className="flex-grow border-t border-slate-200"></div>
-                </div>
+                  <Icon name="user" className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAdminAccess}
+                  className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-[#4452FB] hover:text-white transition-colors"
+                  title="Admin Bypass"
+                >
+                  <Icon name="shield" className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </form>
 
-                <div className="grid grid-cols-2 gap-3">
-                    <Button
-                        type="button"
-                        onClick={handleSkip}
-                        fullWidth
-                        variant="secondary"
-                        className="!py-2 !text-[10px] uppercase tracking-wider"
-                    >
-                        Guest Mode
-                    </Button>
-                    <Button
-                        type="button"
-                        onClick={handleAdminAccess}
-                        fullWidth
-                        variant="ghost"
-                        className="!py-2 !text-[10px] uppercase tracking-wider !bg-slate-100 !text-slate-600 hover:!bg-slate-200"
-                    >
-                        Admin Bypass
-                    </Button>
-                </div>
-
-                <div className="text-center pt-4">
-                    <p className="text-sm text-slate-600">
-                        Don't have an account?
-                        <Link to="/signup" className="ml-1 text-primary font-semibold hover:underline">
-                            Sign Up
-                        </Link>
-                    </p>
-                </div>
-            </form>
+          <div className="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center text-sm">
+            <span className="text-slate-500">Not registered yet?</span>
+            <Link to="/signup" className="text-slate-900 font-semibold hover:text-[#4452FB] transition-colors flex items-center">
+              Register <Icon name="arrow-right" className="w-4 h-4 ml-1" />
+            </Link>
+          </div>
         </div>
       </div>
     </div>
