@@ -1,5 +1,5 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { BrandLogo } from '../../components/ui/BrandLogo';
 import { Icon } from '../../components/ui/Icon';
 import { useScrollDirection } from '../../hooks/useScrollDirection';
@@ -7,6 +7,10 @@ import { useScrollDirection } from '../../hooks/useScrollDirection';
 export const TermsPage: React.FC = () => {
   const navigate = useNavigate();
   const isHeaderVisible = useScrollDirection();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-[#4452FB] selection:text-white flex flex-col">
@@ -17,9 +21,9 @@ export const TermsPage: React.FC = () => {
             <BrandLogo variant="full" className="w-24 md:w-40 h-auto" />
           </div>
           <nav className="hidden md:flex items-center gap-8 font-medium text-sm text-slate-600">
-            <a href="/#features" className="hover:text-[#4452FB] transition-colors">Features</a>
-            <a href="/#how-it-works" className="hover:text-[#4452FB] transition-colors">How it Works</a>
-            <a href="/blog" className="hover:text-[#4452FB] transition-colors">Blog</a>
+            <Link to="/#features" className="hover:text-[#4452FB] transition-colors">Features</Link>
+            <Link to="/#how-it-works" className="hover:text-[#4452FB] transition-colors">How it Works</Link>
+            <Link to="/blog" className="hover:text-[#4452FB] transition-colors">Blog</Link>
           </nav>
           <div className="flex items-center gap-4">
             <button onClick={() => navigate('/login')} className="hidden md:block text-slate-600 hover:text-slate-900 font-bold text-sm transition-colors">Log in</button>
@@ -63,8 +67,8 @@ export const TermsPage: React.FC = () => {
           
           <div className="flex flex-col md:items-center">
             <div className="flex gap-6">
-              <a href="/#features" className="hover:text-white transition-colors">Features</a>
-              <a href="/blog" className="hover:text-white transition-colors">Blog</a>
+              <Link to="/#features" className="hover:text-white transition-colors">Features</Link>
+              <Link to="/blog" className="hover:text-white transition-colors">Blog</Link>
             </div>
           </div>
           
@@ -79,7 +83,7 @@ export const TermsPage: React.FC = () => {
         </div>
         
         <div className="max-w-7xl mx-auto pt-8 border-t border-slate-900 flex flex-col md:flex-row justify-between items-center gap-4 text-sm">
-          <div>© 2026 ZeperAi · <a href="/privacy" className="hover:text-white">Privacy</a> · <a href="/terms" className="hover:text-white">Terms</a></div>
+          <div>© 2026 ZeperAi · <Link to="/privacy" className="hover:text-white">Privacy</Link> · <Link to="/terms" className="hover:text-white">Terms</Link></div>
           <div className="font-medium text-slate-500">AI is your partner, not your replacement.</div>
         </div>
       </footer>
