@@ -37,106 +37,72 @@ export const SignupPage: React.FC<{ onLoginSuccess: (session: AuthSession) => vo
   };
 
   return (
-    <div className="min-h-screen w-full bg-main flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative z-10">
-        {/* Left Side - Brand / Info */}
-        <div className="w-full md:w-1/2 bg-black p-8 md:p-12 text-white flex flex-col justify-between relative overflow-hidden">
-            <div className="relative z-10">
-                <div className="mb-8">
-                    <BrandLogo variant="full" color="white" className="w-40 h-auto" />
-                </div>
-                <h1 className="text-4xl md:text-5xl font-batangas font-extrabold tracking-tight leading-tight mb-4 text-white">
-                    Unlock Your <br/>Creative Potential.
-                </h1>
-                <p className="text-lg text-gray-400 font-medium max-w-md">
-                    The only AI studio designed for high-impact brands.
-                </p>
-            </div>
-            
-            <div className="relative z-10 mt-12 space-y-4">
-                <div className="flex items-center space-x-3 text-sm font-medium text-gray-300">
-                    <div className="bg-white/10 p-1 rounded-full"><Icon name="check-circle" className="w-4 h-4 text-white" /></div>
-                    <span>Advanced on-model fashion shoots</span>
-                </div>
-                <div className="flex items-center space-x-3 text-sm font-medium text-gray-300">
-                    <div className="bg-white/10 p-1 rounded-full"><Icon name="check-circle" className="w-4 h-4 text-white" /></div>
-                    <span>Shopify performance data analysis</span>
-                </div>
-                <div className="flex items-center space-x-3 text-sm font-medium text-gray-300">
-                    <div className="bg-white/10 p-1 rounded-full"><Icon name="check-circle" className="w-4 h-4 text-white" /></div>
-                    <span>Global inspiration remixing</span>
-                </div>
-            </div>
-
-            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
+    <div className="min-h-screen w-full bg-slate-50 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="mb-8 flex justify-center">
+          <Link to="/">
+            <BrandLogo variant="full" color="black" className="w-40 h-auto" />
+          </Link>
         </div>
+        
+        <div className="bg-white w-full rounded-3xl shadow-xl border border-slate-100 p-6 sm:p-10">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Create Account</h2>
+            <p className="text-slate-500 mt-2">Start your creative journey today.</p>
+          </div>
 
-        {/* Right Side - Form */}
-        <div className="w-full md:w-1/2 p-8 md:p-12 bg-white flex flex-col justify-center overflow-y-auto max-h-[90vh]">
-            <div className="text-center md:text-left mb-8">
-                <h2 className="text-2xl font-bold text-slate-800 font-batangas">
-                    Create Account
-                </h2>
-                <p className="text-slate-500 text-sm mt-2">
-                    Start your creative journey today.
-                </p>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <FormInput 
+              label="Full Name" 
+              id="signup-name" 
+              type="text" 
+              placeholder="John Doe" 
+              value={name}
+              onChange={e => setName(e.target.value)}
+              required
+            />
+            <FormInput 
+              label="Email Address" 
+              id="signup-email" 
+              type="email" 
+              placeholder="name@company.com" 
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+            />
+            <FormInput 
+              label="Password" 
+              id="signup-password" 
+              type="password" 
+              placeholder="••••••••" 
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+            />
+
+            {error && (
+              <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg flex items-center">
+                <Icon name="close" className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span className="break-words">{error}</span>
+              </div>
+            )}
+
+            <Button 
+              type="submit" 
+              fullWidth 
+              isLoading={isLoading} 
+              className="!py-3.5 !text-base bg-[#4452FB] hover:bg-[#3641C9] text-white rounded-xl w-full mt-2 font-bold shadow-md hover:shadow-lg transition-all"
+            >
+              Sign Up
+            </Button>
+
+            <div className="mt-8 text-center text-sm">
+              <span className="text-slate-500">Already have an account?</span>
+              <Link to="/login" className="text-[#4452FB] font-bold hover:underline transition-colors ml-2">
+                Log in
+              </Link>
             </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <FormInput 
-                    label="Full Name" 
-                    id="signup-name" 
-                    type="text" 
-                    placeholder="John Doe" 
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    required
-                />
-                <FormInput 
-                    label="Email Address" 
-                    id="signup-email" 
-                    type="email" 
-                    placeholder="name@company.com" 
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    required
-                />
-                <FormInput 
-                    label="Password" 
-                    id="signup-password" 
-                    type="password" 
-                    placeholder="••••••••" 
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    required
-                />
-
-                {error && (
-                    <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg flex items-center">
-                        <Icon name="close" className="w-4 h-4 mr-2 flex-shrink-0" />
-                        {error}
-                    </div>
-                )}
-
-                <Button 
-                    type="submit" 
-                    fullWidth 
-                    isLoading={isLoading} 
-                    className="!py-3 !text-base mt-4"
-                >
-                    Sign Up
-                </Button>
-
-                <div className="text-center pt-4">
-                    <p className="text-sm text-slate-600">
-                        Already have an account?
-                        <Link to="/login" className="ml-1 text-primary font-semibold hover:underline">
-                            Sign In
-                        </Link>
-                    </p>
-                </div>
-            </form>
+          </form>
         </div>
       </div>
     </div>

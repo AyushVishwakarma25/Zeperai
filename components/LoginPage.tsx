@@ -105,23 +105,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className="min-h-screen w-full bg-slate-50 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-[420px]">
-        {/* Logo aligned to the left of the card */}
-        <div className="mb-6 flex items-center">
+      <div className="w-full max-w-md">
+        <div className="mb-8 flex justify-center">
           <Link to="/">
-            <BrandLogo variant="full" color="black" className="w-32 h-auto" />
+            <BrandLogo variant="full" color="black" className="w-40 h-auto" />
           </Link>
         </div>
         
-        <div className="bg-white w-full rounded-2xl shadow-xl border border-slate-100 p-6 sm:p-8">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6">Log in</h2>
+        <div className="bg-white w-full rounded-3xl shadow-xl border border-slate-100 p-6 sm:p-10">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Welcome back</h2>
+            <p className="text-slate-500 mt-2">Log in to your ZeperAi account</p>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <FormInput 
               label="Email" 
               id="login-email" 
               type="email" 
-              placeholder="Enter email" 
+              placeholder="name@company.com" 
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
@@ -130,7 +132,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               label="Password" 
               id="login-password" 
               type="password" 
-              placeholder="Enter password" 
+              placeholder="••••••••" 
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
@@ -141,7 +143,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <input type="checkbox" className="mr-2 rounded border-slate-300 text-[#4452FB] focus:ring-[#4452FB]" />
                 Remember me
               </label>
-              <a href="#" className="text-slate-500 hover:text-[#4452FB] transition-colors">Forgot password?</a>
+              <a href="#" className="text-[#4452FB] font-medium hover:underline transition-colors">Forgot password?</a>
             </div>
 
             {error && (
@@ -160,38 +162,38 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               type="submit" 
               fullWidth 
               isLoading={isLoading} 
-              className="!py-3 !text-base bg-[#4452FB] hover:bg-[#3641C9] text-white rounded-xl w-full mt-2"
+              className="!py-3.5 !text-base bg-[#4452FB] hover:bg-[#3641C9] text-white rounded-xl w-full mt-2 font-bold shadow-md hover:shadow-lg transition-all"
             >
               Log in
             </Button>
             
-            <div className="flex items-center justify-start gap-4 pt-2">
-              <span className="text-sm text-slate-500">Log in with</span>
-              <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 mt-6">
+              <span className="text-sm text-slate-500">Quick access:</span>
+              <div className="flex gap-3 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={handleSkip}
-                  className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-[#4452FB] hover:text-white transition-colors"
+                  className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 hover:bg-slate-200 transition-colors text-sm font-medium"
                   title="Guest Mode"
                 >
-                  <Icon name="user" className="w-4 h-4" />
+                  <Icon name="user" className="w-4 h-4 mr-2" /> Guest
                 </button>
                 <button
                   type="button"
                   onClick={handleAdminAccess}
-                  className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-[#4452FB] hover:text-white transition-colors"
+                  className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 hover:bg-slate-200 transition-colors text-sm font-medium"
                   title="Admin Bypass"
                 >
-                  <Icon name="shield" className="w-4 h-4" />
+                  <Icon name="shield" className="w-4 h-4 mr-2" /> Admin
                 </button>
               </div>
             </div>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center text-sm">
-            <span className="text-slate-500">Not registered yet?</span>
-            <Link to="/signup" className="text-slate-900 font-semibold hover:text-[#4452FB] transition-colors flex items-center">
-              Register <Icon name="arrow-right" className="w-4 h-4 ml-1" />
+          <div className="mt-8 text-center text-sm">
+            <span className="text-slate-500">Don't have an account?</span>
+            <Link to="/signup" className="text-[#4452FB] font-bold hover:underline transition-colors ml-2">
+              Sign up for free
             </Link>
           </div>
         </div>
