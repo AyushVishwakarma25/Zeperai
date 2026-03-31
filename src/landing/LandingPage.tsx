@@ -5,7 +5,6 @@ import { BrandLogo } from '../../components/ui/BrandLogo';
 import { useScrollDirection } from '../../hooks/useScrollDirection';
 import { LandingHeader } from './LandingHeader';
 import { WorkCarousel } from './WorkCarousel';
-import { DualTicker } from './DualTicker';
 import { ActionCarousel } from './ActionCarousel';
 import { CreativitySection } from './CreativitySection';
 import { Footer } from './Footer';
@@ -273,9 +272,6 @@ export const LandingPage: React.FC = () => {
           </div>
         </div>
       </section>
-
-      {/* DUAL TICKER */}
-      <DualTicker />
 
       {/* SECTION 5.5 — ACTION CAROUSEL */}
       <ActionCarousel />
