@@ -10,6 +10,7 @@ import { ActionCarousel } from './ActionCarousel';
 import { CreativitySection } from './CreativitySection';
 import { Footer } from './Footer';
 
+
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
