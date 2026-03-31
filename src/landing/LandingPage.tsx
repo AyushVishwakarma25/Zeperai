@@ -44,18 +44,18 @@ export const LandingPage: React.FC = () => {
           </div>
           <h1 className="text-5xl md:text-7xl font-black tracking-tight text-slate-900 mx-auto leading-[1.1] max-w-5xl relative mb-6">
             <Icon name="sparkles" className="absolute -top-6 -left-8 w-10 h-10 text-yellow-400 hidden md:block" />
-            Generate 100+ Ad Creatives. 10x Faster.
+            Stop Prompting. Start Launching.
             <Icon name="sparkles" className="absolute -bottom-4 -right-8 w-8 h-8 text-yellow-400 hidden md:block" />
           </h1>
           <p className="text-xl md:text-2xl text-slate-600 mb-10 max-w-3xl mx-auto leading-relaxed relative z-10 font-light">
-            Connect your sales data to ZeperAi and instantly generate high-converting product visuals that drive real ROAS.
+            ZeperAi turns your product image into studio-quality expensive shoots, and ad creatives in minutes. No design skills, no prompt engineering, just growth.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
             <button 
               onClick={() => navigate('/login')}
               className="w-full sm:w-auto bg-[#4452FB] hover:bg-[#3641C9] text-white px-6 py-3 md:px-8 md:py-4 rounded-xl text-base md:text-lg font-bold transition-all shadow-lg shadow-[#C8CEFE] transform hover:-translate-y-1 flex items-center justify-center gap-2"
             >
-              Start Free — No Card Required <Icon name="arrow-right" className="w-5 h-5" />
+              Get 25 Credits for free <Icon name="arrow-right" className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -183,44 +183,93 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* SECTION 2 — AGITATION (THE PROBLEM) */}
+      <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="bg-slate-900 rounded-[2.5rem] p-8 md:p-16 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-[#4452FB] blur-[120px] rounded-full opacity-20 pointer-events-none"></div>
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-600 blur-[120px] rounded-full opacity-20 pointer-events-none"></div>
+          
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <h2 className="text-3xl md:text-5xl font-black text-white mb-6 tracking-tight leading-tight">
+                Most AI tools give you generic fluff.
+              </h2>
+              <p className="text-xl text-slate-300 mb-8 leading-relaxed">
+                You spend hours fixing their mistakes. ZeperAi is different. It has 100+ curated and proven presets across categories, <strong className="text-white font-black">No Prompt Needed.</strong>
+              </p>
+            </div>
+            
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 md:p-8">
+              <div className="flex flex-col gap-6">
+                <div className="flex items-start gap-4 pb-6 border-b border-white/10">
+                  <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                    <Icon name="x" className="w-6 h-6 text-red-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-white mb-1">Other AI Tools</h4>
+                    <p className="text-slate-400 text-sm">"Write a 500-word prompt describing lighting, camera angles, and background elements..."</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                    <Icon name="check" className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-white mb-1">ZeperAi</h4>
+                    <p className="text-slate-400 text-sm">Upload product. Select "Summer Lifestyle" preset. Done.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* SECTION 3 — WORK CAROUSEL */}
       <WorkCarousel />
 
       {/* SECTION 4 — CREATIVITY SECTION */}
       <CreativitySection />
 
-      {/* SECTION 5 — FEATURE GRID */}
-      <section id="features" className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-black mb-6 tracking-tight">Data-driven creatives at scale</h2>
-          <p className="text-xl text-slate-600 max-w-2xl mx-auto">Connect your commerce data to our AI engine and automatically generate the exact assets you need to scale.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { title: "Product Intelligence", desc: "Turn flat product images into high-converting lifestyle creatives in seconds. No production required.", benefit: "Saves ₹40k/campaign", bg: "bg-[#F3F4FF]", icon: "camera", color: "text-[#4452FB]" },
-            { title: "AI UGC Influencer", desc: "Generate authentic-looking user generated content with diverse AI models.", benefit: "Zero shipping logistics", bg: "bg-pink-50", icon: "users", color: "text-pink-600" },
-            { title: "Fashion Intelligence", desc: "Put your apparel on photorealistic AI models. Choose demographics, styling, and environments.", benefit: "Skip model agency fees", bg: "bg-emerald-50", icon: "shirt", color: "text-emerald-600" },
-            { title: "Ad Generator", desc: "Instantly turn your product images into high-converting Facebook and Instagram ad creatives.", benefit: "Launch campaigns faster", bg: "bg-amber-50", icon: "layout-template", color: "text-amber-600" },
-            { title: "AI Copywriter", desc: "Write ad copy, product descriptions, and social captions that actually sound like your brand.", benefit: "Never stare at a blank page", bg: "bg-indigo-50", icon: "pen-tool", color: "text-indigo-600" },
-            { title: "Magic Eraser", desc: "Remove backgrounds and unwanted objects from your product photos with pixel-perfect accuracy.", benefit: "Perfect for catalog updates", bg: "bg-rose-50", icon: "scissors", color: "text-rose-600" },
-            { title: "Image Restyle", desc: "Take an existing photo and completely change the mood, lighting, or season with one click.", benefit: "Reuse old assets", bg: "bg-teal-50", icon: "wand-2", color: "text-teal-600" },
-            { title: "Festive Campaigns", desc: "Instantly adapt your product visuals for Diwali, Christmas, or any major sale event.", benefit: "Never miss a trend", bg: "bg-orange-50", icon: "party-popper", color: "text-orange-600" }
-          ].map((feature, i) => (
-            <div key={i} className={`${feature.bg} p-6 rounded-2xl border border-slate-100/50 hover:shadow-md transition-all flex flex-col h-full`}>
-              <div className={`w-12 h-12 bg-white rounded-xl flex items-center justify-center mb-5 shadow-sm ${feature.color}`}>
-                <Icon name={feature.icon as any} className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
-              <p className="text-slate-600 text-sm mb-6 flex-grow">{feature.desc}</p>
-              <div className="mt-auto pt-4 border-t border-slate-200/60">
-                <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Icon name="check-circle-2" className="w-3.5 h-3.5 text-emerald-500" />
-                  {feature.benefit}
-                </p>
+      {/* SECTION 2 — AGITATION (THE PROBLEM) */}
+      <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="bg-slate-900 rounded-[2.5rem] p-8 md:p-16 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-[#4452FB] blur-[120px] rounded-full opacity-20 pointer-events-none"></div>
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-600 blur-[120px] rounded-full opacity-20 pointer-events-none"></div>
+          
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <h2 className="text-3xl md:text-5xl font-black text-white mb-6 tracking-tight leading-tight">
+                Most AI tools give you generic fluff.
+              </h2>
+              <p className="text-xl text-slate-300 mb-8 leading-relaxed">
+                You spend hours fixing their mistakes. ZeperAi is different. It has 100+ curated and proven presets across categories, <strong className="text-white font-black">No Prompt Needed.</strong>
+              </p>
+            </div>
+            
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 md:p-8">
+              <div className="flex flex-col gap-6">
+                <div className="flex items-start gap-4 pb-6 border-b border-white/10">
+                  <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                    <Icon name="x" className="w-6 h-6 text-red-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-white mb-1">Other AI Tools</h4>
+                    <p className="text-slate-400 text-sm">"Write a 500-word prompt describing lighting, camera angles, and background elements..."</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                    <Icon name="check" className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-white mb-1">ZeperAi</h4>
+                    <p className="text-slate-400 text-sm">Upload product. Select "Summer Lifestyle" preset. Done.</p>
+                  </div>
+                </div>
               </div>
             </div>
-          ))}
+          </div>
         </div>
       </section>
 
@@ -348,29 +397,32 @@ export const LandingPage: React.FC = () => {
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">No complex prompting. No steep learning curve. Just a workflow designed for speed.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative hover:shadow-md transition-shadow">
-            <div className="absolute -top-4 -left-4 w-10 h-10 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-lg border-4 border-white shadow-sm">1</div>
-            <h3 className="text-lg font-bold mb-2 mt-2">Connect</h3>
-            <p className="text-slate-600 text-sm">Sync your Shopify or product catalog in one click. Up and running in 2 minutes.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative hover:shadow-md transition-shadow">
+            <div className="absolute -top-4 -left-4 w-12 h-12 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-xl border-4 border-white shadow-sm">1</div>
+            <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center mb-6">
+              <Icon name="upload-cloud" className="w-7 h-7 text-[#4452FB]" />
+            </div>
+            <h3 className="text-2xl font-bold mb-3">Feed the Beast</h3>
+            <p className="text-slate-600 text-base">Drop your brand assets and product Images.</p>
           </div>
           
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative hover:shadow-md transition-shadow">
-            <div className="absolute -top-4 -left-4 w-10 h-10 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-lg border-4 border-white shadow-sm">2</div>
-            <h3 className="text-lg font-bold mb-2 mt-2">Analyze</h3>
-            <p className="text-slate-600 text-sm">ZeperAi analyzes your sales data to reveal exactly which products need new creatives to scale. You make the call.</p>
+          <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative hover:shadow-md transition-shadow">
+            <div className="absolute -top-4 -left-4 w-12 h-12 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-xl border-4 border-white shadow-sm">2</div>
+            <div className="w-14 h-14 bg-purple-50 rounded-xl flex items-center justify-center mb-6">
+              <Icon name="wand-2" className="w-7 h-7 text-purple-600" />
+            </div>
+            <h3 className="text-2xl font-bold mb-3">Magic in the Middle</h3>
+            <p className="text-slate-600 text-base">Explore curated presets across 100+ categories.</p>
           </div>
           
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative hover:shadow-md transition-shadow">
-            <div className="absolute -top-4 -left-4 w-10 h-10 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-lg border-4 border-white shadow-sm">3</div>
-            <h3 className="text-lg font-bold mb-2 mt-2">Generate</h3>
-            <p className="text-slate-600 text-sm">Select a product and generate stunning, on-brand photorealistic lifestyle visuals in batches.</p>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative hover:shadow-md transition-shadow">
-            <div className="absolute -top-4 -left-4 w-10 h-10 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-lg border-4 border-white shadow-sm">4</div>
-            <h3 className="text-lg font-bold mb-2 mt-2">Launch</h3>
-            <p className="text-slate-600 text-sm">Review your new assets, download the winners, and launch your next high-converting campaign.</p>
+          <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative hover:shadow-md transition-shadow">
+            <div className="absolute -top-4 -left-4 w-12 h-12 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-xl border-4 border-white shadow-sm">3</div>
+            <div className="w-14 h-14 bg-emerald-50 rounded-xl flex items-center justify-center mb-6">
+              <Icon name="image" className="w-7 h-7 text-emerald-600" />
+            </div>
+            <h3 className="text-2xl font-bold mb-3">Generate</h3>
+            <p className="text-slate-600 text-base">Get high quality product images in minutes.</p>
           </div>
         </div>
         
