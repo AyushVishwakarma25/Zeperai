@@ -4,8 +4,10 @@ import { Icon } from '../../components/ui/Icon';
 import { BrandLogo } from '../../components/ui/BrandLogo';
 import { useScrollDirection } from '../../hooks/useScrollDirection';
 import { LandingHeader } from './LandingHeader';
-import { FocusScrollSavings } from './FocusScrollSavings';
+import { WorkCarousel } from './WorkCarousel';
 import { DualTicker } from './DualTicker';
+import { ActionCarousel } from './ActionCarousel';
+import { CreativitySection } from './CreativitySection';
 import { Footer } from './Footer';
 
 export const LandingPage: React.FC = () => {
@@ -181,51 +183,11 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* CURIOSITY HOOK */}
-      <section className="py-12 text-center px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
-        <h2 className="text-2xl md:text-4xl font-black text-slate-900 leading-tight">
-          You've already seen our ads winning on your feed. <br className="hidden md:block" />
-          <span className="text-[#4452FB]">You just didn't know an AI made them.</span>
-        </h2>
-      </section>
+      {/* SECTION 3 — WORK CAROUSEL */}
+      <WorkCarousel />
 
-      {/* SECTION 3 — SAVINGS COMPARISON */}
-      <FocusScrollSavings />
-
-      {/* SECTION 4 — COMPETITOR REFRAME */}
-      <section className="py-32 bg-slate-900 text-white px-4 sm:px-6 lg:px-8 text-center relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20 pointer-events-none">
-            <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#4452FB] blur-[120px] rounded-full"></div>
-            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-600 blur-[120px] rounded-full"></div>
-        </div>
-        
-        <div className="max-w-5xl mx-auto relative z-10">
-          <h2 className="text-4xl md:text-6xl font-black mb-6 leading-tight">
-            vs. Traditional Agencies & Studios
-          </h2>
-          <p className="text-xl text-slate-300 mb-16 max-w-3xl mx-auto">
-            They're great for massive brand campaigns. We're purpose-built for rapid, daily performance testing. Get agency-quality output without the ₹1 Lakh+ monthly retainer or the 3-week turnaround time.
-          </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-            <div className="p-6">
-              <div className="text-[#7B86FD] mb-4"><Icon name="lock" className="w-8 h-8 mx-auto" /></div>
-              <h3 className="text-2xl font-bold mb-3">Stop Guessing, Start Scaling</h3>
-              <p className="text-slate-400">ZeperAi analyzes your historical sales data to recommend which products need fresh ad creatives. You stay in control of what gets made.</p>
-            </div>
-            <div className="p-6">
-              <div className="text-[#7B86FD] mb-4"><Icon name="sliders" className="w-8 h-8 mx-auto" /></div>
-              <h3 className="text-2xl font-bold mb-3">Studio Quality, Zero Logistics</h3>
-              <p className="text-slate-400">Skip the expensive photoshoots. Get photorealistic lifestyle staging for your products in seconds. Works while you focus on strategy.</p>
-            </div>
-            <div className="p-6">
-              <div className="text-[#7B86FD] mb-4"><Icon name="zap" className="w-8 h-8 mx-auto" /></div>
-              <h3 className="text-2xl font-bold mb-3">Infinite Variations</h3>
-              <p className="text-slate-400">Test different angles, backgrounds, and lighting setups to find the perfect visual for your audience. No prompt engineering needed.</p>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* SECTION 4 — CREATIVITY SECTION */}
+      <CreativitySection />
 
       {/* SECTION 5 — FEATURE GRID */}
       <section id="features" className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -265,40 +227,8 @@ export const LandingPage: React.FC = () => {
       {/* DUAL TICKER */}
       <DualTicker />
 
-      {/* SECTION 5.5 — INSPIRATION GALLERY */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tight">AI Creative Generation for Every Brand Style</h2>
-          <p className="text-lg text-slate-600 max-w-3xl mx-auto">Generate high-converting product visuals, lifestyle creatives, and ad variations. Just describe your campaign vision — no complex tools needed.</p>
-        </div>
-        
-        <div className="columns-1 sm:columns-2 md:columns-3 gap-6">
-          {[
-            { title: "Sip Herbals Coffee Alternative", src: "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=800&q=80" },
-            { title: "Fruit Fusion Canned Drinks", src: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=800&q=80" },
-            { title: "Moon Cheese Snacks", src: "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=800&q=80" },
-            { title: "Prustlr Everyday Protein Oats", src: "https://images.unsplash.com/photo-1517673132405-a56a62b18caf?w=800&q=80" },
-            { title: "Holistic Berlin Skincare", src: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&q=80" },
-            { title: "Men's Formal Wear", src: "https://images.unsplash.com/photo-1593030761757-71fae45fa0e7?w=800&q=80" },
-            { title: "Men's Accessories & Watches", src: "https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=800&q=80" },
-            { title: "Women's Cosmetics", src: "https://images.unsplash.com/photo-1596462502278-27bf85033e5a?w=800&q=80" },
-            { title: "Biozyme Whey Protein", src: "https://images.unsplash.com/photo-1579722820308-d74e571900a9?w=800&q=80" },
-          ].map((img, i) => (
-            <div key={i} className="break-inside-avoid mb-6 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-              <img src={img.src} alt={img.title} className="w-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
-              <div className="p-4 text-center bg-white">
-                <span className="text-sm font-bold text-slate-800">{img.title}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-12 text-center">
-          <button className="bg-slate-800 hover:bg-slate-900 text-white px-8 py-3.5 rounded-xl text-sm font-bold transition-all shadow-sm">
-            Explore More Inspiration
-          </button>
-        </div>
-      </section>
+      {/* SECTION 5.5 — ACTION CAROUSEL */}
+      <ActionCarousel />
 
       {/* SECTION 6 — COMMERCE INTELLIGENCE */}
       <section className="py-24 bg-slate-50 px-4 sm:px-6 lg:px-8 overflow-hidden border-y border-slate-200">
@@ -434,7 +364,7 @@ export const LandingPage: React.FC = () => {
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative hover:shadow-md transition-shadow">
             <div className="absolute -top-4 -left-4 w-10 h-10 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-lg border-4 border-white shadow-sm">3</div>
             <h3 className="text-lg font-bold mb-2 mt-2">Generate</h3>
-            <p className="text-slate-600 text-sm">Select a product and generate stunning, on-brand photorealistic lifestyle visuals in batches of 5.</p>
+            <p className="text-slate-600 text-sm">Select a product and generate stunning, on-brand photorealistic lifestyle visuals in batches.</p>
           </div>
 
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative hover:shadow-md transition-shadow">

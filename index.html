@@ -74,12 +74,17 @@
                 '0%': { transform: 'translateX(0%)' },
                 '100%': { transform: 'translateX(-100%)' },
               },
+              carouselSpin: {
+                '0%': { transform: 'rotateY(0deg)' },
+                '100%': { transform: 'rotateY(-360deg)' },
+              },
             },
             animation: {
               'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
               'fade-in-scale-up': 'fadeInScaleUp 0.3s ease-out forwards',
               'shimmer': 'shimmer 2.5s ease-in-out infinite',
               'marquee': 'marquee 50s linear infinite',
+              'carousel-spin': 'carouselSpin 30s linear infinite',
             }
           }
         }
