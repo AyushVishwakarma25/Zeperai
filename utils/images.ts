@@ -2,6 +2,45 @@
 import type { AspectRatio, GeneratedImage, GenerateImageParams } from '../types';
 import { AppMode } from '../types';
 import { INITIAL_GENERATE_PARAMS } from '../constants';
+import * as htmlToImage from 'html-to-image';
+
+export const downloadCompositeImage = async (
+    element: HTMLElement, 
+    filename: string, 
+    format: 'png' | 'jpeg' | 'webp' = 'png'
+) => {
+    try {
+        let dataUrl: string;
+        const options = {
+            quality: 0.95,
+            pixelRatio: 2, // High resolution
+        };
+
+        if (format === 'jpeg') {
+            dataUrl = await htmlToImage.toJpeg(element, { ...options, backgroundColor: '#FFFFFF' });
+        } else if (format === 'webp') {
+            // html-to-image doesn't have direct webp, but we can convert the canvas
+            const canvas = await htmlToImage.toCanvas(element, options);
+            dataUrl = canvas.toDataURL('image/webp', 0.95);
+        } else {
+            dataUrl = await htmlToImage.toPng(element, options);
+        }
+
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        
+        const cleanFilename = filename.replace(/\.(png|jpe?g|webp)$/i, "");
+        const extension = format === 'jpeg' ? 'jpg' : format;
+        link.download = `${cleanFilename}.${extension}`;
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch (e) {
+        console.error("Composite download failed", e);
+        throw e;
+    }
+};
 
 export const processImageFile = (
   file: File, 

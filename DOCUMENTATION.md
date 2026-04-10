@@ -66,6 +66,7 @@ The system leverages **Google Gemini 2.5 & 3.0** models for multimodal generatio
 
 ### 4.1 Generative Engine (`geminiService.ts`)
 This service contains the sophisticated "Prompt Engineering" logic.
+-   **Prompt Moderation (Acceptable Use Policy):** Before generation, user prompts are evaluated by a strict AI moderator. The system rejects prompts unrelated to commercial products, brands, marketing assets, or fashion shoots (e.g., general art, historical events, political topics). Violations return a clear error message.
 -   **Dynamic Prompt Building:** It assembles a prompt based on `AppMode` (Product, Influencer, Fashion). It injects Brand Kit constraints (colors, fonts, negative prompts) automatically into every request.
 -   **Advanced Prompt Chaining:** To scale quality, the system employs a two-step strategy:
     1.  **The Critic/Optimizer Step:** A small Gemini call "expands" a simple user prompt into a high-fidelity "Diffusion-style" prompt using the Brand Kit.

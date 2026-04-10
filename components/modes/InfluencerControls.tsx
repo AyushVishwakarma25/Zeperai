@@ -100,6 +100,23 @@ export const InfluencerControls: React.FC<InfluencerControlsProps> = ({
                     </Select>
                 </div>
             )}
+            {params.modelSourceOption === 'new' && (
+                <div className="mt-4 flex items-center justify-between bg-indigo-50 p-3 rounded-lg border border-indigo-100">
+                    <div className="flex flex-col">
+                        <span className="text-sm font-bold text-slate-800">Save this Model</span>
+                        <span className="text-xs text-slate-500">Keep this AI model for future shoots</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            className="sr-only peer"
+                            checked={params.saveModel === true}
+                            onChange={(e) => handleParamChange('saveModel', e.target.checked)}
+                        />
+                        <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                </div>
+            )}
             <div className="relative mt-4">
                 <HelpLabel label="Model Persona" tooltip="Defines the vibe and demographic of the influencer." />
                 <Select label="" value={params.modelPersona} onChange={e => handleParamChange('modelPersona', e.target.value)}>

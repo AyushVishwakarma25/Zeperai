@@ -18,7 +18,7 @@ const ABTestModal = lazy(() => import('./ABTestModal'));
 interface GlobalModalsProps {
     editingImage: GeneratedImage | null;
     isEditing: boolean;
-    editModalInitialTab: 'inpaint' | 'crop' | 'background';
+    editModalInitialTab: 'inpaint' | 'crop' | 'background' | 'element';
     onCloseEdit: () => void;
     onApplyEdit: (editParams: EditImageParams) => Promise<void>;
     onRemoveBackground: () => Promise<void>;

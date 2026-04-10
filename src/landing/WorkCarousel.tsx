@@ -1,13 +1,14 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
+import { landingAssets } from './landingAssets';
 
 const items = [
-  { id: 1, src: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80" },
-  { id: 2, src: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&q=80" },
-  { id: 3, src: "https://images.unsplash.com/photo-1492288991661-058aa541ff43?w=600&q=80" },
-  { id: 4, src: "https://images.unsplash.com/photo-1584916201218-f4242ceb4809?w=600&q=80" },
-  { id: 5, src: "https://images.unsplash.com/photo-1593030761757-71fae45fa0e7?w=600&q=80" },
-  { id: 6, src: "https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=600&q=80" },
+  { id: 1, src: landingAssets.work1 },
+  { id: 2, src: landingAssets.work2 },
+  { id: 3, src: landingAssets.work3 },
+  { id: 4, src: landingAssets.work4 },
+  { id: 5, src: landingAssets.work5 },
+  { id: 6, src: landingAssets.work6 },
 ];
 
 export const WorkCarousel: React.FC = () => {

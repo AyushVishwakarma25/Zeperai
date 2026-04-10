@@ -24,7 +24,10 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
     const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
     const canMultiSelect = true; 
     
-    const showBatchControls = [AppMode.Influencer, AppMode.Fashion, AppMode.AdCreative].includes(params.appMode);
+    // Hide batch controls if multiple poses are selected in Fashion mode to prevent combinatorial explosion
+    const hasMultiplePoses = params.appMode === AppMode.Fashion && params.fashionPose && params.fashionPose.length > 0;
+    const hasMultipleProductOptions = params.appMode === AppMode.Product && ((params.productStylePresets?.length || 0) > 1 || (params.selectedAngles?.length || 0) > 1);
+    const showBatchControls = [AppMode.Influencer, AppMode.Fashion, AppMode.AdCreative, AppMode.Product].includes(params.appMode) && !hasMultiplePoses && !hasMultipleProductOptions;
 
     return (
         <div className="mt-8 border-t border-slate-100 pt-8">

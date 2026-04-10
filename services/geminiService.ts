@@ -5,9 +5,10 @@
  */
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS, UGC_STYLE_OPTIONS, AD_STYLE_PRESETS, FASHION_POSE_OPTIONS, FESTIVAL_PRESETS } from '../constants';
+import { getAI } from '../config/ai';
+import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS, UGC_STYLE_OPTIONS, AD_STYLE_PRESETS, FASHION_POSE_OPTIONS, FESTIVAL_PRESETS, AD_TEMPLATES } from '../constants';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis, ABTestSuggestion } from '../types';
-import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, RegionalStyle, ProductCategory, ResolutionQuality } from '../types';
+import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, RegionalStyle, ProductCategory, ResolutionQuality, AdLayout } from '../types';
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -24,51 +25,6 @@ const parseGeminiJson = <T>(text: string | undefined, fallback: T): T => {
         console.warn("Failed to parse Gemini JSON response, returning fallback.", text);
         return fallback;
     }
-};
-
-const getAI = () => {
-    return {
-        models: {
-            generateContent: async (request: any) => {
-                const response = await fetch('/api/gemini/proxy', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(request)
-                });
-                
-                if (!response.ok) {
-                    const err = await response.json().catch(() => ({}));
-                    let errorMessage = err.error || 'API Request Failed';
-                    
-                    // Map technical errors to user-friendly messages
-                    if (response.status === 429 || errorMessage.includes('429') || errorMessage.includes('quota')) {
-                        errorMessage = "Our servers are currently experiencing high demand. Please wait a moment and try again.";
-                    } else if (response.status >= 500) {
-                        errorMessage = "We encountered an unexpected issue on our end. Please try again.";
-                    } else if (errorMessage.includes('SAFETY')) {
-                        errorMessage = "Your request was blocked by safety filters. Please adjust your prompt and try again.";
-                    }
-                    
-                    throw new Error(errorMessage);
-                }
-                
-                const data = await response.json();
-                
-                // Reconstruct the response object format expected by the rest of the code
-                return {
-                    text: data.text,
-                    candidates: [
-                        {
-                            finishReason: data.finishReason,
-                            content: {
-                                parts: data.parts
-                            }
-                        }
-                    ]
-                };
-            }
-        }
-    };
 };
 
 // Standard file to base64
@@ -152,6 +108,48 @@ const urlToBase64 = async (url: string): Promise<string> => {
     }
 };
 
+// Helper to moderate prompt
+async function moderatePrompt(prompt: string): Promise<{ isAllowed: boolean, reason?: string }> {
+    if (!prompt || prompt.length < 3) return { isAllowed: true };
+    
+    const ai = getAI();
+    const systemInstruction = `
+    You are a strict content moderator for an AI application designed EXCLUSIVELY for creating:
+    - Product photography
+    - E-commerce assets
+    - Advertising and marketing creatives
+    - Brand design elements
+    - Fashion shoots
+
+    Your job is to evaluate the user's prompt and determine if it aligns with these intended use cases.
+    
+    REJECT prompts that are:
+    - General art generation (e.g., "a landscape in 1500s Africa", "a cyberpunk city", "a cute anime girl")
+    - Historical events or figures
+    - Political or controversial topics
+    - Unrelated to commercial products, brands, or advertising.
+
+    Respond in JSON format:
+    {
+        "isAllowed": boolean,
+        "reason": "If rejected, provide a brief, polite explanation why it violates the policy (e.g., 'This app is intended for product and marketing assets. Please provide a prompt related to a product or brand.'). If allowed, leave empty."
+    }
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: `${systemInstruction}\n\nUser Prompt: "${prompt}"`,
+            config: { responseMimeType: "application/json" }
+        });
+        const result = parseGeminiJson(response.text, { isAllowed: true });
+        return result;
+    } catch (e) {
+        console.warn("Prompt moderation failed, allowing by default.", e);
+        return { isAllowed: true };
+    }
+}
+
 // Helper to optimize prompt using Gemini Text Model (The Critic/Optimizer Step)
 async function optimizePromptWithBrandKit(originalPrompt: string, brandKit?: BrandKit | null, appMode?: AppMode): Promise<string> {
     // Skip optimization for simple/empty prompts or if no brand kit to enforce
@@ -234,6 +232,9 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
             }
         }
         
+        let additionsInstruction = remixElements ? `\n6. ADDITIONS: Explicitly integrate the following elements into the scene: ${remixElements}.` : '';
+        let removalsInstruction = remixNegativePrompt ? `\n7. REMOVALS: Strictly enforce the removal of the following elements from the original scene: ${remixNegativePrompt}.` : '';
+
         corePrompt = `
 ACT AS A PRECISION COMPOSITING ENGINE.
 INPUT ANALYSIS:
@@ -248,7 +249,7 @@ STRICT EXECUTION RULES:
 2. SPATIAL BLUEPRINTING: Transform the product to mirror the exact X,Y coordinates, orientation, and vanishing point of the original object in the template.
 3. PHYSICS SYNC: Sample the light color temperature and shadow intensity from the template. Apply matching highlights and contact shadows so the product looks natively integrated.
 4. TEXTURE FIDELITY: Maintain the sharp surface finish and material properties (glossy/matte) of the provided product asset.
-5. MODIFICATION: ${productDescription || 'Perform a 100% faithful replication of the template style and product identity.'}
+5. MODIFICATION (VIBE/CHANGES): ${productDescription || 'Perform a 100% faithful replication of the template style and product identity.'}${additionsInstruction}${removalsInstruction}
         `.trim();
     } else {
         // Standard modes logic
@@ -327,11 +328,28 @@ STRICT EXECUTION RULES:
                 break;
             case AppMode.AdCreative:
                 let adStyle = "Graphic design style.";
-                if (adStylePreset && adStylePreset !== AI_SUGGESTED) {
+                let spaceInstruction = "Leave clean negative space for text overlays.";
+                
+                if (params.adTemplateId) {
+                    const template = AD_TEMPLATES.find(t => t.id === params.adTemplateId);
+                    if (template) {
+                        adStyle = template.promptInstruction;
+                    }
+                } else if (adStylePreset && adStylePreset !== AI_SUGGESTED) {
                     const foundAdPreset = AD_STYLE_PRESETS.find(p => p.value === adStylePreset);
                     if (foundAdPreset) adStyle = foundAdPreset.prompt;
                 }
-                corePrompt = `Commercial Ad. Product: ${optimizedDescription}. Layout: ${adLayout}. Style: ${adStyle} Headline: "${adTitle || ''}".`;
+                
+                if (adLayout === AdLayout.TextRightImageLeft) spaceInstruction = "Position the product on the left and leave clean negative space on the right for text overlays.";
+                else if (adLayout === AdLayout.TextLeftImageRight) spaceInstruction = "Position the product on the right and leave clean negative space on the left for text overlays.";
+                else if (adLayout === AdLayout.TextTopBottomImageCenter) spaceInstruction = "Center the product and leave clean negative space at the top and bottom for text overlays.";
+                else if (adLayout === AdLayout.ProductShowcase) spaceInstruction = "Center the product with clean negative space around it.";
+
+                if (activeImages && activeImages.length > 0) {
+                    corePrompt = `You are an expert product retoucher and commercial artist. The provided image is the EXACT PRODUCT. You MUST preserve the exact design, shape, branding, and details of the provided product. DO NOT hallucinate or change the product into something else. Place this exact product into a new advertising scene. Product description: ${optimizedDescription || 'the provided product'}. Style: ${adStyle} ${spaceInstruction} NEGATIVE CONSTRAINTS: absolutely no text, no words, no typography, no watermarks, no logos, no changing the product design.`;
+                } else {
+                    corePrompt = `Commercial Ad. Product: ${optimizedDescription || 'a product'}. Style: ${adStyle} ${spaceInstruction} NEGATIVE CONSTRAINTS: absolutely no text, no words, no typography, no watermarks, no logos.`;
+                }
                 break;
             default:
                 corePrompt = `Commercial photography for ${optimizedDescription}.`;
@@ -352,6 +370,9 @@ STRICT EXECUTION RULES:
         
         corePrompt += brandSection;
     }
+
+    // Add general negative constraints for better quality
+    corePrompt += `\n\nNEGATIVE CONSTRAINTS: DO NOT INCLUDE text, watermarks, distorted proportions, extra limbs, or low-quality artifacts.`;
     
     return [...parts, { text: corePrompt }];
 }
@@ -368,7 +389,9 @@ async function generateSingleImage(params: GenerateImageParams, aspectRatio: Asp
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
             contents: { parts: contents },
-            config: { imageConfig: { aspectRatio: aspectRatioConfig } },
+            config: { 
+                imageConfig: { aspectRatio: aspectRatioConfig }
+            },
         });
         
         let imageUrl = '';
@@ -386,7 +409,7 @@ async function generateSingleImage(params: GenerateImageParams, aspectRatio: Asp
             throw new Error("Generation blocked by safety filters. Please modify your prompt to avoid restricted concepts.");
         }
         
-        return {
+        const generatedImage: GeneratedImage = {
             id: `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             imageUrl,
             caption: pose || params.productDescription || "Creative Variation",
@@ -396,6 +419,16 @@ async function generateSingleImage(params: GenerateImageParams, aspectRatio: Asp
             sourceProductImageUrl,
             timestamp: Date.now(),
         };
+
+        // If saveModel is true, we should ideally trigger a save to the backend here or return a flag
+        // For now, we'll just log it as the actual saving logic would likely be in the component or a separate service
+        if (params.saveModel) {
+            console.log("Model saving requested for this generation.");
+            // In a real implementation, you might call a service here to save the model parameters
+            // e.g., await modelService.saveModel({ name: 'New Model', params: { ... } });
+        }
+
+        return generatedImage;
     } catch (error: any) {
         if (retryCount < 3 && (error.message?.includes('429') || error.status === 429)) {
             await wait((retryCount + 1) * 6000);
@@ -425,6 +458,14 @@ export const generateImages = async (params: GenerateImageParams, userTier: 'Fre
     
     if (needsAsset && activeImages.length === 0) throw new Error("Please upload at least one product image.");
     if (params.appMode === AppMode.Remix && !params.remixReferenceImage && !params.remixReferenceImageUrl) throw new Error("Remix mode requires a scene template.");
+
+    // --- MODERATION CHECK ---
+    if (params.productDescription) {
+        const moderation = await moderatePrompt(params.productDescription);
+        if (!moderation.isAllowed) {
+            throw new Error(`Policy Violation: ${moderation.reason || 'Your prompt does not align with our acceptable use policy. Please ensure your request is related to product photography, advertising, or marketing assets.'}`);
+        }
+    }
 
     // --- DETERMINE VARIATIONS ---
     let variations: Array<{ preset?: string, pose?: string, angle?: string }> = [];
@@ -509,6 +550,26 @@ export const generateImages = async (params: GenerateImageParams, userTier: 'Fre
     }
     
     const results = await Promise.all(promises);
+    
+    // Auto-generate Ad Copy if left blank
+    if (params.appMode === AppMode.AdCreative && !params.adTitle && !params.adSubheading && !params.adCta) {
+        try {
+            let vibe = undefined;
+            if (params.adTemplateId) {
+                const template = AD_TEMPLATES.find(t => t.id === params.adTemplateId);
+                if (template) vibe = template.copywritingVibe;
+            }
+            const adCopy = await generateAdCopy(params.productDescription || 'A product', params.adStylePreset || 'Modern', vibe);
+            for (const result of results) {
+                result.params.adTitle = adCopy.title;
+                result.params.adSubheading = adCopy.subheading;
+                result.params.adCta = adCopy.cta;
+            }
+        } catch (e) {
+            console.error("Auto-generation of ad copy failed", e);
+        }
+    }
+
     allResults.push(...results);
     
     return allResults;
@@ -598,6 +659,44 @@ export const analyzeBrandLogo = async (base64: string, mimeType: string): Promis
         config: { responseMimeType: "application/json" }
     });
     return parseGeminiJson(response.text, { colors: [], typography: '', vibe: [] });
+};
+
+export const generateAdCopy = async (productDescription: string, adStyle: string, copywritingVibe?: string): Promise<{ title: string, subheading: string, cta: string }> => {
+    const ai = getAI();
+    const vibeInstruction = copywritingVibe ? `The tone and vibe of the copy MUST be: ${copywritingVibe}.` : `The tone should match the visual style: ${adStyle}.`;
+    
+    const prompt = `You are an expert copywriter. Generate ad copy for a product described as: "${productDescription}".
+    The ad style/vibe is: "${adStyle}".
+    ${vibeInstruction}
+    
+    Provide a short, catchy Headline (max 5 words).
+    Provide a compelling Subheading (max 10 words).
+    Provide a strong Call to Action (max 3 words).
+    
+    Return ONLY JSON format.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        title: { type: Type.STRING },
+                        subheading: { type: Type.STRING },
+                        cta: { type: Type.STRING }
+                    },
+                    required: ['title', 'subheading', 'cta']
+                }
+            }
+        });
+        return parseGeminiJson(response.text, { title: "Special Offer", subheading: "Get yours today", cta: "Shop Now" });
+    } catch (e) {
+        console.error("Failed to generate ad copy", e);
+        return { title: "Special Offer", subheading: "Get yours today", cta: "Shop Now" };
+    }
 };
 
 export const getABTestSuggestions = async (image: GeneratedImage): Promise<ABTestSuggestion[]> => {

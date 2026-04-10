@@ -14,7 +14,7 @@ interface EditModalProps {
   onRemoveBackground: () => Promise<void>;
   onImageUpdate: (imageId: string, newImageUrl: string, sourceImageUrl?: string) => void;
   isEditing: boolean;
-  initialTab?: 'inpaint' | 'crop' | 'background';
+  initialTab?: 'inpaint' | 'crop' | 'background' | 'element';
 }
 
 const TabButton: React.FC<{ active: boolean, onClick: () => void, children: React.ReactNode }> = ({ active, onClick, children }) => (
@@ -40,7 +40,7 @@ const EditModal: React.FC<EditModalProps> = ({
     initialTab = 'inpaint'
 }) => {
   const isOnline = useNetworkStatus();
-  const [mode, setMode] = useState<'inpaint' | 'crop' | 'background'>(initialTab);
+  const [mode, setMode] = useState<'inpaint' | 'crop' | 'background' | 'element'>(initialTab);
   const [showOriginalBg, setShowOriginalBg] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
   const [isDownloading, setIsDownloading] = useState(false);
@@ -401,10 +401,26 @@ const EditModal: React.FC<EditModalProps> = ({
                         <TabButton active={mode === 'inpaint'} onClick={() => setMode('inpaint')}>Inpaint</TabButton>
                         <TabButton active={mode === 'crop'} onClick={() => setMode('crop')}>Crop</TabButton>
                         <TabButton active={mode === 'background'} onClick={() => setMode('background')}>Remove BG</TabButton>
+                        <TabButton active={mode === 'element'} onClick={() => setMode('element')}>Elements</TabButton>
                     </div>
 
                     {image.imageUrl && (
                         <div className="space-y-6">
+                            {mode === 'element' && (
+                                <div className="space-y-4 text-center py-8">
+                                    <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <Icon name="sparkles" className="w-8 h-8 text-primary" />
+                                    </div>
+                                    <h3 className="font-bold text-xl text-slate-800">Element by Element Editing</h3>
+                                    <p className="text-slate-600 text-sm">
+                                        Coming soon! You will be able to select, move, and edit individual elements within your generated images.
+                                    </p>
+                                    <div className="inline-flex items-center justify-center px-4 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-full uppercase tracking-wider mt-2">
+                                        In Development
+                                    </div>
+                                </div>
+                            )}
+
                             {mode === 'inpaint' && (
                                 <>
                                     <label className="block text-sm font-semibold text-black">1. Brush area | 2. Describe</label>

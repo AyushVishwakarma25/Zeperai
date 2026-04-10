@@ -6,6 +6,7 @@ import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 import { DetailPanel } from './DetailPanel';
 import { LivePreview } from './ui/LivePreview';
+import { AdTextOverlay } from './ui/AdTextOverlay';
 import { useDesigns } from '../contexts/DesignsContext';
 import { Toast } from './ui/Toast';
 import { Spinner } from './ui/Spinner';
@@ -152,6 +153,12 @@ const MainContentComponent: React.FC<MainContentProps> = (props) => {
       }
   };
 
+  const handleUpdateImage = (updatedImage: GeneratedImage) => {
+      setDetailPanelImage(updatedImage);
+      // If we had a way to update the parent's generatedImages array, we would call it here.
+      // For now, updating the detailPanelImage state is enough to reflect changes in the panel.
+  };
+
   // SKELETON LOADING STATE
   if (props.isLoading) {
     return (
@@ -198,7 +205,12 @@ const MainContentComponent: React.FC<MainContentProps> = (props) => {
                     <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-6 p-4 md:p-8">
                         {props.generatedImages.map((image) => (
                             <div key={image.id} className="bg-white rounded-lg overflow-hidden shadow-md border border-slate-200 flex flex-col transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group mb-6" style={{ breakInside: 'avoid' }}>
-                                <div className="relative w-full bg-slate-50 cursor-zoom-in overflow-hidden" onClick={() => props.onSetZoomedImage(image)}><img src={image.imageUrl} className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105" alt="Result" /></div>
+                                <div className="relative w-full bg-slate-50 cursor-zoom-in overflow-hidden" onClick={() => props.onSetZoomedImage(image)}>
+                                    <img src={image.imageUrl} className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105" alt="Result" />
+                                    {image.params.appMode === AppMode.AdCreative && (
+                                        <AdTextOverlay params={image.params} />
+                                    )}
+                                </div>
                                 <div className="p-1 border-t border-slate-200 bg-white mt-auto">
                                     <div className="flex items-center justify-around">
                                         <IconButton icon="globe" label="Share to Community" onClick={(e) => { e.stopPropagation(); handleShare(image); }} isLoading={isSharing === image.id} />
@@ -213,7 +225,7 @@ const MainContentComponent: React.FC<MainContentProps> = (props) => {
                     </div>
                 )}
             </div>
-            {detailPanelImage && <DetailPanel image={detailPanelImage} onClose={() => setDetailPanelImage(null)} onGenerateCaption={props.onGenerateCaption} generatingCaptionImageId={props.generatingCaptionImageId} onOpenABTestModal={props.onOpenABTestModal}/>}
+            {detailPanelImage && <DetailPanel image={detailPanelImage} onClose={() => setDetailPanelImage(null)} onGenerateCaption={props.onGenerateCaption} generatingCaptionImageId={props.generatingCaptionImageId} onOpenABTestModal={props.onOpenABTestModal} onUpdateImage={handleUpdateImage}/>}
         </main>
     </div>
   );

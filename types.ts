@@ -9,6 +9,7 @@ export enum AppMode {
   Festival = 'Festival',
   Remix = 'Remix',
   Bulk = 'Bulk',
+  ThreeDStudio = '3D Studio',
 }
 
 export enum ResolutionQuality {
@@ -157,6 +158,18 @@ export enum RewriteAction {
 
 export type ModelPersona = string;
 
+export interface AdTemplate {
+  id: string;
+  name: string;
+  category: string;
+  promptInstruction: string;
+  adLayout: AdLayout;
+  fontFamily: string;
+  textColor: string;
+  copywritingVibe: string;
+  previewColor: string;
+}
+
 export interface GenerateImageParams {
   appMode: AppMode;
   productDescription: string;
@@ -189,6 +202,9 @@ export interface GenerateImageParams {
   adFeatures?: string;
   adCta?: string;
   adAvailability?: string;
+  adTemplateId?: string;
+  adFontFamily?: string;
+  adTextColor?: string;
   remixReferenceImage?: File;
   remixProductImage?: File;
   remixReferenceImageUrl?: string;
@@ -197,6 +213,8 @@ export interface GenerateImageParams {
   remixElements?: string;
   remixNegativePrompt?: string;
   modelSourceOption?: 'new' | 'existing';
+  modelSeedId?: string;
+  saveModel?: boolean;
   isComparisonMode?: boolean;
   productAFeatures?: string;
   productBFeatures?: string;

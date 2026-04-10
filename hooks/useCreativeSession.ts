@@ -190,11 +190,13 @@ export const useCreativeSession = (
             if (isFreeTrialGeneration) {
                 setFreeGenerationsUsed(prev => prev + cost);
             }
+            return results;
         } catch (err: any) {
             if (!isFreeTrialGeneration) refundCredits(cost);
             setError(err.message || 'Generation failed');
             // Restore the form so the user doesn't lose their place
             setActiveMode(generationModeRef.current);
+            return [];
         } finally {
             setIsLoading(false);
             isGeneratingRef.current = false; 

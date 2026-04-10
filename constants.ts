@@ -733,3 +733,61 @@ export const AD_STYLE_PRESETS = [
     thumbnail: 'https://placehold.co/300x300/F0ABFC/1E293B?text=Playful'
   }
 ];
+
+export const AD_TEMPLATES = [
+  {
+      id: 'neon-cyber',
+      name: 'Neon Cyber Sale',
+      category: 'Electronics',
+      promptInstruction: 'Cyberpunk aesthetic, neon lighting, dark background, high tech vibe, glowing accents.',
+      adLayout: AdLayout.TextLeftImageRight,
+      fontFamily: 'font-mono',
+      textColor: 'text-cyan-400',
+      copywritingVibe: 'Futuristic, urgent, tech-focused.',
+      previewColor: 'bg-slate-900 border-cyan-500'
+  },
+  {
+      id: 'luxury-minimal',
+      name: 'Luxury Minimalist',
+      category: 'Beauty',
+      promptInstruction: 'High-end luxury, soft diffused lighting, marble or silk textures, elegant and clean.',
+      adLayout: AdLayout.TextRightImageLeft,
+      fontFamily: 'font-serif',
+      textColor: 'text-slate-800',
+      copywritingVibe: 'Elegant, sophisticated, exclusive.',
+      previewColor: 'bg-stone-100 border-stone-300'
+  },
+  {
+      id: 'bold-fitness',
+      name: 'Bold Fitness',
+      category: 'Fitness',
+      promptInstruction: 'High contrast, dramatic shadows, gym or urban environment, energetic and powerful.',
+      adLayout: AdLayout.TextTopBottomImageCenter,
+      fontFamily: 'font-sans font-black uppercase tracking-tighter',
+      textColor: 'text-red-600',
+      copywritingVibe: 'Aggressive, motivational, punchy.',
+      previewColor: 'bg-zinc-900 border-red-600'
+  },
+  {
+      id: 'fresh-organic',
+      name: 'Fresh & Organic',
+      category: 'Food',
+      promptInstruction: 'Bright natural sunlight, green leaves, wooden textures, fresh and healthy vibe.',
+      adLayout: AdLayout.TextLeftImageRight,
+      fontFamily: 'font-sans font-medium',
+      textColor: 'text-emerald-700',
+      copywritingVibe: 'Natural, healthy, inviting.',
+      previewColor: 'bg-green-50 border-emerald-500'
+  },
+  {
+      id: 'pop-art',
+      name: 'Pop Art Splash',
+      category: 'Fashion',
+      promptInstruction: 'Vibrant solid color blocks, hard shadows, pop art style, trendy and youthful.',
+      adLayout: AdLayout.TextRightImageLeft,
+      fontFamily: 'font-sans font-extrabold tracking-tight',
+      textColor: 'text-yellow-400',
+      copywritingVibe: 'Fun, trendy, exciting.',
+      previewColor: 'bg-fuchsia-600 border-yellow-400'
+  }
+];

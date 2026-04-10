@@ -82,6 +82,7 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
     { label: 'Ad Creative', mode: AppMode.AdCreative },
     { label: 'Festival Shoot', mode: AppMode.Festival },
     { label: 'Remix', mode: AppMode.Remix },
+    { label: '3D Studio', mode: AppMode.ThreeDStudio },
     { label: 'Background Remover', action: onStartImageEdit },
   ];
 

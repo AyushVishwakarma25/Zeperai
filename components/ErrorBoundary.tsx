@@ -1,6 +1,4 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { Button } from './ui/Button';
-import { Icon } from './ui/Icon';
 
 interface Props {
   children?: ReactNode;
@@ -36,27 +34,24 @@ export class ErrorBoundary extends Component<Props, State> {
         : String(this.state.error || 'Unknown error occurred');
 
       return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4 text-center">
-          <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md border border-slate-200">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Icon name="close" className="w-8 h-8 text-red-500" />
-            </div>
-            <h1 className="text-2xl font-bold text-slate-800 mb-2">Something went wrong</h1>
-            <p className="text-slate-500 mb-6 text-sm">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#f8fafc', padding: '1rem', textAlign: 'center', fontFamily: 'sans-serif' }}>
+          <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '1rem', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', maxWidth: '28rem', border: '1px solid #e2e8f0' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '0.5rem' }}>Something went wrong</h1>
+            <p style={{ color: '#64748b', marginBottom: '1.5rem', fontSize: '0.875rem' }}>
               We encountered an unexpected error. Please try refreshing the page.
             </p>
-            <div className="bg-slate-100 p-3 rounded-lg text-left mb-6 overflow-hidden">
-                <p className="text-xs font-mono text-slate-600 break-words line-clamp-4">
+            <div style={{ backgroundColor: '#f1f5f9', padding: '0.75rem', borderRadius: '0.5rem', textAlign: 'left', marginBottom: '1.5rem', overflow: 'hidden' }}>
+                <p style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: '#475569', wordBreak: 'break-word' }}>
                     {errorMessage}
                 </p>
             </div>
-            <div className="flex gap-3 justify-center">
-                <Button variant="secondary" onClick={() => window.location.reload()}>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                <button style={{ padding: '0.5rem 1rem', backgroundColor: '#e2e8f0', color: '#1e293b', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }} onClick={() => window.location.reload()}>
                     Refresh Page
-                </Button>
-                <Button variant="primary" onClick={this.handleRetry}>
+                </button>
+                <button style={{ padding: '0.5rem 1rem', backgroundColor: '#3b82f6', color: 'white', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }} onClick={this.handleRetry}>
                     Try Again
-                </Button>
+                </button>
             </div>
           </div>
         </div>

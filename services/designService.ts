@@ -161,5 +161,14 @@ export const designService = {
         .eq('id', designId);
     
     if (error) throw error;
+  },
+
+  async updateDesignParams(designId: string, params: any): Promise<void> {
+    const { error } = await supabase
+        .from('designs')
+        .update({ params })
+        .eq('id', designId);
+    
+    if (error) throw error;
   }
 };

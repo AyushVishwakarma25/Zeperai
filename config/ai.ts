@@ -1,15 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
-import { env } from '../utils/env';
 
 /**
  * Creates and returns a configured GoogleGenAI instance.
- * Throws a clear error if the API key is not available at the time of creation,
- * which helps services fail gracefully with an informative message.
+ * Uses process.env.GEMINI_API_KEY directly to ensure compatibility with AI Studio's environment.
  */
 export const getAI = () => {
-    const apiKey = env.API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-        throw new Error("API Key is missing. Please ensure it is configured in your environment to use AI features.");
+        console.warn("API Key is missing. Please ensure it is configured in your environment to use AI features.");
     }
-    return new GoogleGenAI({ apiKey });
+    return new GoogleGenAI({ apiKey: apiKey || '' });
 };

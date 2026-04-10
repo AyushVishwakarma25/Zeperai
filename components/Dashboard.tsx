@@ -187,6 +187,16 @@ const DashboardHome: React.FC<DashboardProps> = ({
             onClick: () => onSelectMode(AppMode.Remix)
         },
         {
+            title: '3D Studio',
+            description: 'Upload 3D models (.glb/.gltf) and generate photorealistic lifestyle shots.',
+            color: '#D1D5DB', // gray-300
+            accentColor: '#374151', // gray-700
+            iconName: 'box',
+            onClick: () => onSelectMode(AppMode.ThreeDStudio),
+            isLocked: isProLocked,
+            onUnlock: onOpenPricingModal
+        },
+        {
             title: 'Festive Photoshoot',
             description: 'Seasonal themes and props. Transform your products for any holiday instantly.',
             color: '#E1D9CC', // card-tan

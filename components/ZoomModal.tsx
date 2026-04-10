@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { GeneratedImage } from '../types';
 import { Icon } from './ui/Icon';
+import { AdTextOverlay } from './ui/AdTextOverlay';
 
 interface ZoomModalProps {
   image: GeneratedImage;
@@ -84,21 +85,28 @@ const ZoomModal: React.FC<ZoomModalProps> = ({ image, onClose }) => {
         </button>
 
         <div 
-          className="w-full h-full flex items-center justify-center" 
+          className="w-full h-full flex items-center justify-center overflow-hidden relative" 
           onClick={(e) => e.stopPropagation()}
           onWheel={handleWheel}
         >
-            <img
-                ref={imageRef}
-                src={image.imageUrl}
-                alt="Zoomed view"
-                className={`max-w-[95vw] max-h-[95vh] object-contain transition-transform duration-150 ${isDragging ? '' : 'ease-out'}`}
+            <div
+                className={`relative transition-transform duration-150 ${isDragging ? '' : 'ease-out'}`}
                 style={{ 
                   transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`,
                   cursor: scale > MIN_SCALE ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
                 }}
                 onMouseDown={handleMouseDown}
-            />
+            >
+                <img
+                    ref={imageRef}
+                    src={image.imageUrl}
+                    alt="Zoomed view"
+                    className="max-w-[95vw] max-h-[95vh] object-contain pointer-events-none"
+                />
+                {image.params.appMode === 'Ad Creative' && (
+                    <AdTextOverlay params={image.params} />
+                )}
+            </div>
         </div>
 
          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white text-sm px-4 py-2 rounded-full z-[81] backdrop-blur-sm">

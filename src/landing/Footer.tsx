@@ -12,7 +12,7 @@ export const Footer: React.FC = () => {
             <BrandLogo variant="full" color="white" className="w-32 md:w-40 h-auto" />
           </div>
           <p className="text-sm max-w-sm mb-6">
-            ZeperAi connects your sales data to generative AI. Stop guessing what works. Instantly generate high-converting ad creatives, product visuals, and campaigns that drive real ROAS.
+            ZeperAi is the ultimate Pinterest for ads. Instantly generate high-converting ad creatives, product visuals, and campaigns that drive real ROAS.
           </p>
           <div className="flex gap-4">
             <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center hover:bg-[#4452FB] hover:text-white transition-colors">
@@ -32,7 +32,7 @@ export const Footer: React.FC = () => {
           <ul className="space-y-3 text-sm">
             <li><a href="/#features" className="hover:text-white transition-colors">Features</a></li>
             <li><a href="/#savings" className="hover:text-white transition-colors">ROI Calculator</a></li>
-            <li><Link to="/login" className="hover:text-white transition-colors">Pricing</Link></li>
+            <li><Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
             <li><Link to="/login" className="hover:text-white transition-colors">Sign In</Link></li>
           </ul>
         </div>
@@ -40,8 +40,9 @@ export const Footer: React.FC = () => {
         <div>
           <h4 className="text-white font-bold mb-4">Company</h4>
           <ul className="space-y-3 text-sm">
+            <li><Link to="/about" className="hover:text-white transition-colors">About Us</Link></li>
             <li><Link to="/blog" className="hover:text-white transition-colors">Blog</Link></li>
-            <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
+            <li><Link to="/contact" className="hover:text-white transition-colors">Contact</Link></li>
             <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
             <li><Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
           </ul>

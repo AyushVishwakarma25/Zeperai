@@ -8,6 +8,7 @@ import { generateFilename, downloadImage } from '../utils/images';
 import { useDesigns } from '../contexts/DesignsContext';
 import { Toast } from './ui/Toast';
 import { DetailPanel } from './DetailPanel';
+import { AdTextOverlay } from './ui/AdTextOverlay';
 import { inspirationService } from '../services/inspirationService';
 
 interface MyDesignsProps {
@@ -72,6 +73,10 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
       }
   };
 
+  const handleUpdateImage = (updatedImage: GeneratedImage) => {
+      setDetailPanelImage(updatedImage);
+  };
+
   return (
     <div className="w-full h-full bg-white flex flex-col relative">
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -109,7 +114,7 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
                             ref={index === designs.length - 1 ? lastElementRef : null} 
                             className="break-inside-avoid bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200 flex flex-col group transition-all hover:shadow-md mb-6"
                         >
-                            <div className="relative cursor-zoom-in bg-slate-50" onClick={() => onSetZoomedImage(image)}>
+                            <div className="relative cursor-zoom-in bg-slate-50 overflow-hidden" onClick={() => onSetZoomedImage(image)}>
                                 {/* Removed fixed aspect ratio, using h-auto to respect content size */}
                                 <img 
                                     src={image.imageUrl} 
@@ -117,6 +122,9 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
                                     className="w-full h-auto object-cover block transition-transform duration-500 group-hover:scale-105" 
                                     loading="lazy" 
                                 />
+                                {image.params.appMode === 'Ad Creative' && (
+                                    <AdTextOverlay params={image.params} />
+                                )}
                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
                             </div>
                             <div className="p-2 border-t border-slate-100 flex items-center justify-between gap-1 bg-white">
@@ -140,6 +148,7 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
                 onGenerateCaption={onGenerateCaption}
                 generatingCaptionImageId={generatingCaptionImageId}
                 onOpenABTestModal={onOpenABTestModal}
+                onUpdateImage={handleUpdateImage}
             />
         )}
     </div>

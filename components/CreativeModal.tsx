@@ -131,12 +131,30 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
       }
   }
 
-  const handleAspectRatioChange = (ratio: AspectRatio) => {
-      onParamsChange(prev => ({
-          ...prev,
-          aspectRatios: toggleAspectRatio(prev.aspectRatios || [], ratio, userTier)
-      }));
-  };
+    const handleAspectRatioChange = (ratio: AspectRatio) => {
+        if (mode === AppMode.Fashion) {
+            // Restrict Fashion Studio to a single aspect ratio
+            onParamsChange(prev => ({
+                ...prev,
+                aspectRatios: [ratio]
+            }));
+        } else if (mode === AppMode.Product) {
+            // Restrict Product Studio to a single aspect ratio if multiple presets or angles are selected
+            onParamsChange(prev => {
+                const hasMultiplePresets = prev.productStylePresets && prev.productStylePresets.length > 1;
+                const hasMultipleAngles = prev.selectedAngles && prev.selectedAngles.length > 1;
+                if (hasMultiplePresets || hasMultipleAngles) {
+                    return { ...prev, aspectRatios: [ratio] };
+                }
+                return { ...prev, aspectRatios: toggleAspectRatio(prev.aspectRatios || [], ratio, userTier) };
+            });
+        } else {
+            onParamsChange(prev => ({
+                ...prev,
+                aspectRatios: toggleAspectRatio(prev.aspectRatios || [], ratio, userTier)
+            }));
+        }
+    };
 
   const handleAngleChange = (angle: string) => {
       onParamsChange(prev => {
@@ -288,6 +306,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                         handleAspectRatioChange={handleAspectRatioChange}
                         batchOptions={[1, 4, 8]}
                         userTier={userTier}
+                        hideMultiSelectLabel={isFashion || (mode === AppMode.Product && ((params.productStylePresets?.length || 0) > 1 || (params.selectedAngles?.length || 0) > 1))}
                     />
                 </div>
             </div>

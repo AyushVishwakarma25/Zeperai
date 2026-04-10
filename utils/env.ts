@@ -28,7 +28,7 @@ export const env = {
     // This key is loaded dynamically by AI Studio and may be empty initially.
     // It's not required on startup, so it should not throw an error.
     // Services that use it must handle the case where it's an empty string.
-    API_KEY: getString('API_KEY', ''), 
+    API_KEY: process.env.API_KEY || getString('GEMINI_API_KEY', getString('API_KEY', '')), 
     
     // Supabase keys ARE required for the client to initialize.
     // We provide the public defaults as fallbacks to prevent crashes.

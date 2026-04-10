@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 
 const FloatingIcon = ({ children, className, delay, duration, yOffset }: any) => {
   return (

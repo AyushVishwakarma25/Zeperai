@@ -14,6 +14,8 @@ import {
 import { generateFilename, downloadImage } from '../utils/images';
 import { inspirationService } from '../services/inspirationService';
 import { Toast } from './ui/Toast';
+import { AdTextOverlay } from './ui/AdTextOverlay';
+import { useDesigns } from '../contexts/DesignsContext';
 
 interface DetailPanelProps {
   image: GeneratedImage;
@@ -21,6 +23,7 @@ interface DetailPanelProps {
   onGenerateCaption: (imageId: string, params: Omit<GenerateCaptionParams, 'imageUrl' | 'existingCaption'>) => void;
   generatingCaptionImageId: string | null;
   onOpenABTestModal: (image: GeneratedImage) => void;
+  onUpdateImage?: (image: GeneratedImage) => void;
 }
 
 const SocialButton: React.FC<{ href: string; icon: string; label: string; onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void; }> = ({ href, icon, label, onClick }) => (
@@ -62,7 +65,7 @@ const Toggle: React.FC<{ label: string; enabled: boolean; onChange: (enabled: bo
   );
 };
 
-export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGenerateCaption, generatingCaptionImageId, onOpenABTestModal }) => {
+export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGenerateCaption, generatingCaptionImageId, onOpenABTestModal, onUpdateImage }) => {
     const [isWriterOpen, setIsWriterOpen] = useState(true); 
     const [showOriginal, setShowOriginal] = useState(false);
     
@@ -77,17 +80,109 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
     const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
     const [downloadFormat, setDownloadFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
     const [isDownloading, setIsDownloading] = useState(false);
+    const imageContainerRef = React.useRef<HTMLDivElement>(null);
+
+    // Local state for Ad Copy editing
+    const [adTitle, setAdTitle] = useState(image.params.adTitle || '');
+    const [adSubheading, setAdSubheading] = useState(image.params.adSubheading || '');
+    const [adCta, setAdCta] = useState(image.params.adCta || '');
+    const [isAdCopyOpen, setIsAdCopyOpen] = useState(true);
+    const [isGeneratingAdCopy, setIsGeneratingAdCopy] = useState(false);
+    const { updateDesign } = useDesigns();
+
+    React.useEffect(() => {
+        setAdTitle(image.params.adTitle || '');
+        setAdSubheading(image.params.adSubheading || '');
+        setAdCta(image.params.adCta || '');
+    }, [image.id, image.params.adTitle, image.params.adSubheading, image.params.adCta]);
 
     const isGenerating = generatingCaptionImageId === image.id;
+
+    const hasAdCopyChanged = adTitle !== (image.params.adTitle || '') || 
+                             adSubheading !== (image.params.adSubheading || '') || 
+                             adCta !== (image.params.adCta || '');
+
+    const handleGenerateAdCopy = async () => {
+        setIsGeneratingAdCopy(true);
+        try {
+            const { generateAdCopy } = await import('../services/geminiService');
+            const { AD_TEMPLATES } = await import('../constants');
+            
+            let vibe = undefined;
+            if (image.params.adTemplateId) {
+                const template = AD_TEMPLATES.find(t => t.id === image.params.adTemplateId);
+                if (template) vibe = template.copywritingVibe;
+            }
+
+            const result = await generateAdCopy(
+                image.params.productDescription || 'A product', 
+                image.params.adStylePreset || 'Modern',
+                vibe
+            );
+            setAdTitle(result.title);
+            setAdSubheading(result.subheading);
+            setAdCta(result.cta);
+            setToast({ message: "Ad copy generated!", type: 'success' });
+        } catch (e) {
+            console.error("Failed to generate ad copy", e);
+            setToast({ message: "Failed to generate ad copy.", type: 'error' });
+        } finally {
+            setIsGeneratingAdCopy(false);
+        }
+    };
+
+    const handleSaveAdCopy = async () => {
+        const updatedImage = {
+            ...image,
+            params: {
+                ...image.params,
+                adTitle,
+                adSubheading,
+                adCta
+            }
+        };
+        
+        // Update in DesignsContext if it's a saved design
+        updateDesign(updatedImage);
+        
+        // Also update via prop if provided (for newly generated images)
+        if (onUpdateImage) {
+            onUpdateImage(updatedImage);
+        }
+
+        // If it's a saved design, we should ideally persist it to the backend here
+        // For now, we'll just update local state
+        try {
+            const { designService } = await import('../services/designService');
+            if (image.id && !image.id.startsWith('local-')) {
+                await designService.updateDesignParams(image.id, updatedImage.params);
+            }
+        } catch (e) {
+            console.error("Failed to persist ad copy changes", e);
+        }
+
+        setToast({ message: "Ad copy saved!", type: 'success' });
+    };
 
     const imageUrl = showOriginal && image.sourceProductImageUrl ? image.sourceProductImageUrl : image.imageUrl;
 
     const handleDownload = useCallback(async () => {
         setIsDownloading(true);
         const filename = generateFilename(image, 'design');
-        await downloadImage(image.imageUrl, filename, downloadFormat);
+        try {
+            if (image.params.appMode === 'Ad Creative' && imageContainerRef.current && !showOriginal) {
+                // Download the composite image (image + text overlay)
+                const { downloadCompositeImage } = await import('../utils/images');
+                await downloadCompositeImage(imageContainerRef.current, filename, downloadFormat);
+            } else {
+                await downloadImage(image.imageUrl, filename, downloadFormat);
+            }
+        } catch (e) {
+            console.error("Download failed", e);
+            setToast({ message: "Download failed. Try again.", type: 'error' });
+        }
         setIsDownloading(false);
-    }, [image, downloadFormat]);
+    }, [image, downloadFormat, showOriginal]);
 
     const handleGenerateContent = useCallback(() => {
         onGenerateCaption(image.id, {
@@ -146,8 +241,11 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
                     
                     {/* Image Preview */}
                     <div>
-                        <div className="relative group rounded-xl overflow-hidden shadow-sm border border-slate-100">
-                            <img src={imageUrl} alt={image.caption} className="w-full h-auto object-cover" />
+                        <div ref={imageContainerRef} className="relative group rounded-xl overflow-hidden shadow-sm border border-slate-100">
+                            <img src={imageUrl} alt={image.caption} className="w-full h-auto object-cover" crossOrigin="anonymous" />
+                            {image.params.appMode === 'Ad Creative' && (
+                                <AdTextOverlay params={image.params} overrides={{ adTitle, adSubheading, adCta }} />
+                            )}
                             {image.sourceProductImageUrl && (
                                 <Button 
                                     variant="ghost" 
@@ -160,6 +258,72 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
                             )}
                         </div>
                     </div>
+
+                    {/* Ad Copy Editor Section */}
+                    {image.params.appMode === 'Ad Creative' && (
+                        <div className="border border-slate-200 rounded-xl overflow-hidden">
+                            <button 
+                                onClick={() => setIsAdCopyOpen(!isAdCopyOpen)} 
+                                className="w-full flex justify-between items-center p-4 bg-slate-50 hover:bg-slate-100 transition-colors font-semibold text-slate-700"
+                            >
+                                <span className="flex items-center">
+                                    <Icon name="edit" className="w-4 h-4 mr-2 text-primary" />
+                                    Edit Ad Copy
+                                </span>
+                                <Icon name="chevron-down" className={`w-4 h-4 transition-transform duration-300 ${isAdCopyOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            
+                            {isAdCopyOpen && (
+                                <div className="p-4 bg-white border-t border-slate-100 space-y-4 animate-fade-in">
+                                    <Button 
+                                        onClick={handleGenerateAdCopy} 
+                                        isLoading={isGeneratingAdCopy} 
+                                        variant="secondary" 
+                                        fullWidth 
+                                        className="mb-2 !bg-blue-50 !text-blue-600 hover:!bg-blue-100 border border-blue-100"
+                                    >
+                                        <Icon name="sparkles" className="w-4 h-4 mr-2" />
+                                        ✨ Auto-Generate Copy
+                                    </Button>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Headline</label>
+                                        <input 
+                                            type="text" 
+                                            value={adTitle} 
+                                            onChange={(e) => setAdTitle(e.target.value)}
+                                            className="w-full p-2 border border-slate-300 rounded-md focus:ring-primary focus:border-primary"
+                                            placeholder="e.g., Summer Sale"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Subheading</label>
+                                        <textarea 
+                                            value={adSubheading} 
+                                            onChange={(e) => setAdSubheading(e.target.value)}
+                                            className="w-full p-2 border border-slate-300 rounded-md focus:ring-primary focus:border-primary"
+                                            placeholder="e.g., Get 50% off on all items"
+                                            rows={2}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Call to Action</label>
+                                        <input 
+                                            type="text" 
+                                            value={adCta} 
+                                            onChange={(e) => setAdCta(e.target.value)}
+                                            className="w-full p-2 border border-slate-300 rounded-md focus:ring-primary focus:border-primary"
+                                            placeholder="e.g., Shop Now"
+                                        />
+                                    </div>
+                                    {hasAdCopyChanged && (
+                                        <Button onClick={handleSaveAdCopy} fullWidth variant="primary" className="mt-2">
+                                            Save Changes
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* AI Content Writer Section */}
                     <div className="border border-slate-200 rounded-xl overflow-hidden">

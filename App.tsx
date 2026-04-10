@@ -23,12 +23,19 @@ import { AppMainView } from './components/AppMainView';
 import { Layout } from './components/Layout';
 import { Spinner } from './components/ui/Spinner';
 import { SplashScreen } from './components/SplashScreen';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LandingPage } from './src/landing/LandingPage';
 import { PrivacyPolicyPage } from './src/landing/PrivacyPolicyPage';
 import { TermsPage } from './src/landing/TermsPage';
 import { BlogPage } from './src/landing/BlogPage';
+import { PricingPage } from './src/landing/PricingPage';
+import { AboutUsPage } from './src/landing/AboutUsPage';
+import { ContactPage } from './src/landing/ContactPage';
+
+// Lazy load ThreeDStudio to avoid loading heavy 3D libraries on startup
+const ThreeDStudio = React.lazy(() => import('./components/modes/ThreeDStudio').then(m => ({ default: m.ThreeDStudio })));
 
 const dataURLToParts = (dataURL: string) => {
     const parts = dataURL.split(',');
@@ -61,7 +68,7 @@ const AppInternal: React.FC = () => {
   // Creative Workflow State
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editingImage, setEditingImage] = useState<GeneratedImage | null>(null);
-  const [editModalInitialTab, setEditModalInitialTab] = useState<'inpaint' | 'crop' | 'background'>('inpaint');
+  const [editModalInitialTab, setEditModalInitialTab] = useState<'inpaint' | 'crop' | 'background' | 'element'>('inpaint');
   const [zoomedImage, setZoomedImage] = useState<GeneratedImage | null>(null);
   const [abTestModalImage, setAbTestModalImage] = useState<GeneratedImage | null>(null);
   const [generatingCaptionImageId, setGeneratingCaptionImageId] = useState<string | null>(null);
@@ -103,10 +110,22 @@ const AppInternal: React.FC = () => {
   // --- USE CREATIVE SESSION ---
   const creative = useCreativeSession(userTier, freeGenerationsUsed, setFreeGenerationsUsed, handleCheckCredits, handleRefundCredits);
 
-  const handleGenerateWrapper = useCallback((currentParams: GenerateImageParams) => {
+  const handleGenerateWrapper = useCallback(async (currentParams: GenerateImageParams) => {
       setCurrentView(View.Dashboard); 
-      creative.handleGenerate(currentParams, appData.brandKit);
-  }, [creative, appData.brandKit]);
+      const results = await creative.handleGenerate(currentParams, appData.brandKit);
+      
+      if (results && results.length > 0 && currentParams.saveModel) {
+          const firstImage = results[0];
+          const modelName = `Model #${Math.floor(1000 + Math.random() * 9000)}`;
+          try {
+              const newModels = await userService.saveModel(modelName, firstImage.imageUrl, appData.savedModels);
+              appData.setSavedModels(newModels);
+              setToast({ message: `Saved AI Model as "${modelName}"!`, type: 'success' });
+          } catch (err: any) {
+              setToast({ message: "Failed to save model.", type: 'error' });
+          }
+      }
+  }, [creative, appData.brandKit, appData.savedModels, appData.setSavedModels]);
 
   // --- HANDLERS ---
 
@@ -332,6 +351,9 @@ const AppInternal: React.FC = () => {
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/blog" element={<BlogPage />} />
+      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/about" element={<AboutUsPage />} />
+      <Route path="/contact" element={<ContactPage />} />
       <Route path="/login" element={!user ? <LoginPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to="/dashboard" replace />} />
       <Route path="/signup" element={!user ? <SignupPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to="/dashboard" replace />} />
       <Route path="/dashboard" element={
@@ -410,7 +432,25 @@ const AppInternal: React.FC = () => {
                 />
             </Layout>
 
-            {creative.activeMode && (
+            {creative.activeMode === AppMode.ThreeDStudio && (
+                <div className="fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8">
+                    <div className="w-full max-w-6xl h-full max-h-[90vh] bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-slate-700">
+                        <React.Suspense fallback={<div className="flex h-full items-center justify-center"><Spinner /></div>}>
+                            <ThreeDStudio 
+                                onClose={() => creative.setActiveMode(null)}
+                                onSnapshot={(file) => {
+                                    creative.setActiveMode(null);
+                                    // Set the snapshot as the product image and open Product mode
+                                    creative.handleFileChange(file, 'frontProductImage', creative.setFrontProductImagePreview, { maxSizeMB: 5, maxWidthOrHeight: 2048 });
+                                    setTimeout(() => creative.setActiveMode(AppMode.Product), 100);
+                                }}
+                            />
+                        </React.Suspense>
+                    </div>
+                </div>
+            )}
+
+            {creative.activeMode && creative.activeMode !== AppMode.ThreeDStudio && (
                 <CreativeModal
                     key={creative.activeMode} 
                     mode={creative.activeMode}
@@ -491,9 +531,11 @@ const AppInternal: React.FC = () => {
 
 const App: React.FC = () => {
     return (
-        <ModalProvider>
-            <AppInternal />
-        </ModalProvider>
+        <ErrorBoundary>
+            <ModalProvider>
+                <AppInternal />
+            </ModalProvider>
+        </ErrorBoundary>
     );
 };
 

@@ -1,8 +1,7 @@
 
 import React, { useState } from 'react';
 import type { GenerateImageParams } from '../../types';
-import { AD_LAYOUT_OPTIONS, COMPARISON_LAYOUT_OPTIONS, AD_STYLE_PRESETS } from '../../constants';
-import { Select } from '../ui/Select';
+import { AD_TEMPLATES, COMPARISON_LAYOUT_OPTIONS } from '../../constants';
 import { FormInput, FormTextArea } from '../ui/Form';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
@@ -20,26 +19,24 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
 }) => {
     const [showScorecard, setShowScorecard] = useState(false);
 
-    // Toggle comparison mode
-    const toggleComparisonMode = () => {
-        handleParamChange('isComparisonMode', !params.isComparisonMode);
+    // Convert comparison layout options to StyleSelector format
+    const comparisonStyleSelectorOptions = COMPARISON_LAYOUT_OPTIONS.map(opt => ({
+        label: opt.label,
+        value: opt.value,
+        thumbnail: opt.thumbnail
+    }));
+
+    const handleTemplateSelect = (templateId: string) => {
+        const template = AD_TEMPLATES.find(t => t.id === templateId);
+        if (template) {
+            handleParamChange('adTemplateId', template.id);
+            handleParamChange('adLayout', template.adLayout);
+            handleParamChange('adFontFamily', template.fontFamily);
+            handleParamChange('adTextColor', template.textColor);
+            // We can store the prompt instruction in adStylePreset or a new field.
+            // For now, we'll just rely on adTemplateId in geminiService.
+        }
     };
-
-    const layoutOptions = params.isComparisonMode ? COMPARISON_LAYOUT_OPTIONS : AD_LAYOUT_OPTIONS;
-
-    // Convert layout options to StyleSelector format
-    const styleSelectorOptions = layoutOptions.map(opt => ({
-        label: opt.label,
-        value: opt.value,
-        thumbnail: opt.thumbnail
-    }));
-
-    // Convert ad style presets to StyleSelector format
-    const stylePresetOptions = AD_STYLE_PRESETS.map(opt => ({
-        label: opt.label,
-        value: opt.value,
-        thumbnail: opt.thumbnail
-    }));
 
     return (
         <>
@@ -67,25 +64,42 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
             </div>
             
             <div className="space-y-6">
-                <div>
-                    <HelpLabel label="Ad Layout Preset" tooltip="Choose a layout structure that fits your content strategy." />
-                    <StyleSelector 
-                        options={styleSelectorOptions}
-                        value={params.adLayout || ''}
-                        onChange={(val) => handleParamChange('adLayout', val)}
-                        className="grid-cols-2"
-                    />
-                </div>
-
-                <div>
-                    <HelpLabel label="Creative Style" tooltip="Define the aesthetic mood of the ad." />
-                    <StyleSelector 
-                        options={stylePresetOptions}
-                        value={params.adStylePreset || '✨ AI Suggested'}
-                        onChange={(val) => handleParamChange('adStylePreset', val)}
-                        className="grid-cols-2 sm:grid-cols-3"
-                    />
-                </div>
+                {params.isComparisonMode ? (
+                    <div>
+                        <HelpLabel label="Comparison Layout" tooltip="Choose a layout structure for your comparison ad." />
+                        <StyleSelector 
+                            options={comparisonStyleSelectorOptions}
+                            value={params.adLayout || ''}
+                            onChange={(val) => handleParamChange('adLayout', val)}
+                            className="grid-cols-2"
+                        />
+                    </div>
+                ) : (
+                    <div>
+                        <HelpLabel label="Ad Template" tooltip="Choose a pre-designed template with optimized layouts, fonts, and AI prompts." />
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {AD_TEMPLATES.map(template => (
+                                <button
+                                    key={template.id}
+                                    onClick={() => handleTemplateSelect(template.id)}
+                                    className={`relative flex flex-col items-center p-3 rounded-xl border-2 transition-all text-left ${
+                                        params.adTemplateId === template.id 
+                                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
+                                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <div className={`w-full aspect-video rounded-lg mb-2 flex items-center justify-center border ${template.previewColor}`}>
+                                        <span className={`text-xs font-bold ${template.textColor} ${template.fontFamily}`}>
+                                            {template.name}
+                                        </span>
+                                    </div>
+                                    <span className="text-sm font-medium text-slate-800 w-full truncate">{template.name}</span>
+                                    <span className="text-xs text-slate-500 w-full truncate">{template.category}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
                 
                 <FormInput 
                     label={params.isComparisonMode ? "Headline (e.g. Us vs Them)" : "Ad Title"}
