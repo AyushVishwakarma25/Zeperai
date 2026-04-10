@@ -1,5 +1,5 @@
 
-import { AppMode, GenerateImageParams, AspectRatio, ProductCategory, ResolutionQuality } from '../types';
+import { AppMode, GenerateImageParams, AspectRatio, ProductCategory, ResolutionQuality, AdLayout } from '../types';
 import { AI_SUGGESTED } from '../constants';
 
 /**
@@ -62,6 +62,11 @@ export const getModeDefaults = (
         }
     } else if (targetMode === AppMode.Influencer) {
         updates.modelSourceOption = 'new';
+    } else if (targetMode === AppMode.AdCreative) {
+        updates.adTemplateId = 'luxury-minimal';
+        updates.adLayout = AdLayout.TextRightImageLeft;
+        updates.adFontFamily = 'font-serif';
+        updates.adTextColor = 'text-slate-800';
     }
 
     return updates;

@@ -32,6 +32,15 @@ export const LandingPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE]">
+      <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(calc(-50% - 12px)); }
+        }
+        .animate-marquee {
+          animation: marquee 30s linear infinite;
+        }
+      `}</style>
       <LandingHeader />
 
       {/* SECTION 2 — HERO (Revamped) */}
@@ -192,27 +201,27 @@ export const LandingPage: React.FC = () => {
             Building creative that converts is expensive, slow, and broken.
           </h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center mb-6">
-              <Icon name="currency-rupee" className="w-6 h-6 text-red-600" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:-translate-y-2 hover:shadow-xl transition-all duration-300 cursor-pointer group">
+            <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <Icon name="currency-rupee" className="w-5 h-5 text-red-600" />
             </div>
-            <h3 className="text-xl font-bold mb-3 text-slate-900">Agencies cost a fortune.</h3>
-            <p className="text-slate-600">A single ad shoot costs ₹50,000–₹2L. You wait 2 weeks, get 5 images, and hope they perform.</p>
+            <h3 className="text-lg font-bold mb-2 text-slate-900">Agencies cost a fortune.</h3>
+            <p className="text-slate-600 text-sm leading-relaxed">A single ad shoot costs ₹50,000–₹2L. You wait 2 weeks, get 5 images, and hope they perform.</p>
           </div>
-          <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center mb-6">
-              <Icon name="robot" className="w-6 h-6 text-orange-600" />
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:-translate-y-2 hover:shadow-xl transition-all duration-300 cursor-pointer group">
+            <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <Icon name="robot" className="w-5 h-5 text-orange-600" />
             </div>
-            <h3 className="text-xl font-bold mb-3 text-slate-900">Generic AI tools don't understand e-commerce.</h3>
-            <p className="text-slate-600">Midjourney is great for art. Canva is great for presentations. Neither knows what drives ROAS.</p>
+            <h3 className="text-lg font-bold mb-2 text-slate-900">Generic AI tools don't understand e-commerce.</h3>
+            <p className="text-slate-600 text-sm leading-relaxed">Midjourney is great for art. Canva is great for presentations. Neither knows what drives ROAS.</p>
           </div>
-          <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-6">
-              <Icon name="eye-off" className="w-6 h-6 text-blue-600" />
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:-translate-y-2 hover:shadow-xl transition-all duration-300 cursor-pointer group">
+            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <Icon name="eye-off" className="w-5 h-5 text-blue-600" />
             </div>
-            <h3 className="text-xl font-bold mb-3 text-slate-900">You're flying blind on what actually works.</h3>
-            <p className="text-slate-600">Posting creatives without knowing which format, style, or hook converts — is just expensive guesswork.</p>
+            <h3 className="text-lg font-bold mb-2 text-slate-900">You're flying blind on what actually works.</h3>
+            <p className="text-slate-600 text-sm leading-relaxed">Posting creatives without knowing which format, style, or hook converts — is just expensive guesswork.</p>
           </div>
         </div>
       </section>
@@ -258,7 +267,7 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* SECTION - FEATURES */}
+      {/* SECTION - FEATURES (BENTO GRID) */}
       <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-black mb-6 tracking-tight text-slate-900">
@@ -266,101 +275,239 @@ export const LandingPage: React.FC = () => {
           </h2>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* 1. Product Studio */}
-          <div className="bg-slate-50 p-8 rounded-3xl border border-slate-200 hover:shadow-lg transition-shadow">
-            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-6">
-              <Icon name="camera" className="w-6 h-6 text-blue-600" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:auto-rows-[240px]">
+          {/* 1. Product Studio (Wide 2x1) */}
+          <div className="md:col-span-2 md:row-span-1 bg-gradient-to-br from-[#E0F2FE] to-[#BAE6FD] rounded-3xl p-8 relative overflow-hidden group">
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 w-48 h-48 bg-white/40 rounded-full blur-2xl group-hover:bg-white/60 transition-all duration-500"></div>
+            <div className="relative z-10 h-full flex flex-col justify-between">
+              <div>
+                <div className="text-xs font-bold tracking-widest text-[#0284C7] uppercase mb-2">Product</div>
+                <h3 className="text-2xl md:text-3xl font-bold text-slate-900 leading-tight max-w-[280px]">Professional product visuals instantly.</h3>
+              </div>
+              <div className="mt-4">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                  Cut shoot costs by 90%
+                </div>
+              </div>
             </div>
-            <h3 className="text-2xl font-bold mb-2 text-slate-900">Product Studio</h3>
-            <p className="text-slate-600 mb-4 font-medium">Professional product visuals without a studio or photographer.</p>
-            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-              <p className="text-sm text-blue-900 font-bold"><span className="uppercase tracking-wider text-blue-600 text-xs block mb-1">Benefit</span> Cut product shoot costs by 90%. Generate 50 SKU images in the time it used to take to book a single shoot.</p>
-            </div>
-          </div>
-
-          {/* 2. AI UGC Influencer */}
-          <div className="bg-slate-50 p-8 rounded-3xl border border-slate-200 hover:shadow-lg transition-shadow">
-            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-6">
-              <Icon name="users" className="w-6 h-6 text-purple-600" />
-            </div>
-            <h3 className="text-2xl font-bold mb-2 text-slate-900">AI UGC Influencer</h3>
-            <p className="text-slate-600 mb-4 font-medium">Realistic influencer-style content — no casting, no contracts, no overhead.</p>
-            <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
-              <p className="text-sm text-purple-900 font-bold"><span className="uppercase tracking-wider text-purple-600 text-xs block mb-1">Benefit</span> Scale your UGC library 10x without paying a single creator fee.</p>
+            <div className="absolute right-4 bottom-4 w-32 h-32 opacity-80 group-hover:scale-110 transition-transform duration-500">
+               <img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=300&q=80" alt="Product" className="w-full h-full object-cover rounded-full shadow-xl border-4 border-white" />
             </div>
           </div>
 
-          {/* 3. Fashion Studio */}
-          <div className="bg-slate-50 p-8 rounded-3xl border border-slate-200 hover:shadow-lg transition-shadow">
-            <div className="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center mb-6">
-              <Icon name="sparkles" className="w-6 h-6 text-pink-600" />
-            </div>
-            <h3 className="text-2xl font-bold mb-2 text-slate-900">Fashion Studio</h3>
-            <p className="text-slate-600 mb-4 font-medium">On-model clothing visuals powered by generative AI.</p>
-            <div className="bg-pink-50 p-4 rounded-xl border border-pink-100">
-              <p className="text-sm text-pink-900 font-bold"><span className="uppercase tracking-wider text-pink-600 text-xs block mb-1">Benefit</span> List new inventory instantly. No model booking, no photoshoot delays — go live the same day.</p>
-            </div>
-          </div>
-
-          {/* 4. Ad Generator + Brand Intelligence */}
-          <div className="bg-slate-50 p-8 rounded-3xl border border-slate-200 hover:shadow-lg transition-shadow">
-            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-6">
-              <Icon name="zap" className="w-6 h-6 text-orange-600" />
-            </div>
-            <h3 className="text-2xl font-bold mb-2 text-slate-900">Ad Generator + Brand Intelligence</h3>
-            <p className="text-slate-600 mb-4 font-medium">Predictive creative analytics paired with automated, high-converting ad layouts.</p>
-            <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
-              <p className="text-sm text-orange-900 font-bold"><span className="uppercase tracking-wider text-orange-600 text-xs block mb-1">Benefit</span> Stop guessing. Know which creatives will perform before you spend a rupee on ads.</p>
+          {/* 2. AI UGC Influencer (Tall 1x2) */}
+          <div className="md:col-span-1 md:row-span-2 bg-slate-900 rounded-3xl p-8 relative overflow-hidden group">
+            <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=400&q=80" alt="Fashion" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-50 transition-opacity duration-500 mix-blend-luminosity" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
+            <div className="relative z-10 h-full flex flex-col justify-between">
+              <div>
+                <div className="text-xs font-bold tracking-widest text-slate-300 uppercase mb-2">Influencer</div>
+                <h3 className="text-2xl font-bold text-white leading-tight">Realistic UGC content at scale.</h3>
+              </div>
+              <div className="mt-4">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                  No creator fees
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* 5. 100+ High-CTR Templates */}
-          <div className="bg-slate-50 p-8 rounded-3xl border border-slate-200 hover:shadow-lg transition-shadow md:col-span-2">
-            <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mb-6">
-              <Icon name="layout" className="w-6 h-6 text-emerald-600" />
+          {/* 3. Fashion Studio (Tall 1x2) */}
+          <div className="md:col-span-1 md:row-span-2 bg-gradient-to-br from-[#FFEDD5] to-[#FED7AA] rounded-3xl p-8 relative overflow-hidden group">
+            <div className="relative z-10 h-full flex flex-col justify-between">
+              <div>
+                <div className="text-xs font-bold tracking-widest text-[#C2410C] uppercase mb-2">Fashion</div>
+                <h3 className="text-2xl font-bold text-slate-900 leading-tight">On-model clothing visuals.</h3>
+              </div>
+              <div className="mt-4">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                  Go live same day
+                </div>
+              </div>
             </div>
-            <h3 className="text-2xl font-bold mb-2 text-slate-900">100+ High-CTR Templates — Your unfair advantage</h3>
-            <p className="text-slate-600 mb-4 font-medium">Every template in ZeperAI is curated from proven, high-performing creatives across real ad campaigns.</p>
-            <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-              <p className="text-sm text-emerald-900 font-bold"><span className="uppercase tracking-wider text-emerald-600 text-xs block mb-1">Benefit</span> Stop starting from a blank canvas. Start from a template that already converts — and make it yours in seconds.</p>
-            </div>
-          </div>
-
-          {/* 6. Shopify Analytics (Hero Differentiator) */}
-          <div className="bg-[#4452FB] p-8 rounded-3xl border border-[#3641C9] hover:shadow-xl transition-shadow md:col-span-2 text-white relative overflow-hidden">
-             <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 blur-[80px] rounded-full pointer-events-none"></div>
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-6 backdrop-blur-sm">
-              <Icon name="bar-chart-3" className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-3xl font-black mb-2">Shopify Analytics</h3>
-            <p className="text-blue-100 mb-6 font-medium text-lg">Connect your Shopify store and see exactly which creatives drive sales — not just clicks.</p>
-            <div className="bg-white/10 p-5 rounded-xl border border-white/20 backdrop-blur-sm">
-              <p className="text-base text-white font-bold"><span className="uppercase tracking-wider text-blue-200 text-xs block mb-1">Benefit</span> Close the loop between creative and revenue. The only AI creative tool that knows your actual store data.</p>
+            <div className="absolute -bottom-10 -right-10 w-64 h-64 opacity-90 group-hover:scale-105 transition-transform duration-500">
+               <img src="https://images.unsplash.com/photo-1434389678219-16ffb4f63262?auto=format&fit=crop&w=400&q=80" alt="Fashion" className="w-full h-full object-cover rounded-full shadow-2xl" />
             </div>
           </div>
 
-          {/* 7. Inspiration Feed + 1-Click Remix */}
-          <div className="bg-slate-50 p-8 rounded-3xl border border-slate-200 hover:shadow-lg transition-shadow">
-            <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center mb-6">
-              <Icon name="refresh-cw" className="w-6 h-6 text-yellow-600" />
+          {/* 4. Ad Generator (Tall 1x2) */}
+          <div className="md:col-span-1 md:row-span-2 bg-gradient-to-br from-[#38BDF8] to-[#0284C7] rounded-3xl p-8 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+            <div className="relative z-10 h-full flex flex-col justify-between">
+              <div>
+                <div className="text-xs font-bold tracking-widest text-blue-100 uppercase mb-2">Intelligence</div>
+                <h3 className="text-2xl font-bold text-white leading-tight">Predictive creative analytics.</h3>
+              </div>
+              <div className="mt-4">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                  Stop guessing
+                </div>
+              </div>
             </div>
-            <h3 className="text-2xl font-bold mb-2 text-slate-900">Inspiration Feed + 1-Click Remix</h3>
-            <p className="text-slate-600 mb-4 font-medium">Scroll a curated Pinterest-style feed of top-performing creatives. See something you love? Remix it with your product in one click.</p>
-            <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
-              <p className="text-sm text-yellow-900 font-bold"><span className="uppercase tracking-wider text-yellow-600 text-xs block mb-1">Benefit</span> Never run out of creative ideas. Turn competitor inspiration into your own original content instantly.</p>
+            <div className="absolute bottom-0 right-0 w-48 h-48 translate-x-8 translate-y-8">
+               <div className="w-full h-full bg-white/20 backdrop-blur-md rounded-2xl rotate-12 border border-white/30 shadow-2xl flex items-center justify-center">
+                 <Icon name="bar-chart-2" className="w-16 h-16 text-white" />
+               </div>
             </div>
           </div>
 
-          {/* 8. Background Remover + Image Restyle */}
-          <div className="bg-slate-50 p-8 rounded-3xl border border-slate-200 hover:shadow-lg transition-shadow">
-            <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center mb-6">
-              <Icon name="scissors" className="w-6 h-6 text-teal-600" />
+          {/* 5. 100+ Templates (Tall 1x2) */}
+          <div className="md:col-span-1 md:row-span-2 bg-gradient-to-br from-[#FBCFE8] to-[#F472B6] rounded-3xl p-8 relative overflow-hidden group">
+            <div className="relative z-10 h-full flex flex-col justify-between">
+              <div>
+                <div className="text-xs font-bold tracking-widest text-[#BE185D] uppercase mb-2">Templates</div>
+                <h3 className="text-2xl font-bold text-slate-900 leading-tight">100+ High-CTR ad layouts.</h3>
+              </div>
+              <div className="mt-4">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                  Proven to convert
+                </div>
+              </div>
             </div>
-            <h3 className="text-2xl font-bold mb-2 text-slate-900">Background Remover + Image Restyle</h3>
-            <p className="text-slate-600 mb-4 font-medium">Pixel-perfect cutouts and AI style transfer for any product or lifestyle image.</p>
-            <div className="bg-teal-50 p-4 rounded-xl border border-teal-100">
-              <p className="text-sm text-teal-900 font-bold"><span className="uppercase tracking-wider text-teal-600 text-xs block mb-1">Benefit</span> Take any raw product photo and make it ad-ready in under 30 seconds.</p>
+            <div className="absolute -bottom-8 -right-8 w-56 h-56">
+               <img src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=400&q=80" alt="Social" className="w-full h-full object-cover rounded-3xl shadow-2xl -rotate-6 group-hover:rotate-0 transition-transform duration-500 border-4 border-white" />
+            </div>
+          </div>
+
+          {/* 6. Shopify Analytics (Wide 2x1) */}
+          <div className="md:col-span-2 md:row-span-1 bg-gradient-to-br from-[#DBEAFE] to-[#93C5FD] rounded-3xl p-8 relative overflow-hidden group">
+            <div className="relative z-10 h-full flex flex-col justify-between">
+              <div>
+                <div className="text-xs font-bold tracking-widest text-[#1D4ED8] uppercase mb-2">Integration</div>
+                <h3 className="text-2xl md:text-3xl font-bold text-slate-900 leading-tight max-w-[320px]">Connect your Shopify store data.</h3>
+              </div>
+              <div className="mt-4">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                  Close the loop
+                </div>
+              </div>
+            </div>
+            <div className="absolute right-0 bottom-0 w-64 h-full hidden sm:block">
+               <div className="absolute right-8 top-1/2 -translate-y-1/2 w-40 h-32 bg-white rounded-xl shadow-xl border border-slate-100 p-4 transform group-hover:-translate-y-1/2 group-hover:-translate-x-4 transition-transform duration-500">
+                 <div className="w-full h-2 bg-slate-100 rounded-full mb-3"></div>
+                 <div className="w-3/4 h-2 bg-slate-100 rounded-full mb-4"></div>
+                 <div className="flex items-end gap-2 h-12">
+                   <div className="w-1/4 bg-blue-200 h-1/2 rounded-t-sm"></div>
+                   <div className="w-1/4 bg-blue-400 h-3/4 rounded-t-sm"></div>
+                   <div className="w-1/4 bg-blue-600 h-full rounded-t-sm"></div>
+                 </div>
+               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION - MORE FEATURES (HORIZONTAL SCROLL) */}
+      <section className="py-24 bg-slate-950 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
+          <h2 className="text-3xl md:text-4xl font-black tracking-tight text-white">
+            And so much more.
+          </h2>
+          <p className="text-slate-400 mt-2 text-lg">Everything you need in one powerful platform.</p>
+        </div>
+        
+        <div className="relative w-full overflow-hidden pb-12 pt-4">
+          <div className="flex w-max animate-marquee hover:[animation-play-state:paused] gap-6 px-4">
+            {/* Original Set */}
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#2DD4BF] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+              <h3 className="text-xl font-bold text-white mb-2 relative z-10">Inspiration Feed</h3>
+              <p className="text-teal-50 text-sm relative z-10">Curated Pinterest-style feed of top-performing creatives.</p>
+              <div className="mt-auto relative z-10">
+                 <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                   <Icon name="layout" className="w-12 h-12 text-white" />
+                 </div>
+              </div>
+            </div>
+
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#6366F1] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+              <h3 className="text-xl font-bold text-white mb-2 relative z-10">1-Click Remix</h3>
+              <p className="text-indigo-50 text-sm relative z-10">See something you love? Remix it with your product instantly.</p>
+              <div className="mt-auto relative z-10">
+                 <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-full border border-white/30 shadow-2xl flex items-center justify-center group-hover:rotate-180 transition-transform duration-700">
+                   <Icon name="refresh-cw" className="w-12 h-12 text-white" />
+                 </div>
+              </div>
+            </div>
+
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#FBBF24] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+              <h3 className="text-xl font-bold text-slate-900 mb-2 relative z-10">Background Remover</h3>
+              <p className="text-amber-900 text-sm relative z-10">Pixel-perfect cutouts for any product or lifestyle image.</p>
+              <div className="mt-auto relative z-10">
+                 <div className="w-32 h-32 mx-auto bg-white/40 backdrop-blur-md rounded-2xl border border-white/50 shadow-2xl flex items-center justify-center group-hover:-translate-y-4 transition-transform duration-500">
+                   <Icon name="scissors" className="w-12 h-12 text-slate-900" />
+                 </div>
+              </div>
+            </div>
+
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#F43F5E] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+              <h3 className="text-xl font-bold text-white mb-2 relative z-10">Image Restyle</h3>
+              <p className="text-rose-50 text-sm relative z-10">AI style transfer to make any raw photo ad-ready in seconds.</p>
+              <div className="mt-auto relative z-10">
+                 <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500 rotate-12">
+                   <Icon name="sparkles" className="w-12 h-12 text-white" />
+                 </div>
+              </div>
+            </div>
+
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#10B981] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+              <h3 className="text-xl font-bold text-white mb-2 relative z-10">Brand Kit Integration</h3>
+              <p className="text-emerald-50 text-sm relative z-10">Automatically apply your brand colors, fonts, and logos.</p>
+              <div className="mt-auto relative z-10">
+                 <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500 -rotate-6">
+                   <Icon name="palette" className="w-12 h-12 text-white" />
+                 </div>
+              </div>
+            </div>
+
+            {/* Duplicated Set for Infinite Loop */}
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#2DD4BF] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+              <h3 className="text-xl font-bold text-white mb-2 relative z-10">Inspiration Feed</h3>
+              <p className="text-teal-50 text-sm relative z-10">Curated Pinterest-style feed of top-performing creatives.</p>
+              <div className="mt-auto relative z-10">
+                 <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                   <Icon name="layout" className="w-12 h-12 text-white" />
+                 </div>
+              </div>
+            </div>
+
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#6366F1] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+              <h3 className="text-xl font-bold text-white mb-2 relative z-10">1-Click Remix</h3>
+              <p className="text-indigo-50 text-sm relative z-10">See something you love? Remix it with your product instantly.</p>
+              <div className="mt-auto relative z-10">
+                 <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-full border border-white/30 shadow-2xl flex items-center justify-center group-hover:rotate-180 transition-transform duration-700">
+                   <Icon name="refresh-cw" className="w-12 h-12 text-white" />
+                 </div>
+              </div>
+            </div>
+
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#FBBF24] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+              <h3 className="text-xl font-bold text-slate-900 mb-2 relative z-10">Background Remover</h3>
+              <p className="text-amber-900 text-sm relative z-10">Pixel-perfect cutouts for any product or lifestyle image.</p>
+              <div className="mt-auto relative z-10">
+                 <div className="w-32 h-32 mx-auto bg-white/40 backdrop-blur-md rounded-2xl border border-white/50 shadow-2xl flex items-center justify-center group-hover:-translate-y-4 transition-transform duration-500">
+                   <Icon name="scissors" className="w-12 h-12 text-slate-900" />
+                 </div>
+              </div>
+            </div>
+
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#F43F5E] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+              <h3 className="text-xl font-bold text-white mb-2 relative z-10">Image Restyle</h3>
+              <p className="text-rose-50 text-sm relative z-10">AI style transfer to make any raw photo ad-ready in seconds.</p>
+              <div className="mt-auto relative z-10">
+                 <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500 rotate-12">
+                   <Icon name="sparkles" className="w-12 h-12 text-white" />
+                 </div>
+              </div>
+            </div>
+
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#10B981] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+              <h3 className="text-xl font-bold text-white mb-2 relative z-10">Brand Kit Integration</h3>
+              <p className="text-emerald-50 text-sm relative z-10">Automatically apply your brand colors, fonts, and logos.</p>
+              <div className="mt-auto relative z-10">
+                 <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500 -rotate-6">
+                   <Icon name="palette" className="w-12 h-12 text-white" />
+                 </div>
+              </div>
             </div>
           </div>
         </div>
@@ -485,31 +632,31 @@ export const LandingPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative hover:shadow-md transition-shadow">
-            <div className="absolute -top-4 -left-4 w-12 h-12 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-xl border-4 border-white shadow-sm">1</div>
-            <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center mb-6">
-              <Icon name="upload" className="w-7 h-7 text-[#4452FB]" />
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative hover:-translate-y-2 hover:shadow-xl transition-all duration-300 cursor-pointer group">
+            <div className="absolute -top-3 -left-3 w-8 h-8 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-sm border-2 border-white shadow-sm">1</div>
+            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <Icon name="upload" className="w-5 h-5 text-[#4452FB]" />
             </div>
-            <h3 className="text-2xl font-bold mb-3">Feed the Beast</h3>
-            <p className="text-slate-600 text-base">Drop your brand assets and product Images.</p>
+            <h3 className="text-lg font-bold mb-2">Feed the Beast</h3>
+            <p className="text-slate-600 text-sm leading-relaxed">Drop your brand assets and product Images.</p>
           </div>
           
-          <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative hover:shadow-md transition-shadow">
-            <div className="absolute -top-4 -left-4 w-12 h-12 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-xl border-4 border-white shadow-sm">2</div>
-            <div className="w-14 h-14 bg-purple-50 rounded-xl flex items-center justify-center mb-6">
-              <Icon name="magic-wand" className="w-7 h-7 text-purple-600" />
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative hover:-translate-y-2 hover:shadow-xl transition-all duration-300 cursor-pointer group">
+            <div className="absolute -top-3 -left-3 w-8 h-8 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-sm border-2 border-white shadow-sm">2</div>
+            <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <Icon name="magic-wand" className="w-5 h-5 text-purple-600" />
             </div>
-            <h3 className="text-2xl font-bold mb-3">Magic in the Middle</h3>
-            <p className="text-slate-600 text-base">Explore curated presets across 100+ categories.</p>
+            <h3 className="text-lg font-bold mb-2">Magic in the Middle</h3>
+            <p className="text-slate-600 text-sm leading-relaxed">Explore curated presets across 100+ categories.</p>
           </div>
           
-          <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative hover:shadow-md transition-shadow">
-            <div className="absolute -top-4 -left-4 w-12 h-12 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-xl border-4 border-white shadow-sm">3</div>
-            <div className="w-14 h-14 bg-emerald-50 rounded-xl flex items-center justify-center mb-6">
-              <Icon name="image" className="w-7 h-7 text-emerald-600" />
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative hover:-translate-y-2 hover:shadow-xl transition-all duration-300 cursor-pointer group">
+            <div className="absolute -top-3 -left-3 w-8 h-8 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-sm border-2 border-white shadow-sm">3</div>
+            <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <Icon name="image" className="w-5 h-5 text-emerald-600" />
             </div>
-            <h3 className="text-2xl font-bold mb-3">Generate</h3>
-            <p className="text-slate-600 text-base">Get high quality product images in minutes.</p>
+            <h3 className="text-lg font-bold mb-2">Generate</h3>
+            <p className="text-slate-600 text-sm leading-relaxed">Get high quality product images in minutes.</p>
           </div>
         </div>
         
