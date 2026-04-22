@@ -72,14 +72,15 @@ interface DashboardProps {
   onRemoveFloatingImage: () => void;
   onTriggerFloatingUpload: () => void;
   onOpenContentGenerator: () => void;
+  onOpenCreativeWorkflow: () => void;
   userTier?: 'Free' | 'Starter' | 'Standard' | 'Agency';
-  isAdmin?: boolean;
   userName?: string;
   onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;
   onFloatingImageDrop: (file: File) => void;
   isLoading: boolean;
   floatingMode?: AppMode;
   onFloatingModeChange?: (mode: AppMode) => void;
+  onShowDevMessage?: (feature: string) => void;
 }
 
 interface HeaderProps {
@@ -112,13 +113,14 @@ const DashboardHome: React.FC<DashboardProps> = ({
     onSelectMode, 
     onStartImageEdit, 
     onOpenContentGenerator,
+    onOpenCreativeWorkflow,
     userTier = 'Free', 
     onOpenPricingModal,
-    isAdmin = false,
     userName = 'there',
+    onShowDevMessage
 }) => {
 
-    const isProLocked = !isAdmin && (userTier === 'Free');
+    const isProLocked = (userTier === 'Free');
 
     // Updated colors using the requested palette:
     // card-purple: #EAE3FD
@@ -135,6 +137,14 @@ const DashboardHome: React.FC<DashboardProps> = ({
             accentColor: '#6366F1', // indigo-500
             iconName: 'camera',
             onClick: () => onSelectMode(AppMode.Product)
+        },
+        {
+            title: 'AI Creative Workflow',
+            description: 'End-to-end ad creation with smart context analysis, copywriting, and layered director control.',
+            color: '#3BC1A8', // card-teal
+            accentColor: '#0D9488', // teal-600
+            iconName: 'sparkles',
+            onClick: onOpenCreativeWorkflow
         },
         {
             title: 'AI UGC Influencer',
@@ -158,7 +168,8 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#E1D9CC', // card-tan
             accentColor: '#C2410C', // orange-700
             iconName: 'megaphone',
-            onClick: () => onSelectMode(AppMode.AdCreative)
+            onClick: () => onShowDevMessage?.('Ad Generator + BI'),
+            isLocked: true
         },
         {
             title: 'AI Content Writer',
@@ -185,16 +196,6 @@ const DashboardHome: React.FC<DashboardProps> = ({
             accentColor: '#0F766E', // teal-700
             iconName: 'image-plus', 
             onClick: () => onSelectMode(AppMode.Remix)
-        },
-        {
-            title: '3D Studio',
-            description: 'Upload 3D models (.glb/.gltf) and generate photorealistic lifestyle shots.',
-            color: '#D1D5DB', // gray-300
-            accentColor: '#374151', // gray-700
-            iconName: 'box',
-            onClick: () => onSelectMode(AppMode.ThreeDStudio),
-            isLocked: isProLocked,
-            onUnlock: onOpenPricingModal
         },
         {
             title: 'Festive Photoshoot',

@@ -24,18 +24,15 @@ import { Layout } from './components/Layout';
 import { Spinner } from './components/ui/Spinner';
 import { SplashScreen } from './components/SplashScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ChatBot } from './components/ChatBot';
 
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LandingPage } from './src/landing/LandingPage';
 import { PrivacyPolicyPage } from './src/landing/PrivacyPolicyPage';
 import { TermsPage } from './src/landing/TermsPage';
-import { BlogPage } from './src/landing/BlogPage';
 import { PricingPage } from './src/landing/PricingPage';
 import { AboutUsPage } from './src/landing/AboutUsPage';
 import { ContactPage } from './src/landing/ContactPage';
-
-// Lazy load ThreeDStudio to avoid loading heavy 3D libraries on startup
-const ThreeDStudio = React.lazy(() => import('./components/modes/ThreeDStudio').then(m => ({ default: m.ThreeDStudio })));
 
 const dataURLToParts = (dataURL: string) => {
     const parts = dataURL.split(',');
@@ -53,7 +50,6 @@ const AppInternal: React.FC = () => {
   const appData = useAppData();
   
   // UI State
-  const [isAdmin, setIsAdmin] = useState(false);
   const [currentView, setCurrentView] = useState<View>(View.Dashboard);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -90,22 +86,21 @@ const AppInternal: React.FC = () => {
 
   // Admin Check
   React.useEffect(() => {
-      if (user && user.role === 'Administrator') setIsAdmin(true);
   }, [user]);
 
   // Credit Logic Wrapper
   const handleCheckCredits = useCallback((cost: number) => {
-      const success = appData.checkAndDeductCredits(cost, isAdmin);
+      const success = appData.checkAndDeductCredits(cost, false);
       if (!success) {
           setToast({ message: `Insufficient credits! Required: ${cost}`, type: 'error' });
           modals.openPricing();
       }
       return success;
-  }, [appData, isAdmin, modals]);
+  }, [appData, modals]);
 
   const handleRefundCredits = useCallback((amount: number) => {
-      appData.refundCredits(amount, isAdmin);
-  }, [appData, isAdmin]);
+      appData.refundCredits(amount, false);
+  }, [appData]);
 
   // --- USE CREATIVE SESSION ---
   const creative = useCreativeSession(userTier, freeGenerationsUsed, setFreeGenerationsUsed, handleCheckCredits, handleRefundCredits);
@@ -226,7 +221,17 @@ const AppInternal: React.FC = () => {
       if (editingImage && editingImage.id === id) {
           setEditingImage({ ...editingImage, imageUrl: newUrl });
       }
-  }, [editingImage]);
+      creative.setGeneratedImages(prev => prev.map(img => img.id === id ? { ...img, imageUrl: newUrl } : img));
+      updateDesign({ id, imageUrl: newUrl } as any);
+  }, [editingImage, creative.setGeneratedImages, updateDesign]);
+
+  const handleUpdateParams = useCallback((id: string, newParams: Partial<GenerateImageParams>) => {
+      if (editingImage && editingImage.id === id) {
+          setEditingImage(prev => prev ? ({ ...prev, params: { ...prev.params, ...newParams } }) : null);
+      }
+      creative.setGeneratedImages(prev => prev.map(img => img.id === id ? { ...img, params: { ...img.params, ...newParams } } : img));
+      updateDesign({ id, params: newParams } as any);
+  }, [editingImage, creative.setGeneratedImages, updateDesign]);
 
   const handleRemoveBackgroundAction = useCallback(async () => {
     if (!editingImage) return;
@@ -350,7 +355,6 @@ const AppInternal: React.FC = () => {
       <Route path="/" element={!user ? <LandingPage /> : <Navigate to="/dashboard" replace />} />
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
       <Route path="/terms" element={<TermsPage />} />
-      <Route path="/blog" element={<BlogPage />} />
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/about" element={<AboutUsPage />} />
       <Route path="/contact" element={<ContactPage />} />
@@ -371,11 +375,11 @@ const AppInternal: React.FC = () => {
                 onOpenContentGenerator={modals.openContentGenerator}
                 onOpenSupport={modals.openSupport}
                 onOpenBrandKit={modals.openBrandKit}
-                isAdmin={isAdmin}
-                onToggleAdmin={() => setIsAdmin(!isAdmin)}
-                user={user}
+                onSetTier={(tier) => setUserProfile(prev => prev ? ({ ...prev, tier }) : null)}
+                user={user as any}
                 onLogout={handleLogout}
                 onInternalImageDrop={handleInternalImageDrop}
+                onShowDevMessage={(f) => setToast({ message: `${f} is in development phase. We will notify you when it's live!`, type: 'success' })}
             >
                 <AppMainView 
                     currentView={currentView}
@@ -406,13 +410,14 @@ const AppInternal: React.FC = () => {
                     onRemoveFloatingImage={() => handleFloatingImageFileChange(null)}
                     onTriggerFloatingUpload={handleTriggerFloatingUpload}
                     onOpenContentGenerator={modals.openContentGenerator}
+                    onOpenCreativeWorkflow={modals.openCreativeWorkflow}
                     userTier={userTier}
-                    isAdmin={isAdmin}
                     onInternalImageDrop={handleInternalImageDrop}
                     onFloatingImageDrop={handleFloatingImageFileChange}
                     floatingMode={floatingMode}
                     setFloatingMode={setFloatingMode}
                     isStoryBoardResult={isStoryboardResult}
+                    onShowDevMessage={(f) => setToast({ message: `${f} is in development phase. We will notify you when it's live!`, type: 'success' })}
 
                     onSetView={setCurrentView}
                     shopifyReport={shopifyReport}
@@ -429,28 +434,12 @@ const AppInternal: React.FC = () => {
                     credits={appData.credits}
                     onOpenProfileEdit={modals.openProfileEdit}
                     recentActivity={recentActivity}
+                    brandKit={appData.brandKit}
+                    onGenerate={handleGenerateWrapper}
                 />
             </Layout>
 
-            {creative.activeMode === AppMode.ThreeDStudio && (
-                <div className="fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8">
-                    <div className="w-full max-w-6xl h-full max-h-[90vh] bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-slate-700">
-                        <React.Suspense fallback={<div className="flex h-full items-center justify-center"><Spinner /></div>}>
-                            <ThreeDStudio 
-                                onClose={() => creative.setActiveMode(null)}
-                                onSnapshot={(file) => {
-                                    creative.setActiveMode(null);
-                                    // Set the snapshot as the product image and open Product mode
-                                    creative.handleFileChange(file, 'frontProductImage', creative.setFrontProductImagePreview, { maxSizeMB: 5, maxWidthOrHeight: 2048 });
-                                    setTimeout(() => creative.setActiveMode(AppMode.Product), 100);
-                                }}
-                            />
-                        </React.Suspense>
-                    </div>
-                </div>
-            )}
-
-            {creative.activeMode && creative.activeMode !== AppMode.ThreeDStudio && (
+            {creative.activeMode && (
                 <CreativeModal
                     key={creative.activeMode} 
                     mode={creative.activeMode}
@@ -489,6 +478,7 @@ const AppInternal: React.FC = () => {
                 onApplyEdit={handleApplyEdit}
                 onRemoveBackground={handleRemoveBackgroundAction}
                 onImageUpdate={handleImageUpdate}
+                onUpdateParams={handleUpdateParams}
 
                 zoomedImage={zoomedImage}
                 onCloseZoom={() => setZoomedImage(null)}
@@ -520,6 +510,16 @@ const AppInternal: React.FC = () => {
 
                 abTestModalImage={abTestModalImage}
                 onCloseABTest={() => setAbTestModalImage(null)}
+                
+                isCreativeWorkflowModalOpen={modals.isCreativeWorkflowOpen}
+                onCloseCreativeWorkflow={modals.closeCreativeWorkflow}
+                onGenerate={handleGenerateWrapper}
+                isGenerating={creative.isLoading}
+                userTier={userTier}
+            />
+            <ChatBot 
+                onDeductCredits={handleCheckCredits}
+                onRefundCredits={handleRefundCredits}
             />
           </>
         )

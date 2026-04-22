@@ -113,21 +113,26 @@ async function moderatePrompt(prompt: string): Promise<{ isAllowed: boolean, rea
     if (!prompt || prompt.length < 3) return { isAllowed: true };
     
     const ai = getAI();
+    if (!process.env.GEMINI_API_KEY) {
+        console.warn("GEMINI_API_KEY is missing. AI features may fail.");
+    }
     const systemInstruction = `
-    You are a strict content moderator for an AI application designed EXCLUSIVELY for creating:
+    You are a content moderator for an AI application designed for:
     - Product photography
-    - E-commerce assets
+    - E-commerce and D2C assets
     - Advertising and marketing creatives
     - Brand design elements
-    - Fashion shoots
+    - Fashion and apparel shoots
 
-    Your job is to evaluate the user's prompt and determine if it aligns with these intended use cases.
+    Your job is to evaluate the user's prompt and determine if it is appropriate for these commercial use cases. 
+    BE FLEXIBLE: Users in fashion and D2C can request a vast range of clothing types, body types, and lifestyle settings. 
     
-    REJECT prompts that are:
-    - General art generation (e.g., "a landscape in 1500s Africa", "a cyberpunk city", "a cute anime girl")
-    - Historical events or figures
-    - Political or controversial topics
-    - Unrelated to commercial products, brands, or advertising.
+    ONLY REJECT prompts that are:
+    - Explicitly NSFW, violent, or hateful.
+    - Political propaganda or controversial topics.
+    - Completely unrelated to brands, products, or marketing (e.g., "a wizard in space", "historical war scene").
+
+    If the prompt is about fashion, apparel, or any consumer product, ALLOW it even if it seems unconventional.
 
     Respond in JSON format:
     {
@@ -158,9 +163,11 @@ async function optimizePromptWithBrandKit(originalPrompt: string, brandKit?: Bra
     const ai = getAI();
     const modeContext = appMode ? `Context: Generating a ${appMode} image.` : '';
     const brandContext = brandKit ? `
-    Brand Identity to Enforce:
+    Brand Identity to Enforce (Brand Vault):
     - Voice: ${brandKit.voice}
-    - Colors: ${brandKit.primaryColor}, ${brandKit.secondaryColor}
+    - Primary Color (Hex): ${brandKit.primary_hex || brandKit.primaryColor}
+    - Font Family: ${brandKit.font_family || brandKit.fonts}
+    - Style Keyword: ${brandKit.style_keyword || 'professional'}
     - Avoid: ${brandKit.negativeConstraints}
     ` : '';
 
@@ -172,7 +179,8 @@ async function optimizePromptWithBrandKit(originalPrompt: string, brandKit?: Bra
     1. Keep the core subject/product exactly as described.
     2. Enhance lighting, texture, and composition details.
     3. If a Brand Kit is provided, strictly weave its aesthetic into the description.
-    4. Output ONLY the optimized prompt text. No explanations.
+    4. Use the Style Keyword to set the overall mood.
+    5. Output ONLY the optimized prompt text. No explanations.
     `;
 
     try {
@@ -312,18 +320,63 @@ STRICT EXECUTION RULES:
                 } else {
                     finalPrompt = `Professional studio shot of ${baseSubject}. ${backgroundStyle && backgroundStyle !== AI_SUGGESTED ? `Background: ${backgroundStyle}.` : ''}`;
                 }
+
+                if (params.productCategory === ProductCategory.Jewellery) {
+                    finalPrompt = `
+                    ACT AS A HIGH-END JEWELLERY PHOTOGRAPHER.
+                    JEWELLERY PRECISION PROTOCOL:
+                    1. ASSET INTEGRITY: Maintain the exact design, structure, gemstone cuts, and metal color of the provided jewellery. No hallucinations or alterations.
+                    2. MACRO FIDELITY: Ensure extreme sharpness on fine details like prongs, engravings, and facets.
+                    3. LIGHTING: Use professional jewellery lighting (soft boxes and reflectors) to create elegant highlights and avoid harsh glares.
+                    4. COMPOSITION: ${finalPrompt}
+                    `.trim();
+                }
+
                 corePrompt = `${finalPrompt} Camera Angle: ${pose || 'Front View'}.`;
                 break;
             case AppMode.Influencer:
-                if (ugcStyle) {
+                const isAiSuggestedInfluencer = params.productStylePreset === AI_SUGGESTED || !params.productStylePreset;
+                
+                if (isAiSuggestedInfluencer) {
+                    corePrompt = `
+                    ACT AS AN AI RE-SHAPER & STUDIO DIRECTOR.
+                    AI SUGGESTED WORKFLOW (INDIAN INFLUENCER EDITION):
+                    1. SUBJECT: A stunning, realistic Indian model (Influencer persona) showcasing the product.
+                    2. PRODUCT INTEGRATION: The product must be held naturally, placed in use, or featured centrally in the frame as a genuine UGC (User Generated Content) post.
+                    3. LIFESTYLE VIBE: ${params.productDescription || 'A casual, scroll-stopping lifestyle shot.'}
+                    4. DYNAMIC VARIATIONS: Use diverse Indian features (South Asian ethnicity), varied natural poses, and authentic lighting (warm sunlit, indoor chic, or urban night).
+                    5. PRODUCTION QUALITY: Shot on iPhone aesthetic, high-quality social media finish, natural skin textures. No studio artificiality.
+                    
+                    MANDATORY: NO generic models. Must look like a relatable Indian influencer.
+                    `.trim();
+                } else if (ugcStyle) {
                     const foundUgcPreset = UGC_STYLE_OPTIONS.find(p => p.value === ugcStyle);
                     corePrompt = foundUgcPreset ? foundUgcPreset.prompt.replace(/\[product\]/g, optimizedDescription || 'the product') : `Influencer photo of ${optimizedDescription}.`;
                 } else {
-                    corePrompt = `Influencer photo. Product: ${optimizedDescription}. Model: ${modelGender} influencer. Setting: ${backgroundStyle || 'Aesthetic'}.`;
+                    corePrompt = `Influencer photo. Product: ${optimizedDescription}. Model: Indian ${modelGender} influencer. Setting: ${backgroundStyle || 'Aesthetic'}.`;
                 }
                 break;
             case AppMode.Fashion:
-                corePrompt = `Fashion Photography. Subject: ${optimizedDescription || 'Clothing'}. Pose: ${pose || 'Standard'}.`;
+                const isFashionAiSuggested = params.productStylePreset === AI_SUGGESTED || !params.productStylePreset;
+                
+                if (activeImages && activeImages.length > 0) {
+                    corePrompt = `
+                    ACT AS A VIRTUAL FASHION STUDIO DIRECTOR (Indian Market Specialist).
+                    IP-ADAPTER & GARMENT REPLICATION PROTOCOL:
+                    1. REFERENCE CLOTHING: Use the provided image as the ABSOLUTE reference for the garment. 
+                    2. REPLICATION: Precisely replicate the fabric texture, pattern, embroidery, and design of the clothing onto the model. Do not alter the dress design.
+                    3. MODEL: ${isFashionAiSuggested ? 'A professional Indian fashion model' : 'A professional model'} ${params.fashionGender ? `(${params.fashionGender})` : ''}.
+                    4. POSE: ${pose || 'Hero fashion pose'}.
+                    5. SCENE: ${optimizedDescription || 'High-end fashion studio with cinematic lighting'}.
+                    
+                    ${params.fashionCategory ? `Category: ${params.fashionCategory}.` : ''}
+                    ${params.fashionSubCategory ? `Apparel Type: ${params.fashionSubCategory}.` : ''}
+                    ${params.regionalStyle ? `Cultural Accent: ${params.regionalStyle}.` : ''}
+                    `.trim();
+                } else {
+                    corePrompt = `Fashion Photography. Subject: ${optimizedDescription || 'Professional clothing showcase'}. Indian Model. Pose: ${pose || 'Standard'}.`;
+                }
+                
                 if (modelLockId) corePrompt += ` Use fixed model persona: ${modelLockId}.`;
                 break;
             case AppMode.AdCreative:
@@ -346,7 +399,19 @@ STRICT EXECUTION RULES:
                 else if (adLayout === AdLayout.ProductShowcase) spaceInstruction = "Center the product with clean negative space around it.";
 
                 if (activeImages && activeImages.length > 0) {
-                    corePrompt = `You are an expert product retoucher and commercial artist. The provided image is the EXACT PRODUCT. You MUST preserve the exact design, shape, branding, and details of the provided product. DO NOT hallucinate or change the product into something else. Place this exact product into a new advertising scene. Product description: ${optimizedDescription || 'the provided product'}. Style: ${adStyle} ${spaceInstruction} NEGATIVE CONSTRAINTS: absolutely no text, no words, no typography, no watermarks, no logos, no changing the product design.`;
+                    corePrompt = `
+                    ACT AS A HIGH-END STUDIO DIRECTOR.
+                    PIPELINE EXECUTION:
+                    1. SEGMENTATION: Isolate the product from its current background perfectly.
+                    2. IDENTITY PRESERVATION (IP-Adapter): Maintain the exact shape, labels, and branding of the product. No hallucinations.
+                    3. DEPTH MAPPING: Calculate the geometry of the new environment. Ensure the product sits realistically on surfaces with accurate contact shadows and reflections.
+                    
+                    SCENE: ${optimizedDescription || 'a professional advertisement'}.
+                    STYLE: ${adStyle} ${spaceInstruction}
+                    
+                    ${brandKit?.style_keyword ? `OVERALL AESTHETIC: ${brandKit.style_keyword}.` : ''}
+                    NEGATIVE CONSTRAINTS: absolutely no text, no words, no typography, no watermarks, no logos, no changing the product design.
+                    `.trim();
                 } else {
                     corePrompt = `Commercial Ad. Product: ${optimizedDescription || 'a product'}. Style: ${adStyle} ${spaceInstruction} NEGATIVE CONSTRAINTS: absolutely no text, no words, no typography, no watermarks, no logos.`;
                 }
@@ -623,12 +688,51 @@ export const editImage = async (params: EditImageParams): Promise<{ imageUrl: st
 
 export const generateCaption = async (params: GenerateCaptionParams, brandKit: BrandKit | null) => {
     const ai = getAI();
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: "Generate a marketing caption.",
-        config: { responseMimeType: "application/json" }
-    });
-    return parseGeminiJson(response.text, { caption: "New visual!", hashtags: "#studio" });
+    let brandContext = '';
+    if (brandKit) {
+        brandContext = `Brand Info: Voice is ${brandKit.voice || 'Professional'}, Target Keyword: ${brandKit.style_keyword || 'Trendy'}.`;
+    }
+
+    const prompt = `
+    You are a professional social media marketing expert.
+    Generate a compelling caption and relevant hashtags for an image with the following parameters:
+    - Tone: ${params.tone}
+    - Length: ${params.length}
+    - Platform: ${params.platform}
+    - Language: ${params.language}
+    - Emojis: ${params.includeEmojis ? 'Include appropriate emojis' : 'No emojis'}
+    - Hashtags: ${params.includeHashtags ? 'Generate 5-10 relevant hashtags' : 'No hashtags'}
+    
+    ${brandContext}
+
+    Return the result in JSON format:
+    {
+        "caption": "string",
+        "hashtags": "string (space separated)"
+    }
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+            config: { 
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        caption: { type: Type.STRING },
+                        hashtags: { type: Type.STRING }
+                    },
+                    required: ["caption", "hashtags"]
+                }
+            }
+        });
+        return parseGeminiJson(response.text, { caption: "Check out this visual!", hashtags: "#design #marketing" });
+    } catch (e) {
+        console.error("Caption generation failed", e);
+        return { caption: "Check out this visual!", hashtags: "#design #marketing" };
+    }
 };
 
 export const removeBackground = async (base64: string, mimeType: string): Promise<{ data: string, mimeType: string }> => {
@@ -696,6 +800,73 @@ export const generateAdCopy = async (productDescription: string, adStyle: string
     } catch (e) {
         console.error("Failed to generate ad copy", e);
         return { title: "Special Offer", subheading: "Get yours today", cta: "Shop Now" };
+    }
+};
+
+export const analyzeProductContext = async (file: File): Promise<{ 
+    context: string[], 
+    environments: string[], 
+    suggestedPreset?: string,
+    fashionInfo?: {
+        gender?: string;
+        category?: string;
+        subCategory?: string;
+        color?: string;
+        description?: string;
+    }
+}> => {
+    const ai = getAI();
+    const base64 = await fileToBase64(file);
+    
+    const prompt = `Analyze this product image carefully.
+    1. Identify 3-5 core context keywords (e.g., "Fitness", "Morning", "Breakfast").
+    2. Generate 3 distinct environment options for a high-end advertisement.
+    3. If this is clothing/apparel, identify:
+       - Estimated Gender (Men, Women, Kids, Unisex)
+       - Fashion Category (e.g., Topwear, Indian & Fusion Wear, Western Wear)
+       - Specific Apparel Type (e.g., Kurta, T-shirt, Saree, Dress)
+       - Primary Color
+       - Brief visual description of the garment.
+    4. Suggested visual style preset from: "Drinks & Beverages", "Skincare & Beauty", "Snacks & Packaged Foods", "Perfume & Luxury", "Jewellery & Accessories", "Natural & Organic".
+    
+    Return ONLY JSON format with keys: context, environments, suggestedPreset, fashionInfo (object with keys: gender, category, subCategory, color, description).`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: {
+                parts: [
+                    { inlineData: { data: base64, mimeType: file.type } },
+                    { text: prompt }
+                ]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        context: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        environments: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        suggestedPreset: { type: Type.STRING },
+                        fashionInfo: {
+                            type: Type.OBJECT,
+                            properties: {
+                                gender: { type: Type.STRING },
+                                category: { type: Type.STRING },
+                                subCategory: { type: Type.STRING },
+                                color: { type: Type.STRING },
+                                description: { type: Type.STRING }
+                            }
+                        }
+                    },
+                    required: ['context', 'environments']
+                }
+            }
+        });
+        return parseGeminiJson(response.text, { context: [], environments: [] });
+    } catch (e) {
+        console.error("Failed to analyze product context", e);
+        return { context: [], environments: ["Studio", "Lifestyle", "Nature"] };
     }
 };
 

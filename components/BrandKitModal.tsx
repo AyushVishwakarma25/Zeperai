@@ -116,6 +116,18 @@ const VOICE_OPTIONS = [
   'Professional', 'Friendly', 'Bold', 'Minimal', 'Playful', 'Luxury', 'High-Energy', 'Trustworthy'
 ];
 
+const ANCHOR_OPTIONS = [
+    { value: 'top-left', label: 'Top Left' },
+    { value: 'top-right', label: 'Top Right' },
+    { value: 'bottom-left', label: 'Bottom Left' },
+    { value: 'bottom-right', label: 'Bottom Right' },
+    { value: 'center', label: 'Center' }
+];
+
+const STYLE_KEYWORDS = [
+    'Minimalist', 'Bold', 'Luxury', 'Playful', 'Vintage', 'Modern', 'Brutalist', 'Organic', 'High-Contrast', 'Soft/Pastel'
+];
+
 const GOOGLE_FONTS_LIBRARY = {
     'Popular Sans Serif': ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins', 'Nunito', 'Work Sans'],
     'Elegant Serif': ['Playfair Display', 'Merriweather', 'Lora', 'PT Serif', 'Cinzel', 'Libre Baskerville'],
@@ -133,6 +145,10 @@ const DEFAULT_KIT: BrandKit = {
     voice: 'Professional',
     description: '',
     negativeConstraints: '',
+    primary_hex: '#6A5AE0',
+    font_family: 'Inter',
+    logo_anchor_point: 'top-right',
+    style_keyword: 'Modern'
 };
 
 const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialKit, onDeductCredits }) => {
@@ -191,11 +207,14 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
           setKit(prev => ({
               ...prev,
               primaryColor: analysis.colors[0]?.hex || prev.primaryColor,
+              primary_hex: analysis.colors[0]?.hex || prev.primary_hex,
               secondaryColor: analysis.colors[1]?.hex || prev.secondaryColor,
               accentColor: analysis.colors[2]?.hex || prev.accentColor,
               // Map AI result (e.g. "Modern Sans") to closest option or append
               fonts: analysis.typography || prev.fonts, 
-              voice: analysis.vibe.join(', ') || prev.voice
+              font_family: analysis.typography || prev.font_family,
+              voice: analysis.vibe.join(', ') || prev.voice,
+              style_keyword: analysis.vibe[0] || prev.style_keyword
           }));
       } catch (e) {
           console.error("Analysis failed", e);
@@ -354,7 +373,7 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
                             </div>
                         </div>
 
-                        <Select label="Typography & Style" value={kit.fonts} onChange={e => setKit(prev => ({...prev, fonts: e.target.value}))}>
+                        <Select label="Typography & Style" value={kit.fonts} onChange={e => setKit(prev => ({...prev, fonts: e.target.value, font_family: e.target.value}))}>
                             {Object.entries(GOOGLE_FONTS_LIBRARY).map(([category, fonts]) => (
                                 <optgroup key={category} label={category}>
                                     {fonts.map(font => (
@@ -363,6 +382,28 @@ const BrandKitModal: React.FC<BrandKitModalProps> = ({ onClose, onSave, initialK
                                 </optgroup>
                             ))}
                         </Select>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <Select 
+                                label="Logo Anchor Point" 
+                                value={kit.logo_anchor_point || 'top-right'} 
+                                onChange={e => setKit(prev => ({...prev, logo_anchor_point: e.target.value as any}))}
+                            >
+                                {ANCHOR_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </Select>
+
+                            <Select 
+                                label="Style Keyword" 
+                                value={kit.style_keyword || 'Modern'} 
+                                onChange={e => setKit(prev => ({...prev, style_keyword: e.target.value}))}
+                            >
+                                {STYLE_KEYWORDS.map(kw => (
+                                    <option key={kw} value={kw}>{kw}</option>
+                                ))}
+                            </Select>
+                        </div>
                     </div>
                 </div>
 

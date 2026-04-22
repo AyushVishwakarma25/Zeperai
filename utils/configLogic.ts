@@ -48,6 +48,14 @@ export const getModeDefaults = (
         updates.productStylePreset = AI_SUGGESTED;
     }
 
+    // NEW: Clear product description on mode switch to prevent prompt persistence
+    if (targetMode !== currentParams.appMode) {
+        updates.productDescription = '';
+        updates.backdropAndProps = AI_SUGGESTED;
+        updates.stylePreset = undefined;
+        updates.fashionPose = [];
+    }
+
     // 3. Apply Defaults for Specific Modes
     if (targetMode === AppMode.Youtube || targetMode === AppMode.Banner) {
         updates.aspectRatios = [AspectRatio.Landscape]; // 16:9

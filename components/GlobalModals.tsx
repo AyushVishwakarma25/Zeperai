@@ -1,6 +1,6 @@
 
 import React, { Suspense, lazy } from 'react';
-import type { GeneratedImage, EditImageParams, BrandKit, SavedModel } from '../types';
+import type { GeneratedImage, EditImageParams, BrandKit, SavedModel, GenerateImageParams } from '../types';
 import type { UserProfileData } from '../services/userService';
 import { Spinner } from './ui/Spinner';
 
@@ -14,6 +14,7 @@ const ContentGenerator = lazy(() => import('./ContentGenerator'));
 const ProfileEditModal = lazy(() => import('./ProfileEditModal'));
 const BrandKitModal = lazy(() => import('./BrandKitModal'));
 const ABTestModal = lazy(() => import('./ABTestModal'));
+const CreativeWorkflow = lazy(() => import('./CreativeWorkflow').then(m => ({ default: m.CreativeWorkflow })));
 
 interface GlobalModalsProps {
     editingImage: GeneratedImage | null;
@@ -23,6 +24,7 @@ interface GlobalModalsProps {
     onApplyEdit: (editParams: EditImageParams) => Promise<void>;
     onRemoveBackground: () => Promise<void>;
     onImageUpdate: (id: string, newUrl: string) => void;
+    onUpdateParams?: (imageId: string, params: Partial<GenerateImageParams>) => void;
 
     zoomedImage: GeneratedImage | null;
     onCloseZoom: () => void;
@@ -54,6 +56,12 @@ interface GlobalModalsProps {
 
     abTestModalImage: GeneratedImage | null;
     onCloseABTest: () => void;
+
+    isCreativeWorkflowModalOpen: boolean;
+    onCloseCreativeWorkflow: () => void;
+    onGenerate: (params: any) => void;
+    isGenerating: boolean;
+    userTier: string;
 }
 
 export const GlobalModals: React.FC<GlobalModalsProps> = (props) => {
@@ -66,8 +74,10 @@ export const GlobalModals: React.FC<GlobalModalsProps> = (props) => {
                     onApplyEdit={props.onApplyEdit} 
                     onRemoveBackground={props.onRemoveBackground} 
                     onImageUpdate={props.onImageUpdate} 
+                    onUpdateParams={props.onUpdateParams}
                     isEditing={props.isEditing} 
                     initialTab={props.editModalInitialTab} 
+                    brandKit={props.brandKit}
                 />
             )}
             {props.zoomedImage && <ZoomModal image={props.zoomedImage} onClose={props.onCloseZoom} />}
@@ -110,6 +120,16 @@ export const GlobalModals: React.FC<GlobalModalsProps> = (props) => {
                     onClose={props.onCloseABTest} 
                     onGenerate={() => {}} 
                     onDeductCredits={props.onDeductCredits}
+                />
+            )}
+
+            {props.isCreativeWorkflowModalOpen && (
+                <CreativeWorkflow 
+                    brandKit={props.brandKit}
+                    onGenerate={props.onGenerate}
+                    isLoading={props.isGenerating}
+                    onClose={props.onCloseCreativeWorkflow}
+                    userTier={props.userTier}
                 />
             )}
         </Suspense>

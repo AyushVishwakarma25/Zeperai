@@ -155,24 +155,40 @@ create trigger on_auth_user_created
 
 -- 12. STORAGE SETUP
 insert into storage.buckets (id, name, public)
-values ('designs', 'designs', true)
+values ('designs', 'designs', true), ('landing-assets', 'landing-assets', true)
 on conflict (id) do nothing;
 
-create policy "Public Access"
+create policy "Public Access Designs"
   on storage.objects for select
   using ( bucket_id = 'designs' );
 
-create policy "Authenticated Users can Upload"
+create policy "Public Access Landing Assets"
+  on storage.objects for select
+  using ( bucket_id = 'landing-assets' );
+
+create policy "Authenticated Users can Upload Designs"
   on storage.objects for insert
   with check ( bucket_id = 'designs' and auth.role() = 'authenticated' );
 
-create policy "Users can update own images"
+create policy "Authenticated Users can Upload Landing Assets"
+  on storage.objects for insert
+  with check ( bucket_id = 'landing-assets' and auth.role() = 'authenticated' );
+
+create policy "Users can update own images Designs"
   on storage.objects for update
   using ( bucket_id = 'designs' and auth.uid() = owner );
 
-create policy "Users can delete own images"
+create policy "Users can update own images Landing Assets"
+  on storage.objects for update
+  using ( bucket_id = 'landing-assets' and auth.uid() = owner );
+
+create policy "Users can delete own images Designs"
   on storage.objects for delete
   using ( bucket_id = 'designs' and auth.uid() = owner );
+
+create policy "Users can delete own images Landing Assets"
+  on storage.objects for delete
+  using ( bucket_id = 'landing-assets' and auth.uid() = owner );
 
 -- 13. BACKFILL EXISTING USERS
 insert into public.profiles (id, email, name, avatar_url)

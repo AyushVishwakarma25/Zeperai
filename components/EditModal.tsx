@@ -6,6 +6,8 @@ import { Icon } from './ui/Icon';
 import { ImageDropzone } from './ui/ImageDropzone';
 import { processImageFile, dataURLtoFile, downloadImage } from '../utils/images';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { DirectorCanvas } from './DirectorCanvas';
+import { GenerateImageParams, BrandKit } from '../types';
 
 interface EditModalProps {
   image: GeneratedImage;
@@ -13,15 +15,17 @@ interface EditModalProps {
   onApplyEdit: (params: EditImageParams) => Promise<void>;
   onRemoveBackground: () => Promise<void>;
   onImageUpdate: (imageId: string, newImageUrl: string, sourceImageUrl?: string) => void;
+  onUpdateParams?: (imageId: string, params: Partial<GenerateImageParams>) => void;
   isEditing: boolean;
-  initialTab?: 'inpaint' | 'crop' | 'background' | 'element';
+  initialTab?: 'inpaint' | 'crop' | 'background' | 'element' | 'director';
+  brandKit?: BrandKit | null;
 }
 
 const TabButton: React.FC<{ active: boolean, onClick: () => void, children: React.ReactNode }> = ({ active, onClick, children }) => (
     <button
         onClick={onClick}
-        className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-            active ? 'bg-primary text-white shadow-md' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+        className={`px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs font-bold rounded-lg transition-all whitespace-nowrap flex-shrink-0 ${
+            active ? 'bg-primary text-white shadow-md' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
         }`}
     >
         {children}
@@ -36,14 +40,28 @@ const EditModal: React.FC<EditModalProps> = ({
     onApplyEdit, 
     onRemoveBackground,
     onImageUpdate, 
+    onUpdateParams,
     isEditing,
-    initialTab = 'inpaint'
+    initialTab = 'inpaint',
+    brandKit
 }) => {
   const isOnline = useNetworkStatus();
-  const [mode, setMode] = useState<'inpaint' | 'crop' | 'background' | 'element'>(initialTab);
+  const [mode, setMode] = useState<'inpaint' | 'crop' | 'background' | 'element' | 'director'>(initialTab);
   const [showOriginalBg, setShowOriginalBg] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
   const [isDownloading, setIsDownloading] = useState(false);
+
+  const [adParams, setAdParams] = useState<Partial<GenerateImageParams>>(image.params || {});
+
+  useEffect(() => {
+    setAdParams(image.params || {});
+  }, [image.params]);
+
+  const handleUpdateAdParams = (newParams: Partial<GenerateImageParams>) => {
+    const updated = { ...adParams, ...newParams };
+    setAdParams(updated);
+    onUpdateParams?.(image.id, updated);
+  };
 
   // Inpaint state
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -308,6 +326,7 @@ const EditModal: React.FC<EditModalProps> = ({
           case 'background': return 'Background Remover';
           case 'crop': return 'Crop & Resize';
           case 'inpaint': return 'Magic Editor';
+          case 'director': return 'Ad Director';
           default: return 'Edit Photoshoot';
       }
   }
@@ -345,7 +364,17 @@ const EditModal: React.FC<EditModalProps> = ({
                 onPointerMove={mode === 'crop' ? handleCropPointerMove : undefined}
                 onPointerUp={mode === 'crop' ? handleCropPointerUp : undefined}
             >
-                {displayImage ? (
+                {mode === 'director' ? (
+                    <div className="w-full h-full p-4 md:p-8">
+                        <DirectorCanvas 
+                            backgroundImage={image.imageUrl}
+                            brandKit={brandKit || null}
+                            params={adParams}
+                            onUpdateParams={handleUpdateAdParams}
+                            aspectRatio={image.aspectRatio}
+                        />
+                    </div>
+                ) : displayImage ? (
                     <div className="relative shadow-lg touch-none py-8 px-4">
                         <img 
                           ref={imageRef} src={displayImage} alt="Editing" 
@@ -397,29 +426,14 @@ const EditModal: React.FC<EditModalProps> = ({
 
             <aside className="flex-shrink-0 w-full lg:w-80 bg-white flex flex-col border-t lg:border-t-0 lg:border-l border-slate-200 lg:h-full z-10">
                 <div className="p-6 flex-grow lg:overflow-y-auto">
-                    <div className="p-1 bg-slate-100 rounded-lg flex space-x-1 mb-6">
+                    <div className="p-1 bg-slate-100 rounded-xl grid grid-cols-3 gap-1 mb-6">
                         <TabButton active={mode === 'inpaint'} onClick={() => setMode('inpaint')}>Inpaint</TabButton>
                         <TabButton active={mode === 'crop'} onClick={() => setMode('crop')}>Crop</TabButton>
                         <TabButton active={mode === 'background'} onClick={() => setMode('background')}>Remove BG</TabButton>
-                        <TabButton active={mode === 'element'} onClick={() => setMode('element')}>Elements</TabButton>
                     </div>
 
                     {image.imageUrl && (
                         <div className="space-y-6">
-                            {mode === 'element' && (
-                                <div className="space-y-4 text-center py-8">
-                                    <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <Icon name="sparkles" className="w-8 h-8 text-primary" />
-                                    </div>
-                                    <h3 className="font-bold text-xl text-slate-800">Element by Element Editing</h3>
-                                    <p className="text-slate-600 text-sm">
-                                        Coming soon! You will be able to select, move, and edit individual elements within your generated images.
-                                    </p>
-                                    <div className="inline-flex items-center justify-center px-4 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-full uppercase tracking-wider mt-2">
-                                        In Development
-                                    </div>
-                                </div>
-                            )}
 
                             {mode === 'inpaint' && (
                                 <>

@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useRef } from 'react';
-import type { GeneratedImage, GenerateCaptionParams } from '../types';
+import type { GeneratedImage, GenerateCaptionParams, BrandKit } from '../types';
 import { Icon } from './ui/Icon';
 import { Button } from './ui/Button';
 import { Spinner } from './ui/Spinner';
@@ -21,6 +21,7 @@ interface MyDesignsProps {
   onGenerateCaption: (imageId: string, params: Omit<GenerateCaptionParams, 'imageUrl' | 'existingCaption'>) => void;
   generatingCaptionImageId: string | null;
   onOpenABTestModal: (image: GeneratedImage) => void;
+  brandKit: BrandKit | null;
 }
 
 const IconButton: React.FC<{icon: string, label: string, onClick: (e: React.MouseEvent) => void, disabled?: boolean, isLoading?: boolean, className?: string}> = ({icon, label, onClick, disabled, isLoading, className}) => (
@@ -36,7 +37,7 @@ const IconButton: React.FC<{icon: string, label: string, onClick: (e: React.Mous
 
 export const MyDesigns: React.FC<MyDesignsProps> = ({ 
     onSetView, onSetZoomedImage, onToggleSidebar, onRemix, onStartEdit,
-    onGenerateCaption, generatingCaptionImageId, onOpenABTestModal
+    onGenerateCaption, generatingCaptionImageId, onOpenABTestModal, brandKit
 }) => {
   const { designs, isLoading, hasMore, fetchDesigns, removeDesign } = useDesigns();
   const observer = useRef<IntersectionObserver | null>(null);
@@ -149,6 +150,7 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
                 generatingCaptionImageId={generatingCaptionImageId}
                 onOpenABTestModal={onOpenABTestModal}
                 onUpdateImage={handleUpdateImage}
+                brandKit={brandKit}
             />
         )}
     </div>

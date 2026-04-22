@@ -4,13 +4,13 @@ import { MainContent } from './MainContent';
 import { Dashboard } from './Dashboard';
 import { MyDesigns } from './MyDesigns';
 import { Spinner } from './ui/Spinner';
-import type { GenerateImageParams, GeneratedImage, InspirationItem, ShopifyAnalysisResult, GenerateCaptionParams } from '../types';
+import type { GenerateImageParams, GeneratedImage, InspirationItem, ShopifyAnalysisResult, GenerateCaptionParams, BrandKit } from '../types';
 import type { UserProfileData } from '../services/userService';
 import { AppMode, View } from '../types';
 
 // Lazy load larger views
 const AnalyticsDashboard = lazy(() => import('./AnalyticsDashboard').then(module => ({ default: module.AnalyticsDashboard })));
-const ShopifyDashboard = lazy(() => import('./ShopifyDashboard').then(module => ({ default: module.ShopifyDashboard })));
+const ShopifyDashboard = lazy(() => import('./ShopifyDashboard'));
 const ProfilePage = lazy(() => import('./ProfilePage'));
 const InspirationPage = lazy(() => import('./InspirationPage'));
 
@@ -45,13 +45,14 @@ interface AppMainViewProps {
     onRemoveFloatingImage: () => void;
     onTriggerFloatingUpload: () => void;
     onOpenContentGenerator: () => void;
+    onOpenCreativeWorkflow: () => void;
     userTier: 'Free' | 'Starter' | 'Standard' | 'Agency';
-    isAdmin: boolean;
     onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;
     onFloatingImageDrop: (file: File) => void;
     floatingMode: AppMode;
     setFloatingMode: (mode: AppMode) => void;
     isStoryBoardResult: boolean;
+    onShowDevMessage?: (feature: string) => void;
 
     // Analytics & Shopify
     onSetView: (view: View) => void;
@@ -71,6 +72,8 @@ interface AppMainViewProps {
     credits: number;
     onOpenProfileEdit: () => void;
     recentActivity: any[];
+    brandKit: BrandKit | null;
+    onGenerate: (params: GenerateImageParams) => void;
 }
 
 export const AppMainView: React.FC<AppMainViewProps> = (props) => {
@@ -94,6 +97,7 @@ export const AppMainView: React.FC<AppMainViewProps> = (props) => {
                 onOpenABTestModal={props.onOpenABTestModal}
                 onSaveModel={props.onSaveModel}
                 onRemix={props.onRemix}
+                brandKit={props.brandKit}
             />
         );
     }
@@ -116,12 +120,13 @@ export const AppMainView: React.FC<AppMainViewProps> = (props) => {
                 onRemoveFloatingImage={props.onRemoveFloatingImage}
                 onTriggerFloatingUpload={props.onTriggerFloatingUpload}
                 onOpenContentGenerator={props.onOpenContentGenerator}
+                onOpenCreativeWorkflow={props.onOpenCreativeWorkflow}
                 userTier={props.userTier}
-                isAdmin={props.isAdmin}
                 onInternalImageDrop={props.onInternalImageDrop}
                 onFloatingImageDrop={props.onFloatingImageDrop}
                 floatingMode={props.floatingMode}
                 onFloatingModeChange={props.setFloatingMode}
+                onShowDevMessage={props.onShowDevMessage}
             />
         );
     }
@@ -153,6 +158,7 @@ export const AppMainView: React.FC<AppMainViewProps> = (props) => {
                     onGenerateCaption={props.onGenerateCaption}
                     generatingCaptionImageId={props.generatingCaptionImageId}
                     onOpenABTestModal={props.onOpenABTestModal}
+                    brandKit={props.brandKit}
                 />
             )}
             

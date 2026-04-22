@@ -44,7 +44,7 @@ interface ShopifyDashboardProps {
     onDeductCredits: (cost: number) => boolean;
 }
 
-export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({ 
+const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({ 
     onGenerateAd, onToggleSidebar, report, isLoaded, onReportUpdate, onDeductCredits
 }) => {
     const [isLoading, setIsLoading] = useState(false);
@@ -477,3 +477,5 @@ const ZoneList: React.FC<{
         </div>
     </div>
 );
+
+export default ShopifyDashboard;

@@ -12,6 +12,7 @@ import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { SectionTitle, HelpLabel } from './modes/shared';
 import { toggleAspectRatio } from '../utils/configLogic';
 import { Toggle } from './ui/Toggle';
+import { analyzeProductContext } from '../services/geminiService';
 
 // Mode Components
 import { InfluencerControls } from './modes/InfluencerControls';
@@ -86,6 +87,43 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
   const isInfluencerMode = mode === AppMode.Influencer;
   const isComparisonAd = isAdCreative && params.isComparisonMode;
 
+  const [suggestedEnvironments, setSuggestedEnvironments] = useState<string[]>([]);
+  const [analyzingContext, setAnalyzingContext] = useState(false);
+
+  const handleAnalyzeContext = useCallback(async (file: File) => {
+    setAnalyzingContext(true);
+    try {
+        const result = await analyzeProductContext(file);
+        setSuggestedEnvironments(result.environments);
+        
+        // Auto-fill fashion details if in Fashion mode
+        if (mode === AppMode.Fashion && result.fashionInfo) {
+            const info = result.fashionInfo;
+            onParamsChange(prev => ({
+                ...prev,
+                fashionGender: (info.gender || prev.fashionGender) as any,
+                fashionCategory: info.category || prev.fashionCategory,
+                fashionSubCategory: info.subCategory || prev.fashionSubCategory,
+                // Do NOT fill productDescription for Fashion to avoid AI confusion
+            }));
+        } 
+        // Standard analysis for other modes - do NOT auto-fill description
+        else if (result.context.length > 0) {
+            // We still analyze to get suggestedEnvironments, but we don't touch productDescription
+        }
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setAnalyzingContext(false);
+    }
+  }, [params.productDescription, onParamsChange, mode]);
+
+  useEffect(() => {
+    if (params.frontProductImage && suggestedEnvironments.length === 0 && !analyzingContext) {
+        handleAnalyzeContext(params.frontProductImage);
+    }
+  }, [params.frontProductImage, suggestedEnvironments.length, analyzingContext, handleAnalyzeContext]);
+
   const cost = useMemo(() => calculateGenerationCost(params, userTier), [params, userTier]);
 
   const isFreeTier = userTier === 'Free';
@@ -99,17 +137,17 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
   const isValid = useMemo(() => {
       if (mode === AppMode.Remix) {
           const hasScene = !!params.remixReferenceImage || !!remixReferenceImagePreview || !!params.remixReferenceImageUrl;
-          const hasProduct = !!params.frontProductImage || !!frontProductImagePreview || (params.bulkImages && params.bulkImages.length > 0);
+          const hasProduct = !!params.frontProductImage || !!frontProductImagePreview || (params.bulkImages && params.bulkImages.length > 0) || (bulkImagePreviews && bulkImagePreviews.length > 0);
           return hasScene && hasProduct;
       }
-      const needsMainImage = [AppMode.Product, AppMode.Fashion, AppMode.Influencer, AppMode.Festival].includes(mode);
+      const needsMainImage = [AppMode.Product, AppMode.Fashion, AppMode.Influencer, AppMode.Festival, AppMode.Bulk].includes(mode);
       if (needsMainImage) {
           const hasSingle = !!params.frontProductImage || !!frontProductImagePreview;
-          const hasBulk = params.bulkImages && params.bulkImages.length > 0;
+          const hasBulk = (params.bulkImages && params.bulkImages.length > 0) || (bulkImagePreviews && bulkImagePreviews.length > 0);
           if (!hasSingle && !hasBulk) return false;
       }
       return !!params.aspectRatios && params.aspectRatios.length > 0;
-  }, [mode, params, frontProductImagePreview, remixReferenceImagePreview]);
+  }, [mode, params, frontProductImagePreview, bulkImagePreviews, remixReferenceImagePreview]);
 
   const getButtonText = () => {
       if (!isOnline) return 'Reconnecting...';
@@ -291,6 +329,34 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                                 onChange={e => handleParamChange('productDescription', e.target.value)}
                                 rows={4}
                             />
+
+                            {suggestedEnvironments.length > 0 && (
+                                <div className="mt-4 animate-fade-in">
+                                    <HelpLabel label="Magic Scene Suggestions" tooltip="AI analyzed your product and suggested these high-converting environments." />
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {suggestedEnvironments.map((env, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => handleParamChange('backdropAndProps', env)}
+                                                className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${
+                                                    params.backdropAndProps === env 
+                                                    ? 'bg-primary text-white border-primary shadow-sm' 
+                                                    : 'bg-white text-slate-600 border-slate-200 hover:border-primary/50'
+                                                }`}
+                                            >
+                                                {env}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {analyzingContext && (
+                                <div className="mt-4 flex items-center gap-2 text-primary animate-pulse">
+                                    <Icon name="sparkles" className="w-4 h-4" />
+                                    <span className="text-xs font-bold uppercase tracking-wider">Analyzing Product Context...</span>
+                                </div>
+                            )}
                         </>
                     )}
 

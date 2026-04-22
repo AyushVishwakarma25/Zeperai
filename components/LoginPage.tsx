@@ -67,41 +67,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleSkip = () => {
-    const guestSession: AuthSession = {
-        user: {
-            id: 'guest-user-id',
-            name: 'Guest User',
-            email: 'guest@zeperai.com',
-            role: 'Creator',
-            bio: 'Exploring the studio as a guest.',
-            location: 'The Cloud',
-            avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=guest`,
-            tier: 'Free',
-        },
-        token: 'guest-token',
-        expiresAt: Date.now() + (3600 * 1000), 
-    };
-    onLoginSuccess(guestSession);
-  };
-
-  const handleAdminAccess = () => {
-    const adminSession: AuthSession = {
-        user: {
-            id: 'admin-user-id',
-            name: 'Admin User',
-            email: 'admin@zeperai.com',
-            role: 'Administrator',
-            bio: 'Super user with max tier access.',
-            location: 'HQ',
-            avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=admin`,
-            tier: 'Agency', 
-        },
-        token: 'admin-token',
-        expiresAt: Date.now() + (24 * 3600 * 1000), 
-    };
-    onLoginSuccess(adminSession);
-  };
 
   return (
     <div className="min-h-screen w-full bg-slate-50 flex flex-col items-center justify-center p-4">
@@ -166,28 +131,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             >
               Log in
             </Button>
-            
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 mt-6">
-              <span className="text-sm text-slate-500">Quick access:</span>
-              <div className="flex gap-3 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={handleSkip}
-                  className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 hover:bg-slate-200 transition-colors text-sm font-medium"
-                  title="Guest Mode"
-                >
-                  <Icon name="user" className="w-4 h-4 mr-2" /> Guest
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAdminAccess}
-                  className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 hover:bg-slate-200 transition-colors text-sm font-medium"
-                  title="Admin Bypass"
-                >
-                  <Icon name="shield" className="w-4 h-4 mr-2" /> Admin
-                </button>
-              </div>
-            </div>
           </form>
 
           <div className="mt-8 text-center text-sm">

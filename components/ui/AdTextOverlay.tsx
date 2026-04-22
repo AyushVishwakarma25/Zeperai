@@ -13,6 +13,12 @@ export const AdTextOverlay: React.FC<AdTextOverlayProps> = ({ params, overrides 
   const adLayout = overrides.adLayout !== undefined ? overrides.adLayout : params.adLayout;
   const adFontFamily = overrides.adFontFamily !== undefined ? overrides.adFontFamily : (params.adFontFamily || 'font-sans font-bold');
   const adTextColor = overrides.adTextColor !== undefined ? overrides.adTextColor : (params.adTextColor || 'text-white');
+  const adTitleSize = overrides.adTitleSize !== undefined ? overrides.adTitleSize : (params.adTitleSize || 32);
+  const adSubheadingSize = overrides.adSubheadingSize !== undefined ? overrides.adSubheadingSize : (params.adSubheadingSize || 16);
+  const adCtaBgColor = overrides.adCtaBgColor !== undefined ? overrides.adCtaBgColor : (params.adCtaBgColor || '#6A5AE0');
+  const adImageZoom = overrides.adImageZoom !== undefined ? overrides.adImageZoom : (params.adImageZoom || 1);
+  const adImageX = overrides.adImageX !== undefined ? overrides.adImageX : (params.adImageX || 0);
+  const adImageY = overrides.adImageY !== undefined ? overrides.adImageY : (params.adImageY || 0);
 
   if (!adTitle && !adSubheading && !adCta) {
     return null;
@@ -48,20 +54,31 @@ export const AdTextOverlay: React.FC<AdTextOverlayProps> = ({ params, overrides 
   }
 
   // Helper to apply text color and font
-  const titleClasses = `text-3xl md:text-4xl drop-shadow-lg mb-3 leading-tight ${adFontFamily} ${adTextColor}`;
-  const subheadingClasses = `text-lg md:text-xl drop-shadow-md mb-6 ${adFontFamily} ${adTextColor} opacity-90`;
+  const titleStyle = { 
+    fontFamily: adFontFamily, 
+    color: adTextColor, 
+    fontSize: adTitleSize,
+    textShadow: '0 2px 8px rgba(0,0,0,0.8)'
+  };
+  const subheadingStyle = { 
+    fontFamily: adFontFamily, 
+    color: adTextColor, 
+    fontSize: adSubheadingSize,
+    opacity: 0.9,
+    textShadow: '0 1px 4px rgba(0,0,0,0.8)'
+  };
 
   return (
     <div className={containerClasses}>
       {adLayout === AdLayout.TextTopBottomImageCenter ? (
         <>
           <div className="w-full text-center">
-            {adTitle && <h2 className={titleClasses}>{adTitle}</h2>}
+            {adTitle && <h2 className="font-black leading-tight mb-3" style={titleStyle}>{adTitle}</h2>}
           </div>
           <div className="w-full text-center flex flex-col items-center">
-            {adSubheading && <p className={subheadingClasses}>{adSubheading}</p>}
+            {adSubheading && <p className="font-medium mb-6" style={subheadingStyle}>{adSubheading}</p>}
             {adCta && (
-              <div className="inline-block mt-2 px-6 py-3 bg-primary text-white font-bold rounded-full shadow-lg text-sm uppercase tracking-wider">
+              <div className="inline-block mt-2 px-6 py-3 text-white font-bold rounded-full shadow-lg text-sm uppercase tracking-wider" style={{ backgroundColor: adCtaBgColor }}>
                 {adCta}
               </div>
             )}
@@ -69,10 +86,10 @@ export const AdTextOverlay: React.FC<AdTextOverlayProps> = ({ params, overrides 
         </>
       ) : (
         <div className={`${contentClasses} ${textAlignment}`}>
-          {adTitle && <h2 className={titleClasses}>{adTitle}</h2>}
-          {adSubheading && <p className={subheadingClasses}>{adSubheading}</p>}
+          {adTitle && <h2 className="font-black leading-tight mb-3" style={titleStyle}>{adTitle}</h2>}
+          {adSubheading && <p className="font-medium mb-6" style={subheadingStyle}>{adSubheading}</p>}
           {adCta && (
-            <div className="inline-block mt-auto px-6 py-3 bg-primary text-white font-bold rounded-full shadow-lg text-sm uppercase tracking-wider w-fit">
+            <div className="inline-block mt-auto px-6 py-3 text-white font-bold rounded-full shadow-lg text-sm uppercase tracking-wider w-fit" style={{ backgroundColor: adCtaBgColor }}>
               {adCta}
             </div>
           )}

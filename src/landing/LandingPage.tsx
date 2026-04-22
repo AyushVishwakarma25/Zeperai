@@ -276,36 +276,57 @@ export const LandingPage: React.FC = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:auto-rows-[240px]">
-          {/* 1. Product Studio (Wide 2x1) */}
-          <div className="md:col-span-2 md:row-span-1 bg-gradient-to-br from-[#E0F2FE] to-[#BAE6FD] rounded-3xl p-8 relative overflow-hidden group">
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 w-48 h-48 bg-white/40 rounded-full blur-2xl group-hover:bg-white/60 transition-all duration-500"></div>
+          {/* 1. AI Creative Workflow (Wide 2x1) */}
+          <div className="md:col-span-2 md:row-span-1 bg-[#6366F1] rounded-3xl p-8 relative overflow-hidden group">
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 w-48 h-48 bg-white/20 rounded-full blur-2xl group-hover:bg-white/30 transition-all duration-500"></div>
             <div className="relative z-10 h-full flex flex-col justify-between">
               <div>
-                <div className="text-xs font-bold tracking-widest text-[#0284C7] uppercase mb-2">Product</div>
-                <h3 className="text-2xl md:text-3xl font-bold text-slate-900 leading-tight max-w-[280px]">Professional product visuals instantly.</h3>
+                <div className="text-xs font-bold tracking-widest text-indigo-100 uppercase mb-2">Workflow</div>
+                <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight max-w-[280px]">AI Creative Workflow.</h3>
               </div>
               <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-bold rounded-lg border border-white/30 group-hover:bg-white group-hover:text-[#6366F1] transition-all">
+                  Professional ad creation in minutes
+                </div>
+              </div>
+            </div>
+            <div className="absolute right-4 bottom-4 w-32 h-32 opacity-90 group-hover:rotate-12 transition-transform duration-500">
+               <div className="w-full h-full bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center">
+                 <Icon name="sparkles" className="w-16 h-16 text-white" />
+               </div>
+            </div>
+          </div>
+
+          {/* 2. Product Studio (Wide 2x1) */}
+          <div className="md:col-span-2 md:row-span-1 bg-[#2DD4BF] rounded-3xl p-8 relative overflow-hidden group">
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 w-48 h-48 bg-white/20 rounded-full blur-2xl group-hover:bg-white/30 transition-all duration-500"></div>
+            <div className="relative z-10 h-full flex flex-col justify-between">
+              <div>
+                <div className="text-xs font-bold tracking-widest text-teal-900 uppercase mb-2">Product</div>
+                <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight max-w-[280px]">Professional product visuals instantly.</h3>
+              </div>
+              <div className="mt-4">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-bold rounded-lg border border-white/30 group-hover:bg-white group-hover:text-[#2DD4BF] transition-all">
                   Cut shoot costs by 90%
                 </div>
               </div>
             </div>
-            <div className="absolute right-4 bottom-4 w-32 h-32 opacity-80 group-hover:scale-110 transition-transform duration-500">
+            <div className="absolute right-4 bottom-4 w-32 h-32 opacity-90 group-hover:scale-110 transition-transform duration-500">
                <img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=300&q=80" alt="Product" className="w-full h-full object-cover rounded-full shadow-xl border-4 border-white" />
             </div>
           </div>
 
           {/* 2. AI UGC Influencer (Tall 1x2) */}
-          <div className="md:col-span-1 md:row-span-2 bg-slate-900 rounded-3xl p-8 relative overflow-hidden group">
-            <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=400&q=80" alt="Fashion" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-50 transition-opacity duration-500 mix-blend-luminosity" />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
+          <div className="md:col-span-1 md:row-span-2 bg-[#6366F1] rounded-3xl p-8 relative overflow-hidden group">
+            <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=400&q=80" alt="Fashion" className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-30 transition-opacity duration-500 mix-blend-overlay" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#4f46e5] via-[#4f46e5]/40 to-transparent"></div>
             <div className="relative z-10 h-full flex flex-col justify-between">
               <div>
-                <div className="text-xs font-bold tracking-widest text-slate-300 uppercase mb-2">Influencer</div>
+                <div className="text-xs font-bold tracking-widest text-indigo-100 uppercase mb-2">Influencer</div>
                 <h3 className="text-2xl font-bold text-white leading-tight">Realistic UGC content at scale.</h3>
               </div>
               <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:bg-[#6366F1] group-hover:text-white transition-all">
                   No creator fees
                 </div>
               </div>
@@ -313,14 +334,14 @@ export const LandingPage: React.FC = () => {
           </div>
 
           {/* 3. Fashion Studio (Tall 1x2) */}
-          <div className="md:col-span-1 md:row-span-2 bg-gradient-to-br from-[#FFEDD5] to-[#FED7AA] rounded-3xl p-8 relative overflow-hidden group">
+          <div className="md:col-span-1 md:row-span-2 bg-[#FBBF24] rounded-3xl p-8 relative overflow-hidden group">
             <div className="relative z-10 h-full flex flex-col justify-between">
               <div>
-                <div className="text-xs font-bold tracking-widest text-[#C2410C] uppercase mb-2">Fashion</div>
+                <div className="text-xs font-bold tracking-widest text-amber-900 uppercase mb-2">Fashion</div>
                 <h3 className="text-2xl font-bold text-slate-900 leading-tight">On-model clothing visuals.</h3>
               </div>
               <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:bg-slate-900 group-hover:text-white transition-all">
                   Go live same day
                 </div>
               </div>
@@ -331,15 +352,15 @@ export const LandingPage: React.FC = () => {
           </div>
 
           {/* 4. Ad Generator (Tall 1x2) */}
-          <div className="md:col-span-1 md:row-span-2 bg-gradient-to-br from-[#38BDF8] to-[#0284C7] rounded-3xl p-8 relative overflow-hidden group">
+          <div className="md:col-span-1 md:row-span-2 bg-[#F43F5E] rounded-3xl p-8 relative overflow-hidden group">
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
             <div className="relative z-10 h-full flex flex-col justify-between">
               <div>
-                <div className="text-xs font-bold tracking-widest text-blue-100 uppercase mb-2">Intelligence</div>
+                <div className="text-xs font-bold tracking-widest text-white/80 uppercase mb-2">Intelligence</div>
                 <h3 className="text-2xl font-bold text-white leading-tight">Predictive creative analytics.</h3>
               </div>
               <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:bg-[#F43F5E] group-hover:text-white transition-all">
                   Stop guessing
                 </div>
               </div>
@@ -352,14 +373,14 @@ export const LandingPage: React.FC = () => {
           </div>
 
           {/* 5. 100+ Templates (Tall 1x2) */}
-          <div className="md:col-span-1 md:row-span-2 bg-gradient-to-br from-[#FBCFE8] to-[#F472B6] rounded-3xl p-8 relative overflow-hidden group">
+          <div className="md:col-span-1 md:row-span-2 bg-[#A855F7] rounded-3xl p-8 relative overflow-hidden group">
             <div className="relative z-10 h-full flex flex-col justify-between">
               <div>
-                <div className="text-xs font-bold tracking-widest text-[#BE185D] uppercase mb-2">Templates</div>
-                <h3 className="text-2xl font-bold text-slate-900 leading-tight">100+ High-CTR ad layouts.</h3>
+                <div className="text-xs font-bold tracking-widest text-purple-100 uppercase mb-2">Templates</div>
+                <h3 className="text-2xl font-bold text-white leading-tight">100+ High-CTR ad layouts.</h3>
               </div>
               <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:bg-[#A855F7] group-hover:text-white transition-all">
                   Proven to convert
                 </div>
               </div>
@@ -370,14 +391,14 @@ export const LandingPage: React.FC = () => {
           </div>
 
           {/* 6. Shopify Analytics (Wide 2x1) */}
-          <div className="md:col-span-2 md:row-span-1 bg-gradient-to-br from-[#DBEAFE] to-[#93C5FD] rounded-3xl p-8 relative overflow-hidden group">
+          <div className="md:col-span-2 md:row-span-1 bg-[#3B82F6] rounded-3xl p-8 relative overflow-hidden group">
             <div className="relative z-10 h-full flex flex-col justify-between">
               <div>
-                <div className="text-xs font-bold tracking-widest text-[#1D4ED8] uppercase mb-2">Integration</div>
-                <h3 className="text-2xl md:text-3xl font-bold text-slate-900 leading-tight max-w-[320px]">Connect your Shopify store data.</h3>
+                <div className="text-xs font-bold tracking-widest text-blue-100 uppercase mb-2">Integration</div>
+                <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight max-w-[320px]">Connect your Shopify store data.</h3>
               </div>
               <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:shadow-md transition-all">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:bg-[#3B82F6] group-hover:text-white transition-all">
                   Close the loop
                 </div>
               </div>
@@ -632,31 +653,34 @@ export const LandingPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative hover:-translate-y-2 hover:shadow-xl transition-all duration-300 cursor-pointer group">
-            <div className="absolute -top-3 -left-3 w-8 h-8 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-sm border-2 border-white shadow-sm">1</div>
-            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Icon name="upload" className="w-5 h-5 text-[#4452FB]" />
+          <div className="bg-[#6366F1] p-8 rounded-3xl relative overflow-hidden group shadow-xl hover:-translate-y-2 transition-all duration-300">
+            <div className="absolute -top-3 -left-3 w-10 h-10 bg-white text-[#6366F1] rounded-full flex items-center justify-center font-black text-sm border-2 border-[#6366F1] shadow-lg z-20">1</div>
+            <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+              <Icon name="upload" className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-lg font-bold mb-2">Feed the Beast</h3>
-            <p className="text-slate-600 text-sm leading-relaxed">Drop your brand assets and product Images.</p>
+            <h3 className="text-2xl font-bold mb-3 text-white">Uploaded section</h3>
+            <p className="text-indigo-100 text-sm leading-relaxed">Drop your brand assets and product Images.</p>
+            <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl group-hover:bg-white/20 transition-all"></div>
           </div>
           
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative hover:-translate-y-2 hover:shadow-xl transition-all duration-300 cursor-pointer group">
-            <div className="absolute -top-3 -left-3 w-8 h-8 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-sm border-2 border-white shadow-sm">2</div>
-            <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Icon name="magic-wand" className="w-5 h-5 text-purple-600" />
+          <div className="bg-[#FBBF24] p-8 rounded-3xl relative overflow-hidden group shadow-xl hover:-translate-y-2 transition-all duration-300">
+            <div className="absolute -top-3 -left-3 w-10 h-10 bg-white text-[#FBBF24] rounded-full flex items-center justify-center font-black text-sm border-2 border-[#FBBF24] shadow-lg z-20">2</div>
+            <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+              <Icon name="magic-wand" className="w-6 h-6 text-slate-900" />
             </div>
-            <h3 className="text-lg font-bold mb-2">Magic in the Middle</h3>
-            <p className="text-slate-600 text-sm leading-relaxed">Explore curated presets across 100+ categories.</p>
+            <h3 className="text-2xl font-bold mb-3 text-slate-900">Magic in the Middle</h3>
+            <p className="text-amber-900 text-sm leading-relaxed font-medium">Explore curated presets across 100+ categories.</p>
+            <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/20 rounded-full blur-xl group-hover:bg-white/30 transition-all"></div>
           </div>
           
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative hover:-translate-y-2 hover:shadow-xl transition-all duration-300 cursor-pointer group">
-            <div className="absolute -top-3 -left-3 w-8 h-8 bg-[#4452FB] text-white rounded-full flex items-center justify-center font-black text-sm border-2 border-white shadow-sm">3</div>
-            <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Icon name="image" className="w-5 h-5 text-emerald-600" />
+          <div className="bg-[#F43F5E] p-8 rounded-3xl relative overflow-hidden group shadow-xl hover:-translate-y-2 transition-all duration-300">
+            <div className="absolute -top-3 -left-3 w-10 h-10 bg-white text-[#F43F5E] rounded-full flex items-center justify-center font-black text-sm border-2 border-[#F43F5E] shadow-lg z-20">3</div>
+            <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+              <Icon name="image" className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-lg font-bold mb-2">Generate</h3>
-            <p className="text-slate-600 text-sm leading-relaxed">Get high quality product images in minutes.</p>
+            <h3 className="text-2xl font-bold mb-3 text-white">from black screen to live campaign in minutes</h3>
+            <p className="text-rose-100 text-sm leading-relaxed">Get high quality product images in minutes.</p>
+            <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl group-hover:bg-white/20 transition-all"></div>
           </div>
         </div>
         

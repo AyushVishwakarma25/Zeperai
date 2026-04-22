@@ -9,7 +9,6 @@ export enum AppMode {
   Festival = 'Festival',
   Remix = 'Remix',
   Bulk = 'Bulk',
-  ThreeDStudio = '3D Studio',
 }
 
 export enum ResolutionQuality {
@@ -27,6 +26,7 @@ export enum ProductCategory {
   Fashion = 'Fashion',
   HomeDecor = 'Home Decor',
   Fitness = 'Fitness',
+  Jewellery = 'Jewellery',
 }
 
 export enum View {
@@ -225,7 +225,6 @@ export interface GenerateImageParams {
   outfitReferenceImage?: File;
   detectedCategory?: ProductCategory;
   batchSize?: number;
-  modelSeedId?: string;
   fashionGender?: FashionGender;
   fashionShootType?: FashionShootType;
   fashionCategory?: string;
@@ -243,6 +242,15 @@ export interface GenerateImageParams {
   storyboardScenes?: string[];
   fashionPose?: string[];
   applyBrandIdentity?: boolean;
+  adCtaBgColor?: string;
+  adTitleSize?: number;
+  adSubheadingSize?: number;
+  adImageZoom?: number;
+  adImageX?: number;
+  adImageY?: number;
+  adLogoSize?: number;
+  adLogoX?: number;
+  adLogoY?: number;
 }
 
 export interface GeneratedImage {
@@ -276,6 +284,11 @@ export interface BrandKit {
   negativeConstraints: string;
   logoUrl?: string;
   updatedAt?: number;
+  // JSON-based Style Definition Tokens
+  primary_hex?: string;
+  font_family?: string;
+  logo_anchor_point?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
+  style_keyword?: string;
 }
 
 export interface SavedModel {

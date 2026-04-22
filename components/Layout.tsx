@@ -15,11 +15,11 @@ interface LayoutProps {
     onOpenContentGenerator: () => void;
     onOpenSupport: () => void;
     onOpenBrandKit: () => void;
-    isAdmin: boolean;
-    onToggleAdmin: () => void;
+    onSetTier: (tier: 'Free' | 'Starter' | 'Standard' | 'Agency') => void;
     user: UserProfileData;
     onLogout: () => void;
     onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;
+    onShowDevMessage?: (feature: string) => void;
 }
 
 export const Layout: React.FC<LayoutProps> = ({
@@ -33,11 +33,11 @@ export const Layout: React.FC<LayoutProps> = ({
     onOpenContentGenerator,
     onOpenSupport,
     onOpenBrandKit,
-    isAdmin,
-    onToggleAdmin,
+    onSetTier,
     user,
     onLogout,
-    onInternalImageDrop
+    onInternalImageDrop,
+    onShowDevMessage
 }) => {
     return (
         <div className="relative w-screen h-screen bg-main font-sans flex overflow-hidden">
@@ -53,12 +53,11 @@ export const Layout: React.FC<LayoutProps> = ({
                 onOpenContentGenerator={onOpenContentGenerator}
                 onOpenSupport={onOpenSupport}
                 onOpenBrandKit={onOpenBrandKit}
-                isAdmin={isAdmin}
-                onToggleAdmin={onToggleAdmin}
                 user={user}
                 onLogin={() => {}}
                 onLogout={onLogout}
                 onInternalImageDrop={onInternalImageDrop}
+                onShowDevMessage={onShowDevMessage}
             />
 
             <main className="flex-1 flex flex-col overflow-hidden lg:ml-[92px]">

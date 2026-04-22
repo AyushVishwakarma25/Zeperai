@@ -204,6 +204,7 @@ export const PRODUCT_CATEGORY_OPTIONS = [
   { label: 'Fashion', value: ProductCategory.Fashion },
   { label: 'Home Decor', value: ProductCategory.HomeDecor },
   { label: 'Fitness', value: ProductCategory.Fitness },
+  { label: 'Jewellery', value: ProductCategory.Jewellery },
 ];
 
 export const FESTIVAL_STYLE_OPTIONS = [
@@ -514,13 +515,32 @@ export const ALL_BACKGROUND_OPTIONS: Record<ProductCategory, Record<string, stri
       'Gradient background (soft light-to-dark transition)',
     ],
   },
+  [ProductCategory.Jewellery]: {
+    '✨ AI Suggested': [AI_SUGGESTED],
+    'Luxury & Studio': [
+      'White geometric pedestal with soft shadows',
+      'Dark velvet bust (black, navy, or emerald)',
+      'Luxury jewellery box (open, velvet interior)',
+      'Reflective mirror surface with bokeh lights',
+    ],
+    'Lifestyle & Human': [
+      'Hand model wearing rings/bracelets',
+      'Close-up of neck/ears for necklaces/earrings',
+      'Elegant lifestyle setting (vanity table, silk fabric)',
+    ],
+    'Cinematic & Moody': [
+      'Dark textured background with dramatic spotlight',
+      'Floating in a void with particle effects',
+      'Macro shot with extreme shallow depth of field',
+    ],
+  },
 };
 
 export const PRO_PRODUCT_STYLE_PRESETS: ProProductStyleCategory[] = [
   {
     "category": "Drinks & Beverages",
     "presets": [
-      { "name": "Citrus Pop", "prompt": "A [product] placed on a white block with sliced citrus and ice cubes, fresh condensation, vibrant gradient background, bright studio lighting.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabaseco/storage/v1/object/public/thumbnails/design-citrus-pop.webp" },
+      { "name": "Citrus Pop", "prompt": "A [product] placed on a white block with sliced citrus and ice cubes, fresh condensation, vibrant gradient background, bright studio lighting.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-citrus-pop.webp" },
       { "name": "Tropical Splash", "prompt": "A [product] surrounded by floating fruits and water splashes, dynamic motion freeze, colorful gradient backdrop, high contrast lighting.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-tropical-splash.webp" },
       { "name": "Minimal Refresh", "prompt": "A single [product] on a clean pedestal with subtle droplets, soft shadows, and a pastel gradient background.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-minimal-refresh.webp" },
       { "name": "Flavor Burst", "prompt": "A [product] surrounded by its core ingredients in mid-air, sharp detail, vivid background, strong directional lighting.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-flavor-burst.webp" },
@@ -549,7 +569,7 @@ export const PRO_PRODUCT_STYLE_PRESETS: ProProductStyleCategory[] = [
       { "name": "Hero Box Reach", "prompt": "A high-energy commercial photoshoot for [product]. A human arm reaches upwards from a branded brown cardboard box that is overflowing with many units of [product]. The person is holding one [product] aloft against a bold, solid red background. The foreground surface is a clean white square-tiled surface with red grout lines. Sharp studio lighting with energetic composition and vibrant colors.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-hero-box-reach.webp" },
       { "name": "Artisanal Tile Setup", "prompt": "Appetizing professional photography of [product]. Multiple units of [product] are standing upright on a smooth white stone countertop. In front of the packs, the actual loose snack pieces are artfully displayed in small minimalist terracotta and stone ceramic dishes. The background is a vibrant yellow square-tiled wall with a floating rustic wooden shelf. The shelf holds dark green ceramic jars and a lush leafy indoor plant. Bright, clean natural lighting with soft side-shadows for a fresh, premium look.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-artisanal-tile-setup.webp" },
       { "name": "Pop Color Spread", "prompt": "A modern graphic commercial spread of [product] packages against a high-contrast two-tone background consisting of a magenta-pink wall and a bright red floor. One unit of [product] stands upright while others lie artfully at angles. The scene is decorated with scattered ingredients relevant to the [product]'s flavor and small white porcelain bowls containing the product. Sharp editorial lighting with hard shadows creating a graphic and trendy aesthetic.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-pop-color-spread.webp" },
-      { "name": "Dynamic Bundle Showcase", "prompt": "A professional studio group shot of the provided products arranged as a premium bundle. A central anchor element (like a box or main package) is positioned in the lower-ground. The other items are arranged artfully around it few lie on surface: place one on top of the central element, lean others against the base, and place flat items in the foreground. Soft, diffused studio lighting from the upper right. Background: A studio soft pastle, or brand colors). High-end commercial photography style, eye-level, sharp focus.", "thumbnail": "https://placehold.co/300x300/27272a/facc15?text=Dynamic+Bundle" },
+      { "name": "Dynamic Bundle Showcase", "prompt": "A professional studio group shot of the provided products arranged as a premium bundle. A central anchor element (like a box or main package) is positioned in the lower-ground. The other items are arranged artfully around it few lie on surface: place one on top of the central element, lean others against the base, and place flat items in the foreground. Soft, diffused studio lighting from the upper right. Background: A studio soft pastle, or brand colors). High-end commercial photography style, eye-level, sharp focus.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-pop-shot.webp" },
       { "name": "Healthy Indulgence", "prompt": "A [product] on beige fabric or wood, surrounded by its key ingredients (e.g. oats, nuts, chocolate chunks), soft warm lighting.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-healthy-indulgence.webp" },
       { "name": "Pop Shot", "prompt": "A single [product] packet surrounded by floating ingredients that represent its flavor, clean pastel background.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-pop-shot.webp" },
       { "name": "Vibrant Shelf", "prompt": "Rows of [product] displayed symmetrically on white cubes, bold lighting, contrasting shadows, magazine aesthetic.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-vibrant-shelf.webp" },
@@ -560,52 +580,63 @@ export const PRO_PRODUCT_STYLE_PRESETS: ProProductStyleCategory[] = [
       { "name": "Quickcommerce Style", "prompt": "A professional studio shot of the [product] placed centrally in a scene with its key ingredients and final form (e.g., brownies, a prepared dish) artfully scattered around it. The background is a clean, warm, soft-focus gradient that complements the product's colors. The lighting is dramatic yet soft, creating an appetizing and high-quality commercial look. Include dynamic elements like small splashes or floating ingredients for a vibrant, premium feel.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-quickcommerce-style.webp" },
       { "name": "Blinkit Style 2", "prompt": "Studio shot of a standing [product] on a sky or smooth gradient background, with a soft spotlight from the corners and subtle shadows. Add realistic water droplets on the packaging if appropriate for the product. Surround the [product] with its key ingredients, artfully arranged in a rich food styling composition. Premium commercial photography style with crisp details and a shallow depth of field. Do not add any other elements. The [product] should be the main focus, filling approximately 85% of the frame.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-blinkit-style-2.webp" },
       { "name": "Color Block Pop", "prompt": "Three [product] items displayed against a vibrant background featuring bold diagonal color blocks (purple, red, blue). Hard directional lighting creates long, dramatic shadows. Graphic, high-contrast pop-art aesthetic.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-color-block-pop.webp" },
-      { "name": "Hero Product", "prompt": "A stunning 'Hero Product' composition of [product]. The background is a solid, vibrant color that dynamically matches the product's primary branding color for a seamless, monochromatic look. The product stands boldly in the center. In the background, a bowl or artful arrangement of the product's key ingredients (e.g., grains, fruits, nuts, spices) is displayed to showcase flavor and quality. The lighting is soft yet defining, highlighting the texture of the packaging and the freshness of the ingredients. High-end commercial aesthetic.", "thumbnail": "https://placehold.co/300x300/5b21b6/ffffff?text=Hero+Product" }
+      { "name": "Hero Product", "prompt": "A stunning 'Hero Product' composition of [product]. The background is a solid, vibrant color that dynamically matches the product's primary branding color for a seamless, monochromatic look. The product stands boldly in the center. In the background, a bowl or artful arrangement of the product's key ingredients (e.g., grains, fruits, nuts, spices) is displayed to showcase flavor and quality. The lighting is soft yet defining, highlighting the texture of the packaging and the freshness of the ingredients. High-end commercial aesthetic.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-vibrant-breakfast-scene.webp" }
     ]
   },
   {
     "category": "Perfume & Luxury",
     "presets": [
-      { "name": "Mirror Elegance", "prompt": "A [product] placed on a reflective surface with moody background gradient, soft light highlights, luxury aesthetic." },
-      { "name": "Water Grace", "prompt": "A [product] bottle half-submerged in calm water with ripples and reflections, golden light glow." },
-      { "name": "Silk Touch", "prompt": "A [product] placed on smooth flowing fabric folds, soft diffused lighting, gentle highlights." },
-      { "name": "Amber Night", "prompt": "A [product] bottle on marble or glass with warm amber light and cinematic shadows, elegant composition." },
-      { "name": "Minimal Luxury", "prompt": "A single [product] centered in frame on matte background with sharp top light, premium editorial style." },
-      { "name": "Botanical Aura", "prompt": "A [product] surrounded by delicate petals or herbs, soft daylight and depth blur, high-end fragrance style." }
+      { "name": "Mirror Elegance", "prompt": "A [product] placed on a reflective surface with moody background gradient, soft light highlights, luxury aesthetic.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-luxe-mirror.webp" },
+      { "name": "Water Grace", "prompt": "A [product] bottle half-submerged in calm water with ripples and reflections, golden light glow.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-tropical-splash.webp" },
+      { "name": "Silk Touch", "prompt": "A [product] placed on smooth flowing fabric folds, soft diffused lighting, gentle highlights.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Skincare/design-soft-glow.webp" },
+      { "name": "Amber Night", "prompt": "A [product] bottle on marble or glass with warm amber light and cinematic shadows, elegant composition.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Skincare/design-stone-elegance.webp" },
+      { "name": "Minimal Luxury", "prompt": "A single [product] centered in frame on matte background with sharp top light, premium editorial style.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-minimal-refresh.webp" },
+      { "name": "Botanical Aura", "prompt": "A [product] surrounded by delicate petals or herbs, soft daylight and depth blur, high-end fragrance style.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Skincare/design-natural-essence.webp" }
     ]
   },
   {
     "category": "Health, Supplements & Nutrition",
     "presets": [
-      { "name": "Vital Boost", "prompt": "A [product] jar on pedestal surrounded by fruits and supplement capsules, bright gradient background, modern lighting." },
-      { "name": "Energy Lineup", "prompt": "Multiple [product] bottles aligned symmetrically on white cubes, colorful background, dynamic contrast." },
-      { "name": "Natural Power", "prompt": "A [product] bottle with herbs and raw ingredients, neutral organic background, sunlight-inspired lighting." },
-      { "name": "Wellness Minimal", "prompt": "A single [product] on pastel backdrop with clean typography style shadows, calm and fresh tone." },
-      { "name": "Active Pulse", "prompt": "A [product] captured mid-air with floating ingredients, strong lighting, sports-nutrition vibe." },
-      { "name": "Balanced Life", "prompt": "A [product] placed with a glass of water and sliced fruit, clean white or mint background, natural fresh look." }
+      { "name": "Vital Boost", "prompt": "A [product] jar on pedestal surrounded by fruits and supplement capsules, bright gradient background, modern lighting.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-vibrant-geo-steps.webp" },
+      { "name": "Energy Lineup", "prompt": "Multiple [product] bottles aligned symmetrically on white cubes, colorful background, dynamic contrast.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-vibrant-geo-steps.webp" },
+      { "name": "Natural Power", "prompt": "A [product] bottle with herbs and raw ingredients, neutral organic background, sunlight-inspired lighting.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Skincare/design-natural-essence.webp" },
+      { "name": "Wellness Minimal", "prompt": "A single [product] on pastel backdrop with clean typography style shadows, calm and fresh tone.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-minimal-refresh.webp" },
+      { "name": "Active Pulse", "prompt": "A [product] captured mid-air with floating ingredients, strong lighting, sports-nutrition vibe.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-flavor-burst.webp" },
+      { "name": "Balanced Life", "prompt": "A [product] placed with a glass of water and sliced fruit, clean white or mint background, natural fresh look.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-summer-glow.webp" }
     ]
   },
   {
     "category": "Natural & Organic",
     "presets": [
-      { "name": "Green Harmony", "prompt": "A [product] surrounded by leaves, stones, and wood, soft sunlight tone, eco-organic aesthetic." },
-      { "name": "Pure Nature", "prompt": "A [product] placed among natural textures like linen, clay, and herbs, beige tone background." },
-      { "name": "Rustic Calm", "prompt": "A [product] jar or bottle on wood or stone with blurred natural background, earthy colors, ambient light." },
-      { "name": "Eco Luxe", "prompt": "A [product] with minimalist label, on recycled paper or bamboo base, clean sustainable look." },
-      { "name": "Botanic Focus", "prompt": "A close-up of [product] with macro details of surrounding leaves and drops, fresh daylight lighting." },
-      { "name": "Nature Flow", "prompt": "A [product] placed beside flowing fabric or natural water texture, calm soft tone, realistic daylight." }
+      { "name": "Green Harmony", "prompt": "A [product] surrounded by leaves, stones, and wood, soft sunlight tone, eco-organic aesthetic.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Skincare/design-natural-essence.webp" },
+      { "name": "Pure Nature", "prompt": "A [product] placed among natural textures like linen, clay, and herbs, beige tone background.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Skincare/design-stone-elegance.webp" },
+      { "name": "Rustic Calm", "prompt": "A [product] jar or bottle on wood or stone with blurred natural background, earthy colors, ambient light.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Skincare/design-bold-sunlight-shadow.webp" },
+      { "name": "Eco Luxe", "prompt": "A [product] with minimalist label, on recycled paper or bamboo base, clean sustainable look.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Skincare/design-soft-glow.webp" },
+      { "name": "Botanic Focus", "prompt": "A close-up of [product] with macro details of surrounding leaves and drops, fresh daylight lighting.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Skincare/design-natural-essence.webp" },
+      { "name": "Nature Flow", "prompt": "A [product] placed beside flowing fabric or natural water texture, calm soft tone, realistic daylight.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Skincare/design-soft-glow.webp" }
     ]
   },
   {
     "category": "Creative & Dynamic",
     "presets": [
-      { "name": "Cinematic Float", "prompt": "A highly detailed, cinematic product photo of the [product] placed on a stylish surface with floating product elements around it, professional studio lighting, and shallow depth of field. The background should match the brand color palette and create a sense of motion and freshness. Add realistic textures, natural shadows, and a soft glow around the main product. The packaging should look premium, clean, and sharp with focus on brand logo and typography. Style inspired by commercial food photography and high-end product ads." },
-      { "name": "Bold Geometry", "prompt": "A [product] shot with direct, hard lighting to create strong, defined shadows. The background is composed of bold, geometric blocks of solid color. Minimal, relevant props are arranged artistically. Modern, editorial feel." },
-      { "name": "Ingredient Explosion", "prompt": "A dynamic shot of the [product] floating centrally, with its core ingredients (like nuts, berries, or chocolate chunks) exploding outwards from around it in a frozen motion effect. Set against a vibrant, clean, single-color or gradient background with professional studio lighting." },
-      { "name": "Artistic Spill", "prompt": "A top-down flat lay shot where the [product] packet is open, and its contents are spilling out artfully onto a clean, textured surface. The composition is clean and visually appealing, with a focus on the texture of the product. The background should be a solid, contrasting color." },
-      { "name": "Hand Reveal", "prompt": "A creative studio shot where a hand holds the [product] against a bold, solid-colored background. For a dynamic effect, the hand can emerge from a tear or hole in a paper backdrop. Lighting is clean and focused on the product." },
-      { "name": "Dynamic Splash", "prompt": "A high-speed photograph capturing the [product] (if a liquid) or its ingredients splashing into water or milk. The motion is frozen, with droplets and ripples clearly visible. The background can be clean and simple to emphasize the action." },
-      { "name": "Textured Minimalism", "prompt": "A top-down flat lay of the [product] on a highly textured surface like rough stone, dark slate, or wrinkled linen. The composition is minimal, with natural, directional lighting creating deep shadows that emphasize texture." }
+      { "name": "Cinematic Float", "prompt": "A highly detailed, cinematic product photo of the [product] placed on a stylish surface with floating product elements around it, professional studio lighting, and shallow depth of field. The background should match the brand color palette and create a sense of motion and freshness. Add realistic textures, natural shadows, and a soft glow around the main product. The packaging should look premium, clean, and sharp with focus on brand logo and typography. Style inspired by commercial food photography and high-end product ads.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-vibrant-ingredient-pile.webp" },
+      { "name": "Bold Geometry", "prompt": "A [product] shot with direct, hard lighting to create strong, defined shadows. The background is composed of bold, geometric blocks of solid color. Minimal, relevant props are arranged artistically. Modern, editorial feel.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Skincare/design-bold-sunlight-shadow.webp" },
+      { "name": "Ingredient Explosion", "prompt": "A dynamic shot of the [product] floating centrally, with its core ingredients (like nuts, berries, or chocolate chunks) exploding outwards from around it in a frozen motion effect. Set against a vibrant, clean, single-color or gradient background with professional studio lighting.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-flavor-burst.webp" },
+      { "name": "Artistic Spill", "prompt": "A top-down flat lay shot where the [product] packet is open, and its contents are spilling out artfully onto a clean, textured surface. The composition is clean and visually appealing, with a focus on the texture of the product. The background should be a solid, contrasting color.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Snacks%20/design-hands-on-flat-lay.webp" },
+      { "name": "Hand Reveal", "prompt": "A creative studio shot where a hand holds the [product] against a bold, solid-colored background. For a dynamic effect, the hand can emerge from a tear or hole in a paper backdrop. Lighting is clean and focused on the product.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Skincare/design-hand-reveal.webp" },
+      { "name": "Dynamic Splash", "prompt": "A high-speed photograph capturing the [product] (if a liquid) or its ingredients splashing into water or milk. The motion is frozen, with droplets and ripples clearly visible. The background can be clean and simple to emphasize the action.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/design-tropical-splash.webp" },
+      { "name": "Textured Minimalism", "prompt": "A top-down flat lay of the [product] on a highly textured surface like rough stone, dark slate, or wrinkled linen. The composition is minimal, with natural, directional lighting creating deep shadows that emphasize texture.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Skincare/design-stone-elegance.webp" }
+    ]
+  },
+  {
+    "category": "Jewellery & Accessories",
+    "presets": [
+      { "name": "Geometric Pedestal", "prompt": "A [product] placed on a clean, white geometric pedestal with soft shadows and a warm, minimalist background. Elegant and high-end studio lighting.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Jewellery/design-geometric-pedestal.webp" },
+      { "name": "Emerald Bokeh", "prompt": "A [product] suspended in front of a dark green textured background with beautiful bokeh lights. Dramatic and luxurious lighting with a focus on gemstones.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Jewellery/design-emerald-bokeh.webp" },
+      { "name": "Teardrop Blue", "prompt": "A [product] placed on a light blue textured surface with soft, diffused lighting. Clean and sophisticated composition.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Jewellery/design-teardrop-blue.webp" },
+      { "name": "Hand Model Showcase", "prompt": "A professional hand model wearing the [product], showcasing its fit and detail. Soft, natural lighting with a blurred lifestyle background.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Jewellery/design-hand-model.webp" },
+      { "name": "Royal Velvet Bust", "prompt": "A [product] displayed on a professional jewellery mannequin bust with a rich velvet finish. Dramatic spotlighting to highlight craftsmanship and sparkle.", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Jewellery/design-velvet-bust.webp" },
+      { "name": "Luxury Box Reveal", "prompt": "A [product] presented inside a luxury velvet jewellery box, nestled in soft fabric. Rich, warm lighting with elegant textures (silk or velvet).", "thumbnail": "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Jewellery/design-luxury-box.webp" }
     ]
   }
 ];
@@ -687,16 +718,16 @@ export const FESTIVAL_PRESETS: ProProductStyleCategory[] = [
   {
     category: "🌙 Eid",
     presets: [
-      { name: "Moonlight Feast", prompt: "Elegant evening setting. [product] placed on an ornate tray with dates and lanterns. Background features a crescent moon glow. Rich blue and gold tones." },
-      { name: "Morning Celebration", prompt: "Bright and airy Eid morning. [product] on a white marble table with sheer curtains and soft sunlight. Simple elegant props like a tasbih." }
+      { name: "Moonlight Feast", prompt: "Elegant evening setting. [product] placed on an ornate tray with dates and lanterns. Background features a crescent moon glow. Rich blue and gold tones.", thumbnail: "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Festiveshoot/Golden%20Glow%20Diya.webp" },
+      { name: "Morning Celebration", prompt: "Bright and airy Eid morning. [product] on a white marble table with sheer curtains and soft sunlight. Simple elegant props like a tasbih.", thumbnail: "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Festiveshoot/Traditional%20Rangoli.webp" }
     ]
   },
   {
     category: "🎄 Christmas",
     presets: [
-      { name: "Cozy Fireplace", prompt: "Warm Christmas vibe. [product] placed on a wooden mantelpiece with stockings and pine cones. Soft glow from a fireplace in the background." },
-      { name: "Winter Wonderland", prompt: "Crisp winter scene. [product] nestled in fake snow with silver ornaments and white pine branches. Cool blue and white lighting." },
-      { name: "Gift Unboxing", prompt: "Exciting holiday gift scene. [product] emerging from a wrapped gift box with ribbons and confetti. Bright, joyful lighting." }
+      { name: "Cozy Fireplace", prompt: "Warm Christmas vibe. [product] placed on a wooden mantelpiece with stockings and pine cones. Soft glow from a fireplace in the background.", thumbnail: "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Festiveshoot/design-vibrant-gulal-explosion.webp" },
+      { name: "Winter Wonderland", prompt: "Crisp winter scene. [product] nestled in fake snow with silver ornaments and white pine branches. Cool blue and white lighting.", thumbnail: "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Festiveshoot/design-elegant-white-pastel.webp" },
+      { name: "Gift Unboxing", prompt: "Exciting holiday gift scene. [product] emerging from a wrapped gift box with ribbons and confetti. Bright, joyful lighting.", thumbnail: "https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Festiveshoot/Vibrant%20Color%20Spread.webp" }
     ]
   }
 ];

@@ -43,12 +43,11 @@ interface DashboardSidebarProps {
     onOpenContentGenerator: () => void;
     onOpenSupport: () => void;
     onOpenBrandKit: () => void;
-    isAdmin?: boolean;
-    onToggleAdmin?: () => void;
     user: UserProfileData | null;
     onLogin: () => void;
     onLogout: () => void;
     onInternalImageDrop?: (image: GeneratedImage, targetMode?: AppMode) => void;
+    onShowDevMessage?: (feature: string) => void;
 }
 
 const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({ 
@@ -63,28 +62,27 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
     onOpenContentGenerator, 
     onOpenSupport,
     onOpenBrandKit,
-    isAdmin = false,
-    onToggleAdmin,
     user,
     onLogin,
     onLogout,
-    onInternalImageDrop
+    onInternalImageDrop,
+    onShowDevMessage
 }) => {
   const [isModesOpen, setIsModesOpen] = useState(true);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [dragOverMode, setDragOverMode] = useState<AppMode | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   
-  const creativeModes = [
-    { label: 'Influencer', mode: AppMode.Influencer },
-    { label: 'Product Photoshoot', mode: AppMode.Product },
-    { label: 'Fashion Photoshoot', mode: AppMode.Fashion },
-    { label: 'Ad Creative', mode: AppMode.AdCreative },
-    { label: 'Festival Shoot', mode: AppMode.Festival },
-    { label: 'Remix', mode: AppMode.Remix },
-    { label: '3D Studio', mode: AppMode.ThreeDStudio },
-    { label: 'Background Remover', action: onStartImageEdit },
-  ];
+    const creativeModes = [
+        { label: 'Influencer', mode: AppMode.Influencer },
+        { label: 'Product Photoshoot', mode: AppMode.Product },
+        { label: 'Fashion Photoshoot', mode: AppMode.Fashion },
+        { label: 'Ad Creative', mode: AppMode.AdCreative },
+        { label: 'Festival Shoot', mode: AppMode.Festival },
+        { label: 'Remix', mode: AppMode.Remix },
+        { label: 'Ad Generator + BI', isDev: true },
+        { label: 'Background Remover', action: onStartImageEdit },
+    ];
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -188,7 +186,8 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
                             <button
                                 key={item.mode || `action-${idx}`}
                                 onClick={() => { 
-                                    if (item.mode) onSelectMode(item.mode);
+                                    if (item.isDev) onShowDevMessage?.(item.label);
+                                    else if (item.mode) onSelectMode(item.mode);
                                     else if (item.action) item.action();
                                     onClose(); 
                                 }}
@@ -202,7 +201,10 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
                                     : 'text-slate-600 hover:text-primary hover:bg-primary/10'
                                 }`}
                             >
-                                <span>{item.label}</span>
+                                <span className="flex items-center gap-2">
+                                    {item.label}
+                                    {item.isDev && <span className="text-[8px] px-1 bg-amber-100 text-amber-700 rounded font-black uppercase">Dev</span>}
+                                </span>
                                 {dragOverMode === item.mode && <Icon name="plus-circle" className="w-4 h-4 text-white animate-pulse" />}
                             </button>
                         ))}
@@ -211,8 +213,17 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
             </div>
 
             <NavItem icon="edit" label="AI Content Writer" onClick={() => { onOpenContentGenerator(); onClose(); }} isOpen={isOpen} />
-            <NavItem icon="magic-wand" label="Brand Identity" onClick={() => { onOpenBrandKit(); onClose(); }} isOpen={isOpen} />
-            <NavItem icon="chart-bar" label="Brand Analytics" active={currentView === View.Analytics} onClick={() => { onSetView(View.Analytics); onClose(); }} isOpen={isOpen} />
+            
+            <div className="relative">
+                <NavItem icon="magic-wand" label="Brand Identity" onClick={() => { onShowDevMessage?.("Brand Identity"); onClose(); }} isOpen={isOpen} />
+                {isOpen && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[8px] px-1 bg-amber-100 text-amber-700 rounded font-black uppercase pointer-events-none">Dev</span>}
+            </div>
+
+            <div className="relative">
+                <NavItem icon="chart-bar" label="Brand Analytics" active={currentView === View.Analytics} onClick={() => { onShowDevMessage?.("Brand Analytics"); onClose(); }} isOpen={isOpen} />
+                {isOpen && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[8px] px-1 bg-amber-100 text-amber-700 rounded font-black uppercase pointer-events-none">Dev</span>}
+            </div>
+
             <NavItem icon="shopping-bag" label="Shopify Analyzer" active={currentView === View.ShopifyAnalytics} onClick={() => { onSetView(View.ShopifyAnalytics); onClose(); }} isOpen={isOpen} />
             <NavItem icon="folder" label="My Designs" active={currentView === View.MyDesigns} onClick={() => { onSetView(View.MyDesigns); onClose(); }} isOpen={isOpen} />
             <NavItem icon="lightbulb" label="Inspiration" active={currentView === View.Inspiration} onClick={() => { onSetView(View.Inspiration); onClose(); }} isOpen={isOpen} />
@@ -267,7 +278,7 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
                     {isOpen && (
                         <div className="ml-3 min-w-0 flex-1 text-left">
                             <p className="text-sm font-bold text-white truncate">{user.name}</p>
-                            <p className="text-xs text-white/80 truncate">{user.role}</p>
+                            <p className="text-xs text-white/80 truncate font-medium">{user.tier}</p>
                         </div>
                     )}
                     
@@ -275,15 +286,6 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
                         <Icon name="dots-horizontal" className={`w-5 h-5 text-white/80 ml-2`} />
                     )}
                 </button>
-                
-                {isOpen && onToggleAdmin && (
-                    <button 
-                        onClick={onToggleAdmin} 
-                        className={`mt-2 text-[10px] uppercase font-bold tracking-wider py-1 px-2 rounded hover:bg-slate-100 transition-colors ${isAdmin ? 'text-green-600 bg-green-50' : 'text-slate-300'}`}
-                    >
-                        {isAdmin ? 'Admin Mode ON' : 'Admin Mode OFF'}
-                    </button>
-                )}
               </div>
           ) : (
               <div className="p-2">

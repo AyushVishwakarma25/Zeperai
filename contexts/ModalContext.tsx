@@ -25,6 +25,10 @@ interface ModalContextType {
     isProfileEditOpen: boolean;
     openProfileEdit: () => void;
     closeProfileEdit: () => void;
+
+    isCreativeWorkflowOpen: boolean;
+    openCreativeWorkflow: () => void;
+    closeCreativeWorkflow: () => void;
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
@@ -36,6 +40,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const [isContentGeneratorOpen, setIsContentGeneratorOpen] = useState(false);
     const [isBrandKitOpen, setIsBrandKitOpen] = useState(false);
     const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
+    const [isCreativeWorkflowOpen, setIsCreativeWorkflowOpen] = useState(false);
 
     return (
         <ModalContext.Provider value={{
@@ -45,6 +50,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             isContentGeneratorOpen, openContentGenerator: () => setIsContentGeneratorOpen(true), closeContentGenerator: () => setIsContentGeneratorOpen(false),
             isBrandKitOpen, openBrandKit: () => setIsBrandKitOpen(true), closeBrandKit: () => setIsBrandKitOpen(false),
             isProfileEditOpen, openProfileEdit: () => setIsProfileEditOpen(true), closeProfileEdit: () => setIsProfileEditOpen(false),
+            isCreativeWorkflowOpen, openCreativeWorkflow: () => setIsCreativeWorkflowOpen(true), closeCreativeWorkflow: () => setIsCreativeWorkflowOpen(false),
         }}>
             {children}
         </ModalContext.Provider>

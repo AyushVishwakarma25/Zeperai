@@ -136,6 +136,7 @@ const InspirationPage: React.FC<InspirationPageProps> = ({ onSetView, onToggleSi
                                     src={img.imageUrl} 
                                     alt={img.title} 
                                     loading="lazy"
+                                    referrerPolicy="no-referrer"
                                     className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-110 block"
                                 />
                                 {img.badge && (

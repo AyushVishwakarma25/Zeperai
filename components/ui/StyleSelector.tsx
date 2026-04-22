@@ -64,6 +64,7 @@ export const StyleSelector: React.FC<StyleSelectorProps> = ({ options, value, on
                                     alt={option.label} 
                                     className={`w-full h-full object-cover transition-transform duration-500 ${selected ? 'scale-105' : 'group-hover:scale-110'}`} 
                                     loading="lazy" 
+                                    referrerPolicy="no-referrer"
                                 />
                             ) : (
                                 <div className="w-full h-full bg-slate-50 flex flex-col items-center justify-center text-slate-300 gap-1 p-2">

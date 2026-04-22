@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback } from 'react';
-import type { GeneratedImage, GenerateCaptionParams } from '../types';
+import type { GeneratedImage, GenerateCaptionParams, BrandKit } from '../types';
 import { CaptionTone } from '../types';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
@@ -16,6 +16,7 @@ import { inspirationService } from '../services/inspirationService';
 import { Toast } from './ui/Toast';
 import { AdTextOverlay } from './ui/AdTextOverlay';
 import { useDesigns } from '../contexts/DesignsContext';
+import { DirectorCanvas } from './DirectorCanvas';
 
 interface DetailPanelProps {
   image: GeneratedImage;
@@ -24,6 +25,7 @@ interface DetailPanelProps {
   generatingCaptionImageId: string | null;
   onOpenABTestModal: (image: GeneratedImage) => void;
   onUpdateImage?: (image: GeneratedImage) => void;
+  brandKit: BrandKit | null;
 }
 
 const SocialButton: React.FC<{ href: string; icon: string; label: string; onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void; }> = ({ href, icon, label, onClick }) => (
@@ -65,9 +67,10 @@ const Toggle: React.FC<{ label: string; enabled: boolean; onChange: (enabled: bo
   );
 };
 
-export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGenerateCaption, generatingCaptionImageId, onOpenABTestModal, onUpdateImage }) => {
+export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGenerateCaption, generatingCaptionImageId, onOpenABTestModal, onUpdateImage, brandKit }) => {
     const [isWriterOpen, setIsWriterOpen] = useState(true); 
     const [showOriginal, setShowOriginal] = useState(false);
+    const [isDirectorMode, setIsDirectorMode] = useState(false);
     
     const [tone, setTone] = useState<CaptionTone>(CaptionTone.Playful);
     const [length, setLength] = useState<'Short' | 'Medium' | 'Long'>('Medium');
@@ -241,15 +244,52 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
                     
                     {/* Image Preview */}
                     <div>
-                        <div ref={imageContainerRef} className="relative group rounded-xl overflow-hidden shadow-sm border border-slate-100">
-                            <img src={imageUrl} alt={image.caption} className="w-full h-auto object-cover" crossOrigin="anonymous" />
-                            {image.params.appMode === 'Ad Creative' && (
-                                <AdTextOverlay params={image.params} overrides={{ adTitle, adSubheading, adCta }} />
+                        <div ref={imageContainerRef} className="relative group rounded-xl overflow-hidden shadow-sm border border-slate-100 aspect-square bg-slate-50">
+                            {isDirectorMode ? (
+                                <DirectorCanvas 
+                                    backgroundImage={image.imageUrl}
+                                    brandKit={brandKit}
+                                    params={{
+                                        ...image.params,
+                                        adTitle,
+                                        adSubheading,
+                                        adCta
+                                    }}
+                                    onUpdateParams={(newParams) => {
+                                        if (newParams.adTitle !== undefined) setAdTitle(newParams.adTitle);
+                                        if (newParams.adSubheading !== undefined) setAdSubheading(newParams.adSubheading);
+                                        if (newParams.adCta !== undefined) setAdCta(newParams.adCta);
+                                    }}
+                                    aspectRatio={image.aspectRatio}
+                                />
+                            ) : (
+                                <>
+                                    <img src={imageUrl} alt={image.caption} className="w-full h-auto object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" />
+                                    {image.params.appMode === 'Ad Creative' && (
+                                        <AdTextOverlay params={image.params} overrides={{ adTitle, adSubheading, adCta }} />
+                                    )}
+                                </>
                             )}
+
+                            {image.params.appMode === 'Ad Creative' && (
+                                <Button 
+                                    variant="ghost" 
+                                    className={`absolute top-3 left-3 !py-1.5 !px-3 backdrop-blur-md shadow-sm text-xs z-30 transition-all ${
+                                        isDirectorMode 
+                                        ? 'bg-primary text-white hover:bg-primary/90' 
+                                        : 'bg-white/80 text-slate-700 hover:bg-white'
+                                    }`}
+                                    onClick={() => setIsDirectorMode(!isDirectorMode)}
+                                >
+                                    <Icon name="sparkles" className="w-3.5 h-3.5 mr-1.5" />
+                                    {isDirectorMode ? 'Exit Director Mode' : 'Enter Director Mode'}
+                                </Button>
+                            )}
+
                             {image.sourceProductImageUrl && (
                                 <Button 
                                     variant="ghost" 
-                                    className="absolute bottom-3 right-3 !py-1.5 !px-3 backdrop-blur-md bg-white/80 hover:bg-white text-xs shadow-sm"
+                                    className="absolute bottom-3 right-3 !py-1.5 !px-3 backdrop-blur-md bg-white/80 hover:bg-white text-xs text-black font-bold shadow-sm z-30"
                                     onClick={() => setShowOriginal(p => !p)}
                                 >
                                     <Icon name="swap" className="w-3.5 h-3.5 mr-1.5" />
@@ -361,15 +401,50 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
                                 <Button onClick={handleGenerateContent} isLoading={isGenerating} fullWidth variant="primary" className="mt-2 shadow-lg shadow-primary/20">
                                     Generate Copy
                                 </Button>
+                                
+                                {(image.caption || image.hashtags) && (
+                                    <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2 animate-fade-in">
+                                        {image.caption && (
+                                            <div>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Generated Caption</p>
+                                                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{image.caption}</p>
+                                            </div>
+                                        )}
+                                        {image.hashtags && (
+                                            <div>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Hashtags</p>
+                                                <p className="text-xs text-primary font-medium">{image.hashtags}</p>
+                                            </div>
+                                        )}
+                                        <div className="flex gap-2 pt-2">
+                                            <Button 
+                                                variant="ghost" 
+                                                className="!py-1 !px-2 !text-[10px] bg-white border border-slate-200"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(`${image.caption}\n\n${image.hashtags}`);
+                                                    setToast({ message: "Copied to clipboard!", type: 'success' });
+                                                }}
+                                            >
+                                                <Icon name="copy" className="w-3 h-3 mr-1" />
+                                                Copy All
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
                     
-                    {/* A/B Test Button */}
-                    <Button onClick={() => onOpenABTestModal(image)} fullWidth variant="secondary" className="border-slate-200">
-                        <Icon name="variants" className="w-5 h-5 mr-2 text-slate-500" />
-                        Generate A/B Test Variants
-                    </Button>
+                    <div className="flex flex-col gap-3">
+                        <Button onClick={handleDownload} fullWidth variant="primary" isLoading={isDownloading} className="shadow-lg shadow-primary/20 h-12">
+                            <Icon name="download" className="w-5 h-5 mr-2" />
+                            Download High-Res shot
+                        </Button>
+                        <Button onClick={() => onOpenABTestModal(image)} fullWidth variant="secondary" className="border-slate-200">
+                            <Icon name="variants" className="w-5 h-5 mr-2 text-slate-500" />
+                            Generate A/B Test Variants
+                        </Button>
+                    </div>
 
                     {/* Share & Download Section */}
                     <div>
