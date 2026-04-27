@@ -227,15 +227,8 @@ const DashboardHome: React.FC<DashboardProps> = ({
                 <div className="absolute bottom-0 right-0 w-64 h-64 bg-indigo-400 blur-[120px]"></div>
             </div>
             <div className="relative z-10 max-w-2xl mx-auto">
-                <h2 className="text-3xl font-bold mb-4">Ready to boost your brand?</h2>
-                <p className="text-slate-400 mb-8 text-lg">Join 10,000+ marketers using our AI tools to create high-impact content in half the time.</p>
+                <h2 className="text-3xl font-bold mb-8">Ready to boost your brand?</h2>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                    <button 
-                        onClick={onOpenPricingModal}
-                        className="w-full sm:w-auto px-8 py-4 bg-primary hover:bg-primary-hover text-white font-bold rounded-full transition-all shadow-lg shadow-primary/20 transform hover:-translate-y-1"
-                    >
-                        Get Started for Free
-                    </button>
                     <button 
                         onClick={onOpenPricingModal}
                         className="w-full sm:w-auto px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-full transition-all backdrop-blur-sm transform hover:-translate-y-1"

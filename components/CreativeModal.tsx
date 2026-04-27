@@ -161,7 +161,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
   const getModalTitle = () => {
       switch(mode) {
           case AppMode.Product: return 'Product Studio';
-          case AppMode.Influencer: return 'Ai UGC Influencer';
+          case AppMode.Influencer: return 'AI UGC Influencer';
           case AppMode.Fashion: return 'Fashion Studio';
           case AppMode.AdCreative: return 'Ad Generator';
           case AppMode.Remix: return 'Remix Studio';

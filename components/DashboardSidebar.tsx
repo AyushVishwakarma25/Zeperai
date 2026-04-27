@@ -74,7 +74,7 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
   const userMenuRef = useRef<HTMLDivElement>(null);
   
     const creativeModes = [
-        { label: 'Influencer', mode: AppMode.Influencer },
+        { label: 'AI UGC Influencer', mode: AppMode.Influencer },
         { label: 'Product Photoshoot', mode: AppMode.Product },
         { label: 'Fashion Photoshoot', mode: AppMode.Fashion },
         { label: 'Ad Creative', mode: AppMode.AdCreative },

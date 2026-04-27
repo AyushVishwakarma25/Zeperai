@@ -396,17 +396,20 @@ export interface ProProductStyleCategory {
 }
 
 export interface ShopifyAnalysisResult {
-    totalRevenue: number;
-    totalOrders: number;
-    avgOrderValue: number;
-    topProducts: { name: string; revenue: number | string; quantity: number }[];
-    salesTrend: { date: string; revenue: number | string }[];
-    productZones: {
+    totalRevenue?: number;
+    totalOrders?: number;
+    avgOrderValue?: number;
+    topProducts?: { name: string; revenue: number | string; quantity: number }[];
+    salesTrend?: { date: string; revenue: number | string }[];
+    productZones?: {
         green: ProductZoneItem[];
         yellow: ProductZoneItem[];
         red: ProductZoneItem[];
     };
-    aiInsights: string[];
+    aiInsights?: string[];
+    top_push_products?: { name: string; score: number; reasoning: string }[];
+    top_stop_products?: { name: string; score: number; reasoning: string }[];
+    chart_data?: { dates: string[], revenue: number[] };
 }
 
 export interface ProductZoneItem {

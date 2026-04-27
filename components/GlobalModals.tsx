@@ -23,6 +23,7 @@ interface GlobalModalsProps {
     onCloseEdit: () => void;
     onApplyEdit: (editParams: EditImageParams) => Promise<void>;
     onRemoveBackground: () => Promise<void>;
+    onRemoveBackgroundPro?: () => Promise<void>;
     onImageUpdate: (id: string, newUrl: string) => void;
     onUpdateParams?: (imageId: string, params: Partial<GenerateImageParams>) => void;
 
@@ -73,6 +74,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = (props) => {
                     onClose={props.onCloseEdit} 
                     onApplyEdit={props.onApplyEdit} 
                     onRemoveBackground={props.onRemoveBackground} 
+                    onRemoveBackgroundPro={props.onRemoveBackgroundPro}
                     onImageUpdate={props.onImageUpdate} 
                     onUpdateParams={props.onUpdateParams}
                     isEditing={props.isEditing} 

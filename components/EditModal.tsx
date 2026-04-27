@@ -14,7 +14,8 @@ interface EditModalProps {
   onClose: () => void;
   onApplyEdit: (params: EditImageParams) => Promise<void>;
   onRemoveBackground: () => Promise<void>;
-  onImageUpdate: (imageId: string, newImageUrl: string, sourceImageUrl?: string) => void;
+  onRemoveBackgroundPro?: () => Promise<void>;
+  onImageUpdate: (imageId: string, newUrl: string, sourceImageUrl?: string) => void;
   onUpdateParams?: (imageId: string, params: Partial<GenerateImageParams>) => void;
   isEditing: boolean;
   initialTab?: 'inpaint' | 'crop' | 'background' | 'element' | 'director';
@@ -39,6 +40,7 @@ const EditModal: React.FC<EditModalProps> = ({
     onClose, 
     onApplyEdit, 
     onRemoveBackground,
+    onRemoveBackgroundPro,
     onImageUpdate, 
     onUpdateParams,
     isEditing,
@@ -50,6 +52,11 @@ const EditModal: React.FC<EditModalProps> = ({
   const [showOriginalBg, setShowOriginalBg] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
   const [isDownloading, setIsDownloading] = useState(false);
+  const [activeBgProcess, setActiveBgProcess] = useState<'standard' | 'pro' | null>(null);
+
+  useEffect(() => {
+    if (!isEditing) setActiveBgProcess(null);
+  }, [isEditing]);
 
   const [adParams, setAdParams] = useState<Partial<GenerateImageParams>>(image.params || {});
 
@@ -468,8 +475,44 @@ const EditModal: React.FC<EditModalProps> = ({
                             {mode === 'background' && (
                                 <div className="space-y-4 text-center">
                                     <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-2"><Icon name="magic-wand" className="w-8 h-8 text-primary" /></div>
-                                    <h3 className="font-bold text-slate-800">Auto BG Remover</h3>
-                                    <Button onClick={onRemoveBackground} disabled={!isOnline || isEditing} fullWidth isLoading={isEditing}>Process (1 Credit)</Button>
+                                    <h3 className="font-bold text-slate-800">Background Remover</h3>
+                                    
+                                    <div className="grid grid-cols-1 gap-3">
+                                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-left">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-xs font-bold text-slate-500 uppercase">Standard</span>
+                                                <span className="text-[10px] font-bold bg-green-100 px-1.5 py-0.5 rounded text-green-700">Free</span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 mb-3">Basic isolation for simple products.</p>
+                                            <Button 
+                                                onClick={() => { setActiveBgProcess('standard'); onRemoveBackground(); }} 
+                                                disabled={isEditing} 
+                                                fullWidth 
+                                                variant="secondary" 
+                                                isLoading={activeBgProcess === 'standard'}
+                                            >
+                                                Standard Process
+                                            </Button>
+                                        </div>
+
+                                        <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl text-left relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 bg-primary text-white text-[8px] font-bold px-2 py-0.5 rounded-bl-lg uppercase tracking-wider">Premium</div>
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-xs font-bold text-primary uppercase">Pro Engine</span>
+                                                <span className="text-[10px] font-bold bg-primary/20 px-1.5 py-0.5 rounded text-primary">2 Credits</span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 mb-3">Superior edge detection for hair, fur, and complex textures.</p>
+                                            <Button 
+                                                onClick={() => { setActiveBgProcess('pro'); onRemoveBackgroundPro && onRemoveBackgroundPro(); }} 
+                                                disabled={!isOnline || isEditing || !onRemoveBackgroundPro} 
+                                                fullWidth 
+                                                isLoading={activeBgProcess === 'pro'}
+                                            >
+                                                Pro Process
+                                            </Button>
+                                        </div>
+                                    </div>
+
                                     {image.sourceProductImageUrl && <Button onClick={() => setShowOriginalBg(!showOriginalBg)} fullWidth variant="secondary">{showOriginalBg ? 'Show Result' : 'Show Original'}</Button>}
                                     
                                     <div className="pt-4 border-t border-slate-200">

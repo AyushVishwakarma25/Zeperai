@@ -246,12 +246,12 @@ export const CreativeWorkflow: React.FC<CreativeWorkflowProps> = ({
                                             </button>
                                         ))}
                                     </div>
-                                    <FormInput 
+                                    <FormTextArea 
                                         label=""
                                         placeholder="Scene description..."
                                         value={params.backdropAndProps}
                                         onChange={e => handleParamChange('backdropAndProps', e.target.value)}
-                                        className="!py-1.5 !text-xs !mb-0"
+                                        className="!py-1.5 !text-xs !mb-0 min-h-[60px]"
                                     />
                                 </div>
 

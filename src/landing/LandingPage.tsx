@@ -268,7 +268,7 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* SECTION - FEATURES (BENTO GRID) */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <section id="features" className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-black mb-6 tracking-tight text-slate-900">
             Everything you need to scale your creative output.

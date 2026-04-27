@@ -122,7 +122,7 @@ export const FloatingActionBar: React.FC<FloatingActionBarProps> = ({
           case AppMode.AdCreative: return 'Ad Creative';
           case AppMode.Product: return 'Product';
           case AppMode.Fashion: return 'Fashion';
-          case AppMode.Influencer: return 'Influencer';
+          case AppMode.Influencer: return 'AI UGC Influencer';
           default: return mode;
       }
   };
@@ -134,7 +134,7 @@ export const FloatingActionBar: React.FC<FloatingActionBarProps> = ({
         style={dropdownStyle}
       >
           {[
-              { value: AppMode.Influencer, label: 'Influencer' },
+              { value: AppMode.Influencer, label: 'AI UGC Influencer' },
               { value: AppMode.Product, label: 'Product' },
               { value: AppMode.Fashion, label: 'Fashion' },
               { value: AppMode.AdCreative, label: 'Ad Creative' }

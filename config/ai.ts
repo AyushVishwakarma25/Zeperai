@@ -43,7 +43,7 @@ export const getAI = () => {
                 
                 // MAP CUSTOM/OLD NAMES TO REAL MODELS FOR @google/genai SDK
                 let realModelName = modelName;
-                if (modelName === 'gemini-3-flash-preview') realModelName = 'gemini-3.1-flash-lite-preview';
+                if (modelName === 'gemini-3-flash-preview') realModelName = 'gemini-flash-latest';
                 if (modelName === 'gemini-2.5-flash-preview-tts') realModelName = 'gemini-3.1-flash-tts-preview';
                 if (modelName === 'gemini-2.5-flash-image') realModelName = 'gemini-2.5-flash-image';
                 if (modelName === 'gemini 2.5') realModelName = 'gemini-2.0-flash-exp';
@@ -56,7 +56,7 @@ export const getAI = () => {
 
                 // Use the modern models.generateContent API
                 return await ai.models.generateContent({ 
-                    model: realModelName || 'gemini-3.1-flash-lite-preview',
+                    model: realModelName || 'gemini-flash-latest',
                     contents,
                     config: finalConfig 
                 });

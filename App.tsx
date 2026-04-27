@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, BrandKit, ShopifyAnalysisResult, GenerateCaptionParams } from './types';
-import { editImage, generateCaption, removeBackground } from './services/geminiService';
+import { editImage, generateCaption, removeBackground, removeBackgroundPro } from './services/geminiService';
 import { userService, UserProfileData } from './services/userService';
 import { designService } from './services/designService'; 
 import { AppMode, AspectRatio, View } from './types';
@@ -235,16 +235,32 @@ const AppInternal: React.FC = () => {
 
   const handleRemoveBackgroundAction = useCallback(async () => {
     if (!editingImage) return;
-    if (!handleCheckCredits(1)) return;
     setIsEditing(true);
     try {
-        const { data, mimeType } = dataURLToParts(editingImage.imageUrl);
-        const result = await removeBackground(data, mimeType);
-        const newUrl = `data:${result.mimeType};base64,${result.data}`;
+        const { removeBackgroundClientSide } = await import('./services/bgRemovalService');
+        const newUrl = await removeBackgroundClientSide(editingImage.imageUrl);
         setEditingImage(prev => prev ? ({ ...prev, imageUrl: newUrl }) : null);
-    } catch (e) {
-        handleRefundCredits(1);
-        setToast({ message: "Background removal failed", type: 'error' });
+        setToast({ message: "Background removed successfully!", type: 'success' });
+    } catch (e: any) {
+        setToast({ message: "Background removal failed: " + (e.message || "Unknown error"), type: 'error' });
+        console.error("Local BG removal error:", e);
+    } finally {
+        setIsEditing(false);
+    }
+  }, [editingImage]);
+
+  const handleRemoveBackgroundProAction = useCallback(async () => {
+    if (!editingImage) return;
+    if (!handleCheckCredits(2)) return; // Pro costs 2 credits
+    setIsEditing(true);
+    try {
+        const { data } = dataURLToParts(editingImage.imageUrl);
+        const result = await removeBackgroundPro(data);
+        setEditingImage(prev => prev ? ({ ...prev, imageUrl: result.imageUrl }) : null);
+        setToast({ message: "Background removed successfully!", type: 'success' });
+    } catch (e: any) {
+        handleRefundCredits(2);
+        setToast({ message: e.message || "Background removal failed", type: 'error' });
     } finally {
         setIsEditing(false);
     }
@@ -477,6 +493,7 @@ const AppInternal: React.FC = () => {
                 onCloseEdit={() => setEditingImage(null)}
                 onApplyEdit={handleApplyEdit}
                 onRemoveBackground={handleRemoveBackgroundAction}
+                onRemoveBackgroundPro={handleRemoveBackgroundProAction}
                 onImageUpdate={handleImageUpdate}
                 onUpdateParams={handleUpdateParams}
 

@@ -154,38 +154,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
         </div>
 
-        {/* Recent Activity Section */}
-        <div>
-          <h3 className="text-xl font-bold text-text-primary mb-4">Recent Activity</h3>
-          {recentActivity.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {recentActivity.map(activity => (
-                <div key={activity.id} className="bg-white p-4 rounded-2xl shadow-sm border border-border-light flex items-center transition-transform hover:-translate-y-1">
-                    <img src={activity.imageUrl} alt="Activity" className="w-12 h-12 rounded-lg object-cover mr-4 bg-slate-100 border border-slate-200"/>
-                    <div className="flex-grow min-w-0">
-                        <div className="flex justify-between items-start">
-                            <p className="text-sm font-bold text-text-primary truncate mr-2">{activity.user}</p>
-                            <span className="text-[10px] text-slate-400 whitespace-nowrap">{formatTimeAgo(activity.timestamp)}</span>
-                        </div>
-                        <p className="text-xs text-text-secondary truncate">{activity.action}</p>
-                    </div>
-                    <button className="p-2 text-text-secondary hover:bg-gray-100 rounded-full ml-1">
-                        <Icon name="dots-horizontal" className="w-5 h-5"/>
-                    </button>
-                </div>
-                ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300">
-                <Icon name="sparkles" className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500 font-medium">No recent activity</p>
-                <p className="text-slate-400 text-sm">Start generating images to see your history here.</p>
-                <Button onClick={() => onSetView(View.Dashboard)} variant="secondary" className="mt-4 mx-auto">
-                    Create New Design
-                </Button>
-            </div>
-          )}
-        </div>
+        {/* Recent Activity Section Removed */}
       </main>
     </div>
   );

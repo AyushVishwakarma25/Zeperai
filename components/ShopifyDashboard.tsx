@@ -109,23 +109,47 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
     };
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
-        const file = acceptedFiles[0];
-        if (!file) return;
+        if (!acceptedFiles || acceptedFiles.length === 0) return;
 
         setIsLoading(true);
         onReportUpdate(null); 
         setInsights([]);
         setError(null);
         try {
-            // 1. Instant JS Analysis
-            const result = await shopifyService.parseAndAnalyze(file);
-            onReportUpdate(result); // Show dashboard immediately
+            const formData = new FormData();
+            acceptedFiles.forEach(file => {
+                formData.append('files', file);
+            });
+
+            const response = await fetch('/api/analyze-shopify', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => null);
+                throw new Error(errData?.error || `Server error: ${response.status}`);
+            }
+
+            const result = await response.json();
             
-            // 2. Trigger async save (don't await blocking UI)
-            analysisService.saveReport(result).catch(e => {
-                if (e.message?.includes('analysis_reports')) {
-                    setError("Report generated but not saved: Database table missing.");
-                }
+            // Convert chart_data to expected salesTrend format for existing logic if we want to reuse chart, 
+            // but we can also just pass the entire response. We will preserve existing behavior by faking some params.
+            const enhancedResult: ShopifyAnalysisResult = {
+                 ...result,
+                 totalRevenue: result.totalRevenue || 0,
+                 totalOrders: result.totalOrders || 0,
+                 avgOrderValue: result.avgOrderValue || 0,
+                 topProducts: [],
+                 salesTrend: result.chart_data?.dates?.map((d: string, i: number) => ({ date: d, revenue: result.chart_data.revenue[i] })) || [],
+                 productZones: { green: [], yellow: [], red: [] },
+                 aiInsights: []
+            };
+
+            onReportUpdate(enhancedResult);
+            
+            analysisService.saveReport(enhancedResult).catch(e => {
+                console.warn('DB save warning', e);
             });
 
         } catch (error: any) {
@@ -138,8 +162,7 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
     
     const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
         onDrop, 
-        accept: { 'text/csv': ['.csv'] },
-        maxFiles: 1 
+        accept: { 'text/csv': ['.csv'] }
     });
     
     const handleUploadNew = () => {
@@ -248,10 +271,10 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                         <Icon name="menu" className="w-6 h-6" />
                     </button>
                     <div className="flex items-center">
-                        <div className="p-2 bg-green-100 rounded-lg mr-3 text-green-700">
-                            <Icon name="chart-bar" className="w-6 h-6" />
+                        <div className="p-2 bg-purple-100 rounded-lg mr-3 text-purple-700">
+                            <Icon name="sparkles" className="w-6 h-6" />
                         </div>
-                        <h1 className="text-xl font-bold text-slate-800">Commerce Data Analyzer</h1>
+                        <h1 className="text-xl font-bold text-slate-800">Data Intelligence</h1>
                     </div>
                 </header>
                 <main className="flex-grow flex items-center justify-center p-6">
@@ -284,8 +307,8 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                                     </div>
                                     <h3 className="text-lg font-bold text-slate-800 mb-2">Upload Shopify CSV</h3>
                                     <p className="text-sm text-slate-500 mb-6">
-                                        Drag & drop any <strong>Sales</strong> or <strong>Product</strong> export file here.
-                                        <br/>We support standard Shopify exports.
+                                        Drag & drop <strong>Products</strong>, <strong>Orders</strong>, and <strong>Analytics</strong> CSVs here.
+                                        <br/>The High-Performance Python Data Analyst will automatically merge and analyze them!
                                     </p>
                                     <Button variant="secondary">Select File</Button>
                                 </div>
@@ -415,29 +438,45 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                     </div>
                 </div>
 
-                {/* Zone Analysis */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <ZoneList 
-                        title="Green Zone (High Performers)" 
-                        products={report.productZones.green} 
-                        color="bg-green-100 text-green-800" 
-                        onAction={onGenerateAd}
-                        actionLabel="Scale Ad"
-                    />
-                    <ZoneList 
-                        title="Yellow Zone (Average)" 
-                        products={report.productZones.yellow} 
-                        color="bg-yellow-100 text-yellow-800" 
-                        onAction={onGenerateAd}
-                        actionLabel="Boost"
-                    />
-                    <ZoneList 
-                        title="Red Zone (At Risk)" 
-                        products={report.productZones.red} 
-                        color="bg-red-100 text-red-800" 
-                        onAction={onGenerateAd}
-                        actionLabel="Clearance Ad"
-                    />
+                {/* Top Push & Stop Products */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
+                        <div className="p-4 rounded-t-xl flex items-center justify-between bg-green-50 border-b border-green-100">
+                            <span className="text-xs font-bold uppercase tracking-wider text-green-800">Top 5 Push Products</span>
+                            <Button onClick={() => onGenerateAd('Top Push Products')} className="text-xs px-3 py-1.5 h-auto">Generate Ad Creatives</Button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                            {report.top_push_products && report.top_push_products.length > 0 ? report.top_push_products.map((p, i) => (
+                                <div key={i} className="p-4 bg-slate-50 border border-slate-100 rounded-lg">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <p className="font-bold text-slate-800">{p.name}</p>
+                                        <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Score: {p.score}</span>
+                                    </div>
+                                    <p className="text-sm text-slate-600">{p.reasoning}</p>
+                                </div>
+                            )) : (
+                                <p className="text-center text-sm text-slate-400 mt-4">No push products identified.</p>
+                            )}
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
+                        <div className="p-4 rounded-t-xl flex items-center justify-between bg-red-50 border-b border-red-100">
+                            <span className="text-xs font-bold uppercase tracking-wider text-red-800">Top 3 Stop Products</span>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                             {report.top_stop_products && report.top_stop_products.length > 0 ? report.top_stop_products.map((p, i) => (
+                                <div key={i} className="p-4 bg-slate-50 border border-slate-100 rounded-lg">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <p className="font-bold text-slate-800">{p.name}</p>
+                                        <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">Burn: {p.score}</span>
+                                    </div>
+                                    <p className="text-sm text-slate-600">{p.reasoning}</p>
+                                </div>
+                            )) : (
+                                <p className="text-center text-sm text-slate-400 mt-4">No stop products identified.</p>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </main>
         </div>

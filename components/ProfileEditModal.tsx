@@ -27,6 +27,9 @@ interface ProfileEditModalProps {
 const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, onClose, onSave }) => {
   const isOnline = useNetworkStatus();
   const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [role, setRole] = useState(user.role);
+  const [location, setLocation] = useState(user.location);
   const [bio, setBio] = useState(user.bio);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user.avatarUrl);
@@ -83,6 +86,9 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, onClose, onSa
 
         const newData: Partial<UserProfile> = {
           name,
+          email,
+          role,
+          location,
           bio,
           avatarUrl: finalAvatarUrl,
         };
@@ -135,6 +141,26 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, onClose, onSa
                 value={name}
                 onChange={(e) => setName(e.target.value)}
             />
+            <FormInput 
+                label="Email Address"
+                id="profile-email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+            />
+            <div className="grid grid-cols-2 gap-4">
+                <FormInput 
+                    label="Role/Title"
+                    id="profile-role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                />
+                <FormInput 
+                    label="Location"
+                    id="profile-location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                />
+            </div>
              <FormTextArea 
                 label="Bio"
                 id="profile-bio"

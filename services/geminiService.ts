@@ -745,6 +745,21 @@ export const removeBackground = async (base64: string, mimeType: string): Promis
     return part?.inlineData ? { data: part.inlineData.data, mimeType: part.inlineData.mimeType } : { data: base64, mimeType };
 };
 
+export const removeBackgroundPro = async (base64: string): Promise<{ imageUrl: string }> => {
+  const response = await fetch('/api/remove-bg-pro', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageBase64: base64 })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to remove background with Pro tool');
+  }
+
+  return response.json();
+};
+
 export const generateMoodBoard = async (description: string): Promise<MoodBoard> => {
     const ai = getAI();
     const response = await ai.models.generateContent({
