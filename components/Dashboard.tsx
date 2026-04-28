@@ -9,12 +9,13 @@ interface ColorfulCardProps {
   color: string;
   accentColor: string;
   iconName: string;
+  thumbnail?: string;
   onClick: () => void;
   isLocked?: boolean;
   onUnlock?: () => void;
 }
 
-const ColorfulCard: React.FC<ColorfulCardProps> = ({ title, description, color, accentColor, iconName, onClick, isLocked, onUnlock }) => {
+const ColorfulCard: React.FC<ColorfulCardProps> = ({ title, description, color, accentColor, iconName, thumbnail, onClick, isLocked, onUnlock }) => {
     return (
         <button
             type="button"
@@ -23,21 +24,32 @@ const ColorfulCard: React.FC<ColorfulCardProps> = ({ title, description, color, 
         >
             {/* Header Section (Colored) */}
             <div 
-                className="h-44 relative overflow-hidden p-6 flex items-center justify-center transition-colors duration-300"
+                className="h-44 relative overflow-hidden flex items-center justify-center transition-colors duration-300"
                 style={{ backgroundColor: color }}
             >
-                <div className="relative w-20 h-20 bg-white rounded-2xl shadow-lg transform group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-500 flex items-center justify-center">
-                    {isLocked ? (
-                        <Icon name="lock" className="w-8 h-8 text-slate-400" />
-                    ) : (
-                        <div style={{ color: accentColor }}>
-                            <Icon name={iconName} className="w-10 h-10" />
-                        </div>
-                    )}
-                    {isLocked && (
-                        <div className="absolute -top-2 -right-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border border-white">PRO</div>
-                    )}
-                </div>
+                {thumbnail && !isLocked ? (
+                  <div className="absolute inset-0 w-full h-full">
+                    <img 
+                      src={thumbnail} 
+                      alt={title} 
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                    />
+                    <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors duration-300" />
+                  </div>
+                ) : (
+                  <div className="relative w-20 h-20 bg-white rounded-2xl shadow-lg transform group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-500 flex items-center justify-center">
+                      {isLocked ? (
+                          <Icon name="lock" className="w-8 h-8 text-slate-400" />
+                      ) : (
+                          <div style={{ color: accentColor }}>
+                              <Icon name={iconName} className="w-10 h-10" />
+                          </div>
+                      )}
+                      {isLocked && (
+                          <div className="absolute -top-2 -right-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border border-white">PRO</div>
+                      )}
+                  </div>
+                )}
             </div>
 
             {/* Body Section (White) */}
@@ -136,6 +148,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#EAE3FD', // card-purple
             accentColor: '#6366F1', // indigo-500
             iconName: 'camera',
+            thumbnail: 'https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/Product%20shoot%20dashboard.webp',
             onClick: () => onSelectMode(AppMode.Product)
         },
         {
@@ -152,6 +165,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#FCD8FC', // card-pink
             accentColor: '#EC4899', // pink-500
             iconName: 'user',
+            thumbnail: 'https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/Ai%20ugc%20influencer.webp',
             onClick: () => onSelectMode(AppMode.Influencer)
         },
         {
@@ -160,6 +174,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#B8CF8A', // card-sage
             accentColor: '#166534', // green-700
             iconName: 'shirt',
+            thumbnail: 'https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/Fashion%20Studio.webp',
             onClick: () => onSelectMode(AppMode.Fashion)
         },
         {
@@ -203,6 +218,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#E1D9CC', // card-tan
             accentColor: '#B45309', // amber-700
             iconName: 'lamp',
+            thumbnail: 'https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/festive%20shot.webp',
             onClick: () => onSelectMode(AppMode.Festival)
         }
     ];
