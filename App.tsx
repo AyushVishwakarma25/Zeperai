@@ -92,7 +92,10 @@ const AppInternal: React.FC = () => {
   const handleCheckCredits = useCallback((cost: number) => {
       const success = appData.checkAndDeductCredits(cost, false);
       if (!success) {
-          setToast({ message: `Insufficient credits! Required: ${cost}`, type: 'error' });
+          const message = appData.credits <= 0 
+            ? "You've used all your free credits. Upgrade to keep creating stunning ads!" 
+            : `Insufficient credits! Required: ${cost}. You have ${appData.credits}.`;
+          setToast({ message, type: 'error' });
           modals.openPricing();
       }
       return success;

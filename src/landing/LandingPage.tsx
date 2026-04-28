@@ -8,14 +8,26 @@ import { WorkCarousel } from './WorkCarousel';
 import { ActionCarousel } from './ActionCarousel';
 import { CreativitySection } from './CreativitySection';
 import { Footer } from './Footer';
-
-
+import { BeforeAfterSlider } from './BeforeAfterSlider';
 import { landingAssets } from './landingAssets';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isHeaderVisible = useScrollDirection();
+  const [showScrollTop, setShowScrollTop] = React.useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+        setShowScrollTop(window.scrollY > 500);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     if (location.hash) {
@@ -32,13 +44,37 @@ export const LandingPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE]">
+      {/* Ticker Section at Top */}
+      <div className="bg-black text-white py-2 overflow-hidden whitespace-nowrap relative z-[60]">
+        <div className="flex animate-marquee gap-8 items-center">
+           {[1, 2].map(i => (
+             <div key={i} className="flex gap-8 items-center">
+               <span className="text-xs md:text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+                 3x Higher CTR <span className="w-1 h-1 bg-white/50 rounded-full"></span>
+                 ROAS Optimized Creatives <span className="w-1 h-1 bg-white/50 rounded-full"></span>
+                 Zero Prompt Engineering <span className="w-1 h-1 bg-white/50 rounded-full"></span>
+                 25 Free Credits on Signup <span className="w-1 h-1 bg-white/50 rounded-full"></span>
+                 Trusted by D2C Founders <span className="w-1 h-1 bg-white/50 rounded-full"></span>
+                 4.9/5 Average Rating <span className="w-1 h-1 bg-white/50 rounded-full"></span>
+                 Scale Your Creative Output <span className="w-1 h-1 bg-white/50 rounded-full"></span>
+                 Stop the Guesswork
+               </span>
+             </div>
+           ))}
+        </div>
+      </div>
+
       <style>{`
         @keyframes marquee {
           0% { transform: translateX(0%); }
-          100% { transform: translateX(calc(-50% - 12px)); }
+          100% { transform: translateX(-50%); }
         }
         .animate-marquee {
-          animation: marquee 30s linear infinite;
+          display: flex;
+          animation: marquee 20s linear infinite;
+        }
+        .animate-marquee:hover {
+          animation-play-state: paused;
         }
       `}</style>
       <LandingHeader />
@@ -66,7 +102,7 @@ export const LandingPage: React.FC = () => {
               onClick={() => navigate('/login')}
               className="w-full sm:w-auto bg-[#4452FB] hover:bg-[#3641C9] text-white px-6 py-3 md:px-8 md:py-4 rounded-xl text-base md:text-lg font-bold transition-all shadow-lg shadow-[#C8CEFE] transform hover:-translate-y-1 flex items-center justify-center gap-2"
             >
-              Get 25 Credits for free <Icon name="arrow-right" className="w-5 h-5" />
+              Claim Your 25 Free Credits <Icon name="arrow-right" className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -109,13 +145,12 @@ export const LandingPage: React.FC = () => {
 
             {/* Column 3 (Center Large) */}
             <div className="flex flex-col gap-4 z-10">
-              <div className="w-44 h-60 md:w-64 md:h-[380px] rounded-2xl bg-[#4452FB] overflow-hidden shadow-2xl ring-4 ring-white relative group cursor-pointer">
-                <img src={landingAssets.hero4} alt="Placeholder" className="w-full h-full object-cover opacity-90 mix-blend-overlay group-hover:scale-105 transition-transform duration-700" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                   <div className="w-16 h-16 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/50 transition-colors">
-                     <Icon name="play" className="w-6 h-6 text-white ml-1" />
-                   </div>
-                </div>
+              <div className="w-44 h-60 md:w-64 md:h-[380px] rounded-2xl bg-slate-100 overflow-hidden shadow-2xl ring-4 ring-white relative group cursor-pointer">
+                <img 
+                  src="https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/Prustlr%20landing%20page%20image.webp" 
+                  alt="Product" 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                />
               </div>
             </div>
 
@@ -154,11 +189,11 @@ export const LandingPage: React.FC = () => {
           <div className="flex items-center gap-3 w-full md:w-1/3 justify-start md:justify-end">
              <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden shrink-0 border-2 border-white shadow-sm">
-                  <img src="https://i.pravatar.cc/150?img=32" alt="Avatar" className="w-full h-full object-cover" />
+                  <img src="https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/shot-hero-box-reach.png" alt="Avatar" className="w-full h-full object-cover" />
                 </div>
                 <div className="text-xs text-slate-500 max-w-[180px] leading-tight">
-                  "ZeperAi completely transformed our ad creatives. 3x ROAS."
-                  <div className="font-bold text-slate-900 mt-0.5">— Sarah Jenkins</div>
+                  "ZeperAi completely transformed our jewelry cataloging."
+                  <div className="font-bold text-slate-900 mt-0.5">— Vansh Rastogi</div>
                 </div>
              </div>
              <button onClick={() => navigate('/login')} className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 transition-colors ml-2 shrink-0">
@@ -172,10 +207,9 @@ export const LandingPage: React.FC = () => {
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto mb-24">
         <div className="bg-gradient-to-br from-[#F3F4FF] to-emerald-50 border border-[#E6E8FF] rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center gap-8 md:gap-12 justify-between">
           <div className="text-center md:text-left">
-            <div className="text-4xl md:text-5xl font-black text-[#4452FB] tracking-tight leading-none mb-2">
-              4.9/5
+            <div className="text-2xl md:text-3xl font-black text-[#4452FB] tracking-tight leading-tight mb-2">
+              Blended ROAS Lift of 1.4x and 3x Hook-Rate Improvement.
             </div>
-            <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Average ROAS Lift & 3x CTR Increase</p>
           </div>
           <div className="h-px w-full md:h-16 md:w-px bg-slate-200"></div>
           <div className="text-center md:text-left">
@@ -194,34 +228,75 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* SECTION 2 — AGITATION (THE PROBLEM) */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-black mb-6 tracking-tight text-slate-900">
-            Building creative that converts is expensive, slow, and broken.
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:-translate-y-2 hover:shadow-xl transition-all duration-300 cursor-pointer group">
-            <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Icon name="currency-rupee" className="w-5 h-5 text-red-600" />
-            </div>
-            <h3 className="text-lg font-bold mb-2 text-slate-900">Agencies cost a fortune.</h3>
-            <p className="text-slate-600 text-sm leading-relaxed">A single ad shoot costs ₹50,000–₹2L. You wait 2 weeks, get 5 images, and hope they perform.</p>
+      {/* SECTION 2 — AGITATION (THE PROBLEM) - UPDATED WITH SLIDER */}
+      <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto bg-slate-950 rounded-[3rem] my-12 text-white overflow-hidden relative border border-slate-800">
+        <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
+          
+          {/* Left Column: Heading & Text */}
+          <div className="lg:col-span-4 space-y-8">
+             <h2 className="text-4xl md:text-5xl font-black leading-tight tracking-tight">
+               From Old-School Marketing to AI-Powered Storytelling
+             </h2>
+             <p className="text-lg text-slate-300 leading-relaxed font-light">
+               See how our AI-powered ads transform your brand’s marketing — saving time, cutting costs, and boosting performance.
+             </p>
+             <div className="pt-4">
+                <button onClick={() => navigate('/login')} className="bg-white text-slate-900 px-6 py-3 rounded-full font-bold hover:bg-slate-100 transition-all flex items-center gap-2">
+                  Get Started for Free <Icon name="arrow-right" className="w-4 h-4" />
+                </button>
+             </div>
           </div>
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:-translate-y-2 hover:shadow-xl transition-all duration-300 cursor-pointer group">
-            <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Icon name="robot" className="w-5 h-5 text-orange-600" />
-            </div>
-            <h3 className="text-lg font-bold mb-2 text-slate-900">Generic AI tools don't understand e-commerce.</h3>
-            <p className="text-slate-600 text-sm leading-relaxed">Midjourney is great for art. Canva is great for presentations. Neither knows what drives ROAS.</p>
+
+          {/* Middle Column: Draggable Slider */}
+          <div className="lg:col-span-4 flex justify-center">
+             <div className="w-full max-w-[320px]">
+                <BeforeAfterSlider 
+                  beforeImage="https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/raw%20product.webp"
+                  afterImage="https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/compare%20after.webp"
+                />
+             </div>
           </div>
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:-translate-y-2 hover:shadow-xl transition-all duration-300 cursor-pointer group">
-            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Icon name="eye-off" className="w-5 h-5 text-blue-600" />
-            </div>
-            <h3 className="text-lg font-bold mb-2 text-slate-900">You're flying blind on what actually works.</h3>
-            <p className="text-slate-600 text-sm leading-relaxed">Posting creatives without knowing which format, style, or hook converts — is just expensive guesswork.</p>
+
+          {/* Right Column: Comparison Cards */}
+          <div className="lg:col-span-4 space-y-6">
+             {/* Before Card */}
+             <div className="bg-[#FABE24] p-6 rounded-2xl shadow-2xl -rotate-1 hover:rotate-0 transition-transform duration-500">
+                <h4 className="text-lg font-black text-slate-900 mb-4 uppercase tracking-tighter">Before (The Problem)</h4>
+                <ul className="space-y-4">
+                   <li className="flex items-start gap-3 text-slate-900 text-sm font-medium">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-900 mt-2 shrink-0"></div>
+                      <span><strong>The Cost:</strong> Traditional shoots cost ₹50k–₹2L for just 5 images and a 2-week wait.</span>
+                   </li>
+                   <li className="flex items-start gap-3 text-slate-900 text-sm font-medium">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-900 mt-2 shrink-0"></div>
+                      <span><strong>The Loop:</strong> Generic AI is a prompt-engineering trap that requires constant, manual tweaking.</span>
+                   </li>
+                   <li className="flex items-start gap-3 text-slate-900 text-sm font-medium">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-900 mt-2 shrink-0"></div>
+                      <span><strong>The Risk:</strong> Launching ads without performance data is just expensive, unoptimized guesswork.</span>
+                   </li>
+                </ul>
+             </div>
+
+             {/* After Card */}
+             <div className="bg-slate-50 p-6 rounded-2xl shadow-2xl rotate-1 hover:rotate-0 transition-transform duration-500">
+                <h4 className="text-lg font-black text-[#4452FB] mb-4 uppercase tracking-tighter">After (The Solution)</h4>
+                <ul className="space-y-4">
+                   <li className="flex items-start gap-3 text-slate-800 text-sm font-bold">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#4452FB] mt-2 shrink-0"></div>
+                      <span>Generate high-end, studio-grade product visuals in seconds at a fraction of the cost.</span>
+                   </li>
+                   <li className="flex items-start gap-3 text-slate-800 text-sm font-bold">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#4452FB] mt-2 shrink-0"></div>
+                      <span>Our e-commerce-tuned engine delivers market-ready assets on the very first click.</span>
+                   </li>
+                   <li className="flex items-start gap-3 text-slate-800 text-sm font-bold">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#4452FB] mt-2 shrink-0"></div>
+                      <span>Deploy high-converting formats and hooks backed by proven e-commerce metrics.</span>
+                   </li>
+                </ul>
+             </div>
           </div>
         </div>
       </section>
@@ -377,7 +452,7 @@ export const LandingPage: React.FC = () => {
             <div className="relative z-10 h-full flex flex-col justify-between">
               <div>
                 <div className="text-xs font-bold tracking-widest text-purple-100 uppercase mb-2">Templates</div>
-                <h3 className="text-2xl font-bold text-white leading-tight">100+ High-CTR ad layouts.</h3>
+                <h3 className="text-2xl font-bold text-white leading-tight">100+ High-CTR Presets.</h3>
               </div>
               <div className="mt-4">
                 <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:bg-[#A855F7] group-hover:text-white transition-all">
@@ -395,12 +470,15 @@ export const LandingPage: React.FC = () => {
             <div className="relative z-10 h-full flex flex-col justify-between">
               <div>
                 <div className="text-xs font-bold tracking-widest text-blue-100 uppercase mb-2">Integration</div>
-                <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight max-w-[320px]">Connect your Shopify store data.</h3>
+                <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight max-w-[320px]">Upload your Shopify store data.</h3>
               </div>
               <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:bg-[#3B82F6] group-hover:text-white transition-all">
-                  Close the loop
-                </div>
+                <button 
+                  onClick={() => navigate('/login')}
+                  className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm hover:scale-105 transition-all"
+                >
+                  Data Analysis
+                </button>
               </div>
             </div>
             <div className="absolute right-0 bottom-0 w-64 h-full hidden sm:block">
@@ -654,31 +732,28 @@ export const LandingPage: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <div className="bg-[#6366F1] p-8 rounded-3xl relative overflow-hidden group shadow-xl hover:-translate-y-2 transition-all duration-300">
-            <div className="absolute -top-3 -left-3 w-10 h-10 bg-white text-[#6366F1] rounded-full flex items-center justify-center font-black text-sm border-2 border-[#6366F1] shadow-lg z-20">1</div>
             <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <Icon name="upload" className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-2xl font-bold mb-3 text-white">Uploaded section</h3>
+            <h3 className="text-2xl font-bold mb-3 text-white">Upload Product</h3>
             <p className="text-indigo-100 text-sm leading-relaxed">Drop your brand assets and product Images.</p>
             <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl group-hover:bg-white/20 transition-all"></div>
           </div>
           
           <div className="bg-[#FBBF24] p-8 rounded-3xl relative overflow-hidden group shadow-xl hover:-translate-y-2 transition-all duration-300">
-            <div className="absolute -top-3 -left-3 w-10 h-10 bg-white text-[#FBBF24] rounded-full flex items-center justify-center font-black text-sm border-2 border-[#FBBF24] shadow-lg z-20">2</div>
             <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <Icon name="magic-wand" className="w-6 h-6 text-slate-900" />
             </div>
-            <h3 className="text-2xl font-bold mb-3 text-slate-900">Magic in the Middle</h3>
+            <h3 className="text-2xl font-bold mb-3 text-slate-900">Select Presets</h3>
             <p className="text-amber-900 text-sm leading-relaxed font-medium">Explore curated presets across 100+ categories.</p>
             <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/20 rounded-full blur-xl group-hover:bg-white/30 transition-all"></div>
           </div>
           
           <div className="bg-[#F43F5E] p-8 rounded-3xl relative overflow-hidden group shadow-xl hover:-translate-y-2 transition-all duration-300">
-            <div className="absolute -top-3 -left-3 w-10 h-10 bg-white text-[#F43F5E] rounded-full flex items-center justify-center font-black text-sm border-2 border-[#F43F5E] shadow-lg z-20">3</div>
             <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <Icon name="image" className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-2xl font-bold mb-3 text-white">from black screen to live campaign in minutes</h3>
+            <h3 className="text-2xl font-bold mb-3 text-white">Configure Settings and generate</h3>
             <p className="text-rose-100 text-sm leading-relaxed">Get high quality product images in minutes.</p>
             <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl group-hover:bg-white/20 transition-all"></div>
           </div>
@@ -697,7 +772,7 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-black mb-6 tracking-tight">Trusted by India's fastest-growing D2C brands</h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">Join 500+ founders and marketers who have already replaced their expensive creative agencies.</p>
+            <p className="text-xl text-slate-600 max-w-2xl mx-auto">Join 80+ founders and marketers who have already replaced their expensive creative agencies.</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -707,15 +782,15 @@ export const LandingPage: React.FC = () => {
                 {[1,2,3,4,5].map(i => <Icon key={i} name="star" className="w-5 h-5 fill-current" />)}
               </div>
               <p className="text-lg font-medium text-slate-800 mb-8 leading-relaxed relative z-10">
-                "We used to wait weeks for new ad assets. Now I generate them while drinking my morning chai. ROAS is up 40%."
+                "ZeperAi completely transformed our jewelry cataloging. What used to be a week-long photoshoot setup is now a seamless, digital process. The clarity and precision they bring to high-end pieces is a total game-changer for our brand."
               </p>
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-slate-200 rounded-full overflow-hidden">
-                  <img src="https://i.pravatar.cc/150?img=32" alt="User" className="w-full h-full object-cover" />
+                  <img src="https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/shot-hero-box-reach.png" alt="User" className="w-full h-full object-cover" />
                 </div>
                 <div>
-                  <div className="font-bold text-slate-900">Priya S.</div>
-                  <div className="text-sm text-slate-500">Bengaluru</div>
+                  <div className="font-bold text-slate-900">Vansh Rastogi</div>
+                  <div className="text-sm text-slate-500">Founder of Varan Jewellers</div>
                 </div>
               </div>
             </div>
@@ -785,6 +860,16 @@ export const LandingPage: React.FC = () => {
 
       {/* FOOTER */}
       <Footer />
+
+      {/* SCROLL TO TOP */}
+      {showScrollTop && (
+        <button 
+          onClick={scrollToTop}
+          className="fixed bottom-8 right-8 w-12 h-12 bg-yellow-400 text-slate-900 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all z-[100] animate-bounce"
+        >
+          <Icon name="arrow-up" className="w-6 h-6" />
+        </button>
+      )}
     </div>
   );
 };
