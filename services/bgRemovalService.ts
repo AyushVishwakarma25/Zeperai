@@ -7,8 +7,13 @@ import { removeBackground } from '@imgly/background-removal';
  * @returns A Data URL (base64) of the transparent PNG
  */
 export const removeBackgroundClientSide = async (imageUrl: string): Promise<string> => {
-  // Let the library use its default publicPath (unpkg CDN) which usually avoids CORS issues
-  const imageBlob = await removeBackground(imageUrl);
+  // If it's a remote URL, use our server proxy to avoid CORS 'Failed to fetch' errors
+  let finalUrl = imageUrl;
+  if (imageUrl.startsWith('http')) {
+    finalUrl = `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+  }
+
+  const imageBlob = await removeBackground(finalUrl);
   
   // Convert blob back to a data URL so we can use it in our UI easily
   return new Promise((resolve, reject) => {

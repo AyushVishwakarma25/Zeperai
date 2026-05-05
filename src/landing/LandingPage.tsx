@@ -71,7 +71,7 @@ export const LandingPage: React.FC = () => {
         }
         .animate-marquee {
           display: flex;
-          animation: marquee 20s linear infinite;
+          animation: marquee 15s linear infinite;
         }
         .animate-marquee:hover {
           animation-play-state: paused;

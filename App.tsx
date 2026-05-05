@@ -257,8 +257,15 @@ const AppInternal: React.FC = () => {
     if (!handleCheckCredits(2)) return; // Pro costs 2 credits
     setIsEditing(true);
     try {
-        const { data } = dataURLToParts(editingImage.imageUrl);
-        const result = await removeBackgroundPro(data);
+        let params: { imageUrl?: string, imageBase64?: string } = {};
+        if (editingImage.imageUrl.startsWith('data:')) {
+            const { data } = dataURLToParts(editingImage.imageUrl);
+            params.imageBase64 = data;
+        } else {
+            params.imageUrl = editingImage.imageUrl;
+        }
+        
+        const result = await removeBackgroundPro(params);
         setEditingImage(prev => prev ? ({ ...prev, imageUrl: result.imageUrl }) : null);
         setToast({ message: "Background removed successfully!", type: 'success' });
     } catch (e: any) {

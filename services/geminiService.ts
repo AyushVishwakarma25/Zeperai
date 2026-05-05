@@ -240,24 +240,27 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
             }
         }
         
-        let additionsInstruction = remixElements ? `\n6. ADDITIONS: Explicitly integrate the following elements into the scene: ${remixElements}.` : '';
-        let removalsInstruction = remixNegativePrompt ? `\n7. REMOVALS: Strictly enforce the removal of the following elements from the original scene: ${remixNegativePrompt}.` : '';
+        // ADVANCED REMIX PROTOCOL (INSPIRATION-DRIVEN)
+        let additionsInstruction = remixElements ? `\n7. ADDITIONS: Integrate these specific elements naturally into the new composition: ${remixElements}.` : '';
+        let removalsInstruction = remixNegativePrompt ? `\n8. EXCLUSIONS: Specifically exclude/remove these items or any text/logos: ${remixNegativePrompt}.` : '';
 
         corePrompt = `
-ACT AS A PRECISION COMPOSITING ENGINE.
-INPUT ANALYSIS:
-- IMAGE 1 (SCENE TEMPLATE): Analyze lighting, camera geometry (angle/perspective), and focal depth.
-- IMAGE 2+ (PRODUCT CANON): This is the target subject. It is an immutable asset.
+ACT AS AN ELITE CREATIVE DIRECTOR & COMPOSITING EXPERT.
+CONTEXT:
+1. INSPIRATION REFERENCE: A master template for lighting, camera geometry, and overall scene "vibe".
+2. TARGET PRODUCT: The actual product asset to be featured.
 
 TASK:
-Replace the dominant foreground object in the SCENE TEMPLATE with the PRODUCT CANON.
+Recreate the visual magic of the INSPIRATION REFERENCE but replace its original product with the TARGET PRODUCT.
 
-STRICT EXECUTION RULES:
-1. NO RE-IMAGINING: Do not generate a "similar" product. Use the EXACT packaging, labels, colors, and textures from the PRODUCT CANON. Do not alter text or logo details.
-2. SPATIAL BLUEPRINTING: Transform the product to mirror the exact X,Y coordinates, orientation, and vanishing point of the original object in the template.
-3. PHYSICS SYNC: Sample the light color temperature and shadow intensity from the template. Apply matching highlights and contact shadows so the product looks natively integrated.
-4. TEXTURE FIDELITY: Maintain the sharp surface finish and material properties (glossy/matte) of the provided product asset.
-5. MODIFICATION (VIBE/CHANGES): ${productDescription || 'Perform a 100% faithful replication of the template style and product identity.'}${additionsInstruction}${removalsInstruction}
+INTELLIGENT EXECUTION:
+1. SUBJECT IDENTIFICATION: Find the primary product in the INSPIRATION REFERENCE. Characterize its position, depth, and orientation.
+2. SEAMLESS SWAP: Place the TARGET PRODUCT exactly where the original product was. Scale and rotate it to match the perspective perfectly.
+3. BRAND PURIFICATION: Strictly REMOVE all text, watermarks, UI overlays, price tags, and logos from the reference image. The final image must only feature the TARGET PRODUCT's branding.
+4. TEXTURE & PHYSICS: Mirror the lighting (highlights/shadows), glossiness, and reflections from the reference image onto the TARGET PRODUCT.
+5. USER CUSTOMIZATIONS: ${productDescription || 'Ensure an elegant, high-end commercial finish.'}${additionsInstruction}${removalsInstruction}
+
+GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively embedded in the INSPIRATION REFERENCE scene.
         `.trim();
     } else {
         // Standard modes logic
@@ -745,11 +748,11 @@ export const removeBackground = async (base64: string, mimeType: string): Promis
     return part?.inlineData ? { data: part.inlineData.data, mimeType: part.inlineData.mimeType } : { data: base64, mimeType };
 };
 
-export const removeBackgroundPro = async (base64: string): Promise<{ imageUrl: string }> => {
+export const removeBackgroundPro = async (params: { imageUrl?: string, imageBase64?: string }): Promise<{ imageUrl: string }> => {
   const response = await fetch('/api/remove-bg-pro', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64: base64 })
+    body: JSON.stringify(params)
   });
 
   if (!response.ok) {

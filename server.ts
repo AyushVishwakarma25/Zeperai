@@ -52,6 +52,20 @@ async function startServer() {
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'ZeperAI Server is running with Rate Limiting!' });
   });
+  
+  app.get('/api/proxy-image', async (req, res) => {
+    const { url } = req.query;
+    if (!url || typeof url !== 'string') return res.status(400).json({ error: 'No URL provided' });
+    
+    try {
+      const response = await axios.get(url, { responseType: 'arraybuffer' });
+      const contentType = response.headers['content-type'] as string;
+      res.setHeader('Content-Type', contentType || 'image/png');
+      res.send(response.data);
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to proxy image' });
+    }
+  });
 
   app.post('/api/analyze-shopify', upload.array('files'), async (req, res) => {
     try {
@@ -90,14 +104,16 @@ async function startServer() {
       
       const base64Data = imageBase64 ? imageBase64.replace(/^data:image\/\w+;base64,/, "") : null;
 
+      if (imageUrl) {
+        formData.append('image_url', imageUrl);
+      } else if (base64Data) {
+        const buffer = Buffer.from(base64Data, 'base64');
+        formData.append('image_file', buffer, { filename: 'image.png' });
+      }
+
       let response;
       if (proBgUrl) {
           // Sovereign Custom Background Removal Server
-          if (imageUrl) {
-            formData.append('image_url', imageUrl); // Depending on custom server capabilities
-          } else if (base64Data) {
-            formData.append('image_file_b64', base64Data);
-          }
           response = await axios.post(proBgUrl, formData, {
             headers: { ...formData.getHeaders() },
             responseType: 'arraybuffer',
@@ -105,11 +121,6 @@ async function startServer() {
       } else {
           // Fallback to remove.bg API
           formData.append('size', 'auto');
-          if (imageUrl) {
-            formData.append('image_url', imageUrl);
-          } else if (base64Data) {
-            formData.append('image_file_b64', base64Data);
-          }
           response = await axios.post('https://api.remove.bg/v1.0/removebg', formData, {
             headers: {
               ...formData.getHeaders(),
