@@ -5,10 +5,7 @@ import { loadStripe } from '@stripe/stripe-js';
 // --- CONFIGURATION ---
 // ACTUAL STRIPE PRICE IDs
 export const STRIPE_PRICES = {
-    STARTER: 'price_1SfLsGSJiVYEkmoMg1vjwQge',   // ₹499 - 80 Credits
-    STANDARD: 'price_1SfLuJSJiVYEkmoMCng9doLV',  // ₹1499 - 300 Credits
-    AGENCY: 'price_1SfLvlSJiVYEkmoMGnzcUVLj',    // ₹3999 - 1000 Credits
-    TOP_UP_25: 'price_1SfM9hSJiVYEkmoMzEF8LOKe', // ₹200 - 25 Credits
+    PAY_AS_YOU_GO: 'price_1SfM9hSJiVYEkmoMzEF8LOKe', // ₹499 - 150 Credits (Updated from 25 credits topup)
 };
 
 export const paymentService = {

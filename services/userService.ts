@@ -11,7 +11,7 @@ export interface UserProfileData {
   bio: string;
   location: string;
   avatarUrl: string;
-  tier: 'Free' | 'Starter' | 'Standard' | 'Agency';
+  tier: 'Free' | 'PayAsYouGo';
 }
 
 export interface CreditBalance {

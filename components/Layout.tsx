@@ -15,7 +15,7 @@ interface LayoutProps {
     onOpenContentGenerator: () => void;
     onOpenSupport: () => void;
     onOpenBrandKit: () => void;
-    onSetTier: (tier: 'Free' | 'Starter' | 'Standard' | 'Agency') => void;
+    onSetTier: (tier: 'Free' | 'PayAsYouGo') => void;
     user: UserProfileData;
     onLogout: () => void;
     onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;

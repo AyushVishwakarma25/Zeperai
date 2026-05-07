@@ -25,7 +25,7 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
             // We only multiply by the number of output variations requested (Angles * Presets).
             
             // Limit angles based on tier
-            let maxAngles = userTier === 'Agency' ? 10 : (userTier === 'Standard' ? 4 : 1);
+            let maxAngles = userTier === 'PayAsYouGo' ? 6 : 1;
             
             // Defensively ensure at least 1 angle is counted if the array is empty or undefined
             const currentAngles = params.selectedAngles && params.selectedAngles.length > 0 ? params.selectedAngles.length : 1;
@@ -47,11 +47,11 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
                 baseVariations = params.bulkImages.length;
             } else if (params.fashionPose && params.fashionPose.length > 0) {
                 // If specific poses are selected, cost is number of poses
-                let maxPoses = userTier === 'Agency' ? 12 : (userTier === 'Standard' ? 4 : 1);
+                let maxPoses = userTier === 'PayAsYouGo' ? 12 : 1;
                 baseVariations = Math.min(params.fashionPose.length, maxPoses);
             } else {
                 // Standard generation batch size slider
-                let maxBatch = userTier === 'Agency' ? 12 : (userTier === 'Standard' ? 4 : 1);
+                let maxBatch = userTier === 'PayAsYouGo' ? 12 : 1;
                 const requested = params.batchSize || 1;
                 baseVariations = Math.min(requested, maxBatch);
             }
@@ -81,7 +81,7 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
             if (params.bulkImages && params.bulkImages.length > 0) {
                 baseVariations = params.bulkImages.length;
             } else {
-                let maxBatch = userTier === 'Agency' ? 12 : (userTier === 'Standard' ? 4 : 1);
+                let maxBatch = userTier === 'PayAsYouGo' ? 12 : 1;
                 const requested = params.batchSize || 1;
                 baseVariations = Math.min(requested, maxBatch);
             }

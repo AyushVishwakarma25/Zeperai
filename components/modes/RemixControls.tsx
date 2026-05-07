@@ -51,6 +51,28 @@ export const RemixControls: React.FC<RemixControlsProps> = ({
                         onChange={e => handleParamChange('remixNegativePrompt', e.target.value)}
                     />
                 </div>
+
+                <div className="pt-2">
+                    <HelpLabel label="Pro Lighting Presets" />
+                    <div className="flex flex-wrap gap-2 mt-2">
+                        {[
+                            { label: 'Golden Hour', value: 'warm golden hour sunset lighting, soft long shadows' },
+                            { label: 'Cyberpunk', value: 'neon blue and pink cinematic lighting, high contrast' },
+                            { label: 'Editorial Mono', value: 'high-end black and white, dramatic hard shadows' },
+                            { label: 'Studio Soft', value: 'high-key studio lighting, soft diffused shadows, clean' },
+                            { label: 'Cinematic Teal/Orange', value: 'modern cinematic teal and orange color grading' }
+                        ].map(preset => (
+                            <button
+                                key={preset.label}
+                                type="button"
+                                onClick={() => handleParamChange('productDescription', params.productDescription + (params.productDescription ? ', ' : '') + preset.value)}
+                                className="px-3 py-1.5 text-[10px] uppercase font-bold bg-white border border-slate-200 rounded-lg hover:border-primary hover:text-primary transition-all"
+                            >
+                                {preset.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </div>
         </>
     );

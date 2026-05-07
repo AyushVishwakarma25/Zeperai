@@ -13,7 +13,7 @@ interface FashionControlsProps {
     handleParamChange: (param: keyof GenerateImageParams, value: any) => void;
     isHyperRealismLocked: boolean;
     onOpenPricingModal: () => void;
-    userTier?: 'Free' | 'Starter' | 'Standard' | 'Agency';
+    userTier?: 'Free' | 'PayAsYouGo';
 }
 
 export const FashionControls: React.FC<FashionControlsProps> = ({ 
@@ -30,7 +30,7 @@ export const FashionControls: React.FC<FashionControlsProps> = ({
     const subCategories = (categories && category) ? (categories[category] || []) : [];
     const locks = FASHION_MODEL_LOCKS[gender] || [];
 
-    const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
+    const maxBatch = userTier === 'PayAsYouGo' ? 12 : 1;
 
     // Handle Pose Toggle
     const handlePoseToggle = (pose: string) => {

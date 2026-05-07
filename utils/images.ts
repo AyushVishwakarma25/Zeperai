@@ -315,6 +315,42 @@ export const generateFilename = (image: GeneratedImage, prefix?: string, index?:
     return `${sanitizedName}.${extension}`;
 }
 
+export const isImageBlurry = async (file: File): Promise<boolean> => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return resolve(false);
+
+                // Analyze a small patch to save processing
+                const size = 120;
+                canvas.width = size;
+                canvas.height = size;
+                ctx.drawImage(img, 0, 0, size, size);
+                const data = ctx.getImageData(0, 0, size, size).data;
+
+                let totalDiff = 0;
+                for (let i = 0; i < data.length; i += 4) {
+                    const avg = (data[i] + data[i+1] + data[i+2]) / 3;
+                    if (i > 4) {
+                        const prevAvg = (data[i-4] + data[i-3] + data[i-2]) / 3;
+                        totalDiff += Math.abs(avg - prevAvg);
+                    }
+                }
+
+                const variance = totalDiff / (size * size);
+                // Threshold for "too blurry" - empirical value
+                resolve(variance < 3.5);
+            };
+            img.src = e.target?.result as string;
+        };
+        reader.readAsDataURL(file);
+    });
+};
+
 export const downloadImage = async (url: string, filename: string, format: 'png' | 'jpeg' | 'webp' = 'png') => {
     try {
         const response = await fetch(url, { mode: 'cors' });

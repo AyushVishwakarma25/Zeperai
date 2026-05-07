@@ -21,6 +21,16 @@ export const ChatBot: React.FC<ChatBotProps> = ({ onDeductCredits, onRefundCredi
 
     useEffect(() => {
         setMessages(chatService.getHistory());
+
+        const handleBlurryImage = () => {
+            setIsOpen(true);
+            const warning = "Hatt! This photo is too blurry for a 4K Image. Give me a High-Quality Clear Image.";
+            chatService.addSystemMessage(warning);
+            setMessages([...chatService.getHistory()]);
+            if (isSpeaking) handleSpeak(warning);
+        };
+
+        window.addEventListener('zeper-blurry-image', handleBlurryImage);
         
         // Initialize Speech Recognition
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {

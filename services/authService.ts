@@ -33,7 +33,7 @@ const mapUserToProfile = async (user: any): Promise<UserProfileData> => {
 
     // Special access for development/admin
     if (profile.email === 'sharma25ayush@gmail.com') {
-        profile.tier = 'Standard';
+        profile.tier = 'PayAsYouGo';
     }
 
     return profile;

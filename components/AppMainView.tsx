@@ -46,7 +46,7 @@ interface AppMainViewProps {
     onTriggerFloatingUpload: () => void;
     onOpenContentGenerator: () => void;
     onOpenCreativeWorkflow: () => void;
-    userTier: 'Free' | 'Starter' | 'Standard' | 'Agency';
+    userTier: 'Free' | 'PayAsYouGo';
     onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;
     onFloatingImageDrop: (file: File) => void;
     floatingMode: AppMode;

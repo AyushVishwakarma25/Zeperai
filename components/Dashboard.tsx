@@ -85,7 +85,7 @@ interface DashboardProps {
   onTriggerFloatingUpload: () => void;
   onOpenContentGenerator: () => void;
   onOpenCreativeWorkflow: () => void;
-  userTier?: 'Free' | 'Starter' | 'Standard' | 'Agency';
+  userTier?: 'Free' | 'PayAsYouGo';
   userName?: string;
   onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;
   onFloatingImageDrop: (file: File) => void;

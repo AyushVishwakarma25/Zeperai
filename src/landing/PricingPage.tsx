@@ -21,73 +21,68 @@ export const PricingPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
-          {/* Starter Plan */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto items-stretch">
+          {/* Free Plan */}
           <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm hover:shadow-md transition-shadow flex flex-col group hover:border-[#4452FB]/30">
-            <h3 className="text-2xl font-bold text-slate-900 mb-2">Starter</h3>
-            <p className="text-slate-500 mb-6 text-sm">Essential tools for casual creators.</p>
+            <h3 className="text-2xl font-bold text-slate-900 mb-2">Free Trial</h3>
+            <p className="text-slate-500 mb-6 text-sm">Perfect for exploring our AI capabilities.</p>
             <div className="mb-8">
-              <span className="text-5xl font-black text-slate-900">₹499</span>
-              <span className="text-slate-500 text-sm">/mo</span>
+              <span className="text-5xl font-black text-slate-900">₹0</span>
             </div>
             
             <div className="bg-slate-50 rounded-xl p-3 mb-6 text-center border border-slate-100 flex items-center justify-center">
-                <Icon name="stack" className="w-5 h-5 mr-2 text-slate-400" />
-                <span className="font-bold text-slate-700">80 Credits</span>
+                <Icon name="stack" className="w-5 h-5 mr-2 text-[#4452FB]" />
+                <span className="font-bold text-slate-700">50 Credits</span>
             </div>
 
             <ul className="space-y-4 mb-8 flex-1">
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm">80 Credits monthly</span>
+                <span className="text-slate-700 text-sm">50 Credits on signup</span>
               </li>
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm">Access to Flash Models ⚡</span>
+                <span className="text-slate-700 text-sm">Access to standard models</span>
               </li>
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm">Unlock AI Copywriter ✍️</span>
+                <span className="text-slate-700 text-sm">Community support</span>
               </li>
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm">Standard HD Resolution</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm">Commercial Usage Rights</span>
+              <li className="flex items-start gap-3 text-slate-400">
+                <Icon name="info" className="w-5 h-5 shrink-0 mt-0.5" />
+                <span className="text-xs italic">Restricted Pro Features</span>
               </li>
             </ul>
             <button onClick={() => navigate('/signup')} className="w-full py-4 px-4 bg-slate-900 text-white hover:bg-slate-800 font-bold rounded-xl transition-all shadow-lg shadow-slate-200">
-              Pick Starter
+              Try for Free
             </button>
           </div>
 
-          {/* Standard Plan (Highlight) */}
+          {/* Pay As You Go (Highlight) */}
           <div className="bg-[#4452FB] border border-[#4452FB] rounded-3xl p-8 shadow-2xl relative flex flex-col transform md:-translate-y-6">
             <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white text-[#4452FB] px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-xl">
-              Most Popular
+              All Features Unlocked
             </div>
-            <h3 className="text-2xl font-bold text-white mb-2">Standard</h3>
-            <p className="text-blue-100 mb-6 text-sm opacity-90">Unlock Pro AI tools & higher quality.</p>
+            <h3 className="text-2xl font-bold text-white mb-2">Pay As You Go</h3>
+            <p className="text-blue-100 mb-6 text-sm opacity-90">No monthly commitment. Professional results.</p>
             <div className="mb-8">
-              <span className="text-5xl font-black text-white">₹1,499</span>
-              <span className="text-blue-100 text-sm">/mo</span>
+              <span className="text-5xl font-black text-white">₹499</span>
+              <span className="text-blue-100 text-sm ml-1">one-time</span>
             </div>
 
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 mb-6 text-center border border-white/20 flex items-center justify-center">
-                <Icon name="stack" className="w-5 h-5 mr-2 text-white/60" />
-                <span className="font-bold text-white">300 Credits</span>
+                <Icon name="sparkles" className="w-5 h-5 mr-2 text-white" />
+                <span className="font-bold text-white text-lg">150 Credits</span>
             </div>
 
             <ul className="space-y-4 mb-8 flex-1">
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-white shrink-0 mt-0.5" />
-                <span className="text-white text-sm">300 Credits monthly</span>
+                <span className="text-white text-sm">150 Credits instantly</span>
               </li>
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-white shrink-0 mt-0.5" />
-                <span className="text-white text-sm font-semibold">Unlock Pro Models</span>
+                <span className="text-white text-sm font-semibold">Unlock all Pro models</span>
               </li>
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-white shrink-0 mt-0.5" />
@@ -95,56 +90,15 @@ export const PricingPage: React.FC = () => {
               </li>
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-white shrink-0 mt-0.5" />
-                <span className="text-white text-sm">Access to Brand Analytics 📊</span>
+                <span className="text-white text-sm">Commercial Usage Rights</span>
               </li>
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-white shrink-0 mt-0.5" />
-                <span className="text-white text-sm">Commercial Usage Rights</span>
+                <span className="text-white text-sm">Full Batch Generation Support</span>
               </li>
             </ul>
             <button onClick={() => navigate('/signup')} className="w-full py-4 px-4 bg-white text-[#4452FB] hover:bg-blue-50 font-black rounded-xl transition-all shadow-xl">
-              Go Standard
-            </button>
-          </div>
-
-          {/* Agency Plan */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm hover:shadow-md transition-shadow flex flex-col group hover:border-[#4452FB]/30">
-            <h3 className="text-2xl font-bold text-slate-900 mb-2">Agency</h3>
-            <p className="text-slate-500 mb-6 text-sm">Maximum volume for power users.</p>
-            <div className="mb-8">
-              <span className="text-5xl font-black text-slate-900">₹3,999</span>
-              <span className="text-slate-500 text-sm">/mo</span>
-            </div>
-
-            <div className="bg-slate-50 rounded-xl p-3 mb-6 text-center border border-slate-100 flex items-center justify-center">
-                <Icon name="stack" className="w-5 h-5 mr-2 text-slate-400" />
-                <span className="font-bold text-slate-700">1000 Credits</span>
-            </div>
-
-            <ul className="space-y-4 mb-8 flex-1">
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm">1000 Credits monthly</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm">All Pro Features Included</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm">Bulk Content Generation 🚀</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm">Unlimited Cloud Storage ☁️</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm font-semibold">Shopify Data Analyzer 📈</span>
-              </li>
-            </ul>
-            <button onClick={() => navigate('/contact')} className="w-full py-4 px-4 bg-slate-900 text-white hover:bg-slate-800 font-bold rounded-xl transition-all shadow-lg shadow-slate-200">
-              Scale Now
+              Buy 150 Credits
             </button>
           </div>
         </div>

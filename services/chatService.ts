@@ -51,6 +51,10 @@ class ChatService {
         }
     }
 
+    addSystemMessage(text: string) {
+        this.history.push({ role: 'model', text, timestamp: Date.now() });
+    }
+
     async generateVoice(text: string): Promise<string | null> {
         const ai = getAI();
         try {

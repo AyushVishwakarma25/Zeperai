@@ -248,19 +248,17 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
 ACT AS AN ELITE CREATIVE DIRECTOR & COMPOSITING EXPERT.
 CONTEXT:
 1. INSPIRATION REFERENCE: A master template for lighting, camera geometry, and overall scene "vibe".
-2. TARGET PRODUCT: The actual product asset to be featured.
+2. TARGET PRODUCT (FIXED IDENTITY): The actual product asset to be featured.
 
-TASK:
-Recreate the visual magic of the INSPIRATION REFERENCE but replace its original product with the TARGET PRODUCT.
+STRICT PROTOCOL:
+1. PIXEL-PERFECT BRANDING: Treat the TARGET PRODUCT as an immutable asset. Never re-interpret or re-draw its text, labels, or logos. You are a lighting and environment engine, not a generative text tool.
+2. SUBJECT IDENTIFICATION: Find the primary product in the INSPIRATION REFERENCE and characterize its position, depth, and orientation.
+3. SEAMLESS SWAP: Place the TARGET PRODUCT exactly where the original product was. Scale and rotate it to match the perspective perfectly.
+4. BRAND PURIFICATION: Strictly REMOVE all text, watermarks, UI overlays, price tags, and generic logos from the INSPIRATION REFERENCE. The final image must only feature the TARGET PRODUCT's branding.
+5. NON-DESTRUCTIVE RELIGHTING: Apply light-wraps, shadows, and reflections that conform to the product's shape without breaking the legibility of its typography.
+6. USER CUSTOMIZATIONS: ${productDescription || 'Ensure an elegant, high-end commercial finish.'}${additionsInstruction}${removalsInstruction}
 
-INTELLIGENT EXECUTION:
-1. SUBJECT IDENTIFICATION: Find the primary product in the INSPIRATION REFERENCE. Characterize its position, depth, and orientation.
-2. SEAMLESS SWAP: Place the TARGET PRODUCT exactly where the original product was. Scale and rotate it to match the perspective perfectly.
-3. BRAND PURIFICATION: Strictly REMOVE all text, watermarks, UI overlays, price tags, and logos from the reference image. The final image must only feature the TARGET PRODUCT's branding.
-4. TEXTURE & PHYSICS: Mirror the lighting (highlights/shadows), glossiness, and reflections from the reference image onto the TARGET PRODUCT.
-5. USER CUSTOMIZATIONS: ${productDescription || 'Ensure an elegant, high-end commercial finish.'}${additionsInstruction}${removalsInstruction}
-
-GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively embedded in the INSPIRATION REFERENCE scene.
+GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively embedded and studio-lit in the INSPIRATION REFERENCE scene.
         `.trim();
     } else {
         // Standard modes logic
@@ -327,11 +325,19 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
                 if (params.productCategory === ProductCategory.Jewellery) {
                     finalPrompt = `
                     ACT AS A HIGH-END JEWELLERY PHOTOGRAPHER.
-                    JEWELLERY PRECISION PROTOCOL:
-                    1. ASSET INTEGRITY: Maintain the exact design, structure, gemstone cuts, and metal color of the provided jewellery. No hallucinations or alterations.
+                    FIXED IDENTITY PROTOCOL:
+                    1. ASSET INTEGRITY: Maintain the exact design, structure, gemstone cuts, and metal color of the provided jewellery. DO NOT RENDER NEW TEXT or alter existing engravings.
                     2. MACRO FIDELITY: Ensure extreme sharpness on fine details like prongs, engravings, and facets.
-                    3. LIGHTING: Use professional jewellery lighting (soft boxes and reflectors) to create elegant highlights and avoid harsh glares.
+                    3. NON-DESTRUCTIVE LIGHTING: Use professional jewellery lighting (soft boxes and reflectors) to create elegant highlights and avoid harsh glares, ensuring the piece's structure is perfectly visible.
                     4. COMPOSITION: ${finalPrompt}
+                    `.trim();
+                } else {
+                    finalPrompt = `
+                    ACT AS A PROFESSIONAL PRODUCT PHOTOGRAPHER.
+                    PIXEL-PERFECT BRANDING PROTOCOL:
+                    1. FIXED IDENTITY: The provided image is the absolute reference. Never re-draw labels, text, or logos. Maintain 100% typography legibility.
+                    2. LIGHTING & ENVIRONMENT: ${finalPrompt}
+                    3. PHYSICS: Apply realistic contact shadows and depth-of-field based on the product's actual dimensions.
                     `.trim();
                 }
 
@@ -403,17 +409,18 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
 
                 if (activeImages && activeImages.length > 0) {
                     corePrompt = `
-                    ACT AS A HIGH-END STUDIO DIRECTOR.
+                    ACT AS A HIGH-END STUDIO DIRECTOR (BRAND SPECIALIST).
                     PIPELINE EXECUTION:
                     1. SEGMENTATION: Isolate the product from its current background perfectly.
-                    2. IDENTITY PRESERVATION (IP-Adapter): Maintain the exact shape, labels, and branding of the product. No hallucinations.
-                    3. DEPTH MAPPING: Calculate the geometry of the new environment. Ensure the product sits realistically on surfaces with accurate contact shadows and reflections.
+                    2. PIXEL-PERFECT BRANDING (FIXED IDENTITY): Maintain the exact shape, labels, and branding of the product. DO NOT RENDER NEW TEXT. Use the original pixels for all typography.
+                    3. NON-DESTRUCTIVE RELIGHTING: Apply light-wraps, shadows, and reflections that conform to the product's shape without breaking the legibility of its branding.
+                    4. DEPTH MAPPING: Calculate the geometry of the new environment to ensure the product sits realistically on surfaces.
                     
                     SCENE: ${optimizedDescription || 'a professional advertisement'}.
                     STYLE: ${adStyle} ${spaceInstruction}
                     
                     ${brandKit?.style_keyword ? `OVERALL AESTHETIC: ${brandKit.style_keyword}.` : ''}
-                    NEGATIVE CONSTRAINTS: absolutely no text, no words, no typography, no watermarks, no logos, no changing the product design.
+                    NEGATIVE CONSTRAINTS: absolutely no text, no words, no typography (except on product), no watermarks, no logos, no changing the product design.
                     `.trim();
                 } else {
                     corePrompt = `Commercial Ad. Product: ${optimizedDescription || 'a product'}. Style: ${adStyle} ${spaceInstruction} NEGATIVE CONSTRAINTS: absolutely no text, no words, no typography, no watermarks, no logos.`;
@@ -445,7 +452,7 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
     return [...parts, { text: corePrompt }];
 }
 
-async function generateSingleImage(params: GenerateImageParams, aspectRatio: AspectRatio, userTier: string, brandKit?: BrandKit | null, activeImages?: File[], pose?: string, sourceProductImageUrl?: string, modelSeedUrl?: string, retryCount: number = 0): Promise<GeneratedImage> {
+async function generateSingleImage(params: GenerateImageParams, aspectRatio: AspectRatio, userTier: 'Free' | 'PayAsYouGo', brandKit?: BrandKit | null, activeImages?: File[], pose?: string, sourceProductImageUrl?: string, modelSeedUrl?: string, retryCount: number = 0): Promise<GeneratedImage> {
     const ai = getAI();
     const contents = await buildPromptParts(params, brandKit, activeImages, pose, modelSeedUrl);
     let aspectRatioConfig: "1:1" | "3:4" | "4:3" | "9:16" | "16:9" = "1:1";
@@ -506,7 +513,7 @@ async function generateSingleImage(params: GenerateImageParams, aspectRatio: Asp
     }
 }
 
-export const generateImages = async (params: GenerateImageParams, userTier: 'Free' | 'Starter' | 'Standard' | 'Agency', brandKit?: BrandKit | null, sourceProductImageUrl?: string, onProgress?: (current: number, total: number) => void, modelSeedUrl?: string): Promise<GeneratedImage[]> => {
+export const generateImages = async (params: GenerateImageParams, userTier: 'Free' | 'PayAsYouGo', brandKit?: BrandKit | null, sourceProductImageUrl?: string, onProgress?: (current: number, total: number) => void, modelSeedUrl?: string): Promise<GeneratedImage[]> => {
     const aspectRatios = params.aspectRatios?.length ? params.aspectRatios : [AspectRatio.PortraitPost];
     const allResults: GeneratedImage[] = [];
     let completedJobs = 0;

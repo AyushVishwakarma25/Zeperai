@@ -88,7 +88,7 @@ export const getModeDefaults = (
 export const toggleAspectRatio = (
     currentRatios: AspectRatio[], 
     targetRatio: AspectRatio, 
-    userTier: 'Free' | 'Starter' | 'Standard' | 'Agency'
+    userTier: 'Free' | 'PayAsYouGo'
 ): AspectRatio[] => {
     
     const canSelectMultiple = true; 

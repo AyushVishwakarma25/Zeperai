@@ -82,7 +82,7 @@ const AppInternal: React.FC = () => {
   const [shopifyReport, setShopifyReport] = useState<ShopifyAnalysisResult | null>(null);
   const [isShopifyReportLoaded, setIsShopifyReportLoaded] = useState(false);
 
-  const userTier = user?.tier || 'Free';
+  const userTier = (user?.tier as 'Free' | 'PayAsYouGo') || 'Free';
 
   // Admin Check
   React.useEffect(() => {
@@ -401,7 +401,7 @@ const AppInternal: React.FC = () => {
                 onOpenContentGenerator={modals.openContentGenerator}
                 onOpenSupport={modals.openSupport}
                 onOpenBrandKit={modals.openBrandKit}
-                onSetTier={(tier) => setUserProfile(prev => prev ? ({ ...prev, tier }) : null)}
+                onSetTier={(tier) => setUserProfile(prev => prev ? ({ ...prev, tier: tier as 'Free' | 'PayAsYouGo' }) : null)}
                 user={user as any}
                 onLogout={handleLogout}
                 onInternalImageDrop={handleInternalImageDrop}

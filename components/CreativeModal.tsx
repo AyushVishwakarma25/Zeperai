@@ -49,7 +49,7 @@ interface CreativeModalProps {
   remixProductImagePreview: string | null;
   setRemixProductImagePreview: React.Dispatch<React.SetStateAction<string | null>>;
   onGenerateVariants: (field: 'modelPersona' | 'poseSuggestion') => void;
-  userTier: 'Free' | 'Starter' | 'Standard' | 'Agency';
+  userTier: 'Free' | 'PayAsYouGo';
   onOpenPricingModal: () => void;
   freeGenerationsUsed: number;
   savedModels: SavedModel[];

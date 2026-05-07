@@ -13,7 +13,7 @@ interface CommonControlsProps {
     handleParamChange: (param: keyof GenerateImageParams, value: any) => void;
     handleAspectRatioChange: (ratio: AspectRatio) => void; 
     batchOptions: number[];
-    userTier: 'Free' | 'Starter' | 'Standard' | 'Agency';
+    userTier: 'Free' | 'PayAsYouGo';
     hideMultiSelectLabel?: boolean;
 }
 
@@ -21,7 +21,7 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
     params, handleParamChange, handleAspectRatioChange, batchOptions, userTier, hideMultiSelectLabel 
 }) => {
     
-    const maxBatch = userTier === 'Agency' ? 12 : userTier === 'Standard' ? 4 : 1;
+    const maxBatch = userTier === 'PayAsYouGo' ? 12 : 1;
     const canMultiSelect = true; 
     
     // Hide batch controls if multiple poses are selected in Fashion mode to prevent combinatorial explosion

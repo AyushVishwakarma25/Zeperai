@@ -4,12 +4,12 @@ import type { GenerateImageParams, GeneratedImage, BrandKit, AspectRatio } from 
 import { AppMode, ResolutionQuality } from '../types';
 import { INITIAL_GENERATE_PARAMS, FREE_TRIAL_LIMIT, LOADING_MESSAGES } from '../constants';
 import { generateImages } from '../services/geminiService';
-import { processImageFile } from '../utils/images';
+import { processImageFile, isImageBlurry } from '../utils/images';
 import { getModeDefaults, toggleAspectRatio } from '../utils/configLogic';
 import { calculateGenerationCost } from '../utils/costs';
 
 export const useCreativeSession = (
-    userTier: 'Free' | 'Starter' | 'Standard' | 'Agency',
+    userTier: 'Free' | 'PayAsYouGo',
     freeGenerationsUsed: number,
     setFreeGenerationsUsed: React.Dispatch<React.SetStateAction<number>>,
     checkAndDeductCredits: (cost: number) => boolean,
@@ -93,6 +93,12 @@ export const useCreativeSession = (
     const handleFileChange = useCallback(async (file: File | null, paramName: keyof GenerateImageParams, previewSetter: React.Dispatch<React.SetStateAction<string | null>>, options: any) => {
         if (file === null) previewSetter(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
         if (file) {
+            // Check for blur
+            const isBlurry = await isImageBlurry(file);
+            if (isBlurry) {
+                window.dispatchEvent(new CustomEvent('zeper-blurry-image'));
+            }
+
             const processedFile = await processImageFile(file, options);
             previewSetter(URL.createObjectURL(processedFile));
             setParams(prev => ({ ...prev, [paramName]: processedFile }));
@@ -105,6 +111,15 @@ export const useCreativeSession = (
         const MAX_FILES = 5;
         const currentPreviews = bulkImagePreviews;
         const filesToProcess = files.slice(0, MAX_FILES - currentPreviews.length);
+
+        // Check first file for blur in bulk uploads
+        if (filesToProcess.length > 0) {
+            const isBlurry = await isImageBlurry(filesToProcess[0]);
+            if (isBlurry) {
+                window.dispatchEvent(new CustomEvent('zeper-blurry-image'));
+            }
+        }
+
         const newPreviews = filesToProcess.map(f => URL.createObjectURL(f));
         const processedNewFiles = await Promise.all(filesToProcess.map(f => processImageFile(f, { maxWidth: 2048, maxHeight: 2048, format: 'image/png' })));
         

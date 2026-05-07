@@ -2,7 +2,7 @@
 import { AspectRatio, ModelGender, StylePreset, SkinTone, ClothingType, AppMode, OutputFormat, AdLayout, ResolutionQuality, ProductCategory, MarketplacePreset, CaptionTone, FashionGender, ModelPersona, ProProductStyleCategory, GenerateImageParams, OutfitChoice } from './types';
 
 export const AI_SUGGESTED = 'AI Suggested';
-export const FREE_TRIAL_LIMIT = 8;
+export const FREE_TRIAL_LIMIT = 50;
 
 export const INITIAL_GENERATE_PARAMS: GenerateImageParams = {
   appMode: AppMode.Influencer,
@@ -48,10 +48,8 @@ export const INITIAL_GENERATE_PARAMS: GenerateImageParams = {
 };
 
 export const STORAGE_LIMITS: Record<string, number> = {
-  'Free': 10,
-  'Starter': 50,
-  'Standard': 200,
-  'Agency': 10000, // Effectively unlimited
+  'Free': 50,
+  'PayAsYouGo': 500,
 };
 
 export const UGC_STYLE_OPTIONS = [
