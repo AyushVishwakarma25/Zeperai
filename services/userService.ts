@@ -183,8 +183,8 @@ export const userService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated");
 
-    // Enforce max 10 models
-    if (currentModels.length >= 10) {
+    // Enforce max 5 models
+    if (currentModels.length >= 5) {
         const oldestModel = currentModels[currentModels.length - 1];
         await this.deleteModel(oldestModel.id);
     }

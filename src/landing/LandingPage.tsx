@@ -360,7 +360,7 @@ export const LandingPage: React.FC = () => {
                 <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight max-w-[280px]">AI Creative Workflow.</h3>
               </div>
               <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-bold rounded-lg border border-white/30 group-hover:bg-white group-hover:text-[#6366F1] transition-all">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-bold rounded-lg border border-white/30">
                   Professional ad creation in minutes
                 </div>
               </div>
@@ -381,7 +381,7 @@ export const LandingPage: React.FC = () => {
                 <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight max-w-[280px]">Professional product visuals instantly.</h3>
               </div>
               <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-bold rounded-lg border border-white/30 group-hover:bg-white group-hover:text-[#2DD4BF] transition-all">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-bold rounded-lg border border-white/30">
                   Cut shoot costs by 90%
                 </div>
               </div>
@@ -401,7 +401,7 @@ export const LandingPage: React.FC = () => {
                 <h3 className="text-2xl font-bold text-white leading-tight">Realistic UGC content at scale.</h3>
               </div>
               <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:bg-[#6366F1] group-hover:text-white transition-all">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm">
                   No creator fees
                 </div>
               </div>
@@ -416,7 +416,7 @@ export const LandingPage: React.FC = () => {
                 <h3 className="text-2xl font-bold text-slate-900 leading-tight">On-model clothing visuals.</h3>
               </div>
               <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:bg-slate-900 group-hover:text-white transition-all">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm">
                   Go live same day
                 </div>
               </div>
@@ -435,7 +435,7 @@ export const LandingPage: React.FC = () => {
                 <h3 className="text-2xl font-bold text-white leading-tight">Predictive creative analytics.</h3>
               </div>
               <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:bg-[#F43F5E] group-hover:text-white transition-all">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm">
                   Stop guessing
                 </div>
               </div>
@@ -455,7 +455,7 @@ export const LandingPage: React.FC = () => {
                 <h3 className="text-2xl font-bold text-white leading-tight">100+ High-CTR Presets.</h3>
               </div>
               <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm group-hover:bg-[#A855F7] group-hover:text-white transition-all">
+                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm">
                   Proven to convert
                 </div>
               </div>

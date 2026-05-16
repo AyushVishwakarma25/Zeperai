@@ -364,6 +364,10 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
                 } else {
                     corePrompt = `Influencer photo. Product: ${optimizedDescription}. Model: Indian ${modelGender} influencer. Setting: ${backgroundStyle || 'Aesthetic'}.`;
                 }
+                
+                if (modelSeedUrl) {
+                    corePrompt += `\n\n[CRITICAL INSTRUCTION - FACE PRESERVATION ONLY]\nI have provided an image of a model. You MUST use EXACTLY this face identity and skin tone. However, you MUST completely DISCARD the pose, clothing, and background of the attached image. The new pose MUST be exactly: ${pose || poseSuggestion || 'natural and dynamic'}. The background MUST be: ${backgroundStyle || 'Aesthetic'}. Generate an entirely new photo with the new pose, new clothing, and new setting, keeping ONLY the face from the reference image.`;
+                }
                 break;
             case AppMode.Fashion:
                 const isFashionAiSuggested = params.productStylePreset === AI_SUGGESTED || !params.productStylePreset;
@@ -387,6 +391,10 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
                 }
                 
                 if (modelLockId) corePrompt += ` Use fixed model persona: ${modelLockId}.`;
+                
+                if (modelSeedUrl) {
+                    corePrompt += `\n\n[CRITICAL INSTRUCTION - FACE PRESERVATION ONLY]\nI have provided an image of a model. You MUST use EXACTLY this face identity and skin tone. However, you MUST completely DISCARD the pose, clothing, and background of the attached model image. The new pose MUST be exactly: ${pose || 'Hero fashion pose'}. Generate an entirely new photo with the new garment and pose, keeping ONLY the face from the reference image.`;
+                }
                 break;
             case AppMode.AdCreative:
                 let adStyle = "Graphic design style.";

@@ -153,7 +153,7 @@ export const useCreativeSession = (
         });
     }, []);
 
-    const handleGenerate = useCallback(async (currentParams: GenerateImageParams, brandKit: BrandKit | null, previewUrlOverride?: string) => {
+    const handleGenerate = useCallback(async (currentParams: GenerateImageParams, brandKit: BrandKit | null, previewUrlOverride?: string, modelSeedUrl?: string) => {
         if (isGeneratingRef.current) return;
         isGeneratingRef.current = true;
         
@@ -199,7 +199,8 @@ export const useCreativeSession = (
                 userTier, 
                 brandKit, 
                 previewUrlOverride ?? frontProductImagePreview ?? undefined, 
-                (current, total) => setBatchProgress({ current, total })
+                (current, total) => setBatchProgress({ current, total }),
+                modelSeedUrl
             );
             setGeneratedImages(results);
             if (isFreeTrialGeneration) {

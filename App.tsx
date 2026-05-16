@@ -110,7 +110,16 @@ const AppInternal: React.FC = () => {
 
   const handleGenerateWrapper = useCallback(async (currentParams: GenerateImageParams) => {
       setCurrentView(View.Dashboard); 
-      const results = await creative.handleGenerate(currentParams, appData.brandKit);
+      
+      let modelSeedUrl: string | undefined = undefined;
+      if (currentParams.modelSourceOption === 'existing' && currentParams.modelSeedId) {
+          const model = appData.savedModels.find(m => m.id === currentParams.modelSeedId);
+          if (model && model.thumbnail_url) {
+              modelSeedUrl = model.thumbnail_url;
+          }
+      }
+
+      const results = await creative.handleGenerate(currentParams, appData.brandKit, undefined, modelSeedUrl);
       
       if (results && results.length > 0 && currentParams.saveModel) {
           const firstImage = results[0];
