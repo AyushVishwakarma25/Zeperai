@@ -38,55 +38,51 @@ import { getAI } from './config/ai';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+export const app = express();
 
-  // Add headers for COOP/COEP to enable WebAssembly multi-threading (SharedArrayBuffer)
-  app.use((req, res, next) => {
-    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-    res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
-    next();
-  });
+// Add headers for COOP/COEP to enable WebAssembly multi-threading (SharedArrayBuffer)
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+  next();
+});
 
-  // --- SECURITY: Rate Limiting ---
-  // Fix for "trust proxy" validation error in Cloud Run/Proxy environments
-  app.set('trust proxy', 1);
-  
-  // 1. Global Rate Limiter: 100 requests per 15 minutes
-  const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
-    max: 1000, 
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Too many requests from this IP, please try again after 15 minutes.' }
-  });
+// --- SECURITY: Rate Limiting ---
+app.set('trust proxy', 1);
 
-  // 2. Strict AI Limiter: 20 generations per 10 minutes (to control costs/credits)
-  const aiLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000,
-    max: 50,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Generation quota reached. Please wait a few minutes before creating more visuals.' }
-  });
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: 1000, 
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests from this IP, please try again after 15 minutes.' }
+});
 
-  app.use(cors());
-  app.use(globalLimiter);
+const aiLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Generation quota reached. Please wait a few minutes before creating more visuals.' }
+});
 
-  // Increase payload limit to handle large base64 image uploads
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(cors());
+app.use(globalLimiter);
 
-  // --- API ROUTES ---
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'ZeperAI Server is running with Rate Limiting!' });
-  });
+// Increase payload limit to handle large base64 image uploads
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-  // --- RAZORPAY PAYMENT GATEWAY ---
-  let razorpayInstance: any = null;
+// --- API ROUTES ---
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'ZeperAI Server is running with Rate Limiting!' });
+});
 
-  function getRazorpay() {
+// --- RAZORPAY PAYMENT GATEWAY ---
+let razorpayInstance: any = null;
+
+function getRazorpay() {
+
     const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
     
@@ -417,26 +413,6 @@ async function startServer() {
     res.status(404).json({ error: `API Route not found: ${req.method} ${req.path}` });
   });
 
-  // --- VITE & STATIC SERVING ---
-  if (process.env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*all', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
-  });
-
   // Default Error Handler (must be last)
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error('Unhandled Server Error:', err);
@@ -446,6 +422,37 @@ async function startServer() {
         next(err);
     }
   });
-}
 
-startServer().catch(console.error);
+  // Export default for Vercel Serverless Functions
+  export default app;
+
+  // Only start server locally (not when processed by Vercel's serverless builder)
+  if (!process.env.VERCEL) {
+    const PORT = process.env.PORT || 3000;
+    
+    // --- VITE & STATIC SERVING ---
+    const setupViteAndStart = async () => {
+      if (process.env.NODE_ENV !== 'production') {
+        const { createServer: createViteServer } = await import('vite');
+        const vite = await createViteServer({
+          server: { middlewareMode: true },
+          appType: 'spa',
+        });
+        app.use(vite.middlewares);
+      } else {
+        const distPath = path.join(process.cwd(), 'dist');
+        app.use(express.static(distPath));
+        app.get('*all', (req, res) => {
+          res.sendFile(path.join(distPath, 'index.html'));
+        });
+      }
+      
+      app.listen(PORT, () => {
+        console.log(`Server running on http://0.0.0.0:${PORT}`);
+      });
+    };
+    
+    setupViteAndStart();
+  }
+
+
