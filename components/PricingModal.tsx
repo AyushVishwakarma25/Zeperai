@@ -133,10 +133,46 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
               throw new Error(errorMsg);
           }
 
-          const { order, isSandbox } = await res.json();
+          const { order, isSandbox, key_id } = await res.json();
           
+          if (isSandbox) {
+              setSuccessMessage("Demonstration Sandbox Mode bypass: order created and simulated payment successful! Completing process...");
+              
+              // Simulate successful payment delay for visual effect
+              setTimeout(async () => {
+                  try {
+                       const verifyRes = await fetch('/api/razorpay/verify', {
+                           method: 'POST',
+                           headers: { 'Content-Type': 'application/json' },
+                           body: JSON.stringify({
+                               razorpay_order_id: order.id,
+                               razorpay_payment_id: "pay_mock_123456",
+                               razorpay_signature: "mock_signature_xyz",
+                               userId: userId,
+                               isSandbox: true
+                           })
+                       });
+
+                       if (!verifyRes.ok) {
+                           const verifyErr = await verifyRes.json();
+                           throw new Error(verifyErr.error || "Payment verification failed.");
+                       }
+
+                       setSuccessMessage("Congratulations! Your Pay As You Go Pro Plan has been activated! Reloading...");
+                       setTimeout(() => {
+                         onClose();
+                         window.location.reload();
+                       }, 2500);
+                  } catch (err: any) {
+                       setErrorMessage(`Signature Verification Error: ${err.message}`);
+                       setLoadingPriceId(null);
+                  }
+              }, 1500);
+              return;
+          }
+
           const options = {
-              key: isSandbox ? 'rzp_test_sandboxkey' : (env.RAZORPAY_KEY_ID || 'rzp_test_sandboxkey'),
+              key: key_id || env.RAZORPAY_KEY_ID || '',
               amount: order.amount,
               currency: order.currency,
               name: 'ZeperAI Studio',
