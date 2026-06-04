@@ -121,8 +121,16 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
           });
 
           if (!res.ok) {
-              const errBody = await res.json().catch(() => ({}));
-              throw new Error(errBody.error || "Failed to initialize subscription order on server.");
+              const contentType = res.headers.get("content-type");
+              let errorMsg = "";
+              if (contentType && contentType.includes("application/json")) {
+                  const errBody = await res.json().catch(() => ({}));
+                  errorMsg = errBody.error || "Internal Server Error during checkout.";
+              } else {
+                  const errText = await res.text().catch(() => "");
+                  errorMsg = `Server error (${res.status}): ${errText.substring(0, 200)}${errText.length > 200 ? '...' : ''}`;
+              }
+              throw new Error(errorMsg);
           }
 
           const { order, isSandbox } = await res.json();

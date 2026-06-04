@@ -87,27 +87,37 @@ async function startServer() {
   let razorpayInstance: any = null;
 
   function getRazorpay() {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    
+    console.log(`[Razorpay Init Check] keyId present: ${!!keyId}, keySecret present: ${!!keySecret}`);
+    if (keyId) {
+      console.log(`[Razorpay Init Check] keyId: ${keyId.substring(0, 8)}... (${keyId.length} chars)`);
+    }
+
     if (!razorpayInstance) {
-      const keyId = process.env.RAZORPAY_KEY_ID;
-      const keySecret = process.env.RAZORPAY_KEY_SECRET;
       if (!keyId || !keySecret) {
-        console.warn('RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET are missing. Using sandbox fallback.');
+        console.warn('RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET are missing from process.env. Using sandbox fallback.');
         return null;
       }
       try {
         const RazorpayClass = (Razorpay as any).default || Razorpay;
+        console.log('[Razorpay Init] Creating instance with Razorpay SDK...');
         razorpayInstance = new (RazorpayClass as any)({
           key_id: keyId,
           key_secret: keySecret
         });
+        console.log('[Razorpay Init] Razorpay instance created successfully.');
       } catch (err: any) {
-        console.error('Failed to initialize Razorpay SDK:', err.message);
+        console.error('Failed to initialize Razorpay SDK:', err.message, err.stack);
       }
     }
     return razorpayInstance;
   }
 
   app.post(['/api/razorpay/create-order', '/api/create-order'], async (req, res) => {
+    console.log('[API: create-order] Initiating order creation request.');
+    console.log('[API: create-order] Payload parsed:', JSON.stringify(req.body));
     try {
       const { planId, userId, amount, currency, receipt } = req.body;
       
@@ -117,20 +127,24 @@ async function startServer() {
       if (amount !== undefined && amount !== null) {
         if (req.path.endsWith('/create-order') && !req.path.includes('razorpay')) {
           // Standard /api/create-order uses paise directly
-          finalAmountPaise = Number(amount);
+          finalAmountPaise = Math.round(Number(amount));
         } else {
           // Legacy checkouts use INR (e.g. 299)
-          finalAmountPaise = Number(amount) < 10000 ? Number(amount) * 100 : Number(amount);
+          finalAmountPaise = Math.round(Number(amount) < 10000 ? Number(amount) * 100 : Number(amount));
         }
       }
 
+      console.log(`[API: create-order] Calculated amount in paise: ${finalAmountPaise}`);
+
       // Input Validation: Validate amount >= 100 paise
       if (finalAmountPaise < 100) {
+        console.warn('[API: create-order] Refusing request: amount is less than 100 paise.');
         return res.status(400).json({ error: "Amount must be at least 100 paise." });
       }
       
       const rzp = getRazorpay();
       if (!rzp) {
+        console.log('[API: create-order] No real Razorpay instance. Falling back to Sandbox Mode.');
         // Professional sandbox demo mode
         const mockOrder = {
           id: `order_mock_${Math.random().toString(36).substr(2, 9)}`,
@@ -150,17 +164,21 @@ async function startServer() {
         });
       }
 
+      const shortUserId = (userId || 'anon').substring(0, 10);
+      const generatedReceipt = `rcpt_${shortUserId}_${Date.now()}`.substring(0, 40);
       const options = {
         amount: finalAmountPaise, // paise
         currency: currency || 'INR',
-        receipt: receipt || `receipt_${userId || 'anon'}_${Date.now()}`,
+        receipt: (receipt || generatedReceipt).substring(0, 40),
         notes: {
-          planId: planId || 'pay-as-you-go',
-          userId: userId || ''
+          planId: (planId || 'pay-as-you-go').substring(0, 50),
+          userId: (userId || '').substring(0, 50)
         }
       };
 
+      console.log('[API: create-order] Making request to Razorpay API with options:', opcionesStringified(options));
       const order = await rzp.orders.create(options);
+      console.log('[API: create-order] Razorpay Order successfully created in production:', order.id);
       res.json({ 
         order, 
         order_id: order.id, 
@@ -170,10 +188,20 @@ async function startServer() {
         isSandbox: false 
       });
     } catch (error: any) {
-      console.error('Razorpay Create Order Error:', error);
-      res.status(500).json({ error: error.message || 'Failed to create order.' });
+      console.error('Razorpay Create Order Error:', error, error.stack);
+      const detailedMsg = error.error ? error.error.description || error.error.reason || error.error.code : error.message;
+      res.status(500).json({ error: detailedMsg || 'Failed to create order.' });
     }
   });
+
+  // Helper stringifier to avoid recursive logging issues
+  function opcionesStringified(obj: any) {
+    try {
+      return JSON.stringify(obj);
+    } catch {
+      return '[Unstringifiable Object]';
+    }
+  }
 
   app.post(['/api/razorpay/verify', '/api/verify-payment'], async (req, res) => {
     try {
