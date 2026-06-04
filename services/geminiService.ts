@@ -113,8 +113,8 @@ async function moderatePrompt(prompt: string): Promise<{ isAllowed: boolean, rea
     if (!prompt || prompt.length < 3) return { isAllowed: true };
     
     const ai = getAI();
-    if (!process.env.GEMINI_API_KEY) {
-        console.warn("GEMINI_API_KEY is missing. AI features may fail.");
+    if (typeof window === 'undefined' && !process.env.GEMINI_API_KEY) {
+        console.warn("GEMINI_API_KEY is missing on server. AI features may fail.");
     }
     const systemInstruction = `
     You are a content moderator for an AI application designed for:

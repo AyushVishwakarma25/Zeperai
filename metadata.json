@@ -1,5 +1,6 @@
 {
   "name": "ZeperAi Studio",
   "description": "An interactive AI-powered app that transforms product images into studio-quality ad graphics, complete with customizable models, outfits, poses, and backgrounds.",
-  "requestFramePermissions": ["microphone"]
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

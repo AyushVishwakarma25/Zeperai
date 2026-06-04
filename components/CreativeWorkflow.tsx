@@ -20,10 +20,11 @@ interface CreativeWorkflowProps {
     isLoading: boolean;
     onClose: () => void;
     userTier: string;
+    onOpenPricingModal?: () => void;
 }
 
 export const CreativeWorkflow: React.FC<CreativeWorkflowProps> = ({
-    brandKit, onGenerate, isLoading, onClose, userTier
+    brandKit, onGenerate, isLoading, onClose, userTier, onOpenPricingModal
 }) => {
     const [step, setStep] = useState(1);
     const [activeTab, setActiveTab] = useState<'config' | 'editor'>('config');
@@ -350,12 +351,18 @@ export const CreativeWorkflow: React.FC<CreativeWorkflowProps> = ({
                                 fullWidth 
                                 variant="primary"
                                 className="shadow-lg shadow-primary/25 h-14 font-black uppercase tracking-widest text-xs"
-                                onClick={() => onGenerate(params)}
+                                onClick={() => {
+                                    if (userTier === 'Free') {
+                                        onOpenPricingModal?.();
+                                    } else {
+                                        onGenerate(params);
+                                    }
+                                }}
                                 isLoading={isLoading}
-                                disabled={!params.productDescription || !productPreview}
+                                disabled={userTier !== 'Free' && (!params.productDescription || !productPreview)}
                             >
                                 <Icon name="sparkles" className="w-5 h-5 mr-3" />
-                                Generate Creative
+                                {userTier === 'Free' ? 'Upgrade to Use Feature' : 'Generate Creative'}
                             </Button>
                         </div>
                     </aside>

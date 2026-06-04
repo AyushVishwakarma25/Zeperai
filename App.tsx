@@ -552,6 +552,7 @@ const AppInternal: React.FC = () => {
                 onGenerate={handleGenerateWrapper}
                 isGenerating={creative.isLoading}
                 userTier={userTier}
+                onOpenPricingModal={modals.openPricing}
             />
             <ChatBot 
                 onDeductCredits={handleCheckCredits}

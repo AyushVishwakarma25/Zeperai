@@ -52,6 +52,7 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
     const [insights, setInsights] = useState<string[]>(report?.aiInsights || []);
     const [generatingInsights, setGeneratingInsights] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [stagedFiles, setStagedFiles] = useState<File[]>([]);
 
     // Sync insights from report prop if it changes
     useEffect(() => {
@@ -108,16 +109,35 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
             });
     };
 
-    const onDrop = useCallback(async (acceptedFiles: File[]) => {
-        if (!acceptedFiles || acceptedFiles.length === 0) return;
-
-        setIsLoading(true);
-        onReportUpdate(null); 
+    const onDrop = useCallback((acceptedFiles: File[], fileRejections: any[]) => {
         setInsights([]);
         setError(null);
+
+        if (fileRejections && fileRejections.length > 0) {
+            const fileNames = fileRejections.map(r => r.file.name).join(', ');
+            setError(`Upload failed: The file(s) "${fileNames}" were rejected. Please ensure you are uploading standard CSV files.`);
+            return;
+        }
+
+        if (!acceptedFiles || acceptedFiles.length === 0) {
+            setError("No files selected. Please upload a valid CSV file.");
+            return;
+        }
+
+        setStagedFiles(prev => [...prev, ...acceptedFiles]);
+    }, []);
+
+    const handleAnalyze = async () => {
+        if (stagedFiles.length === 0) {
+            setError("No files to analyze.");
+            return;
+        }
+        
+        setIsLoading(true);
+        onReportUpdate(null); 
         try {
             const formData = new FormData();
-            acceptedFiles.forEach(file => {
+            stagedFiles.forEach(file => {
                 formData.append('files', file);
             });
 
@@ -137,13 +157,13 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
             // but we can also just pass the entire response. We will preserve existing behavior by faking some params.
             const enhancedResult: ShopifyAnalysisResult = {
                  ...result,
-                 totalRevenue: result.totalRevenue || 0,
-                 totalOrders: result.totalOrders || 0,
-                 avgOrderValue: result.avgOrderValue || 0,
-                 topProducts: [],
-                 salesTrend: result.chart_data?.dates?.map((d: string, i: number) => ({ date: d, revenue: result.chart_data.revenue[i] })) || [],
-                 productZones: { green: [], yellow: [], red: [] },
-                 aiInsights: []
+                 totalRevenue: result.totalRevenue !== undefined ? result.totalRevenue : (result.total_revenue || 0),
+                 totalOrders: result.totalOrders !== undefined ? result.totalOrders : (result.total_orders || 0),
+                 avgOrderValue: result.avgOrderValue !== undefined ? result.avgOrderValue : (result.avg_order_value || 0),
+                 topProducts: result.topProducts || [],
+                 salesTrend: result.salesTrend || result.chart_data?.dates?.map((d: string, i: number) => ({ date: d, revenue: result.chart_data.revenue[i] })) || [],
+                 productZones: result.productZones || { green: [], yellow: [], red: [] },
+                 aiInsights: result.aiInsights || []
             };
 
             onReportUpdate(enhancedResult);
@@ -157,18 +177,27 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
             setError(`Analysis failed: ${error.message}`);
         } finally {
             setIsLoading(false);
+            setStagedFiles([]);
         }
-    }, [onReportUpdate]);
+    };
     
     const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
         onDrop, 
-        accept: { 'text/csv': ['.csv'] }
+        accept: {
+            'text/csv': ['.csv'],
+            'text/plain': ['.csv'],
+            'text/comma-separated-values': ['.csv'],
+            'application/csv': ['.csv'],
+            'application/vnd.ms-excel': ['.csv'],
+            'application/octet-stream': ['.csv']
+        }
     });
     
     const handleUploadNew = () => {
         onReportUpdate(null);
         setInsights([]);
         setError(null);
+        setStagedFiles([]);
     };
 
     // Chart Options
@@ -306,12 +335,28 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                                         <Icon name="upload" className="w-8 h-8" />
                                     </div>
                                     <h3 className="text-lg font-bold text-slate-800 mb-2">Upload Shopify CSV</h3>
-                                    <p className="text-sm text-slate-500 mb-6">
+                                    <p className="text-sm text-slate-500 mb-6 text-center">
                                         Drag & drop <strong>Products</strong>, <strong>Orders</strong>, and <strong>Analytics</strong> CSVs here.
-                                        <br/>The High-Performance Python Data Analyst will automatically merge and analyze them!
                                     </p>
                                     <Button variant="secondary">Select File</Button>
                                 </div>
+                                {stagedFiles.length > 0 && (
+                                    <div className="mt-8 pt-6 border-t border-slate-200">
+                                        <h4 className="font-bold text-slate-800 mb-3 text-left">Staged files ({stagedFiles.length})</h4>
+                                        <ul className="space-y-2 mb-6 text-left">
+                                            {stagedFiles.map((f, i) => (
+                                                <li key={i} className="flex items-center text-sm text-slate-600 bg-slate-50 p-2 rounded-lg break-all">
+                                                    <Icon name="document" className="w-4 h-4 mr-2 text-slate-400 flex-shrink-0" />
+                                                    {f.name}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        <Button onClick={handleAnalyze} className="w-full h-12 text-base shadow-lg animate-fade-in">
+                                            <Icon name="chart-bar" className="w-5 h-5 mr-2" />
+                                            Analyze with Python Engine
+                                        </Button>
+                                    </div>
+                                )}
                             </>
                         )}
                     </div>
@@ -388,6 +433,11 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                     </div>
                 </div>
 
+                <div className="p-4 bg-slate-950 text-emerald-400 font-mono text-xs rounded-xl overflow-auto h-64 shadow-inner border border-slate-800">
+                    <h3 className="font-bold text-white mb-2">DEBUG: RAW REPORT DATA</h3>
+                    <pre>{JSON.stringify(report, null, 2)}</pre>
+                </div>
+
                 {/* Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Revenue Chart */}
@@ -435,6 +485,37 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                                 </div>
                             )}
                         </div>
+                    </div>
+                </div>
+
+                {/* Product Performance Zones */}
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-slate-700">Product Performance Zones</h4>
+                        <span className="text-xs text-slate-500">Categorized dynamically by metrics analysis</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <ZoneList 
+                            title="Accelerate Zone (Green)" 
+                            products={report.productZones?.green || []} 
+                            colorClass="text-green-800 bg-green-50 border-green-100" 
+                            onAction={onGenerateAd} 
+                            actionLabel="Promote" 
+                        />
+                        <ZoneList 
+                            title="Monitor Zone (Yellow)" 
+                            products={report.productZones?.yellow || []} 
+                            colorClass="text-amber-800 bg-amber-50 border-amber-100" 
+                            onAction={onGenerateAd} 
+                            actionLabel="Analyze" 
+                        />
+                        <ZoneList 
+                            title="Optimize Zone (Red)" 
+                            products={report.productZones?.red || []} 
+                            colorClass="text-red-800 bg-red-50 border-red-100" 
+                            onAction={onGenerateAd} 
+                            actionLabel="Revamp" 
+                        />
                     </div>
                 </div>
 
@@ -486,13 +567,13 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
 const ZoneList: React.FC<{ 
     title: string; 
     products: ProductZoneItem[]; 
-    color: string; 
+    colorClass: string; 
     onAction: (name: string) => void; 
     actionLabel: string;
-}> = ({ title, products, color, onAction, actionLabel }) => (
+}> = ({ title, products, colorClass, onAction, actionLabel }) => (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-96">
-        <div className={`p-4 rounded-t-xl flex items-center justify-between ${color.replace('text-', 'bg-').replace('100', '50')}`}>
-            <span className={`text-xs font-bold uppercase tracking-wider ${color}`}>{title}</span>
+        <div className={`p-4 rounded-t-xl flex items-center justify-between border-b ${colorClass}`}>
+            <span className="text-xs font-bold uppercase tracking-wider">{title}</span>
             <span className="text-xs font-bold">{products.length} SKUs</span>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-thin">
@@ -501,12 +582,12 @@ const ZoneList: React.FC<{
                     <div className="min-w-0 flex-1 mr-2">
                         <p className="text-xs font-bold text-slate-800 truncate">{p.name}</p>
                         <p className="text-[10px] text-slate-500">
-                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(p.revenue as number)} Sales
+                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Number(p.revenue))} Sales
                         </p>
                     </div>
                     <button 
                         onClick={() => onAction(p.name)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-slate-200 text-[10px] font-bold px-2 py-1 rounded hover:bg-primary hover:text-white hover:border-primary shadow-sm"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-slate-200 text-[10px] font-bold px-2 py-1 rounded hover:bg-slate-800 hover:text-white hover:border-slate-800 shadow-sm transition-all"
                     >
                         {actionLabel}
                     </button>

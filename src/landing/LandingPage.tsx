@@ -820,7 +820,7 @@ export const LandingPage: React.FC = () => {
                 {[1,2,3,4,5].map(i => <Icon key={i} name="star" className="w-5 h-5 fill-current" />)}
               </div>
               <p className="text-lg font-medium text-slate-800 mb-8 leading-relaxed relative z-10">
-                "Fired my expensive agency last month. ZeperAi does the exact same job in 5 minutes for a fraction of the cost."
+                "All my creatives are generated within a few hours using this tool."
               </p>
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-slate-200 rounded-full overflow-hidden">

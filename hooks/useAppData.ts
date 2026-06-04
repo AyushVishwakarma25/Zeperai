@@ -15,8 +15,8 @@ export const useAppData = () => {
 
     const loadData = useCallback(async () => {
         if (!user) {
-            setCredits(50);
-            setTotalCredits(50);
+            setCredits(10);
+            setTotalCredits(10);
             setBrandKit(null);
             setSavedModels([]);
             setIsLoading(false);
@@ -24,8 +24,8 @@ export const useAppData = () => {
         }
 
         if (user.id === 'guest-user-id') {
-            setCredits(50);
-            setTotalCredits(50);
+            setCredits(10);
+            setTotalCredits(10);
             setIsLoading(false);
             return;
         }

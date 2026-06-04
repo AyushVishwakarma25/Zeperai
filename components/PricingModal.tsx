@@ -5,10 +5,22 @@ import { Icon } from './ui/Icon';
 import { paymentService, STRIPE_PRICES } from '../services/paymentService';
 import { Spinner } from './ui/Spinner';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { supabase } from '../services/supabaseClient';
+import { env } from '../utils/env';
 
 interface PricingModalProps {
   onClose: () => void;
 }
+
+const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+    });
+};
 
 const pricingPlans = [
   {
@@ -17,13 +29,14 @@ const pricingPlans = [
     name: 'Free Trial',
     description: 'Perfect for exploring our AI capabilities.',
     price: '₹0',
-    credits: '50 Credits',
+    period: '7 days',
+    credits: '10 Credits',
     features: [
-      '50 Credits on sign up',
-      'Access to standard models',
-      'Basic resolution',
+      '10 Credits on signup',
+      '7 Days free trial period',
+      'Exclusive access to Product Studio',
       'Community support',
-      'Features in development phase restricted',
+      'Other Studios locked (Upgrade to use)',
     ],
     highlight: false,
     buttonVariant: 'secondary' as const,
@@ -33,20 +46,21 @@ const pricingPlans = [
   {
     id: 'pay-as-you-go',
     priceId: STRIPE_PRICES.PAY_AS_YOU_GO,
-    name: 'Pay As You Go',
-    description: 'No monthly commitment. All features unlocked.',
-    price: '₹499',
-    credits: '150 Credits',
+    name: 'Pay As You Go Pro',
+    description: 'All premium studios and features fully unlocked.',
+    price: '₹299',
+    period: 'month',
+    credits: '100 Credits / month',
     features: [
-      '150 Credits instantly',
-      'Unlock all Pro features',
-      'Higher generation speed',
-      'Commercial usage rights',
-      'Priority access to new tools',
+      '100 Credits instantly every month',
+      'Unlock all Pro features & Studios',
+      'Unlocks UGC, Fashion, Remix and Festivals',
+      'Higher resolution options fully enabled',
+      'Priority generation speed & support',
     ],
     highlight: true,
     buttonVariant: 'primary' as const,
-    buttonText: 'Buy 150 Credits'
+    buttonText: 'Subscribe Now'
   }
 ];
 
@@ -76,20 +90,100 @@ const CreditInfo = () => (
 const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
   const isOnline = useNetworkStatus();
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleCheckout = async (priceId: string) => {
       if (priceId === 'free') return;
+      setErrorMessage(null);
+      setSuccessMessage(null);
       if (!isOnline) {
-          alert("You are offline. Cannot initiate payment.");
+          setErrorMessage("You are offline. Cannot initiate payment.");
           return;
       }
       if (loadingPriceId) return;
       setLoadingPriceId(priceId);
+      
       try {
-          await paymentService.createCheckoutSession(priceId);
-      } catch (e) {
+          const isScriptLoaded = await loadRazorpayScript();
+          if (!isScriptLoaded) {
+              throw new Error("Failed to load Razorpay Payment Gateway. Check internet connection.");
+          }
+          
+          const { data: { user } } = await supabase.auth.getUser();
+          const userId = user?.id || 'guest';
+          const email = user?.email || 'customer@zeperai.in';
+
+          const res = await fetch('/api/razorpay/create-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ planId: 'pay-as-you-go', userId, amount: 299 })
+          });
+
+          if (!res.ok) {
+              const errBody = await res.json().catch(() => ({}));
+              throw new Error(errBody.error || "Failed to initialize subscription order on server.");
+          }
+
+          const { order, isSandbox } = await res.json();
+          
+          const options = {
+              key: isSandbox ? 'rzp_test_sandboxkey' : (env.RAZORPAY_KEY_ID || 'rzp_test_sandboxkey'),
+              amount: order.amount,
+              currency: order.currency,
+              name: 'ZeperAI Studio',
+              description: 'Pay As You Go Pro Subscription (100 Credits / mo)',
+              order_id: order.id,
+              prefill: {
+                  email: email,
+                  contact: ''
+              },
+              theme: {
+                  color: '#4452FB'
+              },
+              handler: async function (response: any) {
+                  setLoadingPriceId(priceId);
+                  try {
+                      const verifyRes = await fetch('/api/razorpay/verify', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                              razorpay_order_id: response.razorpay_order_id,
+                              razorpay_payment_id: response.razorpay_payment_id,
+                              razorpay_signature: response.razorpay_signature,
+                              userId: userId,
+                              isSandbox: isSandbox
+                          })
+                      });
+
+                      if (!verifyRes.ok) {
+                          const verifyErr = await verifyRes.json();
+                          throw new Error(verifyErr.error || "Payment verification failed.");
+                      }
+
+                      setSuccessMessage("Congratulations! Your Pay As You Go Pro Plan has been activated! Reloading...");
+                      setTimeout(() => {
+                        onClose();
+                        window.location.reload();
+                      }, 2500);
+                  } catch (err: any) {
+                      setErrorMessage(`Signature Verification Error: ${err.message}`);
+                  } finally {
+                      setLoadingPriceId(null);
+                  }
+              },
+              modal: {
+                  ondismiss: function () {
+                      setLoadingPriceId(null);
+                  }
+              }
+          };
+
+          const rzp1 = new (window as any).Razorpay(options);
+          rzp1.open();
+      } catch (e: any) {
           console.error(e);
-          alert(e instanceof Error ? e.message : 'Checkout failed');
+          setErrorMessage(e instanceof Error ? e.message : 'Checkout failed');
           setLoadingPriceId(null);
       }
   };
@@ -121,6 +215,29 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
               </div>
           )}
 
+          {errorMessage && (
+              <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-xl text-sm flex flex-col gap-1.5 shadow-sm max-w-2xl mx-auto">
+                  <div className="flex items-center gap-2 font-bold">
+                      <Icon name="info" className="w-4 h-4 text-red-600 shrink-0" />
+                      Checkout Issue Detected
+                  </div>
+                  <p className="text-slate-600 leading-relaxed text-xs">
+                      {errorMessage}
+                  </p>
+                  <div className="mt-2.5 pt-2.5 border-t border-red-100 flex flex-col gap-1 text-[11px] text-slate-500">
+                      <span className="font-semibold text-slate-700">Are you in AI Studio block preview?</span>
+                      <span>If you are using the embedded preview tab, security policies (iframe sandbox) block Razorpay's overlay form. Click the <strong className="text-primary">"Open in new tab"</strong> button at the top right of your preview frame or use the <strong>"Share Preview"</strong> live URL to test Razorpay flawlessly!</span>
+                  </div>
+              </div>
+          )}
+
+          {successMessage && (
+              <div className="mb-6 bg-green-50 border border-green-200 text-green-800 px-5 py-4 rounded-xl text-sm font-semibold flex items-center gap-3 shadow-sm max-w-2xl mx-auto animate-pulse">
+                  <Icon name="check-circle" className="w-5 h-5 text-green-600 shrink-0" />
+                  {successMessage}
+              </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 items-stretch mb-10 max-w-3xl mx-auto">
             {pricingPlans.map((plan) => (
               <div key={plan.name} className={`relative bg-white p-6 rounded-2xl border ${plan.highlight ? 'border-primary shadow-xl ring-1 ring-primary scale-[1.05] z-10' : 'border-slate-200 hover:border-slate-300 hover:shadow-md'} flex flex-col transition-all duration-200`}>
@@ -136,7 +253,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
                 
                 <div className="mb-6 flex items-baseline">
                   <span className="text-3xl font-black text-slate-900">{plan.price}</span>
-                  <span className="text-slate-500 font-medium text-sm ml-1">one-time</span>
+                  <span className="text-slate-500 font-medium text-sm ml-1">/ {plan.period}</span>
                 </div>
 
                 <div className="bg-slate-50 rounded-xl p-3 mb-6 text-center border border-slate-100 flex items-center justify-center">

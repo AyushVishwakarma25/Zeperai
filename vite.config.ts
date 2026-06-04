@@ -17,13 +17,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      // This replaces 'process.env.API_KEY' in your client code with the actual string value.
-      // We default to '' to avoid inserting the literal string "undefined" into the bundle.
-      'process.env.API_KEY': JSON.stringify(apiKey || ''),
-      'process.env.GEMINI_API_KEY': JSON.stringify(apiKey || ''),
       // FIX: Expose Supabase variables to the client via process.env
       'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
       'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
+      'process.env.RAZORPAY_KEY_ID': JSON.stringify(env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || ''),
     },
   };
 });

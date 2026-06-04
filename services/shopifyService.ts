@@ -140,8 +140,6 @@ export const shopifyService = {
     },
 
     async generateAIInsights(data: ShopifyAnalysisResult): Promise<string[]> {
-        if (!env.API_KEY) return ["Set API Key to get insights."];
-        
         const ai = getAI();
         
         // Prepare a lightweight summary for the AI

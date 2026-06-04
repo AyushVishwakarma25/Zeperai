@@ -137,9 +137,11 @@ interface ContentGeneratorProps {
     onDeductCredits?: (cost: number) => boolean;
     onRefundCredits?: (cost: number) => void;
     userId?: string;
+    userTier?: string;
+    onOpenPricingModal?: () => void;
 }
 
-const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCredits, onRefundCredits, userId }) => {
+const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCredits, onRefundCredits, userId, userTier, onOpenPricingModal }) => {
   const isOnline = useNetworkStatus();
   const [params, setParams] = useState<GenerateContentParams>(initialParams);
   const [results, setResults] = useState<CopyVariation[]>([]);
@@ -184,6 +186,10 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
   }, []);
 
   const handleGenerate = async () => {
+    if (userTier === 'Free') {
+        onOpenPricingModal?.();
+        return;
+    }
     if (!isOnline) {
         setToast({ message: "You are offline.", type: 'error' });
         return;
@@ -214,6 +220,10 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
   };
 
   const handleRewrite = useCallback(async (index: number, rewriteParams: RewriteCopyParams) => {
+      if (userTier === 'Free') {
+          onOpenPricingModal?.();
+          return;
+      }
       if (!isOnline) {
           setToast({ message: "You are offline.", type: 'error' });
           return;
@@ -362,12 +372,12 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                     <div className="mt-8 pt-4 border-t border-slate-200">
                         <Button
                             onClick={handleGenerate}
-                            disabled={!isOnline || isLoading}
+                            disabled={userTier !== 'Free' && (!isOnline || isLoading)}
                             isLoading={isLoading}
                             fullWidth
                             className="!py-3 !text-base shadow-lg shadow-primary/20"
                         >
-                            {isOnline ? (freeUsageCount < AI_WRITER_FREE_LIMIT ? 'Generate Content (Free)' : 'Generate Content (2 Credits)') : 'Offline'}
+                            {userTier === 'Free' ? 'Upgrade to Use Feature' : (isOnline ? (freeUsageCount < AI_WRITER_FREE_LIMIT ? 'Generate Content (Free)' : 'Generate Content (2 Credits)') : 'Offline')}
                         </Button>
                     </div>
                 </aside>

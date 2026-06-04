@@ -35,6 +35,8 @@ export const env = {
     SUPABASE_URL: getString('VITE_SUPABASE_URL', 'https://gaekuvdnewzzwckmlntc.supabase.co'),
     SUPABASE_ANON_KEY: getString('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZWt1dmRuZXd6endja21sbnRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MjA3MTYsImV4cCI6MjA4MTM5NjcxNn0.VIczknJhGRu3d4rTCKKHBeN56ykzw_Xgg4sTUF_x0J4'),
 
+    RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || getString('RAZORPAY_KEY_ID', ''),
+
     // A helper function to check if the app is in development mode.
     isDevelopment: () => env.NODE_ENV === 'development',
 };

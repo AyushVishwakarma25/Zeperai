@@ -63,6 +63,7 @@ interface GlobalModalsProps {
     onGenerate: (params: any) => void;
     isGenerating: boolean;
     userTier: string;
+    onOpenPricingModal: () => void;
 }
 
 export const GlobalModals: React.FC<GlobalModalsProps> = (props) => {
@@ -90,6 +91,8 @@ export const GlobalModals: React.FC<GlobalModalsProps> = (props) => {
                     onDeductCredits={props.onDeductCredits} 
                     onRefundCredits={props.onRefundCredits} 
                     userId={props.userId} 
+                    userTier={props.userTier}
+                    onOpenPricingModal={props.onOpenPricingModal}
                 />
             )}
             
@@ -132,6 +135,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = (props) => {
                     isLoading={props.isGenerating}
                     onClose={props.onCloseCreativeWorkflow}
                     userTier={props.userTier}
+                    onOpenPricingModal={props.onOpenPricingModal}
                 />
             )}
         </Suspense>

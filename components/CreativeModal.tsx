@@ -132,7 +132,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
 
   const remainingFreeGenerations = isFreeTier ? Math.max(0, FREE_TRIAL_LIMIT - freeGenerationsUsed) : 0;
   const isFreeTrialGeneration = isFreeTier && isStandardGeneration && cost > 0 && cost <= remainingFreeGenerations;
-  const needsUpgrade = isFreeTier && isProOperation && !isFreeTrialGeneration;
+  const needsUpgrade = isFreeTier && (mode !== AppMode.Product || (isProOperation && !isFreeTrialGeneration));
 
   const isValid = useMemo(() => {
       if (mode === AppMode.Remix) {

@@ -28,8 +28,35 @@ const DEFAULT_SAFETY_SETTINGS = [
 ];
 
 export const getAI = () => {
+    if (typeof window !== 'undefined') {
+        return {
+            models: {
+                generateContent: async (args: any) => {
+                    const response = await fetch('/api/gemini/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(args)
+                    });
+                    if (!response.ok) {
+                        try {
+                            const errData = await response.json();
+                            throw new Error(errData.error || `Server failed to generate content: ${response.statusText}`);
+                        } catch (e: any) {
+                            throw new Error(e.message || `Server failed to generate content with status ${response.status}`);
+                        }
+                    }
+                    const data = await response.json();
+                    return data;
+                }
+            }
+        };
+    }
+
     if (!genAIInstance) {
-        genAIInstance = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+        const apiKey = typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '';
+        genAIInstance = new GoogleGenAI({ apiKey: apiKey || '' });
     }
 
     const ai: any = genAIInstance;

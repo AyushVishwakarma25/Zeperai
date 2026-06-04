@@ -28,21 +28,22 @@ export const PricingPage: React.FC = () => {
             <p className="text-slate-500 mb-6 text-sm">Perfect for exploring our AI capabilities.</p>
             <div className="mb-8">
               <span className="text-5xl font-black text-slate-900">₹0</span>
+              <span className="text-slate-500 text-sm ml-1">/ 7 days</span>
             </div>
             
             <div className="bg-slate-50 rounded-xl p-3 mb-6 text-center border border-slate-100 flex items-center justify-center">
                 <Icon name="stack" className="w-5 h-5 mr-2 text-[#4452FB]" />
-                <span className="font-bold text-slate-700">50 Credits</span>
+                <span className="font-bold text-slate-700">10 Credits</span>
             </div>
 
             <ul className="space-y-4 mb-8 flex-1">
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm">50 Credits on signup</span>
+                <span className="text-slate-700 text-sm">10 free credits for 7 days</span>
               </li>
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm">Access to standard models</span>
+                <span className="text-slate-700 text-sm">Exclusive access to Product Studio</span>
               </li>
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
@@ -50,7 +51,7 @@ export const PricingPage: React.FC = () => {
               </li>
               <li className="flex items-start gap-3 text-slate-400">
                 <Icon name="info" className="w-5 h-5 shrink-0 mt-0.5" />
-                <span className="text-xs italic">Restricted Pro Features</span>
+                <span className="text-xs italic">Other studios are locked for free tier</span>
               </li>
             </ul>
             <button onClick={() => navigate('/signup')} className="w-full py-4 px-4 bg-slate-900 text-white hover:bg-slate-800 font-bold rounded-xl transition-all shadow-lg shadow-slate-200">
@@ -63,30 +64,30 @@ export const PricingPage: React.FC = () => {
             <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white text-[#4452FB] px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-xl">
               All Features Unlocked
             </div>
-            <h3 className="text-2xl font-bold text-white mb-2">Pay As You Go</h3>
-            <p className="text-blue-100 mb-6 text-sm opacity-90">No monthly commitment. Professional results.</p>
+            <h3 className="text-2xl font-bold text-white mb-2">Pay As You Go Pro</h3>
+            <p className="text-blue-100 mb-6 text-sm opacity-90">All premium studios and features fully unlocked.</p>
             <div className="mb-8">
-              <span className="text-5xl font-black text-white">₹499</span>
-              <span className="text-blue-100 text-sm ml-1">one-time</span>
+              <span className="text-5xl font-black text-white">₹299</span>
+              <span className="text-blue-100 text-sm ml-1">/ month</span>
             </div>
 
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 mb-6 text-center border border-white/20 flex items-center justify-center">
                 <Icon name="sparkles" className="w-5 h-5 mr-2 text-white" />
-                <span className="font-bold text-white text-lg">150 Credits</span>
+                <span className="font-bold text-white text-lg">100 Credits / mo</span>
             </div>
 
             <ul className="space-y-4 mb-8 flex-1">
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-white shrink-0 mt-0.5" />
-                <span className="text-white text-sm">150 Credits instantly</span>
+                <span className="text-white text-sm">100 Credits recurrent monthly</span>
               </li>
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-white shrink-0 mt-0.5" />
-                <span className="text-white text-sm font-semibold">Unlock all Pro models</span>
+                <span className="text-white text-sm font-semibold">Unlock all Studios (Fashion, UGC, Remix, Festivals)</span>
               </li>
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-white shrink-0 mt-0.5" />
-                <span className="text-white text-sm">Priority Generation Speed</span>
+                <span className="text-white text-sm">Priority Generation Speed & Resolution</span>
               </li>
               <li className="flex items-start gap-3">
                 <Icon name="check" className="w-5 h-5 text-white shrink-0 mt-0.5" />
@@ -98,7 +99,7 @@ export const PricingPage: React.FC = () => {
               </li>
             </ul>
             <button onClick={() => navigate('/signup')} className="w-full py-4 px-4 bg-white text-[#4452FB] hover:bg-blue-50 font-black rounded-xl transition-all shadow-xl">
-              Buy 150 Credits
+              Subscribe Now
             </button>
           </div>
         </div>
