@@ -112,36 +112,41 @@ function getRazorpay() {
   }
 
   app.post(['/api/razorpay/create-order', '/api/create-order'], async (req, res) => {
-    console.log('[API: create-order] Initiating order creation request.');
-    console.log('[API: create-order] Payload parsed:', JSON.stringify(req.body));
     try {
-      const { planId, userId, amount, currency, receipt } = req.body;
+      console.log('=== [API: create-order] START ===');
+      console.log('[API: create-order] Raw req.body exists:', !!req.body);
+      if (req.body) {
+         console.log('[API: create-order] Payload parsed keys:', Object.keys(req.body));
+      }
+      
+      const planId = req.body?.planId;
+      const userId = req.body?.userId;
+      const amount = req.body?.amount;
+      const currency = req.body?.currency;
+      const receipt = req.body?.receipt;
       
       let finalAmountPaise = 29900; // default 299 INR
       
-      // Handle different amount formats depending on endpoint used
       if (amount !== undefined && amount !== null) {
         if (req.path.endsWith('/create-order') && !req.path.includes('razorpay')) {
-          // Standard /api/create-order uses paise directly
           finalAmountPaise = Math.round(Number(amount));
         } else {
-          // Legacy checkouts use INR (e.g. 299)
           finalAmountPaise = Math.round(Number(amount) < 10000 ? Number(amount) * 100 : Number(amount));
         }
       }
 
       console.log(`[API: create-order] Calculated amount in paise: ${finalAmountPaise}`);
 
-      // Input Validation: Validate amount >= 100 paise
       if (finalAmountPaise < 100) {
         console.warn('[API: create-order] Refusing request: amount is less than 100 paise.');
         return res.status(400).json({ error: "Amount must be at least 100 paise." });
       }
       
+      console.log('[API: create-order] Getting Razorpay instance...');
       const rzp = getRazorpay();
+      
       if (!rzp) {
         console.log('[API: create-order] No real Razorpay instance. Falling back to Sandbox Mode.');
-        // Professional sandbox demo mode
         const mockOrder = {
           id: `order_mock_${Math.random().toString(36).substr(2, 9)}`,
           amount: finalAmountPaise,
@@ -160,45 +165,35 @@ function getRazorpay() {
         });
       }
 
-      const shortUserId = (userId || 'anon').substring(0, 10);
+      const shortUserId = ((userId as string) || 'anon').substring(0, 10);
       const generatedReceipt = `rcpt_${shortUserId}_${Date.now()}`.substring(0, 40);
       const options = {
         amount: finalAmountPaise, // paise
-        currency: currency || 'INR',
-        receipt: (receipt || generatedReceipt).substring(0, 40),
+        currency: (currency as string) || 'INR',
+        receipt: ((receipt as string) || generatedReceipt).substring(0, 40),
         notes: {
-          planId: (planId || 'pay-as-you-go').substring(0, 50),
-          userId: (userId || '').substring(0, 50)
+          planId: ((planId as string) || 'pay-as-you-go').substring(0, 50),
+          userId: ((userId as string) || '').substring(0, 50)
         }
       };
 
+      console.log('[API: create-order] Options prepared:', opcionesStringified(options));
       let order: any;
+
       try {
-        console.log('[API: create-order] Making request to Razorpay API with options:', opcionesStringified(options));
+        console.log('[API: create-order] Calling rzp.orders.create(options)...');
         order = await rzp.orders.create(options);
-        console.log('[API: create-order] Razorpay Order successfully created in production:', order.id);
+        console.log('[API: create-order] Razorpay Order successfully created!', order?.id);
       } catch(rzpError: any) {
-        console.warn(`[API: create-order] Razorpay SDK Failed: ${rzpError.message || JSON.stringify(rzpError)}. Falling back to Sandbox Mock Order.`);
-        const mockOrder = {
-          id: `order_mock_${Math.random().toString(36).substr(2, 9)}`,
-          amount: finalAmountPaise,
-          currency: currency || 'INR',
-          receipt: receipt || `receipt_mock_${Date.now()}`,
-          status: 'created',
-          notes: { planId, userId, isMock: true }
-        };
-        return res.json({ 
-          order: mockOrder, 
-          order_id: mockOrder.id, 
-          id: mockOrder.id,
-          amount: mockOrder.amount, 
-          currency: mockOrder.currency,
-          isSandbox: true,
-          key_id: 'rzp_test_sandboxkey'
-        });
+        console.error('[API: create-order] RZP SDK ERROR:', rzpError);
+        const errorDetails = rzpError?.error ? (rzpError.error.description || rzpError.error.reason || rzpError.error.code) : (rzpError?.message || JSON.stringify(rzpError));
+        console.warn(`[API: create-order] Parsed RZP Error: ${errorDetails}`);
+        
+        return res.status(500).json({ error: `Razorpay API Error: ${errorDetails}. Please verify your Razorpay API Keys.` });
       }
 
-      res.json({ 
+      console.log('[API: create-order] Sending success response...');
+      return res.json({ 
         order, 
         order_id: order.id, 
         id: order.id,
@@ -207,10 +202,10 @@ function getRazorpay() {
         isSandbox: false,
         key_id: process.env.RAZORPAY_KEY_ID?.trim() || ''
       });
-    } catch (error: any) {
-      console.error('Razorpay Create Order Error:', error, error.stack);
-      const detailedMsg = error.error ? error.error.description || error.error.reason || error.error.code : error.message;
-      res.status(500).json({ error: detailedMsg || 'Failed to create order.' });
+    } catch (unhandledError: any) {
+      console.error('=== [API: create-order] FATAL UNHANDLED ERROR ===', unhandledError, unhandledError?.stack);
+      let errMsg = unhandledError?.message || 'Unknown fatal error in create-order';
+      return res.status(500).json({ error: errMsg });
     }
   });
 
@@ -225,6 +220,8 @@ function getRazorpay() {
 
   app.post(['/api/razorpay/verify', '/api/verify-payment'], async (req, res) => {
     try {
+      console.log('=== [API: verify] START ===');
+      console.log('[API: verify] body exists?', !!req.body);
       const { 
         razorpay_order_id, 
         razorpay_payment_id, 
@@ -234,7 +231,7 @@ function getRazorpay() {
         order_id,
         payment_id,
         signature
-      } = req.body;
+      } = req.body || {};
 
       const orderId = razorpay_order_id || order_id;
       const paymentId = razorpay_payment_id || payment_id;
@@ -242,6 +239,7 @@ function getRazorpay() {
 
       // Input Validation: Missing fields return 400
       if (!orderId || !paymentId || !sig) {
+        console.warn(`[API: verify] Missing fields. orderId=${orderId}, paymentId=${paymentId}, sig=${sig ? 'PRESENT' : 'MISSING'}`);
         return res.status(400).json({ error: 'Missing required query or payload fields (order_id, payment_id, signature).' });
       }
 
@@ -297,10 +295,10 @@ function getRazorpay() {
         }
       }
 
-      res.json({ status: 'ok', verified: true });
-    } catch (error: any) {
-      console.error('Razorpay Signature Verification Error:', error);
-      res.status(500).json({ error: error.message || 'Signature verification failed.' });
+      return res.json({ status: 'ok', verified: true });
+    } catch (unhandledError: any) {
+      console.error('=== [API: verify] FATAL UNHANDLED ERROR ===', unhandledError, unhandledError?.stack);
+      return res.status(500).json({ error: unhandledError?.message || 'Signature verification failed.' });
     }
   });
   
