@@ -178,13 +178,12 @@ const DashboardHome: React.FC<DashboardProps> = ({
             onClick: () => onSelectMode(AppMode.Fashion)
         },
         {
-            title: 'Ad Generator + BI',
+            title: 'Ad Creative Generator',
             description: 'Predictive creative analytics paired with automated high-converting ad layouts.',
             color: '#E1D9CC', // card-tan
             accentColor: '#C2410C', // orange-700
             iconName: 'megaphone',
-            onClick: () => onShowDevMessage?.('Ad Generator + BI'),
-            isLocked: true
+            onClick: () => onSelectMode(AppMode.AdCreative)
         },
         {
             title: 'AI Content Writer',

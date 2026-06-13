@@ -113,18 +113,27 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
         setInsights([]);
         setError(null);
 
-        if (fileRejections && fileRejections.length > 0) {
-            const fileNames = fileRejections.map(r => r.file.name).join(', ');
-            setError(`Upload failed: The file(s) "${fileNames}" were rejected. Please ensure you are uploading standard CSV files.`);
-            return;
-        }
-
-        if (!acceptedFiles || acceptedFiles.length === 0) {
+        // Combine both for client-side programmatic evaluation to bypass OS/browser MIME-type resolution issues
+        const allFiles = [...acceptedFiles, ...fileRejections.map(r => r.file)];
+        
+        if (allFiles.length === 0) {
             setError("No files selected. Please upload a valid CSV file.");
             return;
         }
 
-        setStagedFiles(prev => [...prev, ...acceptedFiles]);
+        const csvFiles = allFiles.filter(file => file.name.toLowerCase().endsWith('.csv'));
+        const rejectedFiles = allFiles.filter(file => !file.name.toLowerCase().endsWith('.csv'));
+
+        if (rejectedFiles.length > 0) {
+            const fileNames = rejectedFiles.map(f => f.name).join(', ');
+            setError(`Rejected non-CSV file(s): "${fileNames}". Please ensure you are uploading standard Shopify CSV exports (ending in .csv).`);
+        }
+
+        if (csvFiles.length === 0) {
+            return;
+        }
+
+        setStagedFiles(prev => [...prev, ...csvFiles]);
     }, []);
 
     const handleAnalyze = async () => {
@@ -182,15 +191,7 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
     };
     
     const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
-        onDrop, 
-        accept: {
-            'text/csv': ['.csv'],
-            'text/plain': ['.csv'],
-            'text/comma-separated-values': ['.csv'],
-            'application/csv': ['.csv'],
-            'application/vnd.ms-excel': ['.csv'],
-            'application/octet-stream': ['.csv']
-        }
+        onDrop
     });
     
     const handleUploadNew = () => {

@@ -48,7 +48,7 @@ const pricingPlans = [
     priceId: STRIPE_PRICES.PAY_AS_YOU_GO,
     name: 'Pay As You Go Pro',
     description: 'All premium studios and features fully unlocked.',
-    price: '₹299',
+    price: '₹499',
     period: 'month',
     credits: '100 Credits / month',
     features: [

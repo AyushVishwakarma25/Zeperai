@@ -1,4 +1,5 @@
-import Papa from 'papaparse';
+import * as PapaLib from 'papaparse';
+const Papa = (PapaLib as any).default || PapaLib;
 
 interface CSVFile {
     originalname: string;
@@ -29,13 +30,14 @@ export const analyzeShopify = async (files: CSVFile[]) => {
     }
 
     const cleanKeys = (obj: any) => {
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {};
         const cleaned: any = {};
         for (const key of Object.keys(obj)) {
             cleaned[key.toLowerCase().trim()] = obj[key];
         }
         return cleaned;
     };
-    merged_df = merged_df.map(cleanKeys);
+    merged_df = merged_df.map(cleanKeys).filter(row => row && typeof row === 'object' && Object.keys(row).length > 0);
 
     let totalRevenue = 0;
     let totalOrdersCount = 0;
@@ -49,6 +51,7 @@ export const analyzeShopify = async (files: CSVFile[]) => {
     const fallbackQuantity = ['quantity', 'net quantity', 'qty', 'count'];
 
     const getMatchingKey = (row: any, fallbacks: string[]) => {
+        if (!row || typeof row !== 'object' || Array.isArray(row)) return 'unknown';
         const keys = Object.keys(row);
         for (const f of fallbacks) {
             const match = keys.find(k => k === f || k.includes(f));

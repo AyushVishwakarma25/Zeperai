@@ -8,6 +8,8 @@ import { Icon } from '../ui/Icon';
 import { HelpLabel, BestForLabel } from './shared';
 import { CreativeScorecard } from '../CreativeScorecard';
 import { StyleSelector } from '../ui/StyleSelector';
+import { Spinner } from '../ui/Spinner';
+import { generateAdCopy } from '../../services/geminiService';
 
 interface AdCreativeControlsProps {
     params: GenerateImageParams;
@@ -18,6 +20,7 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
     params, handleParamChange 
 }) => {
     const [showScorecard, setShowScorecard] = useState(false);
+    const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
 
     // Convert comparison layout options to StyleSelector format
     const comparisonStyleSelectorOptions = COMPARISON_LAYOUT_OPTIONS.map(opt => ({
@@ -33,8 +36,25 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
             handleParamChange('adLayout', template.adLayout);
             handleParamChange('adFontFamily', template.fontFamily);
             handleParamChange('adTextColor', template.textColor);
-            // We can store the prompt instruction in adStylePreset or a new field.
-            // For now, we'll just rely on adTemplateId in geminiService.
+        }
+    };
+
+    const handleAutoGenerateCopy = async () => {
+        if (!params.productDescription) {
+            alert("Please add a Product Description in the Settings (Common Controls) below to generate copy.");
+            return;
+        }
+        setIsGeneratingCopy(true);
+        try {
+            const templateName = AD_TEMPLATES.find(t => t.id === params.adTemplateId)?.name || 'Modern';
+            const result = await generateAdCopy(params.productDescription, templateName);
+            handleParamChange('adTitle', result.title);
+            handleParamChange('adSubheading', result.subheading);
+            handleParamChange('adCta', result.cta);
+        } catch (e) {
+            console.error("Copy generation failed:", e);
+        } finally {
+            setIsGeneratingCopy(false);
         }
     };
 
@@ -101,6 +121,20 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
                     </div>
                 )}
                 
+                <div className="flex items-center justify-between mt-4 mb-2 pt-4 border-t border-slate-200">
+                    <HelpLabel label="Ad Content" tooltip="Write your own or use AI to generate high-converting copy based on your product details." />
+                    <Button 
+                        variant="secondary" 
+                        className="h-8 py-0.5 px-3 text-xs gap-1 border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
+                        onClick={handleAutoGenerateCopy}
+                        disabled={isGeneratingCopy || !params.productDescription}
+                        isLoading={isGeneratingCopy}
+                    >
+                        <Icon name="sparkles" className="w-3.5 h-3.5" />
+                        Auto-Write Copy
+                    </Button>
+                </div>
+                
                 <FormInput 
                     label={params.isComparisonMode ? "Headline (e.g. Us vs Them)" : "Ad Title"}
                     id="ad-title"
@@ -140,15 +174,46 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
                     </div>
                 )}
                 
-                <FormInput 
-                    label="CTA Button"
-                    id="ad-cta"
-                    placeholder="e.g. Shop Now"
-                    value={params.adCta || ''}
-                    onChange={e => handleParamChange('adCta', e.target.value)}
-                />
+                <div className="grid grid-cols-2 gap-4">
+                    <FormInput 
+                        label="CTA Button"
+                        id="ad-cta"
+                        placeholder="e.g. Shop Now"
+                        value={params.adCta || ''}
+                        onChange={e => handleParamChange('adCta', e.target.value)}
+                    />
+                    <FormInput 
+                        label="CTA Bg Color (Hex)"
+                        id="ad-cta-bg"
+                        placeholder="#6A5AE0"
+                        value={params.adCtaBgColor || ''}
+                        onChange={e => handleParamChange('adCtaBgColor', e.target.value)}
+                    />
+                </div>
 
-                <div className="pt-2">
+                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-200 mt-4">
+                     <FormInput 
+                        label="Text Color (Hex)"
+                        id="ad-text-color"
+                        placeholder="#ffffff"
+                        value={params.adTextColor || ''}
+                        onChange={e => handleParamChange('adTextColor', e.target.value)}
+                    />
+                     <div>
+                        <HelpLabel label="Brand Setup" />
+                        <label className="flex items-center space-x-2 mt-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={params.applyBrandIdentity || false}
+                                onChange={(e) => handleParamChange('applyBrandIdentity', e.target.checked)}
+                                className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary"
+                            />
+                            <span className="text-sm font-medium text-slate-700">Apply Brand Kit Assets</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div className="pt-4">
                     <Button 
                         onClick={() => setShowScorecard(!showScorecard)} 
                         variant="secondary" 

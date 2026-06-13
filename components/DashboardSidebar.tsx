@@ -80,7 +80,6 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
         { label: 'Ad Creative', mode: AppMode.AdCreative },
         { label: 'Festival Shoot', mode: AppMode.Festival },
         { label: 'Remix', mode: AppMode.Remix },
-        { label: 'Ad Generator + BI', isDev: true },
         { label: 'Background Remover', action: onStartImageEdit },
     ];
 
@@ -186,7 +185,7 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
                             <button
                                 key={item.mode || `action-${idx}`}
                                 onClick={() => { 
-                                    if (item.isDev) onShowDevMessage?.(item.label);
+                                    if ((item as any).isDev) onShowDevMessage?.(item.label);
                                     else if (item.mode) onSelectMode(item.mode);
                                     else if (item.action) item.action();
                                     onClose(); 
@@ -203,7 +202,7 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
                             >
                                 <span className="flex items-center gap-2">
                                     {item.label}
-                                    {item.isDev && <span className="text-[8px] px-1 bg-amber-100 text-amber-700 rounded font-black uppercase">Dev</span>}
+                                    {(item as any).isDev && <span className="text-[8px] px-1 bg-amber-100 text-amber-700 rounded font-black uppercase">Dev</span>}
                                 </span>
                                 {dragOverMode === item.mode && <Icon name="plus-circle" className="w-4 h-4 text-white animate-pulse" />}
                             </button>

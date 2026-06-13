@@ -33,10 +33,11 @@ try {
   console.warn('Manual .env file parsing skipped or failed:', err.message);
 }
 
-import { analyzeShopify } from './services/shopifyAnalyst';
-import { getAI } from './config/ai';
+import { analyzeShopify } from './services/shopifyAnalyst.js';
+import { getAI } from './config/ai.js';
 
-const upload = multer({ storage: multer.memoryStorage() });
+const multerInstance = (multer as any).default || multer;
+const upload = multerInstance({ storage: multerInstance.memoryStorage() });
 
 export const app = express();
 
