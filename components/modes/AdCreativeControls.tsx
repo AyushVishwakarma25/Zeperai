@@ -191,7 +191,7 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
                     />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-200 mt-4">
+                <div className="pt-2 border-t border-slate-200 mt-4">
                      <FormInput 
                         label="Text Color (Hex)"
                         id="ad-text-color"
@@ -199,18 +199,6 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
                         value={params.adTextColor || ''}
                         onChange={e => handleParamChange('adTextColor', e.target.value)}
                     />
-                     <div>
-                        <HelpLabel label="Brand Setup" />
-                        <label className="flex items-center space-x-2 mt-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={params.applyBrandIdentity || false}
-                                onChange={(e) => handleParamChange('applyBrandIdentity', e.target.checked)}
-                                className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary"
-                            />
-                            <span className="text-sm font-medium text-slate-700">Apply Brand Kit Assets</span>
-                        </label>
-                    </div>
                 </div>
 
                 <div className="pt-4">

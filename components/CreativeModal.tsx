@@ -298,28 +298,9 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                 <div className="flex-1 p-4 md:p-6 md:overflow-y-auto scrollbar-thin">
                     {mode === AppMode.Remix ? (
                         <RemixControls params={params} handleParamChange={handleParamChange} />
-                    ) : (
+                     ) : (
                         <>
                             <SectionTitle title="CREATIVE SETTINGS" />
-                            
-                            {brandKit && (
-                                <div className="mb-6 bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <Icon name="magic-wand" className="w-4 h-4 text-primary" />
-                                            <span className="text-sm font-bold text-slate-800">Smart Brand Identity</span>
-                                        </div>
-                                        <Toggle 
-                                            label="" 
-                                            enabled={params.applyBrandIdentity !== false} 
-                                            onChange={(val) => handleParamChange('applyBrandIdentity', val)} 
-                                        />
-                                    </div>
-                                    <p className="text-xs text-slate-600">
-                                        Automatically injects <strong>{brandKit.brandName}</strong> colors, fonts, and tone into the prompt.
-                                    </p>
-                                </div>
-                            )}
 
                             <FormTextArea 
                                 label="Description & Context"

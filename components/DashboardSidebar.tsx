@@ -213,11 +213,6 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
 
             <NavItem icon="edit" label="AI Content Writer" onClick={() => { onOpenContentGenerator(); onClose(); }} isOpen={isOpen} />
             
-            <div className="relative">
-                <NavItem icon="magic-wand" label="Brand Identity" onClick={() => { onShowDevMessage?.("Brand Identity"); onClose(); }} isOpen={isOpen} />
-                {isOpen && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[8px] px-1 bg-amber-100 text-amber-700 rounded font-black uppercase pointer-events-none">Dev</span>}
-            </div>
-
             <NavItem icon="shopping-bag" label="Shopify Analyzer" active={currentView === View.ShopifyAnalytics} onClick={() => { onSetView(View.ShopifyAnalytics); onClose(); }} isOpen={isOpen} />
             <NavItem icon="folder" label="My Designs" active={currentView === View.MyDesigns} onClick={() => { onSetView(View.MyDesigns); onClose(); }} isOpen={isOpen} />
             <NavItem icon="lightbulb" label="Inspiration" active={currentView === View.Inspiration} onClick={() => { onSetView(View.Inspiration); onClose(); }} isOpen={isOpen} />

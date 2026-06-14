@@ -434,11 +434,6 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
                     </div>
                 </div>
 
-                <div className="p-4 bg-slate-950 text-emerald-400 font-mono text-xs rounded-xl overflow-auto h-64 shadow-inner border border-slate-800">
-                    <h3 className="font-bold text-white mb-2">DEBUG: RAW REPORT DATA</h3>
-                    <pre>{JSON.stringify(report, null, 2)}</pre>
-                </div>
-
                 {/* Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Revenue Chart */}
