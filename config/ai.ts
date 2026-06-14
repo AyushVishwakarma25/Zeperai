@@ -55,7 +55,9 @@ export const getAI = () => {
     }
 
     if (!genAIInstance) {
-        const apiKey = typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '';
+        const apiKey = typeof process !== 'undefined' 
+            ? (process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.GOOGLE_API_KEY || '') 
+            : '';
         genAIInstance = new GoogleGenAI({ apiKey: apiKey || '' });
     }
 
