@@ -319,20 +319,36 @@ function getRazorpay() {
 
   app.post('/api/gemini/generate', aiLimiter, async (req, res) => {
     try {
+      console.log('API call received, API key present:', !!process.env.GEMINI_API_KEY);
       const { model, contents, config } = req.body;
       const ai = getAI();
       const response = await ai.models.generateContent({ model, contents, config });
       
+      let textStr = '';
+      try {
+          if (typeof response.text === 'string') {
+              textStr = response.text;
+          } else {
+              textStr = response.text; // might throw getter error if no text
+          }
+      } catch (e) {
+          // It's an image or something else without text parts
+      }
+
       res.json({
-        text: response.text,
+        text: textStr,
         candidates: response.candidates,
         usageMetadata: response.usageMetadata,
         modelVersion: response.modelVersion,
         promptFeedback: response.promptFeedback
       });
     } catch (error: any) {
-      console.error('Gemini Proxy Error:', error.message);
-      res.status(500).json({ error: error.message || 'Failed to generate content.' });
+      console.error('Gemini Proxy Error:', error);
+      res.status(500).json({ 
+          error: error.message || 'Failed to generate content.',
+          details: error.statusText || error.name || 'Unknown API Error',
+          status: error.status || 500
+      });
     }
   });
 

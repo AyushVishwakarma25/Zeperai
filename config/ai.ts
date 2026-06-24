@@ -29,7 +29,8 @@ const DEFAULT_SAFETY_SETTINGS = [
 ];
 
 export const getAI = () => {
-    if (typeof window !== 'undefined') {
+    // If we're in the browser, ALWAYS use the proxy.
+    if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
         return {
             models: {
                 generateContent: async (args: any) => {
@@ -48,20 +49,19 @@ export const getAI = () => {
                             throw new Error(e.message || `Server failed to generate content with status ${response.status}`);
                         }
                     }
-                    const data = await response.json();
-                    return data;
+                    return await response.json();
                 }
             }
         };
     }
 
-    const apiKey = typeof process !== 'undefined' 
+    const apiKey = typeof process !== 'undefined' && process.env 
         ? (process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.GOOGLE_API_KEY || '') 
         : '';
         
     if (!apiKey) {
         console.error("Missing Gemini API Key in environment variables!");
-        throw new Error("Missing GEMINI_API_KEY. Please configure your API key in Settings > Secrets. This action requires a valid API key.");
+        throw new Error("Missing GEMINI_API_KEY. Please configure your API key in Settings > Secrets and do a hard refresh of your browser tab.");
     }
 
     if (!genAIInstance || currentApiKey !== apiKey) {
