@@ -325,7 +325,10 @@ function getRazorpay() {
       
       res.json({
         text: response.text,
-        ...response
+        candidates: response.candidates,
+        usageMetadata: response.usageMetadata,
+        modelVersion: response.modelVersion,
+        promptFeedback: response.promptFeedback
       });
     } catch (error: any) {
       console.error('Gemini Proxy Error:', error.message);
