@@ -7,6 +7,7 @@
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 
 let genAIInstance: GoogleGenAI | null = null;
+let currentApiKey = '';
 
 const DEFAULT_SAFETY_SETTINGS = [
     {
@@ -54,10 +55,17 @@ export const getAI = () => {
         };
     }
 
-    if (!genAIInstance) {
-        const apiKey = typeof process !== 'undefined' 
-            ? (process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.GOOGLE_API_KEY || '') 
-            : '';
+    const apiKey = typeof process !== 'undefined' 
+        ? (process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.GOOGLE_API_KEY || '') 
+        : '';
+        
+    if (!apiKey) {
+        console.error("Missing Gemini API Key in environment variables!");
+        throw new Error("Missing GEMINI_API_KEY. Please configure your API key in Settings > Secrets. This action requires a valid API key.");
+    }
+
+    if (!genAIInstance || currentApiKey !== apiKey) {
+        currentApiKey = apiKey;
         genAIInstance = new GoogleGenAI({ apiKey: apiKey || '' });
     }
 

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -13,7 +13,30 @@ import {
   ChartOptions
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Sparkles, 
+  UploadCloud, 
+  Trash2, 
+  Loader2, 
+  CheckCircle2, 
+  AlertTriangle, 
+  FileSpreadsheet, 
+  ChevronRight, 
+  Menu, 
+  BarChart3, 
+  DollarSign, 
+  ShoppingBag, 
+  Users, 
+  AlertCircle, 
+  X,
+  Plus
+} from 'lucide-react';
+import { shopifyService } from '../services/shopifyService';
+import { ShopifyAnalysisResult, ProductZoneItem } from '../types';
 
+// Register ChartJS
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -26,39 +49,6 @@ ChartJS.register(
   Filler
 );
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface ProductZoneItem {
-  name: string;
-  revenue: number;
-  units: number;
-}
-
-interface TopProduct {
-  name: string;
-  revenue: number;
-  units: number;
-}
-
-interface Insight {
-  type: 'green' | 'amber' | 'red' | 'info';
-  text: string;
-}
-
-interface AnalysisResult {
-  totalRevenue: number;
-  totalOrders: number;
-  avgOrderValue: number;
-  customerCount: number;
-  refunds: number;
-  topProducts: TopProduct[];
-  trendDates: string[];
-  trendRevs: number[];
-  zones: { green: ProductZoneItem[]; amber: ProductZoneItem[]; red: ProductZoneItem[] };
-  insights: Insight[];
-  warnings: string[];
-}
-
 interface ShopifyDashboardProps {
   onGenerateAd?: (productName: string) => void;
   onToggleSidebar?: () => void;
@@ -68,7 +58,7 @@ interface ShopifyDashboardProps {
   onReportUpdate?: (report: any) => void;
 }
 
-// ─── CSV Parsing Utilities ────────────────────────────────────────────────────
+// ─── CSV Parsing Helpers ────────────────────────────────────────────────────────
 
 function parseCSV(text: string): { headers: string[]; rows: Record<string, string>[] } {
   const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
@@ -112,10 +102,6 @@ function parseCSV(text: string): { headers: string[]; rows: Record<string, strin
   return { headers, rows };
 }
 
-/**
- * Fuzzy column finder — matches against 10–20 aliases per field,
- * handling differences across Shopify plan tiers and export versions.
- */
 function findCol(headers: string[], candidates: string[]): string | null {
   const hl = headers.map(h => h.toLowerCase().replace(/[\s_\-]/g, ''));
   for (const c of candidates) {
@@ -126,7 +112,6 @@ function findCol(headers: string[], candidates: string[]): string | null {
   return null;
 }
 
-/** Strips any currency symbol, commas, spaces, parens before parsing. */
 function cleanMoney(v: string | undefined): number {
   if (v === undefined || v === null || v === '') return 0;
   const n = parseFloat(String(v).replace(/[$£€¥₹,\s]/g, '').replace(/[()]/g, ''));
@@ -148,8 +133,6 @@ function fmt$(v: number): string {
 function fmtN(v: number): string {
   return new Intl.NumberFormat('en-US').format(Math.round(v));
 }
-
-// ─── File Type Detection ──────────────────────────────────────────────────────
 
 type FileType = 'orders' | 'products' | 'analytics' | 'customers' | 'inventory' | 'timeseries' | 'unknown';
 
@@ -181,8 +164,6 @@ function detectFileType(headers: string[]): FileType {
 
   return 'unknown';
 }
-
-// ─── Processors ──────────────────────────────────────────────────────────────
 
 interface OrdersResult {
   totalRevenue: number;
@@ -222,14 +203,13 @@ function processOrders(rows: Record<string, string>[], headers: string[]): Order
     const orderId = colName ? r[colName] : '';
     const total   = colTotal ? cleanMoney(r[colTotal]) : 0;
     const dateRaw = colDate ? r[colDate] : '';
-    const dateKey = dateRaw ? dateRaw.substring(0, 7) : 'Unknown';
+    const dateKey = dateRaw ? dateRaw.substring(0, 10) : 'Unknown';
     const product = colProduct ? r[colProduct]?.trim() : '';
     const qty     = colQty ? cleanNum(r[colQty]) : 1;
     const lineRev = colLineRev ? cleanMoney(r[colLineRev]) * qty : 0;
 
     if (colEmail && r[colEmail]) customerEmails.add(r[colEmail].toLowerCase());
 
-    // Handle line-item expanded exports (one row per line item, order total repeated)
     if (orderId && !orderSet.has(orderId)) {
       orderSet.add(orderId);
       totalOrders++;
@@ -243,13 +223,11 @@ function processOrders(rows: Record<string, string>[], headers: string[]): Order
       }
     }
 
-    // Accumulate product revenue from line items
     if (product && lineRev > 0) {
       productRevenue[product] = (productRevenue[product] || 0) + lineRev;
       productUnits[product]   = (productUnits[product] || 0) + qty;
     }
 
-    // Fallback: single-row-per-order exports with no line item columns
     if (!orderId && total > 0 && lineRev === 0) {
       totalRevenue += total;
       totalOrders++;
@@ -273,7 +251,7 @@ function processTimeSeries(rows: Record<string, string>[], headers: string[]): R
   const colRev  = findCol(headers, ['Total Sales', 'Sales', 'Revenue', 'Total Revenue', 'Net Sales', 'Gross Sales', 'total_sales', 'revenue', 'Amount', 'Total']);
   const daily: Record<string, number> = {};
   rows.forEach(r => {
-    const d   = colDate ? r[colDate]?.substring(0, 7) : '';
+    const d   = colDate ? r[colDate]?.substring(0, 10) : '';
     if (!d) return;
     const rev = cleanMoney(colRev ? r[colRev] : '0');
     daily[d]  = (daily[d] || 0) + rev;
@@ -281,13 +259,17 @@ function processTimeSeries(rows: Record<string, string>[], headers: string[]): R
   return daily;
 }
 
-// ─── Product Zones ────────────────────────────────────────────────────────────
+interface TempZoneProduct {
+  name: string;
+  revenue: number;
+  units: number;
+}
 
 function buildProductZones(
   productRevenue: Record<string, number>,
   productUnits: Record<string, number>
-): { green: ProductZoneItem[]; amber: ProductZoneItem[]; red: ProductZoneItem[] } {
-  const items: ProductZoneItem[] = Object.entries(productRevenue).map(([name, revenue]) => ({
+): { green: TempZoneProduct[]; amber: TempZoneProduct[]; red: TempZoneProduct[] } {
+  const items: TempZoneProduct[] = Object.entries(productRevenue).map(([name, revenue]) => ({
     name,
     revenue,
     units: productUnits[name] || 0
@@ -299,9 +281,9 @@ function buildProductZones(
   const total  = sorted.reduce((s, p) => s + p.revenue, 0);
   const avg    = total / sorted.length;
 
-  const green: ProductZoneItem[] = [];
-  const amber: ProductZoneItem[] = [];
-  const red:   ProductZoneItem[] = [];
+  const green: TempZoneProduct[] = [];
+  const amber: TempZoneProduct[] = [];
+  const red:   TempZoneProduct[] = [];
 
   sorted.forEach(p => {
     if (p.revenue >= avg * 1.5)       green.push(p);
@@ -312,86 +294,19 @@ function buildProductZones(
   return { green, amber, red };
 }
 
-// ─── Insights Engine ──────────────────────────────────────────────────────────
-
-function generateInsights(data: {
-  totalRevenue: number;
-  totalOrders: number;
-  avgOrder: number;
-  zones: { green: ProductZoneItem[]; amber: ProductZoneItem[]; red: ProductZoneItem[] };
-  trendDates: string[];
-  trendRevs: number[];
-  topProducts: TopProduct[];
-}): Insight[] {
-  const { totalRevenue, totalOrders, avgOrder, zones, trendRevs, topProducts } = data;
-  const ins: Insight[] = [];
-
-  if (totalOrders > 0 && avgOrder > 0) {
-    const commentary =
-      avgOrder < 50  ? 'Consider bundling or upselling to increase AOV.' :
-      avgOrder > 200 ? 'Strong AOV — focus on retention to compound revenue.' :
-                       'Healthy AOV with room to grow through product bundles.';
-    ins.push({ type: 'info', text: `Average order value is ${fmt$(avgOrder)} across ${fmtN(totalOrders)} orders. ${commentary}` });
-  }
-
-  if (zones.green.length) {
-    const extra = zones.green.length > 1 ? ` + ${zones.green.length - 1} more` : '';
-    ins.push({ type: 'green', text: `${zones.green.length} high-performing product${zones.green.length > 1 ? 's' : ''} (${zones.green[0].name}${extra}) drive${zones.green.length === 1 ? 's' : ''} disproportionate revenue. Prioritize these in paid ads.` });
-  }
-
-  if (zones.red.length) {
-    ins.push({ type: 'red', text: `${zones.red.length} underperforming SKU${zones.red.length > 1 ? 's' : ''} are below 50% of average revenue. Review pricing, visibility, or consider discontinuation.` });
-  }
-
-  if (trendRevs.length >= 2) {
-    const last = trendRevs[trendRevs.length - 1];
-    const prev = trendRevs[trendRevs.length - 2];
-    const chg  = prev > 0 ? ((last - prev) / prev * 100) : 0;
-    ins.push({
-      type: chg >= 0 ? 'green' : 'red',
-      text: `Most recent period revenue is ${fmt$(last)}, ${chg >= 0 ? 'up' : 'down'} ${Math.abs(chg).toFixed(1)}% from the prior period.`
-    });
-  }
-
-  if (topProducts.length && totalRevenue > 0) {
-    const share = topProducts[0].revenue / totalRevenue;
-    ins.push({
-      type: 'amber',
-      text: `Top product "${topProducts[0].name}" accounts for ${(share * 100).toFixed(1)}% of total revenue. ${share > 0.5 ? 'High concentration risk — diversify catalog.' : 'Healthy diversification across products.'}`
-    });
-  }
-
-  return ins;
-}
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const KPICard: React.FC<{ label: string; value: string; sub?: string; danger?: boolean }> = ({ label, value, sub, danger }) => (
-  <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
-    <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748B', marginBottom: 4 }}>{label}</p>
-    <p style={{ fontSize: 24, fontWeight: 700, color: danger ? '#DC2626' : '#0F172A' }}>{value}</p>
-    {sub && <p style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>{sub}</p>}
+const KPICard: React.FC<{ label: string; value: string; icon: React.ReactNode; danger?: boolean }> = ({ label, value, icon, danger }) => (
+  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+    <div>
+      <p className="text-xs font-semibold text-slate-400 tracking-wider uppercase mb-1">{label}</p>
+      <h3 className={`text-2xl font-bold ${danger ? 'text-rose-600' : 'text-slate-800'}`}>{value}</h3>
+    </div>
+    <div className={`p-3 rounded-xl ${danger ? 'bg-rose-50 text-rose-500' : 'bg-slate-50 text-slate-500'}`}>
+      {icon}
+    </div>
   </div>
 );
-
-const InsightCard: React.FC<{ insights: Insight[] }> = ({ insights }) => {
-  const dotColor = { green: '#16A34A', amber: '#D97706', red: '#DC2626', info: '#7C3AED' };
-  return (
-    <div style={{ background: '#F8F7FF', border: '1px solid #E8E4FF', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: '#4C1D95' }}>✦ Automated Insights</span>
-      </div>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {insights.map((ins, i) => (
-          <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <span style={{ marginTop: 6, width: 7, height: 7, borderRadius: '50%', background: dotColor[ins.type], flexShrink: 0 }} />
-            <span style={{ fontSize: 13, lineHeight: 1.55, color: '#1E293B' }}>{ins.text}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-};
 
 const ZoneList: React.FC<{
   title: string;
@@ -399,39 +314,43 @@ const ZoneList: React.FC<{
   color: 'green' | 'amber' | 'red';
   onAction?: (name: string) => void;
   actionLabel: string;
-}> = ({ title, products, color, onAction, actionLabel }) => {
+}> = ({ title, products = [], color, onAction, actionLabel }) => {
   const palette = {
-    green: { bg: '#F0FDF4', border: '#BBF7D0', hdr: '#15803D', badge: '#DCFCE7', badgeText: '#166534' },
-    amber: { bg: '#FFFBEB', border: '#FDE68A', hdr: '#B45309', badge: '#FEF3C7', badgeText: '#92400E' },
-    red:   { bg: '#FFF1F2', border: '#FECDD3', hdr: '#B91C1C', badge: '#FFE4E6', badgeText: '#9F1239' },
+    green: { bg: 'bg-emerald-50/55', border: 'border-emerald-200', text: 'text-emerald-800', badge: 'bg-emerald-100 text-emerald-800' },
+    amber: { bg: 'bg-amber-50/55', border: 'border-amber-200', text: 'text-amber-800', badge: 'bg-amber-100 text-amber-800' },
+    red:   { bg: 'bg-rose-50/55', border: 'border-rose-200', text: 'text-rose-800', badge: 'bg-rose-100 text-rose-800' },
   }[color];
 
   return (
-    <div style={{ border: `1px solid ${palette.border}`, borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 340 }}>
-      <div style={{ background: palette.bg, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${palette.border}` }}>
-        <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: palette.hdr }}>{title}</span>
-        <span style={{ fontSize: 11, fontWeight: 700, background: palette.badge, color: palette.badgeText, padding: '2px 8px', borderRadius: 99 }}>{products.length} SKUs</span>
+    <div className={`border rounded-2xl overflow-hidden flex flex-col h-[340px] bg-white transition-all shadow-xs ${palette.border}`}>
+      <div className={`px-4 py-3 border-b flex justify-between items-center ${palette.bg} ${palette.border}`}>
+        <span className={`text-xs font-bold uppercase tracking-wider ${palette.text}`}>{title}</span>
+        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${palette.badge}`}>{products.length} SKUs</span>
       </div>
-      <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
-        {products.length === 0
-          ? <p style={{ textAlign: 'center', fontSize: 12, color: '#94A3B8', marginTop: 40 }}>No products in this zone.</p>
-          : products.slice(0, 50).map((p, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 8px', borderRadius: 8, marginBottom: 3, cursor: onAction ? 'pointer' : 'default' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#F8FAFC')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-            >
-              <div style={{ minWidth: 0, flex: 1, marginRight: 8 }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.name}>{p.name}</p>
-                <p style={{ fontSize: 10, color: '#64748B' }}>{fmt$(p.revenue)} · {fmtN(p.units)} units</p>
+      <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+        {products.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-slate-400 p-4">
+            <ShoppingBag className="w-8 h-8 mb-2 stroke-1" />
+            <p className="text-xs">No catalog items classified</p>
+          </div>
+        ) : (
+          products.slice(0, 50).map((p, i) => (
+            <div key={i} className="flex items-center justify-between p-3.5 hover:bg-slate-50 transition duration-150">
+              <div className="min-w-0 flex-1 mr-3">
+                <p className="text-xs font-bold text-slate-800 truncate" title={p.name}>{p.name}</p>
+                <p className="text-[10px] text-slate-400 mt-1 font-semibold">{fmt$(typeof p.revenue === 'string' ? parseFloat(p.revenue) : p.revenue)} · {fmtN(p.quantity)} units</p>
               </div>
               {onAction && (
-                <button onClick={() => onAction(p.name)} style={{ fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 6, border: '1px solid #E2E8F0', background: '#fff', color: '#334155', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                <button 
+                  onClick={() => onAction(p.name)} 
+                  className="px-2.5 py-1 text-[10px] font-bold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800 cursor-pointer shadow-2xs whitespace-nowrap active:scale-95 transition"
+                >
                   {actionLabel}
                 </button>
               )}
             </div>
           ))
-        }
+        )}
       </div>
     </div>
   );
@@ -439,7 +358,7 @@ const ZoneList: React.FC<{
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
+export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
   onGenerateAd,
   onToggleSidebar,
   onDeductCredits,
@@ -450,14 +369,20 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
   const [stagedFiles, setStagedFiles]   = useState<File[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
   const [isAnalyzing, setIsAnalyzing]   = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [progress, setProgress]         = useState(0);
   const [progressMsg, setProgressMsg]   = useState('');
   const [error, setError]               = useState<string | null>(null);
   const [warnings, setWarnings]         = useState<string[]>([]);
-  const [report, setReport]             = useState<AnalysisResult | null>(null);
+  const [report, setReport]             = useState<ShopifyAnalysisResult | null>(propReport || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── File handling ──────────────────────────────────────────────────────────
+  // Sync with propReport
+  useEffect(() => {
+    if (propReport) {
+      setReport(propReport);
+    }
+  }, [propReport]);
 
   const handleFiles = useCallback((files: FileList | File[]) => {
     const all = Array.from(files);
@@ -482,7 +407,17 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
   const removeFile = (i: number) =>
     setStagedFiles(prev => prev.filter((_, idx) => idx !== i));
 
-  // ── Analysis ───────────────────────────────────────────────────────────────
+  const handleReset = () => {
+    setReport(null);
+    setStagedFiles([]);
+    setError(null);
+    setWarnings([]);
+    setProgress(0);
+    setProgressMsg('');
+    if (onReportUpdate) {
+      onReportUpdate(null);
+    }
+  };
 
   const runAnalysis = async () => {
     if (!stagedFiles.length) return;
@@ -546,11 +481,10 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
       }
     }
 
-    setProgress(70);
+    setProgress(75);
     setProgressMsg('Building product zones…');
     await new Promise(r => setTimeout(r, 0));
 
-    // Prefer time-series file revenue over order-derived daily revenue if richer
     const revSource = Object.keys(accTimeSeries).length > Object.keys(accOrders.dailyRevenue).length
       ? accTimeSeries
       : accOrders.dailyRevenue;
@@ -559,55 +493,134 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
     const trendRevs  = trendDates.map(d => revSource[d]);
 
     const totalRevenue = accOrders.totalRevenue || trendRevs.reduce((s, v) => s + v, 0);
-    const totalOrders  = accOrders.totalOrders;
-    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const totalOrders  = accOrders.totalOrders || 1; 
+    const avgOrderValue = totalRevenue / totalOrders;
 
-    const zones = buildProductZones(accOrders.productRevenue, accOrders.productUnits);
+    const rawZones = buildProductZones(accOrders.productRevenue, accOrders.productUnits);
+    
+    const productZones = {
+      green: rawZones.green.map(p => ({ name: p.name, revenue: p.revenue, quantity: p.units })),
+      yellow: rawZones.amber.map(p => ({ name: p.name, revenue: p.revenue, quantity: p.units })),
+      red: rawZones.red.map(p => ({ name: p.name, revenue: p.revenue, quantity: p.units }))
+    };
 
-    const topProducts: TopProduct[] = Object.entries(accOrders.productRevenue)
-      .map(([name, revenue]) => ({ name, revenue, units: accOrders.productUnits[name] || 0 }))
-      .sort((a, b) => b.revenue - a.revenue)
+    const topProducts = Object.entries(accOrders.productRevenue)
+      .map(([name, revenue]) => ({ name, revenue, quantity: accOrders.productUnits[name] || 0 }))
+      .sort((a, b) => Number(b.revenue) - Number(a.revenue))
       .slice(0, 10);
 
     setProgress(90);
-    setProgressMsg('Generating insights…');
-    await new Promise(r => setTimeout(r, 0));
+    setProgressMsg('Creating layouts…');
+    await new Promise(r => setTimeout(r, 100));
 
-    const insights = generateInsights({ totalRevenue, totalOrders, avgOrder: avgOrderValue, zones, trendDates, trendRevs, topProducts });
+    const salesTrend = trendDates.map((date, i) => ({ date, revenue: trendRevs[i] }));
+    const chart_data = { dates: trendDates, revenue: trendRevs };
+
+    const top_push_products = productZones.green.slice(0, 3).map((p, idx) => ({
+      name: p.name,
+      score: 1.0 - (idx * 0.15),
+      reasoning: 'Exceptional buyer conversion and revenue contributor.'
+    }));
+
+    const top_stop_products = productZones.red.slice(0, 3).map((p, idx) => ({
+      name: p.name,
+      score: 0.1 + (idx * 0.12),
+      reasoning: 'Underperforming item. Low conversion rate. Cut ad spend or clear with bundle discount.'
+    }));
 
     setProgress(100);
     await new Promise(r => setTimeout(r, 80));
 
-    setReport({
-      totalRevenue,
+    const finalReport: ShopifyAnalysisResult = {
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
       totalOrders,
-      avgOrderValue,
-      customerCount: accOrders.customerCount,
-      refunds: accOrders.refunds,
+      avgOrderValue: Math.round(avgOrderValue * 100) / 100,
       topProducts,
-      trendDates,
-      trendRevs,
-      zones,
-      insights,
-      warnings: warns
-    });
+      salesTrend,
+      productZones,
+      top_push_products,
+      top_stop_products,
+      chart_data,
+      aiInsights: [] // Initiated as blank to let user generate premium Gemini strategic suggestions
+    };
+
+    setReport(finalReport);
+    onReportUpdate?.(finalReport);
     setWarnings(warns);
     setStagedFiles([]);
     setIsAnalyzing(false);
   };
 
-  // ── Chart configs ──────────────────────────────────────────────────────────
+  const handleGenerateAIInsights = async () => {
+    if (!report) return;
 
-  const trendChartData = report ? {
-    labels: report.trendDates,
+    if (onDeductCredits) {
+      const success = onDeductCredits(1);
+      if (!success) return; 
+    }
+
+    try {
+      setIsGeneratingAI(true);
+      setError(null);
+      
+      const realInsights = await shopifyService.generateAIInsights(report);
+      
+      const updatedReport: ShopifyAnalysisResult = {
+        ...report,
+        aiInsights: realInsights
+      };
+
+      setReport(updatedReport);
+      onReportUpdate?.(updatedReport);
+    } catch (err: any) {
+      console.error('Failed to generate AI insights:', err);
+      setError(err?.message || 'Failed to generate AI insights via Gemini. Please try again.');
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
+  // ─── Automated Mathematical Insights ──────────────────────────────────────────
+
+  const automatedInsights = useMemo(() => {
+    if (!report) return [];
+    const avgOrder = report.avgOrderValue || 0;
+    const totalOrders = report.totalOrders || 0;
+    const zones = report.productZones || { green: [], yellow: [], red: [] };
+    const list = [];
+
+    if (totalOrders > 0 && avgOrder > 0) {
+      const commentary =
+        avgOrder < 50  ? 'Consider bundling low-margin and high-performing styles to increase order sizing.' :
+        avgOrder > 200 ? 'Incredible average order value! Set up VIP retargeting ads to incentivize loyalty.' :
+                         'Steady order size. Set up tier-discount rules to increase cart values.';
+      list.push(`AOV is ${fmt$(avgOrder)} over ${fmtN(totalOrders)} orders. ${commentary}`);
+    }
+
+    if (zones.green?.length) {
+      const names = zones.green.slice(0, 2).map(p => p.name).join(', ');
+      list.push(`Hero assets "${names}" represent catalog heavyweights. Drive high conversion by maximizing paid ad pushes.`);
+    }
+
+    if (zones.red?.length) {
+      list.push(`${zones.red.length} items currently sit in the low-performing category. Bundle them with bestsellers or run flash sales.`);
+    }
+
+    return list;
+  }, [report]);
+
+  // ─── Charts preparation ───────────────────────────────────────────────────────
+
+  const trendChartData = report?.chart_data?.dates?.length ? {
+    labels: report.chart_data.dates,
     datasets: [{
       label: 'Revenue',
-      data: report.trendRevs,
-      borderColor: '#7C3AED',
-      backgroundColor: 'rgba(124,58,237,0.08)',
+      data: report.chart_data.revenue,
+      borderColor: '#8B5CF6',
+      backgroundColor: 'rgba(139, 92, 246, 0.05)',
       tension: 0.35,
       pointRadius: 3,
-      pointBackgroundColor: '#7C3AED',
+      pointBackgroundColor: '#8B5CF6',
       fill: true,
     }]
   } : null;
@@ -618,9 +631,9 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: '#1E293B',
-        padding: 10,
-        cornerRadius: 8,
+        backgroundColor: '#0F172A',
+        padding: 12,
+        cornerRadius: 10,
         callbacks: { label: ctx => 'Revenue: ' + fmt$(ctx.parsed.y) }
       }
     },
@@ -635,12 +648,12 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
   };
 
   const barChartData = report?.topProducts?.length ? {
-    labels: report.topProducts.slice(0, 8).map(p => p.name.length > 22 ? p.name.substring(0, 22) + '…' : p.name),
+    labels: report.topProducts.slice(0, 8).map(p => p.name.length > 20 ? p.name.substring(0, 20) + '…' : p.name),
     datasets: [{
       label: 'Revenue',
-      data: report.topProducts.slice(0, 8).map(p => p.revenue),
-      backgroundColor: ['#7C3AED','#16A34A','#D97706','#DC2626','#0369A1','#0F766E','#C026D3','#9333EA'],
-      borderRadius: 4,
+      data: report.topProducts.slice(0, 8).map(p => typeof p.revenue === 'string' ? parseFloat(p.revenue) : p.revenue),
+      backgroundColor: ['#8B5CF6','#10B981','#F59E0B','#EF4444','#06B6D4','#0D9488','#D946EF','#A855F7'],
+      borderRadius: 6,
     }]
   } : null;
 
@@ -651,9 +664,9 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: '#1E293B',
-        padding: 10,
-        cornerRadius: 8,
+        backgroundColor: '#0F172A',
+        padding: 12,
+        cornerRadius: 10,
         callbacks: { label: ctx => 'Revenue: ' + fmt$(ctx.parsed.x) }
       }
     },
@@ -671,118 +684,105 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
     }
   };
 
-  // ── Reset ──────────────────────────────────────────────────────────────────
-
-  const handleReset = () => {
-    setReport(null);
-    setStagedFiles([]);
-    setError(null);
-    setWarnings([]);
-    setProgress(0);
-    setProgressMsg('');
-  };
-
-  // ── Upload screen ──────────────────────────────────────────────────────────
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   if (!report) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#F8FAFC' }}>
-
-        {/* Header */}
-        <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: '1px solid #E2E8F0', background: '#fff' }}>
+      <div className="flex flex-col h-full bg-slate-50 overflow-y-auto">
+        <header className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-white">
           {onToggleSidebar && (
-            <button onClick={onToggleSidebar} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#64748B' }}>
-              ☰
+            <button onClick={onToggleSidebar} className="p-1 text-slate-500 hover:text-slate-800 transition cursor-pointer md:hidden">
+              <Menu className="w-5 h-5" />
             </button>
           )}
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EDE9FE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
-            📊
+          <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center text-violet-600 font-bold">
+            <BarChart3 className="w-5 h-5" />
           </div>
           <div>
-            <h1 style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', margin: 0 }}>Shopify Analytics</h1>
-            <p style={{ fontSize: 12, color: '#64748B', margin: 0 }}>Upload any Shopify CSV export to begin</p>
+            <h1 className="text-base font-bold text-slate-800">Shopify Data Analyst</h1>
+            <p className="text-xs text-slate-500 font-medium">Verify product sales velocity instantly via CSV</p>
           </div>
         </header>
 
-        {/* Body */}
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div style={{ width: '100%', maxWidth: 480 }}>
-
+        <main className="flex-1 flex items-center justify-center p-6">
+          <div className="w-full max-w-lg bg-white p-8 rounded-3xl border border-slate-200 shadow-xs">
             {isAnalyzing ? (
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: 15, fontWeight: 600, color: '#0F172A', marginBottom: 16 }}>{progressMsg}</p>
-                <div style={{ height: 6, background: '#E2E8F0', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
-                  <div style={{ height: '100%', width: `${progress}%`, background: '#7C3AED', borderRadius: 3, transition: 'width .3s' }} />
+              <div className="text-center py-8">
+                <Loader2 className="w-12 h-12 text-violet-600 animate-spin mx-auto mb-6" />
+                <h3 className="text-lg font-bold text-slate-800 mb-2">{progressMsg}</h3>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden w-64 mx-auto mb-3">
+                  <div className="h-full bg-violet-600 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
                 </div>
-                <p style={{ fontSize: 12, color: '#64748B' }}>{Math.round(progress)}% complete</p>
+                <p className="text-xs text-slate-400 font-semibold">{Math.round(progress)}% Processing</p>
               </div>
             ) : (
               <>
                 {error && (
-                  <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#991B1B', display: 'flex', gap: 8 }}>
-                    <span>⚠</span>
+                  <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 p-4 rounded-xl text-rose-800 text-sm mb-6 font-medium">
+                    <AlertCircle className="w-5 h-5 shrink-0 text-rose-500 mt-0.5" />
                     <span>{error}</span>
                   </div>
                 )}
 
-                {/* Drop zone */}
                 <div
                   onDragOver={e => { e.preventDefault(); setIsDragActive(true); }}
                   onDragLeave={() => setIsDragActive(false)}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    border: `2px dashed ${isDragActive ? '#7C3AED' : '#CBD5E1'}`,
-                    borderRadius: 16,
-                    padding: '36px 24px',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    background: isDragActive ? '#F5F3FF' : '#fff',
-                    transition: 'all .15s',
-                    marginBottom: 20
-                  }}
+                  className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition duration-150 bg-white ${
+                    isDragActive ? 'border-violet-500 bg-violet-50/50' : 'border-slate-200 hover:border-slate-300'
+                  }`}
                 >
                   <input
                     ref={fileInputRef}
                     type="file"
                     multiple
                     accept=".csv,.tsv,.txt"
-                    style={{ display: 'none' }}
+                    className="hidden"
                     onChange={e => e.target.files && handleFiles(e.target.files)}
                   />
-                  <div style={{ width: 52, height: 52, borderRadius: '50%', background: '#EDE9FE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, margin: '0 auto 14px' }}>
-                    📁
+                  <div className="w-14 h-14 bg-violet-50 text-violet-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <UploadCloud className="w-7 h-7" />
                   </div>
-                  <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>Drop Shopify CSV exports here</h3>
-                  <p style={{ fontSize: 13, color: '#64748B', marginBottom: 16, lineHeight: 1.5 }}>
-                    Supports <strong>Orders</strong>, <strong>Products</strong>, <strong>Analytics</strong>, <strong>Customers</strong>, and <strong>Inventory</strong> exports — any Shopify CSV format
+                  <h3 className="text-base font-bold text-slate-800 mb-1.5">Drop your Shopify CSV reports here</h3>
+                  <p className="text-xs text-slate-400 font-medium leading-relaxed max-w-xs mx-auto mb-5">
+                    Integrate your raw export sales trends, bestsellers lists, orders logs, or inventory files directly.
                   </p>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-                    {['orders_export.csv', 'products_export.csv', 'analytics.csv', 'customers.csv'].map(f => (
-                      <span key={f} style={{ fontSize: 11, padding: '3px 9px', background: '#F1F5F9', border: '1px solid #E2E8F0', borderRadius: 99, color: '#64748B' }}>{f}</span>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {['orders_export.csv', 'products.csv', 'analytics_stats.csv'].map((f) => (
+                      <span key={f} className="text-[10px] select-none uppercase font-bold tracking-wider px-2.5 py-1 bg-slate-50 border border-slate-200/80 rounded-lg text-slate-400">{f}</span>
                     ))}
                   </div>
                 </div>
 
-                {/* Staged files */}
                 {stagedFiles.length > 0 && (
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 8 }}>Staged files ({stagedFiles.length})</p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
-                      {stagedFiles.map((f, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10 }}>
-                          <span style={{ fontSize: 16 }}>📄</span>
-                          <span style={{ flex: 1, fontSize: 12, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                          <span style={{ fontSize: 11, color: '#94A3B8' }}>{(f.size / 1024).toFixed(0)} KB</span>
-                          <button onClick={() => removeFile(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: 14, lineHeight: 1 }} aria-label={`Remove ${f.name}`}>✕</button>
+                  <div className="mt-6 border-t border-slate-100 pt-6">
+                    <p className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-3">Staged Documents ({stagedFiles.length})</p>
+                    <div className="space-y-2 mb-6">
+                      {stagedFiles.map((file, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <FileSpreadsheet className="w-5 h-5 text-violet-500 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-700 truncate max-w-[200px]" title={file.name}>{file.name}</p>
+                              <p className="text-[10px] text-slate-400 font-semibold mt-0.5">{(file.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); removeFile(idx); }} 
+                            className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer active:scale-90 transition rounded-lg hover:bg-slate-200/60"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
                       ))}
                     </div>
                     <button
                       onClick={runAnalysis}
-                      style={{ width: '100%', padding: '12px', background: '#7C3AED', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                      className="w-full py-3 px-4 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl transition duration-150 shadow-md flex items-center justify-center gap-2 cursor-pointer active:translate-y-0.5"
                     >
-                      📈 Analyze with Python Engine
+                      <span>Analyze Store Metrics</span>
+                      <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 )}
@@ -794,140 +794,263 @@ const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
     );
   }
 
-  // ── Report screen ──────────────────────────────────────────────────────────
+  // ─── Report view ─────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#F8FAFC', overflowY: 'auto' }}>
-
-      {/* Header */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #E2E8F0', background: '#fff' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div className="flex flex-col h-full bg-slate-50 overflow-y-auto">
+      <header className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
+        <div className="flex items-center gap-3">
           {onToggleSidebar && (
-            <button onClick={onToggleSidebar} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#64748B' }}>☰</button>
+            <button onClick={onToggleSidebar} className="p-1 text-slate-500 hover:text-slate-800 transition cursor-pointer md:hidden">
+              <Menu className="w-5 h-5" />
+            </button>
           )}
           <div>
-            <h1 style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', margin: 0 }}>Analytics Report</h1>
-            <p style={{ fontSize: 12, color: '#64748B', margin: 0 }}>{fmtN(report.totalOrders)} orders · {new Date().toLocaleDateString()}</p>
+            <h1 className="text-base font-extrabold text-slate-800 uppercase tracking-tight">Active Analytics Report</h1>
+            <p className="text-xs text-slate-500 font-bold mt-0.5">
+              Parsed {fmtN(report.totalOrders || 0)} Orders · Last calculated: {new Date().toLocaleDateString()}
+            </p>
           </div>
         </div>
         <button
           onClick={handleReset}
-          style={{ fontSize: 13, padding: '6px 14px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 8, cursor: 'pointer', color: '#334155', fontWeight: 500 }}
+          className="text-xs font-bold px-4 py-2 hover:bg-slate-50/50 active:scale-95 text-slate-600 border border-slate-200 hover:border-slate-300 rounded-xl cursor-pointer transition shadow-2xs"
         >
-          Upload New
+          Reset Dataset
         </button>
       </header>
 
-      <main style={{ padding: '20px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
-
+      <main className="p-6 max-w-7xl mx-auto w-full">
         {/* Warnings */}
         {warnings.length > 0 && (
-          <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#92400E', display: 'flex', gap: 8 }}>
-            <span>⚠</span>
-            <span>{warnings.join(' · ')}</span>
+          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 p-4 rounded-2xl text-amber-800 text-xs font-semibold mb-6 shadow-2xs">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500" />
+            <div>
+              <p className="font-bold">Parsing Warnings:</p>
+              <ul className="list-disc list-inside mt-1 font-medium space-y-0.5 text-amber-700">
+                {warnings.map((w, idx) => <li key={idx}>{w}</li>)}
+              </ul>
+            </div>
           </div>
         )}
 
-        {/* KPIs */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
-          <KPICard label="Total Revenue" value={fmt$(report.totalRevenue)} />
-          <KPICard label="Total Orders" value={fmtN(report.totalOrders)} />
-          <KPICard label="Avg Order Value" value={fmt$(report.avgOrderValue)} />
-          {report.customerCount > 0 && <KPICard label="Customers" value={fmtN(report.customerCount)} />}
-          {report.refunds > 0 && <KPICard label="Refunds Detected" value={fmtN(report.refunds)} danger />}
+        {/* Core KPI cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <KPICard 
+            label="Total Gross Income" 
+            value={fmt$(report.totalRevenue || 0)} 
+            icon={<DollarSign className="w-5 h-5 text-violet-500" />} 
+          />
+          <KPICard 
+            label="Total Processed Orders" 
+            value={fmtN(report.totalOrders || 0)} 
+            icon={<ShoppingBag className="w-5 h-5 text-violet-500" />} 
+          />
+          <KPICard 
+            label="Average Order Value" 
+            value={fmt$(report.avgOrderValue || 0)} 
+            icon={<Users className="w-5 h-5 text-violet-500" />} 
+          />
         </div>
 
-        {/* Insights */}
-        {report.insights.length > 0 && <InsightCard insights={report.insights} />}
+        {/* ─── AI Strategic Insights Playbook (GEMINI-POWERED) ─── */}
+        <div className="bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 p-8 rounded-3xl text-white shadow-md mb-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-72 h-72 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-72 h-72 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+            <div className="max-w-2xl">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-5 h-5 text-amber-300 animate-pulse mt-0.5" />
+                <span className="text-xs font-bold uppercase tracking-widest text-violet-200">Google Gemini Strategy Assistant</span>
+              </div>
+              <h2 className="text-2xl font-extrabold tracking-tight">E-Commerce Playbook & Campaign Suggestions</h2>
+              <p className="text-violet-100 mt-2 text-sm leading-relaxed font-medium">
+                Unlock automated hyper-targeted ad campaign architectures, bundling recommendations, and cross-sell ideas analyzed from your specific store metrics.
+              </p>
+            </div>
 
-        {/* Charts */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginBottom: 20 }}>
+            {!report.aiInsights || report.aiInsights.length === 0 ? (
+              <button
+                onClick={handleGenerateAIInsights}
+                disabled={isGeneratingAI}
+                className="flex items-center gap-2 px-6 py-3.5 bg-amber-400 hover:bg-amber-300 hover:scale-102 disabled:opacity-50 text-slate-900 text-sm font-extrabold rounded-xl transition duration-150 shadow-md shrink-0 self-start md:self-center cursor-pointer active:scale-95"
+              >
+                {isGeneratingAI ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-slate-900" />
+                    <span>Analyzing Catalog...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-slate-900" />
+                    <span>Generate AI Insights (1 Credit)</span>
+                  </>
+                )}
+              </button>
+            ) : null}
+          </div>
 
-          {/* Trend chart */}
-          {trendChartData && report.trendDates.length > 1 && (
-            <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: 18 }}>
-              <h4 style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 14 }}>Revenue Trend</h4>
-              <div style={{ position: 'relative', width: '100%', height: 220 }}>
+          {report.aiInsights && report.aiInsights.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8 pt-8 border-t border-white/10 relative z-10">
+              {report.aiInsights.map((insight, idx) => (
+                <div key={idx} className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 flex flex-col justify-between hover:bg-white/15 transition-all">
+                  <div>
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 text-amber-300 text-xs font-bold mb-4 font-mono">
+                      {idx + 1}
+                    </div>
+                    <p className="text-white text-sm font-semibold leading-relaxed">{insight}</p>
+                  </div>
+                </div>
+              ))}
+              
+              <div className="md:col-span-3 flex justify-end mt-2">
+                <button
+                  onClick={handleGenerateAIInsights}
+                  disabled={isGeneratingAI}
+                  className="flex items-center gap-1.5 text-xs font-bold text-violet-200 hover:text-white transition cursor-pointer"
+                >
+                  {isGeneratingAI ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 mt-0.5" />
+                  )}
+                  Re-generate Ideas (1 Credit)
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Local Mathematical automated insights */}
+        {automatedInsights.length > 0 && (
+          <div className="bg-violet-50/50 border border-violet-100 rounded-2xl p-6 mb-8 flex flex-col">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-violet-600 font-extrabold text-xs uppercase tracking-wider">✦ Mathematical Insights</span>
+            </div>
+            <ul className="space-y-3">
+              {automatedInsights.map((item, idx) => (
+                <li key={idx} className="flex gap-2.5 items-start">
+                  <div className="w-1.5 h-1.5 bg-violet-600 rounded-full mt-2 flex-shrink-0" />
+                  <p className="text-slate-600 text-xs leading-relaxed font-semibold">{item}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Charts graphs list */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Trend */}
+          {trendChartData && (report.chart_data?.dates?.length || 0) > 1 && (
+            <div className="bg-white p-6 border border-slate-200 rounded-2xl shadow-xs">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Gross Revenue Trend</h4>
+              <div className="relative w-full h-[230px]">
                 <Line options={trendOptions} data={trendChartData} />
               </div>
             </div>
           )}
 
-          {/* Bar chart */}
-          {barChartData && report.topProducts.length >= 2 && (
-            <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: 18 }}>
-              <h4 style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 14 }}>Top Products by Revenue</h4>
-              <div style={{ position: 'relative', width: '100%', height: Math.max(200, report.topProducts.slice(0, 8).length * 38) }}>
+          {/* Bar top products */}
+          {barChartData && (report.topProducts?.length || 0) >= 2 && (
+            <div className="bg-white p-6 border border-slate-200 rounded-2xl shadow-xs">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Core Products Revenue</h4>
+              <div className="relative w-full h-[230px]">
                 <Bar options={barOptions} data={barChartData} />
               </div>
             </div>
           )}
         </div>
 
-        {/* Product Zones */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <h4 style={{ fontSize: 13, fontWeight: 700, color: '#334155', margin: 0 }}>Product Performance Zones</h4>
-            <span style={{ fontSize: 11, color: '#94A3B8' }}>Classified by revenue relative to catalog average</span>
+        {/* Product Zones Grid */}
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div>
+              <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Product Velocity Categories</h4>
+              <p className="text-xs text-slate-400 font-medium">Grouped by total product-specific metrics relative to average</p>
+            </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-            <ZoneList title="Accelerate (Green)" products={report.zones.green} color="green" onAction={onGenerateAd} actionLabel="Promote" />
-            <ZoneList title="Monitor (Yellow)"   products={report.zones.amber} color="amber" onAction={onGenerateAd} actionLabel="Analyze" />
-            <ZoneList title="Optimize (Red)"     products={report.zones.red}   color="red"   onAction={onGenerateAd} actionLabel="Revamp" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <ZoneList 
+              title="Accelerate / Green" 
+              products={report.productZones?.green || []} 
+              color="green" 
+              onAction={onGenerateAd} 
+              actionLabel="Promote" 
+            />
+            <ZoneList 
+              title="Monitor / Yellow"   
+              products={report.productZones?.yellow || []} 
+              color="amber" 
+              onAction={onGenerateAd} 
+              actionLabel="Analyze" 
+            />
+            <ZoneList 
+              title="Optimize / Red"     
+              products={report.productZones?.red || []} 
+              color="red"   
+              onAction={onGenerateAd} 
+              actionLabel="Revamp" 
+            />
           </div>
         </div>
 
-        {/* Push / Stop */}
-        {(report.zones.green.length > 0 || report.zones.red.length > 0) && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-
-            {/* Push products */}
-            {report.zones.green.length > 0 && (
-              <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
-                <div style={{ background: '#F0FDF4', borderBottom: '1px solid #BBF7D0', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#15803D' }}>Top Push Products</span>
+        {/* Recommendations split campaign */}
+        {((report.productZones?.green?.length || 0) > 0 || (report.productZones?.red?.length || 0) > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Accelerate */}
+            {(report.productZones?.green?.length || 0) > 0 && (
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+                <div className="bg-emerald-50/50 border-b border-slate-100 px-5 py-4 flex items-center justify-between">
+                  <span className="text-xs font-extrabold uppercase tracking-widest text-emerald-800">Top Scale Candidates</span>
                   {onGenerateAd && (
                     <button
-                      onClick={() => onGenerateAd('Top Push Products')}
-                      style={{ fontSize: 11, padding: '4px 10px', background: '#16A34A', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                      onClick={() => onGenerateAd(report.productZones?.green?.[0]?.name || 'Top products')}
+                      className="px-3.5 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg cursor-pointer transition active:scale-95"
                     >
                       Generate Ads
                     </button>
                   )}
                 </div>
-                <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {report.zones.green.slice(0, 5).map((p, i) => (
-                    <div key={i} style={{ padding: '10px 12px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{p.name}</p>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#16A34A', background: '#DCFCE7', padding: '2px 7px', borderRadius: 99, marginLeft: 8, whiteSpace: 'nowrap' }}>{fmt$(p.revenue)}</span>
+                <div className="p-5 space-y-3.5">
+                  {(report.productZones?.green || []).slice(0, 3).map((product, idx) => (
+                    <div key={idx} className="flex items-start justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100/50 transition">
+                      <div className="min-w-0 flex-1 pr-4">
+                        <p className="text-xs font-bold text-slate-800 truncate">{product.name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wider">Scale Candidate {idx + 1}</p>
                       </div>
-                      <p style={{ fontSize: 12, color: '#64748B', margin: 0 }}>{fmtN(p.units)} units sold · Above-average performer</p>
+                      <span className="text-xs font-extrabold text-emerald-600 bg-emerald-100/60 px-2.5 py-1 rounded-lg">
+                        {fmt$(typeof product.revenue === 'string' ? parseFloat(product.revenue) : product.revenue)}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Stop products */}
-            {report.zones.red.length > 0 && (
-              <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
-                <div style={{ background: '#FFF1F2', borderBottom: '1px solid #FECDD3', padding: '10px 16px' }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#B91C1C' }}>Review / Stop Products</span>
+            {/* Optimize */}
+            {(report.productZones?.red?.length || 0) > 0 && (
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+                <div className="bg-rose-50/50 border-b border-slate-100 px-5 py-4 flex items-center justify-between">
+                  <span className="text-xs font-extrabold uppercase tracking-widest text-rose-800">BOGO & Bundle Suggestions</span>
                 </div>
-                <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {report.zones.red.slice(0, 3).map((p, i) => (
-                    <div key={i} style={{ padding: '10px 12px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{p.name}</p>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#B91C1C', background: '#FFE4E6', padding: '2px 7px', borderRadius: 99, marginLeft: 8, whiteSpace: 'nowrap' }}>{fmt$(p.revenue)}</span>
+                <div className="p-5 space-y-3.5">
+                  {(report.productZones?.red || []).slice(0, 3).map((product, idx) => (
+                    <div key={idx} className="flex items-start justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100/50 transition">
+                      <div className="min-w-0 flex-1 pr-4">
+                        <p className="text-xs font-bold text-slate-800 truncate">{product.name}</p>
+                        <p className="text-[10px] text-[red] font-bold mt-1 uppercase tracking-wider">Low Velocity - Clear Inventory</p>
                       </div>
-                      <p style={{ fontSize: 12, color: '#64748B', margin: 0 }}>{fmtN(p.units)} units sold · Below 50% of catalog average</p>
+                      <span className="text-xs font-extrabold text-rose-600 bg-rose-100/60 px-2.5 py-1 rounded-lg">
+                        {fmt$(typeof product.revenue === 'string' ? parseFloat(product.revenue) : product.revenue)}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+
           </div>
         )}
       </main>
