@@ -1,7 +1,7 @@
 
 import React from 'react';
 import type { GenerateImageParams, AspectRatio } from '../../types';
-import { AppMode, ResolutionQuality } from '../../types';
+import { AppMode, ResolutionQuality, ImageModel } from '../../types';
 import { ASPECT_RATIO_OPTIONS, OUTPUT_FORMAT_OPTIONS, RESOLUTION_QUALITY_OPTIONS } from '../../constants';
 import { Select } from '../ui/Select';
 import { Icon } from '../ui/Icon';
@@ -113,6 +113,113 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
                         })}
                     </div>
                 </div>
+            </div>
+
+            {/* AI Image Generation Model Selection */}
+            <div className="mt-8 pt-8 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-3">
+                    <SectionTitle title="AI Generation Model" className="m-0" />
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold uppercase tracking-wider">
+                        Dropdown Select
+                    </span>
+                </div>
+                
+                {/* Dropdown element */}
+                <div className="relative mb-3">
+                    <select
+                        value={params.imageModel || ImageModel.Imagen3HighQuality}
+                        onChange={(e) => handleParamChange('imageModel', e.target.value as ImageModel)}
+                        className="w-full bg-white border-2 border-slate-200 text-slate-800 py-3 px-4 pr-10 rounded-xl font-medium text-sm focus:outline-none focus:border-primary transition-all cursor-pointer appearance-none shadow-sm hover:border-slate-300"
+                    >
+                        <option value={ImageModel.Imagen3Fast}>Imagen 3 Fast (1 Credit)</option>
+                        <option value={ImageModel.Imagen3HighQuality}>Imagen 3 High Quality (2 Credits)</option>
+                        <option value={ImageModel.NanoBananaPro}>Nano Banana Pro (3 Credits) 🍌</option>
+                        <option value={ImageModel.Imagen3Pro}>Imagen 3 Pro (4 Credits)</option>
+                        <option value={ImageModel.NanoBanana2}>Nano Banana 2 (5 Credits) 🍌</option>
+                        <option value={ImageModel.DallE3}>DALL-E 3 (ChatGPT - 6 Credits)</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                        <Icon name="chevron-down" className="w-4 h-4" />
+                    </div>
+                </div>
+
+                {/* Display card for selected model */}
+                {(() => {
+                    const currentModel = params.imageModel || ImageModel.Imagen3HighQuality;
+                    const modelOptions = [
+                        { 
+                            value: ImageModel.Imagen3Fast, 
+                            label: 'Imagen 3 Fast', 
+                            desc: 'Speed optimized, ideal for fast iterations & general concepts.', 
+                            cost: '1 Credit / img',
+                            badge: 'Eco',
+                            color: 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                        },
+                        { 
+                            value: ImageModel.Imagen3HighQuality, 
+                            label: 'Imagen 3 High Quality', 
+                            desc: 'Enhanced textures, lighting, and layout accuracy.', 
+                            cost: '2 Credits / img',
+                            badge: 'Recommended',
+                            color: 'bg-primary/10 text-primary border-primary/20'
+                        },
+                        { 
+                            value: ImageModel.NanoBananaPro, 
+                            label: 'Nano Banana Pro', 
+                            desc: 'Advanced Banana vision engine. Exceptional prompt comprehension with natural artistic styling.', 
+                            cost: '3 Credits / img',
+                            badge: 'New 🍌',
+                            color: 'bg-yellow-50 text-yellow-600 border-yellow-200'
+                        },
+                        { 
+                            value: ImageModel.Imagen3Pro, 
+                            label: 'Imagen 3 Pro', 
+                            desc: 'Google\'s state-of-the-art flagship model for exceptional details & true photorealism.', 
+                            cost: '4 Credits / img',
+                            badge: 'Pro',
+                            color: 'bg-amber-50 text-amber-600 border-amber-100'
+                        },
+                        { 
+                            value: ImageModel.NanoBanana2, 
+                            label: 'Nano Banana 2', 
+                            desc: 'Next-gen Banana model tuned for hyper-vivid colors, ultra-creative layouts, and cinematic flair.', 
+                            cost: '5 Credits / img',
+                            badge: 'New 🍌',
+                            color: 'bg-yellow-50 text-yellow-600 border-yellow-200'
+                        },
+                        { 
+                            value: ImageModel.DallE3, 
+                            label: 'DALL-E 3 (ChatGPT)', 
+                            desc: 'OpenAI\'s premium creative model. Superb composition compliance and complex design execution.', 
+                            cost: '6 Credits / img',
+                            badge: 'Dall-E',
+                            color: 'bg-purple-50 text-purple-600 border-purple-100'
+                        }
+                    ];
+                    
+                    const opt = modelOptions.find(o => o.value === currentModel) || modelOptions[1];
+                    
+                    return (
+                        <div className="flex flex-col p-4 rounded-xl border border-slate-200/80 bg-slate-50/50 shadow-inner">
+                            <div className="flex justify-between items-center w-full mb-1.5 gap-2">
+                                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>
+                                    {opt.label}
+                                </span>
+                                <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border ${opt.color}`}>
+                                    {opt.badge}
+                                </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 font-medium mb-3 leading-relaxed">
+                                {opt.desc}
+                            </p>
+                            <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100 font-semibold text-slate-700">
+                                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Cost</span>
+                                <span className="text-primary font-bold">{opt.cost}</span>
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
 
             {showBatchControls && batchOptions.length > 0 && (

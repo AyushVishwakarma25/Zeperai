@@ -1,18 +1,44 @@
 
-import { AppMode, ResolutionQuality, GenerateImageParams } from '../types';
+import { AppMode, ResolutionQuality, GenerateImageParams, ImageModel } from '../types';
 
 /**
  * Calculates the total credit cost for a generation request.
  * 
  * Formula: 
- * (Base Variations) * (Number of Aspect Ratios) * (Quality Multiplier)
+ * (Base Variations) * (Number of Aspect Ratios) * (Model Multiplier)
  */
 export const calculateGenerationCost = (params: GenerateImageParams, userTier: string): number => {
     // 1. Get Multipliers
     // Default to 1 ratio if array is empty/undefined to prevent 0 cost
     const numRatios = (params.aspectRatios && params.aspectRatios.length > 0) ? params.aspectRatios.length : 1;
     
-    const qualityMultiplier = 1; // Standardized to 1 for now per requirements
+    // Model Multipliers:
+    // Imagen 3 Fast: 1x
+    // Imagen 3 High Quality: 2x
+    // Imagen 3 Pro: 4x
+    let modelMultiplier = 2; // Default to 2 (High Quality) per original behavior
+    if (params.imageModel) {
+        switch (params.imageModel) {
+            case ImageModel.Imagen3Fast:
+                modelMultiplier = 1;
+                break;
+            case ImageModel.Imagen3HighQuality:
+                modelMultiplier = 2;
+                break;
+            case ImageModel.Imagen3Pro:
+                modelMultiplier = 4;
+                break;
+            case ImageModel.DallE3:
+                modelMultiplier = 6;
+                break;
+            case ImageModel.NanoBananaPro:
+                modelMultiplier = 3;
+                break;
+            case ImageModel.NanoBanana2:
+                modelMultiplier = 5;
+                break;
+        }
+    }
 
     let baseVariations = 1;
 
@@ -89,8 +115,8 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
     }
 
     // 3. Final Calculation
-    // (Base Items) * (Output Ratios) * (Quality Cost)
-    const totalCost = Math.max(1, baseVariations * numRatios * qualityMultiplier);
+    // (Base Items) * (Output Ratios) * (Model Multiplier)
+    const totalCost = Math.max(1, baseVariations * numRatios * modelMultiplier);
 
     return totalCost;
 };

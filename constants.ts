@@ -1,11 +1,12 @@
 
-import { AspectRatio, ModelGender, StylePreset, SkinTone, ClothingType, AppMode, OutputFormat, AdLayout, ResolutionQuality, ProductCategory, MarketplacePreset, CaptionTone, FashionGender, ModelPersona, ProProductStyleCategory, GenerateImageParams, OutfitChoice } from './types';
+import { AspectRatio, ModelGender, StylePreset, SkinTone, ClothingType, AppMode, OutputFormat, AdLayout, ResolutionQuality, ProductCategory, MarketplacePreset, CaptionTone, FashionGender, ModelPersona, ProProductStyleCategory, GenerateImageParams, OutfitChoice, ImageModel } from './types';
 
 export const AI_SUGGESTED = 'AI Suggested';
 export const FREE_TRIAL_LIMIT = 50;
 
 export const INITIAL_GENERATE_PARAMS: GenerateImageParams = {
   appMode: AppMode.Influencer,
+  imageModel: ImageModel.Imagen3HighQuality,
   productDescription: '',
   aspectRatios: [AspectRatio.PortraitPost],
   outputFormat: OutputFormat.JPG,

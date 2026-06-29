@@ -8,7 +8,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { getAI } from '../config/ai';
 import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS, UGC_STYLE_OPTIONS, AD_STYLE_PRESETS, FASHION_POSE_OPTIONS, FESTIVAL_PRESETS, AD_TEMPLATES } from '../constants';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis, ABTestSuggestion } from '../types';
-import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, RegionalStyle, ProductCategory, ResolutionQuality, AdLayout } from '../types';
+import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, RegionalStyle, ProductCategory, ResolutionQuality, AdLayout, ImageModel } from '../types';
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -468,12 +468,46 @@ async function generateSingleImage(params: GenerateImageParams, aspectRatio: Asp
     else if (aspectRatio === AspectRatio.Landscape) aspectRatioConfig = "16:9";
     else if (aspectRatio === AspectRatio.PortraitPost || aspectRatio === AspectRatio.FashionShopify) aspectRatioConfig = "3:4";
     
+    // Determine the target Google GenAI model
+    let modelName = 'gemini-3.1-flash-image'; // Default legacy fallback
+    if (params.imageModel) {
+        switch (params.imageModel) {
+            case ImageModel.Imagen3Fast:
+                modelName = 'gemini-2.5-flash-image';
+                break;
+            case ImageModel.Imagen3HighQuality:
+                modelName = 'gemini-3.1-flash-image';
+                break;
+            case ImageModel.Imagen3Pro:
+                modelName = 'gemini-3-pro-image';
+                break;
+            case ImageModel.DallE3:
+                modelName = 'dall-e-3';
+                break;
+            case ImageModel.NanoBananaPro:
+                modelName = 'gemini-3-pro-image';
+                break;
+            case ImageModel.NanoBanana2:
+                modelName = 'gemini-3.1-flash-image';
+                break;
+        }
+    }
+
+    // Determine target size for supported models
+    let imageSize: "512px" | "1K" | "2K" | "4K" = "1K";
+    if (params.resolutionQuality === ResolutionQuality.High) {
+        imageSize = "2K";
+    }
+
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3.1-flash-image',
+            model: modelName,
             contents: { parts: contents },
             config: { 
-                imageConfig: { aspectRatio: aspectRatioConfig }
+                imageConfig: { 
+                    aspectRatio: aspectRatioConfig,
+                    ...(modelName !== 'gemini-2.5-flash-image' && modelName !== 'dall-e-3' ? { imageSize } : {})
+                }
             },
         });
         
