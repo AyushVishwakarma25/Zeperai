@@ -62,8 +62,12 @@ export const authService = {
             token: session.access_token,
             expiresAt: (session.expires_at || 0) * 1000
         };
-    } catch (e) {
-        console.error("Auth getSession error:", e);
+    } catch (e: any) {
+        if (e && e.message && e.message.includes('Refresh Token Not Found')) {
+            await supabase.auth.signOut().catch(() => {});
+        } else {
+            console.warn("Auth getSession error:", e);
+        }
         return null;
     }
   },

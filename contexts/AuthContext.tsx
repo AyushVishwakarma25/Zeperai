@@ -43,7 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } catch (e) {
-        console.error("Auth initialization error:", e);
+        console.warn("Auth initialization error:", e);
         if (isMounted) setUser(null);
       } finally {
         if (isMounted) {
