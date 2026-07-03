@@ -42,14 +42,23 @@ const upload = multerInstance({ storage: multerInstance.memoryStorage() });
 export const app = express();
 
 // Add headers for COOP/COEP to enable WebAssembly multi-threading (SharedArrayBuffer)
+// CRITICAL WEBVIEW COMPATIBILITY FIX: Omit COOP/COEP headers for messenger in-app webviews (LINE, FB, WhatsApp, etc.)
+// which would otherwise crash the webview, block scripts, or prevent loading external generated images.
 app.use((req, res, next) => {
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+  const ua = req.headers['user-agent'] || '';
+  const isWebView = /Line|FBAV|Instagram|MicroMessenger|WhatsApp|FB_IAB/i.test(ua);
+  
+  if (!isWebView) {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+  }
   next();
 });
 
 // --- SECURITY: Rate Limiting ---
-app.set('trust proxy', 1);
+// Set trust proxy to true (or the number of upstream proxies) to correctly retrieve the client's actual IP
+// under Cloud Run/Vercel reverse proxies, preventing rate-limiting all users under a single balancer IP.
+app.set('trust proxy', true);
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
@@ -84,8 +93,8 @@ let razorpayInstance: any = null;
 
 function getRazorpay() {
 
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const keyId = process.env.RAZORPAY_KEY_ID || process.env.RzpAPIKey;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || process.env.RzpAPIKey;
     
     console.log(`[Razorpay Init Check] keyId present: ${!!keyId}, keySecret present: ${!!keySecret}`);
     if (keyId) {
@@ -201,7 +210,7 @@ function getRazorpay() {
         amount: order.amount, 
         currency: order.currency,
         isSandbox: false,
-        key_id: process.env.RAZORPAY_KEY_ID?.trim() || ''
+        key_id: (process.env.RAZORPAY_KEY_ID || process.env.RzpAPIKey)?.trim() || ''
       });
     } catch (unhandledError: any) {
       console.error('=== [API: create-order] FATAL UNHANDLED ERROR ===', unhandledError, unhandledError?.stack);
@@ -319,7 +328,22 @@ function getRazorpay() {
 
   app.post('/api/gemini/generate', aiLimiter, async (req, res) => {
     try {
-      console.log('API call received, API key present:', !!process.env.GEMINI_API_KEY);
+      const geminiKey = process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.VITE_GeminiAPI;
+      const openaiKey = process.env.OPENAI_API_KEY;
+      
+      console.log('--- [API: generate] Verification ---');
+      console.log('Gemini API Key defined:', !!geminiKey);
+      console.log('OpenAI API Key defined (for DALL-E 3):', !!openaiKey);
+      console.log('Selected Model:', req.body?.model);
+      console.log('------------------------------------');
+      
+      if (!geminiKey && (!req.body?.model || !req.body.model.toLowerCase().includes('dall-e'))) {
+         console.warn("[SECURITY WARNING] No Gemini API Key found in process.env! Requests will fail.");
+      }
+      if (!openaiKey && req.body?.model && req.body.model.toLowerCase().includes('dall-e')) {
+         console.warn("[SECURITY WARNING] No OpenAI API Key found in process.env! DALL-E 3 request will fail.");
+      }
+
       const { model, contents, config } = req.body;
       const ai = getAI();
       const response = await ai.models.generateContent({ model, contents, config });

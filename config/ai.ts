@@ -57,9 +57,11 @@ export const getAI = () => {
 
     const apiKey = typeof process !== 'undefined' && process.env 
         ? (process.env.GEMINI_API_KEY || 
+           process.env.GeminiAPI || 
            process.env.API_KEY || 
            process.env.GOOGLE_API_KEY || 
            process.env.VITE_GEMINI_API_KEY || 
+           process.env.VITE_GeminiAPI ||
            process.env.VITE_API_KEY ||
            process.env.GOOGLE_GENAI_API_KEY ||
            '') 
@@ -67,7 +69,7 @@ export const getAI = () => {
         
     if (!apiKey) {
         console.error("Missing Gemini API Key in environment variables!");
-        throw new Error("Missing GEMINI_API_KEY. Please configure your API key in Settings > Secrets and do a hard refresh of your browser tab.");
+        throw new Error("Missing GEMINI_API_KEY / GeminiAPI. Please configure your API key in Settings > Secrets and do a hard refresh of your browser tab.");
     }
 
     if (!genAIInstance || currentApiKey !== apiKey) {

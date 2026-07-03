@@ -27,22 +27,9 @@ const parseGeminiJson = <T>(text: string | undefined, fallback: T): T => {
     }
 };
 
-// Standard file to base64
+// Standard file to base64 with automatic resizing & compression for API Payload Safety
 export const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => {
-            const result = reader.result as string;
-            resolve(result.split(',')[1]);
-        };
-        reader.onerror = error => reject(error);
-    });
-};
-
-// Client-side resizing for API Payload Safety (Fashion Mode Only)
-const resizeForAI = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = (event) => {
@@ -52,7 +39,7 @@ const resizeForAI = (file: File): Promise<string> => {
                 const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
-                // Cap at 1024px to ensure batch operations fit in payload
+                // Cap at 1024px to ensure batch operations and standard uploads fit under Serverless/Proxy limits (4.5MB)
                 const MAX_SIZE = 1024;
 
                 if (width > MAX_SIZE || height > MAX_SIZE) {
@@ -69,28 +56,50 @@ const resizeForAI = (file: File): Promise<string> => {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 if (!ctx) {
-                    resolve(fileToBase64(file)); // Fallback
+                    // Fallback to raw base64 if canvas context fails
+                    const rawReader = new FileReader();
+                    rawReader.onload = () => {
+                        const result = rawReader.result as string;
+                        resolve(result.split(',')[1]);
+                    };
+                    rawReader.readAsDataURL(file);
                     return;
                 }
                 
-                // Draw on white background to handle transparent PNGs converting to JPEG
+                // Draw on white background to handle transparent PNGs converting to JPEG gracefully
                 ctx.fillStyle = '#FFFFFF';
                 ctx.fillRect(0, 0, width, height);
                 ctx.drawImage(img, 0, 0, width, height);
                 
-                // Export as JPEG 0.9 quality for optimal size/quality ratio
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                // Export as JPEG with 0.85 quality for incredible quality and small size (~100kb - 300kb)
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
                 resolve(dataUrl.split(',')[1]);
             };
-            img.onerror = () => resolve(fileToBase64(file)); // Fallback
+            img.onerror = () => {
+                const rawReader = new FileReader();
+                rawReader.onload = () => resolve((rawReader.result as string).split(',')[1]);
+                rawReader.readAsDataURL(file);
+            };
         };
-        reader.onerror = () => resolve(fileToBase64(file)); // Fallback
+        reader.onerror = () => {
+            const rawReader = new FileReader();
+            rawReader.onload = () => resolve((rawReader.result as string).split(',')[1]);
+            rawReader.readAsDataURL(file);
+        };
     });
 };
 
+// Kept for backward compatibility
+const resizeForAI = fileToBase64;
+
 const urlToBase64 = async (url: string): Promise<string> => {
     try {
-        const response = await fetch(url);
+        // Use server-side proxy-image to bypass CORS restrictions
+        const proxyUrl = url.startsWith('data:') 
+            ? url 
+            : `/api/proxy-image?url=${encodeURIComponent(url)}`;
+            
+        const response = await fetch(proxyUrl);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const blob = await response.blob();
         return new Promise((resolve, reject) => {
@@ -103,8 +112,23 @@ const urlToBase64 = async (url: string): Promise<string> => {
             reader.onerror = reject;
         });
     } catch (e) {
-        console.error("Failed to fetch image from URL:", url, e);
-        throw new Error("Failed to load reference image.");
+        console.error("Failed to fetch image from URL via proxy:", url, e);
+        // Fallback to direct client-side fetch if proxy fails
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(blob);
+                reader.onloadend = () => {
+                    const result = reader.result as string;
+                    resolve(result.split(',')[1]);
+                };
+                reader.onerror = reject;
+            });
+        } catch (innerError) {
+            throw new Error("Failed to load reference image due to CORS restrictions.");
+        }
     }
 };
 
@@ -279,13 +303,8 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
             for (const img of activeImages) {
                 if (img && img.size > 0) {
                     try {
-                        // PAYLOAD SAFETY FIX: Only resize for Fashion Mode to handle bulk uploads safely
-                        const base64 = (appMode === AppMode.Fashion) 
-                            ? await resizeForAI(img) 
-                            : await fileToBase64(img);
-                            
-                        const mimeType = (appMode === AppMode.Fashion) ? 'image/jpeg' : img.type;
-                        parts.push({ inlineData: { data: base64, mimeType } });
+                        const base64 = await fileToBase64(img);
+                        parts.push({ inlineData: { data: base64, mimeType: 'image/jpeg' } });
                     } catch (e) { console.warn("Skipping invalid image", e); }
                 }
             }
@@ -293,7 +312,7 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
 
         if (isComparisonMode && competitorImage) {
             const base64 = await fileToBase64(competitorImage);
-            parts.push({ inlineData: { data: base64, mimeType: competitorImage.type } });
+            parts.push({ inlineData: { data: base64, mimeType: 'image/jpeg' } });
         }
 
         switch (appMode) {
