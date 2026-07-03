@@ -824,8 +824,34 @@ export const removeBackgroundPro = async (params: { imageUrl?: string, imageBase
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to remove background with Pro tool');
+    let errorMsg = 'Failed to remove background with Pro tool';
+    try {
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const errorData = await response.json();
+        errorMsg = errorData.error || errorMsg;
+      } else {
+        const text = await response.text();
+        const titleMatch = text.match(/<title>([\s\S]*?)<\/title>/i);
+        const headingMatch = text.match(/<h1>([\s\S]*?)<\/h1>/i);
+        if (titleMatch) {
+          errorMsg = `Server error (${response.status}): ${titleMatch[1].trim()}`;
+        } else if (headingMatch) {
+          errorMsg = `Server error (${response.status}): ${headingMatch[1].trim()}`;
+        } else {
+          errorMsg = `Server error (${response.status}): ${text.substring(0, 150).trim()}${text.length > 150 ? '...' : ''}`;
+        }
+      }
+    } catch {
+      errorMsg = `Server error (${response.status}): ${response.statusText || 'Unknown Error'}`;
+    }
+    throw new Error(errorMsg);
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    const text = await response.text();
+    throw new Error(`Invalid server response format. Expected JSON but received: ${text.substring(0, 100)}`);
   }
 
   return response.json();

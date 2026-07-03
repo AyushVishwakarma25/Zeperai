@@ -33,8 +33,8 @@ try {
   console.warn('Manual .env file parsing skipped or failed:', err.message);
 }
 
-import { analyzeShopify } from './services/shopifyAnalyst.js';
-import { getAI } from './config/ai.js';
+import { analyzeShopify } from './services/shopifyAnalyst';
+import { getAI } from './config/ai';
 
 const multerInstance = (multer as any).default || multer;
 const upload = multerInstance({ storage: multerInstance.memoryStorage() });
@@ -258,9 +258,9 @@ function getRazorpay() {
         return res.json({ status: 'ok', verified: true, message: 'Payment simulated successfully in Sandbox!' });
       }
 
-      const keySecret = process.env.RAZORPAY_KEY_SECRET;
+      const keySecret = process.env.RAZORPAY_KEY_SECRET || process.env.RzpAPIKey;
       if (!keySecret) {
-        return res.status(500).json({ error: 'Razorpay Secret Key not configured on server.' });
+        return res.status(500).json({ error: 'Razorpay Secret Key not configured on server. Please configure RAZORPAY_KEY_SECRET or RzpAPIKey.' });
       }
 
       const shasum = crypto.createHmac('sha256', keySecret);

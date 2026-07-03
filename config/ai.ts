@@ -42,12 +42,34 @@ export const getAI = () => {
                         body: JSON.stringify(args)
                     });
                     if (!response.ok) {
+                        let errorMsg = '';
                         try {
-                            const errData = await response.json();
-                            throw new Error(errData.error || `Server failed to generate content: ${response.statusText}`);
+                            const contentType = response.headers.get('content-type') || '';
+                            if (contentType.includes('application/json')) {
+                                const errData = await response.json();
+                                errorMsg = errData.error || errData.message || `Server failed to generate content: ${response.statusText}`;
+                            } else {
+                                const text = await response.text();
+                                const titleMatch = text.match(/<title>([\s\S]*?)<\/title>/i);
+                                const headingMatch = text.match(/<h1>([\s\S]*?)<\/h1>/i);
+                                if (titleMatch) {
+                                    errorMsg = `Server error (${response.status}): ${titleMatch[1].trim()}`;
+                                } else if (headingMatch) {
+                                    errorMsg = `Server error (${response.status}): ${headingMatch[1].trim()}`;
+                                } else {
+                                    errorMsg = `Server error (${response.status}): ${text.substring(0, 150).trim()}${text.length > 150 ? '...' : ''}`;
+                                }
+                            }
                         } catch (e: any) {
-                            throw new Error(e.message || `Server failed to generate content with status ${response.status}`);
+                            errorMsg = `Server error (${response.status}): ${response.statusText || 'Unknown Error'}`;
                         }
+                        throw new Error(errorMsg);
+                    }
+                    
+                    const contentType = response.headers.get('content-type') || '';
+                    if (!contentType.includes('application/json')) {
+                        const text = await response.text();
+                        throw new Error(`Invalid server response format. Expected JSON but received: ${text.substring(0, 100)}`);
                     }
                     return await response.json();
                 }
