@@ -14,6 +14,10 @@ interface PricingModalProps {
 
 const loadRazorpayScript = () => {
     return new Promise((resolve) => {
+        if ((window as any).Razorpay) {
+            resolve(true);
+            return;
+        }
         const script = document.createElement('script');
         script.src = 'https://checkout.razorpay.com/v1/checkout.js';
         script.onload = () => resolve(true);
@@ -111,13 +115,16 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
           }
           
           const { data: { user } } = await supabase.auth.getUser();
-          const userId = user?.id || 'guest';
-          const email = user?.email || 'customer@zeperai.in';
+          if (!user) {
+              throw new Error("You must be logged in to purchase credits. Please sign in or register first.");
+          }
+          const userId = user.id;
+          const email = user.email || 'customer@zeperai.in';
 
           const res = await fetch('/api/razorpay/create-order', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ planId: 'pay-as-you-go', userId, amount: 299 })
+              body: JSON.stringify({ planId: 'pay-as-you-go', userId, amount: 499 })
           });
 
           if (!res.ok) {
