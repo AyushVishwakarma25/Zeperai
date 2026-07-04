@@ -84,7 +84,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // --- API ROUTES ---
-app.get('/api/health', (req, res) => {
+app.get(['/api/health', '/health'], (req, res) => {
   res.json({ status: 'ok', message: 'ZeperAI Server is running with Rate Limiting!' });
 });
 
@@ -120,7 +120,7 @@ function getRazorpay() {
     return razorpayInstance;
   }
 
-  app.post(['/api/razorpay/create-order', '/api/create-order'], async (req, res) => {
+  app.post(['/api/razorpay/create-order', '/api/create-order', '/razorpay/create-order', '/create-order'], async (req, res) => {
     try {
       console.log('=== [API: create-order] START ===');
       console.log('[API: create-order] Raw req.body exists:', !!req.body);
@@ -251,7 +251,7 @@ function getRazorpay() {
     }
   }
 
-  app.post(['/api/razorpay/verify', '/api/verify-payment'], async (req, res) => {
+  app.post(['/api/razorpay/verify', '/api/verify-payment', '/razorpay/verify', '/verify-payment'], async (req, res) => {
     try {
       console.log('=== [API: verify] START ===');
       console.log('[API: verify] body exists?', !!req.body);
@@ -403,7 +403,7 @@ function getRazorpay() {
     }
   });
   
-  app.get('/api/proxy-image', async (req, res) => {
+  app.get(['/api/proxy-image', '/proxy-image'], async (req, res) => {
     const { url } = req.query;
     if (!url || typeof url !== 'string') return res.status(400).json({ error: 'No URL provided' });
     
@@ -417,7 +417,7 @@ function getRazorpay() {
     }
   });
 
-  app.post('/api/gemini/generate', aiLimiter, async (req, res) => {
+  app.post(['/api/gemini/generate', '/gemini/generate'], aiLimiter, async (req, res) => {
     try {
       const geminiKey = process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.VITE_GeminiAPI;
       const openaiKey = process.env.OPENAI_API_KEY;
@@ -467,7 +467,7 @@ function getRazorpay() {
     }
   });
 
-  app.post('/api/analyze-shopify', upload.array('files'), async (req, res) => {
+  app.post(['/api/analyze-shopify', '/analyze-shopify'], upload.array('files'), async (req, res) => {
     try {
         if (!req.files || (req.files as Express.Multer.File[]).length === 0) {
             return res.status(400).json({ error: "No files uploaded" });
@@ -482,7 +482,7 @@ function getRazorpay() {
     }
   });
 
-  app.post('/api/remove-bg-pro', aiLimiter, async (req, res) => {
+  app.post(['/api/remove-bg-pro', '/remove-bg-pro'], aiLimiter, async (req, res) => {
     const { imageUrl, imageBase64 } = req.body;
     const proBgUrl = process.env.PRO_BG_API_URL;
     const apiKey = process.env.REMOVE_BG_API_KEY;
