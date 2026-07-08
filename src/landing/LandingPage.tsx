@@ -147,7 +147,7 @@ export const LandingPage: React.FC = () => {
             <div className="flex flex-col gap-4 z-10">
               <div className="w-44 h-60 md:w-64 md:h-[380px] rounded-2xl bg-slate-100 overflow-hidden shadow-2xl ring-4 ring-white relative group cursor-pointer">
                 <img 
-                  src="https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/Prustlr%20landing%20page%20image.webp" 
+                  src="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/Prustlr%20landing%20page%20image.webp" 
                   alt="Product" 
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
                 />
@@ -189,7 +189,7 @@ export const LandingPage: React.FC = () => {
           <div className="flex items-center gap-3 w-full md:w-1/3 justify-start md:justify-end">
              <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden shrink-0 border-2 border-white shadow-sm">
-                  <img src="https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/shot-hero-box-reach.png" alt="Avatar" className="w-full h-full object-cover" />
+                  <img src="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/shot-hero-box-reach.png" alt="Avatar" className="w-full h-full object-cover" />
                 </div>
                 <div className="text-xs text-slate-500 max-w-[180px] leading-tight">
                   "ZeperAi completely transformed our jewelry cataloging."
@@ -252,8 +252,8 @@ export const LandingPage: React.FC = () => {
           <div className="lg:col-span-4 flex justify-center">
              <div className="w-full max-w-[320px]">
                 <BeforeAfterSlider 
-                  beforeImage="https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/raw%20product.webp"
-                  afterImage="https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/compare%20after.webp"
+                  beforeImage="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/raw%20product.webp"
+                  afterImage="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/compare%20after.webp"
                 />
              </div>
           </div>
@@ -786,7 +786,7 @@ export const LandingPage: React.FC = () => {
               </p>
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-slate-200 rounded-full overflow-hidden">
-                  <img src="https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/shot-hero-box-reach.png" alt="User" className="w-full h-full object-cover" />
+                  <img src="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/shot-hero-box-reach.png" alt="User" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <div className="font-bold text-slate-900">Vansh Rastogi</div>

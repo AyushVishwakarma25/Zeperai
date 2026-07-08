@@ -148,7 +148,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#EAE3FD', // card-purple
             accentColor: '#6366F1', // indigo-500
             iconName: 'camera',
-            thumbnail: 'https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/Product%20shoot%20dashboard.webp',
+            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/Product%20shoot%20dashboard.webp',
             onClick: () => onSelectMode(AppMode.Product)
         },
         {
@@ -165,7 +165,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#FCD8FC', // card-pink
             accentColor: '#EC4899', // pink-500
             iconName: 'user',
-            thumbnail: 'https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/Ai%20ugc%20influencer.webp',
+            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/Ai%20ugc%20influencer.webp',
             onClick: () => onSelectMode(AppMode.Influencer)
         },
         {
@@ -174,7 +174,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#B8CF8A', // card-sage
             accentColor: '#166534', // green-700
             iconName: 'shirt',
-            thumbnail: 'https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/Fashion%20Studio.webp',
+            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/Fashion%20Studio.webp',
             onClick: () => onSelectMode(AppMode.Fashion)
         },
         {
@@ -217,7 +217,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#E1D9CC', // card-tan
             accentColor: '#B45309', // amber-700
             iconName: 'lamp',
-            thumbnail: 'https://gaekuvdnewzzwckmlntc.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/festive%20shot.webp',
+            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/festive%20shot.webp',
             onClick: () => onSelectMode(AppMode.Festival)
         }
     ];

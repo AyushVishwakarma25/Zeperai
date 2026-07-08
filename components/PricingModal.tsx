@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
-import { paymentService, STRIPE_PRICES } from '../services/paymentService';
 import { Spinner } from './ui/Spinner';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { supabase } from '../services/supabaseClient';
@@ -49,7 +48,7 @@ const pricingPlans = [
   },
   {
     id: 'pay-as-you-go',
-    priceId: STRIPE_PRICES.PAY_AS_YOU_GO,
+    priceId: 'pay-as-you-go',
     name: 'Pay As You Go Pro',
     description: 'All premium studios and features fully unlocked.',
     price: '₹499',

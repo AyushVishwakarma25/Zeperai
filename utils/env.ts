@@ -32,8 +32,8 @@ export const env = {
     
     // Supabase keys ARE required for the client to initialize.
     // We provide the public defaults as fallbacks to prevent crashes.
-    SUPABASE_URL: getString('VITE_SUPABASE_URL', 'https://gaekuvdnewzzwckmlntc.supabase.co'),
-    SUPABASE_ANON_KEY: getString('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZWt1dmRuZXd6endja21sbnRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MjA3MTYsImV4cCI6MjA4MTM5NjcxNn0.VIczknJhGRu3d4rTCKKHBeN56ykzw_Xgg4sTUF_x0J4'),
+    SUPABASE_URL: getString('VITE_SUPABASE_URL', 'https://kvqzfiezakcbnxbagxjs.supabase.co'),
+    SUPABASE_ANON_KEY: getString('VITE_SUPABASE_ANON_KEY', 'sb_publishable_6JMJwxQ-176l71T_ULVl2A_82Z0u_rb'),
 
     RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || process.env.RzpAPIKey || getString('RAZORPAY_KEY_ID', getString('RzpAPIKey', '')),
 
