@@ -58,11 +58,12 @@ app.use((req, res, next) => {
 // --- SECURITY: Rate Limiting ---
 // Set trust proxy to true (or the number of upstream proxies) to correctly retrieve the client's actual IP
 // under Cloud Run/Vercel reverse proxies, preventing rate-limiting all users under a single balancer IP.
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
   max: 1000, 
+  validate: { trustProxy: false },
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests from this IP, please try again after 15 minutes.' }
@@ -71,6 +72,7 @@ const globalLimiter = rateLimit({
 const aiLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 50,
+  validate: { trustProxy: false },
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Generation quota reached. Please wait a few minutes before creating more visuals.' }
