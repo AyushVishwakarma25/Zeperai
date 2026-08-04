@@ -127,58 +127,18 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
           });
 
           if (!res.ok) {
-              const contentType = res.headers.get("content-type");
-              let errorMsg = "";
-              if (contentType && contentType.includes("application/json")) {
-                  const errBody = await res.json().catch(() => ({}));
-                  errorMsg = errBody.error || "Internal Server Error during checkout.";
-              } else {
-                  const errText = await res.text().catch(() => "");
-                  errorMsg = `Server error (${res.status}): ${errText.substring(0, 200)}${errText.length > 200 ? '...' : ''}`;
-              }
-              throw new Error(errorMsg);
+              const errBody = await res.json().catch(() => ({}));
+              throw new Error(errBody.error || "Internal Server Error during checkout.");
           }
 
-          const { order, isSandbox, key_id } = await res.json();
+          const { order, key_id } = await res.json();
           
-          if (isSandbox) {
-              setSuccessMessage("Demonstration Sandbox Mode bypass: order created and simulated payment successful! Completing process...");
-              
-              // Simulate successful payment delay for visual effect
-              setTimeout(async () => {
-                  try {
-                       const verifyRes = await fetch('/api/razorpay/verify', {
-                           method: 'POST',
-                           headers: { 'Content-Type': 'application/json' },
-                           body: JSON.stringify({
-                               razorpay_order_id: order.id,
-                               razorpay_payment_id: "pay_mock_123456",
-                               razorpay_signature: "mock_signature_xyz",
-                               userId: userId,
-                               isSandbox: true
-                           })
-                       });
-
-                       if (!verifyRes.ok) {
-                           const verifyErr = await verifyRes.json();
-                           throw new Error(verifyErr.error || "Payment verification failed.");
-                       }
-
-                       setSuccessMessage("Congratulations! Your Pay As You Go Pro Plan has been activated! Reloading...");
-                       setTimeout(() => {
-                         onClose();
-                         window.location.reload();
-                       }, 2500);
-                  } catch (err: any) {
-                       setErrorMessage(`Signature Verification Error: ${err.message}`);
-                       setLoadingPriceId(null);
-                  }
-              }, 1500);
-              return;
+          if (!key_id) {
+             throw new Error("Razorpay Key ID is missing from server response.");
           }
 
           const options = {
-              key: key_id || env.RAZORPAY_KEY_ID || '',
+              key: key_id,
               amount: order.amount,
               currency: order.currency,
               name: 'ZeperAI Studio',
@@ -201,8 +161,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
                               razorpay_order_id: response.razorpay_order_id,
                               razorpay_payment_id: response.razorpay_payment_id,
                               razorpay_signature: response.razorpay_signature,
-                              userId: userId,
-                              isSandbox: isSandbox
+                              userId: userId
                           })
                       });
 
@@ -230,6 +189,10 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
           };
 
           const rzp1 = new (window as any).Razorpay(options);
+          rzp1.on('payment.failed', function (response: any) {
+             setErrorMessage(`Payment Failed: ${response.error.description}`);
+             setLoadingPriceId(null);
+          });
           rzp1.open();
       } catch (e: any) {
           console.error(e);

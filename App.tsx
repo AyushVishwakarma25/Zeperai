@@ -379,6 +379,21 @@ const AppInternal: React.FC = () => {
       }
   }, [creative.error, creative.setError]);
 
+  const handleGenerateVariants = useCallback((field: 'modelPersona' | 'poseSuggestion') => {
+      if (field === 'modelPersona') {
+          import('./constants').then(({ MODEL_PERSONA_OPTIONS }) => {
+              const groups = Object.keys(MODEL_PERSONA_OPTIONS).filter(g => g !== '✨ AI Suggested');
+              const randomGroup = groups[Math.floor(Math.random() * groups.length)];
+              const options = MODEL_PERSONA_OPTIONS[randomGroup];
+              const randomOption = options[Math.floor(Math.random() * options.length)];
+              creative.setParams(prev => ({ ...prev, modelPersona: randomOption }));
+              setToast({ message: `AI selected persona: ${randomOption}`, type: 'success' });
+          });
+      } else {
+          setToast({ message: `Variant generation for ${field} coming soon!`, type: 'success' });
+      }
+  }, [creative.setParams]);
+
   if (isAuthLoading) {
       return <SplashScreen />;
   }
@@ -493,7 +508,7 @@ const AppInternal: React.FC = () => {
                     setRemixReferenceImagePreview={creative.setRemixReferenceImagePreview}
                     remixProductImagePreview={creative.remixProductImagePreview}
                     setRemixProductImagePreview={creative.setRemixProductImagePreview}
-                    onGenerateVariants={() => {}}
+                    onGenerateVariants={handleGenerateVariants}
                     storyboardSourceImage={storyboardSourceImage}
                     onClearStoryboardSource={() => setStoryboardSourceImage(null)}
                     userTier={userTier}

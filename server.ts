@@ -91,32 +91,27 @@ app.get(['/api/health', '/health'], (req, res) => {
 });
 
 // --- RAZORPAY PAYMENT GATEWAY ---
-let razorpayInstance: any = null;
+  let razorpayInstance: any = null;
 
-function getRazorpay() {
-    const keyId = (process.env.RAZORPAY_KEY_ID || process.env.RzpAPIKey)?.trim();
-    const keySecret = (process.env.RAZORPAY_KEY_SECRET || process.env.RzpAPIKey)?.trim();
+  function getRazorpay() {
+    const keyId = process.env.RAZORPAY_KEY_ID?.trim();
+    const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
     
-    console.log(`[Razorpay Init Check] keyId present: ${!!keyId}, keySecret present: ${!!keySecret}`);
-    if (keyId) {
-      console.log(`[Razorpay Init Check] keyId prefix: ${keyId.substring(0, 8)}... (${keyId.length} chars)`);
+    if (!keyId || !keySecret) {
+      console.error('Razorpay keys not configured.');
+      return null;
     }
 
     if (!razorpayInstance) {
-      if (!keyId || !keySecret || !keyId.startsWith('rzp_')) {
-        console.log('[Razorpay Init Check] keyId is missing or does not start with expected "rzp_" prefix. Falling back to Sandbox Mode.');
-        return null;
-      }
       try {
         const RazorpayClass = (Razorpay as any).default || Razorpay;
-        console.log('[Razorpay Init] Creating instance with Razorpay SDK...');
         razorpayInstance = new (RazorpayClass as any)({
           key_id: keyId,
           key_secret: keySecret
         });
         console.log('[Razorpay Init] Razorpay instance created successfully.');
       } catch (err: any) {
-        console.log('Failed to initialize Razorpay SDK:', err.message);
+        console.error('Failed to initialize Razorpay SDK:', err.message);
       }
     }
     return razorpayInstance;
@@ -124,227 +119,76 @@ function getRazorpay() {
 
   app.post(['/api/razorpay/create-order', '/api/create-order', '/razorpay/create-order', '/create-order'], async (req, res) => {
     try {
-      console.log('=== [API: create-order] START ===');
-      console.log('[API: create-order] Raw req.body exists:', !!req.body);
-      if (req.body) {
-         console.log('[API: create-order] Payload parsed keys:', Object.keys(req.body));
+      const { planId, userId, amount, currency = 'INR', receipt } = req.body || {};
+      
+      let finalAmountPaise = 49900; // default 499 INR
+      if (amount) {
+        finalAmountPaise = Math.round(Number(amount) * 100);
       }
-      
-      const planId = req.body?.planId;
-      const userId = req.body?.userId;
-      const amount = req.body?.amount;
-      const currency = req.body?.currency;
-      const receipt = req.body?.receipt;
-      
-      let finalAmountPaise = 29900; // default 299 INR
-      
-      if (amount !== undefined && amount !== null) {
-        if (req.path.endsWith('/create-order') && !req.path.includes('razorpay')) {
-          finalAmountPaise = Math.round(Number(amount));
-        } else {
-          finalAmountPaise = Math.round(Number(amount) < 10000 ? Number(amount) * 100 : Number(amount));
-        }
-      }
-
-      console.log(`[API: create-order] Calculated amount in paise: ${finalAmountPaise}`);
 
       if (finalAmountPaise < 100) {
-        console.warn('[API: create-order] Refusing request: amount is less than 100 paise.');
-        return res.status(400).json({ error: "Amount must be at least 100 paise." });
+        return res.status(400).json({ error: "Amount must be at least 1 INR." });
       }
       
-      console.log('[API: create-order] Getting Razorpay instance...');
       const rzp = getRazorpay();
-      
       if (!rzp) {
-        console.log('[API: create-order] No real Razorpay instance. Falling back to Sandbox Mode.');
-        const mockOrder = {
-          id: `order_mock_${Math.random().toString(36).substr(2, 9)}`,
-          amount: finalAmountPaise,
-          currency: currency || 'INR',
-          receipt: receipt || `receipt_mock_${Date.now()}`,
-          status: 'created',
-          notes: { planId, userId, isMock: true }
-        };
-        return res.json({ 
-          order: mockOrder, 
-          order_id: mockOrder.id, 
-          id: mockOrder.id,
-          amount: mockOrder.amount, 
-          currency: mockOrder.currency,
-          isSandbox: true 
-        });
+        return res.status(500).json({ error: "Razorpay is not configured on the server." });
       }
 
-      const shortUserId = ((userId as string) || 'anon').substring(0, 10);
-      const generatedReceipt = `rcpt_${shortUserId}_${Date.now()}`.substring(0, 40);
+      const generatedReceipt = `rcpt_${(userId || 'anon').substring(0, 10)}_${Date.now()}`.substring(0, 40);
       const options = {
         amount: finalAmountPaise, // paise
-        currency: (currency as string) || 'INR',
-        receipt: ((receipt as string) || generatedReceipt).substring(0, 40),
+        currency: currency,
+        receipt: (receipt || generatedReceipt).substring(0, 40),
         notes: {
-          planId: ((planId as string) || 'pay-as-you-go').substring(0, 50),
-          userId: ((userId as string) || '').substring(0, 50)
+          planId: (planId || 'pay-as-you-go').substring(0, 50),
+          userId: (userId || '').substring(0, 50)
         }
       };
 
-      console.log('[API: create-order] Options prepared:', opcionesStringified(options));
-      let order: any;
+      const order = await rzp.orders.create(options);
 
-      try {
-        console.log('[API: create-order] Calling rzp.orders.create(options)...');
-        order = await rzp.orders.create(options);
-        console.log('[API: create-order] Razorpay Order successfully created!', order?.id);
-      } catch(rzpError: any) {
-        const errorDetails = rzpError?.error ? (rzpError.error.description || rzpError.error.reason || rzpError.error.code) : (rzpError?.message || JSON.stringify(rzpError));
-        console.log(`[API: create-order] Razorpay API call status details: ${errorDetails}`);
-        
-        const isAuthError = errorDetails.toLowerCase().includes('auth') || 
-                            errorDetails.toLowerCase().includes('key') ||
-                            errorDetails.toLowerCase().includes('bad_request_error') ||
-                            errorDetails.toLowerCase().includes('invalid');
-                            
-        if (isAuthError) {
-          console.log('[API: create-order] Razorpay key/auth issue detected. Automatically falling back to Sandbox Mode.');
-          const mockOrder = {
-            id: `order_mock_${Math.random().toString(36).substr(2, 9)}`,
-            amount: finalAmountPaise,
-            currency: currency || 'INR',
-            receipt: receipt || `receipt_mock_${Date.now()}`,
-            status: 'created',
-            notes: { planId, userId, isMock: true }
-          };
-          return res.json({ 
-            order: mockOrder, 
-            order_id: mockOrder.id, 
-            id: mockOrder.id,
-            amount: mockOrder.amount, 
-            currency: mockOrder.currency,
-            isSandbox: true 
-          });
-        }
-        
-        return res.status(500).json({ error: `Razorpay API status: ${errorDetails}` });
-      }
-
-      console.log('[API: create-order] Sending success response...');
       return res.json({ 
         order, 
         order_id: order.id, 
         id: order.id,
         amount: order.amount, 
         currency: order.currency,
-        isSandbox: false,
-        key_id: (process.env.RAZORPAY_KEY_ID || process.env.RzpAPIKey)?.trim() || ''
+        key_id: process.env.RAZORPAY_KEY_ID?.trim() || ''
       });
-    } catch (unhandledError: any) {
-      console.error('=== [API: create-order] FATAL UNHANDLED ERROR ===', unhandledError, unhandledError?.stack);
-      let errMsg = unhandledError?.message || 'Unknown fatal error in create-order';
-      return res.status(500).json({ error: errMsg });
+    } catch (error: any) {
+      console.error('Razorpay Create Order Error:', error);
+      return res.status(500).json({ error: error?.error?.description || error.message || 'Failed to create order' });
     }
   });
 
-  // Helper stringifier to avoid recursive logging issues
-  function opcionesStringified(obj: any) {
-    try {
-      return JSON.stringify(obj);
-    } catch {
-      return '[Unstringifiable Object]';
-    }
-  }
-
   app.post(['/api/razorpay/verify', '/api/verify-payment', '/razorpay/verify', '/verify-payment'], async (req, res) => {
     try {
-      console.log('=== [API: verify] START ===');
-      console.log('[API: verify] body exists?', !!req.body);
       const { 
         razorpay_order_id, 
         razorpay_payment_id, 
         razorpay_signature, 
-        userId, 
-        isSandbox,
-        order_id,
-        payment_id,
-        signature
+        userId
       } = req.body || {};
 
-      const orderId = razorpay_order_id || order_id;
-      const paymentId = razorpay_payment_id || payment_id;
-      const sig = razorpay_signature || signature;
-
-      // Input Validation: Missing fields return 400
-      if (!orderId || !paymentId || !sig) {
-        console.warn(`[API: verify] Missing fields. orderId=${orderId}, paymentId=${paymentId}, sig=${sig ? 'PRESENT' : 'MISSING'}`);
-        return res.status(400).json({ error: 'Missing required query or payload fields (order_id, payment_id, signature).' });
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        return res.status(400).json({ error: 'Missing required payment verification fields.' });
       }
 
-      if (isSandbox) {
-        console.log(`[Sandbox] Simulating successful payment verification for user: ${userId}`);
-        
-        // Add credits even in sandbox mode so users can test immediately!
-        const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-        if (supabaseUrl && supabaseServiceKey && userId && userId !== 'guest') {
-          try {
-            const { createClient } = await import('@supabase/supabase-js');
-            const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-            
-            const { data: current, error: fetchErr } = await adminClient
-              .from('user_credits')
-              .select('current_balance, total_quota')
-              .eq('user_id', userId)
-              .single();
-
-            if (!fetchErr && current) {
-              const newCurrent = (current.current_balance || 0) + 100;
-              const newTotal = (current.total_quota || 0) + 100;
-              
-              await adminClient
-                .from('user_credits')
-                .update({ 
-                  current_balance: newCurrent, 
-                  total_quota: newTotal, 
-                  updated_at: new Date().toISOString() 
-                })
-                .eq('user_id', userId);
-              console.log(`[Sandbox] Successfully added 100 credits to user: ${userId}`);
-            } else {
-              // If missing, create the record (self-healing)
-              await adminClient
-                .from('user_credits')
-                .insert({
-                  user_id: userId,
-                  current_balance: 100,
-                  total_quota: 100,
-                  updated_at: new Date().toISOString()
-                });
-              console.log(`[Sandbox] Successfully initialized and added 100 credits to user: ${userId}`);
-            }
-          } catch (err: any) {
-            console.error('[Sandbox Credit Add] Error:', err.message);
-          }
-        }
-        
-        return res.json({ status: 'ok', verified: true, message: 'Payment simulated successfully in Sandbox!' });
-      }
-
-      const keySecret = process.env.RAZORPAY_KEY_SECRET || process.env.RzpAPIKey;
+      const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
       if (!keySecret) {
-        return res.status(500).json({ error: 'Razorpay Secret Key not configured on server. Please configure RAZORPAY_KEY_SECRET or RzpAPIKey.' });
+        return res.status(500).json({ error: 'Razorpay Secret Key not configured on server.' });
       }
 
       const shasum = crypto.createHmac('sha256', keySecret);
-      shasum.update(`${orderId}|${paymentId}`);
+      shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
       const digest = shasum.digest('hex');
 
-      // Signature Verification check: return 400 on mismatch (do NOT mark as paid / credit)
-      if (digest !== sig) {
-        console.warn(`[Verification Failed] Expected signature: ${digest}, received: ${sig}`);
+      if (digest !== razorpay_signature) {
         return res.status(400).json({ error: 'Signature verification failed. Potential tampering.' });
       }
 
-      console.log(`[Production] Verified Razorpay Payment: ${paymentId} for Order: ${orderId}`);
+      console.log(`[Production] Verified Razorpay Payment: ${razorpay_payment_id} for Order: ${razorpay_order_id}`);
 
       const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
       const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -359,15 +203,15 @@ function getRazorpay() {
           .eq('user_id', userId)
           .single();
 
-        if (fetchErr) {
-          console.error('[API: verify] Error fetching user_credits:', fetchErr.message || fetchErr);
+        if (fetchErr && fetchErr.code !== 'PGRST116') {
+          console.error('[API: verify] Error fetching user_credits:', fetchErr.message);
         }
 
-        if (!fetchErr && current) {
+        if (current) {
           const newCurrent = (current.current_balance || 0) + 100;
           const newTotal = (current.total_quota || 0) + 100;
           
-          const { error: updateErr } = await adminClient
+          await adminClient
             .from('user_credits')
             .update({ 
               current_balance: newCurrent, 
@@ -375,16 +219,8 @@ function getRazorpay() {
               updated_at: new Date().toISOString() 
             })
             .eq('user_id', userId);
-            
-          if (updateErr) {
-             console.error('Failed to credit user balance inside DB:', updateErr.message);
-          } else {
-             console.log(`Successfully credited 100 credits to user ${userId}`);
-          }
-        } else if (!current && !fetchErr) {
-          // If no row exists, create one! (Self-healing fallback)
-          console.log(`[API: verify] No user_credits row for user ${userId}. Creating one with 100 credits.`);
-          const { error: insertErr } = await adminClient
+        } else {
+          await adminClient
             .from('user_credits')
             .insert({
               user_id: userId,
@@ -392,16 +228,13 @@ function getRazorpay() {
               total_quota: 100,
               updated_at: new Date().toISOString()
             });
-          if (insertErr) {
-            console.error('[API: verify] Failed to insert user_credits row:', insertErr.message);
-          }
         }
       }
 
       return res.json({ status: 'ok', verified: true });
-    } catch (unhandledError: any) {
-      console.error('=== [API: verify] FATAL UNHANDLED ERROR ===', unhandledError, unhandledError?.stack);
-      return res.status(500).json({ error: unhandledError?.message || 'Signature verification failed.' });
+    } catch (error: any) {
+      console.error('Razorpay Verify Error:', error);
+      return res.status(500).json({ error: error.message || 'Signature verification failed.' });
     }
   });
   
@@ -563,7 +396,7 @@ function getRazorpay() {
 
   // Only start server locally (not when processed by Vercel's serverless builder)
   if (!process.env.VERCEL) {
-    const PORT = process.env.PORT || 3000;
+    const PORT = 3000;
     
     // --- VITE & STATIC SERVING ---
     const setupViteAndStart = async () => {
