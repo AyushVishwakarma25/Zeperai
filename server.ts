@@ -237,6 +237,69 @@ app.get(['/api/health', '/health'], (req, res) => {
       return res.status(500).json({ error: error.message || 'Signature verification failed.' });
     }
   });
+
+  app.post('/api/razorpay/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    try {
+      const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+      if (!secret) {
+        console.error('RAZORPAY_WEBHOOK_SECRET is not configured');
+        return res.status(500).json({ error: 'Webhook secret not configured' });
+      }
+
+      const shasum = crypto.createHmac('sha256', secret);
+      shasum.update(req.body);
+      const digest = shasum.digest('hex');
+
+      if (digest !== req.headers['x-razorpay-signature']) {
+        console.warn('Webhook signature mismatch');
+        return res.status(400).json({ error: 'Invalid signature' });
+      }
+
+      const event = JSON.parse(req.body.toString());
+      console.log('Razorpay Webhook Event:', event.event);
+
+      if (event.event === 'payment.captured') {
+        const payment = event.payload.payment.entity;
+        const userId = payment.notes?.userId;
+        
+        if (userId && userId !== 'guest') {
+          const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+          const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          
+          if (supabaseUrl && supabaseServiceKey) {
+            const { createClient } = await import('@supabase/supabase-js');
+            const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+            
+            // Basic webhook credit logic
+            console.log(`Payment captured via webhook for user: ${userId}`);
+            const { data: current, error: fetchErr } = await adminClient
+              .from('user_credits')
+              .select('current_balance, total_quota')
+              .eq('user_id', userId)
+              .single();
+
+            if (current) {
+              const newCurrent = (current.current_balance || 0) + 100;
+              const newTotal = (current.total_quota || 0) + 100;
+              await adminClient
+                .from('user_credits')
+                .update({ current_balance: newCurrent, total_quota: newTotal, updated_at: new Date().toISOString() })
+                .eq('user_id', userId);
+            } else {
+              await adminClient
+                .from('user_credits')
+                .insert({ user_id: userId, current_balance: 100, total_quota: 100, updated_at: new Date().toISOString() });
+            }
+          }
+        }
+      }
+
+      res.status(200).json({ status: 'ok' });
+    } catch (error: any) {
+      console.error('Webhook Error:', error);
+      res.status(500).json({ error: 'Webhook handler failed' });
+    }
+  });
   
   app.get(['/api/proxy-image', '/proxy-image'], async (req, res) => {
     const { url } = req.query;
