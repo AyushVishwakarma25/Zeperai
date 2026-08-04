@@ -113,16 +113,21 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
               throw new Error("Failed to load Razorpay Payment Gateway. Check internet connection.");
           }
           
+          const { data: { session } } = await supabase.auth.getSession();
           const { data: { user } } = await supabase.auth.getUser();
-          if (!user) {
+          if (!user || !session?.access_token) {
               throw new Error("You must be logged in to purchase credits. Please sign in or register first.");
           }
           const userId = user.id;
           const email = user.email || 'customer@zeperai.in';
+          const token = session.access_token;
 
           const res = await fetch('/api/razorpay/create-order', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
               body: JSON.stringify({ planId: 'pay-as-you-go', userId, amount: 499 })
           });
 
@@ -156,7 +161,10 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
                   try {
                       const verifyRes = await fetch('/api/razorpay/verify', {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
+                          headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                          },
                           body: JSON.stringify({
                               razorpay_order_id: response.razorpay_order_id,
                               razorpay_payment_id: response.razorpay_payment_id,

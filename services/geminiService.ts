@@ -6,6 +6,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { getAI } from '../config/ai';
+import { supabase } from './supabaseClient';
 import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS, UGC_STYLE_OPTIONS, AD_STYLE_PRESETS, FASHION_POSE_OPTIONS, FESTIVAL_PRESETS, AD_TEMPLATES } from '../constants';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis, ABTestSuggestion } from '../types';
 import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, RegionalStyle, ProductCategory, ResolutionQuality, AdLayout, ImageModel } from '../types';
@@ -817,9 +818,20 @@ export const removeBackground = async (base64: string, mimeType: string): Promis
 };
 
 export const removeBackgroundPro = async (params: { imageUrl?: string, imageBase64?: string }): Promise<{ imageUrl: string }> => {
+  let token = '';
+  try {
+    const { data } = await supabase.auth.getSession();
+    token = data?.session?.access_token || '';
+  } catch (e) {
+    console.warn('Could not fetch session token for removeBackgroundPro:', e);
+  }
+
   const response = await fetch('/api/remove-bg-pro', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    },
     body: JSON.stringify(params)
   });
 

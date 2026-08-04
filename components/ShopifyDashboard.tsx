@@ -422,133 +422,24 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
   const runAnalysis = async () => {
     if (!stagedFiles.length) return;
     setIsAnalyzing(true);
-    setProgress(5);
-    setProgressMsg('Reading files…');
+    setProgress(20);
+    setProgressMsg('Uploading & analyzing CSV dataset on server...');
+    setError(null);
     setWarnings([]);
 
-    const accOrders: OrdersResult = {
-      totalRevenue: 0, totalOrders: 0,
-      dailyRevenue: {}, productRevenue: {}, productUnits: {},
-      customerCount: 0, refunds: 0
-    };
-    let accTimeSeries: Record<string, number> = {};
-    const warns: string[] = [];
-
-    for (let i = 0; i < stagedFiles.length; i++) {
-      const file = stagedFiles[i];
-      setProgressMsg(`Parsing ${file.name}…`);
-      setProgress(10 + (i / stagedFiles.length) * 55);
-      await new Promise(r => setTimeout(r, 0));
-
-      const text = await file.text();
-      const { headers, rows } = parseCSV(text);
-
-      if (!rows.length) {
-        warns.push(`${file.name}: no data rows found`);
-        continue;
-      }
-
-      const type = detectFileType(headers);
-
-      if (type === 'orders' || type === 'unknown') {
-        const res = processOrders(rows, headers);
-        accOrders.totalRevenue  += res.totalRevenue;
-        accOrders.totalOrders   += res.totalOrders;
-        accOrders.customerCount += res.customerCount;
-        accOrders.refunds       += res.refunds;
-        Object.entries(res.dailyRevenue).forEach(([d, v]) => {
-          accOrders.dailyRevenue[d] = (accOrders.dailyRevenue[d] || 0) + v;
-        });
-        Object.entries(res.productRevenue).forEach(([p, v]) => {
-          accOrders.productRevenue[p] = (accOrders.productRevenue[p] || 0) + v;
-        });
-        Object.entries(res.productUnits).forEach(([p, v]) => {
-          accOrders.productUnits[p] = (accOrders.productUnits[p] || 0) + v;
-        });
-        if (type === 'unknown' && res.totalRevenue === 0) {
-          warns.push(`${file.name}: format not fully recognized — partial data may be extracted`);
-        }
-      } else if (type === 'timeseries' || type === 'analytics') {
-        const res = processTimeSeries(rows, headers);
-        Object.entries(res).forEach(([d, v]) => {
-          accTimeSeries[d] = (accTimeSeries[d] || 0) + v;
-        });
-      } else if (type === 'customers') {
-        const emailCol = findCol(headers, ['Email', 'email', 'Customer Email']);
-        if (emailCol) {
-          accOrders.customerCount = new Set(rows.map(r => r[emailCol]).filter(Boolean)).size;
-        }
-      }
+    try {
+      setProgress(60);
+      const res = await shopifyService.analyzeFiles(stagedFiles);
+      setProgress(100);
+      setReport(res);
+      onReportUpdate?.(res);
+      setStagedFiles([]);
+    } catch (err: any) {
+      console.error('Shopify Analysis failed:', err);
+      setError(err?.message || 'Failed to analyze store metrics.');
+    } finally {
+      setIsAnalyzing(false);
     }
-
-    setProgress(75);
-    setProgressMsg('Building product zones…');
-    await new Promise(r => setTimeout(r, 0));
-
-    const revSource = Object.keys(accTimeSeries).length > Object.keys(accOrders.dailyRevenue).length
-      ? accTimeSeries
-      : accOrders.dailyRevenue;
-
-    const trendDates = Object.keys(revSource).filter(d => d !== 'Unknown').sort();
-    const trendRevs  = trendDates.map(d => revSource[d]);
-
-    const totalRevenue = accOrders.totalRevenue || trendRevs.reduce((s, v) => s + v, 0);
-    const totalOrders  = accOrders.totalOrders || 1; 
-    const avgOrderValue = totalRevenue / totalOrders;
-
-    const rawZones = buildProductZones(accOrders.productRevenue, accOrders.productUnits);
-    
-    const productZones = {
-      green: rawZones.green.map(p => ({ name: p.name, revenue: p.revenue, quantity: p.units })),
-      yellow: rawZones.amber.map(p => ({ name: p.name, revenue: p.revenue, quantity: p.units })),
-      red: rawZones.red.map(p => ({ name: p.name, revenue: p.revenue, quantity: p.units }))
-    };
-
-    const topProducts = Object.entries(accOrders.productRevenue)
-      .map(([name, revenue]) => ({ name, revenue, quantity: accOrders.productUnits[name] || 0 }))
-      .sort((a, b) => Number(b.revenue) - Number(a.revenue))
-      .slice(0, 10);
-
-    setProgress(90);
-    setProgressMsg('Creating layouts…');
-    await new Promise(r => setTimeout(r, 100));
-
-    const salesTrend = trendDates.map((date, i) => ({ date, revenue: trendRevs[i] }));
-    const chart_data = { dates: trendDates, revenue: trendRevs };
-
-    const top_push_products = productZones.green.slice(0, 3).map((p, idx) => ({
-      name: p.name,
-      score: 1.0 - (idx * 0.15),
-      reasoning: 'Exceptional buyer conversion and revenue contributor.'
-    }));
-
-    const top_stop_products = productZones.red.slice(0, 3).map((p, idx) => ({
-      name: p.name,
-      score: 0.1 + (idx * 0.12),
-      reasoning: 'Underperforming item. Low conversion rate. Cut ad spend or clear with bundle discount.'
-    }));
-
-    setProgress(100);
-    await new Promise(r => setTimeout(r, 80));
-
-    const finalReport: ShopifyAnalysisResult = {
-      totalRevenue: Math.round(totalRevenue * 100) / 100,
-      totalOrders,
-      avgOrderValue: Math.round(avgOrderValue * 100) / 100,
-      topProducts,
-      salesTrend,
-      productZones,
-      top_push_products,
-      top_stop_products,
-      chart_data,
-      aiInsights: [] // Initiated as blank to let user generate premium Gemini strategic suggestions
-    };
-
-    setReport(finalReport);
-    onReportUpdate?.(finalReport);
-    setWarnings(warns);
-    setStagedFiles([]);
-    setIsAnalyzing(false);
   };
 
   const handleGenerateAIInsights = async () => {

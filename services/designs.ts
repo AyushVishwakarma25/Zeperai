@@ -1,1 +1,0 @@
-// This file has been consolidated into services/designService.ts. Please update imports.

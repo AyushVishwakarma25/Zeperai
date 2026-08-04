@@ -4,6 +4,7 @@ import { Icon } from './ui/Icon';
 import { Button } from './ui/Button';
 import { FormInput, FormTextArea } from './ui/Form';
 import { ImageDropzone } from './ui/ImageDropzone';
+import { SubscriptionManagement } from './SubscriptionManagement';
 import { processImageFile } from '../utils/images';
 import { storageService } from '../services/storageService';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
@@ -16,6 +17,7 @@ interface UserProfile {
   email: string;
   location: string;
   avatarUrl: string;
+  tier?: string;
 }
 
 interface ProfileEditModalProps {
@@ -114,62 +116,70 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, onClose, onSa
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4" onClick={handleOverlayClick}>
-      <div className="bg-main w-full max-w-lg rounded-2xl shadow-xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-        <header className="p-4 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
-          <h2 className="text-xl font-bold text-slate-800">Edit Profile</h2>
+      <div className="bg-main w-full max-w-2xl rounded-2xl shadow-xl flex flex-col overflow-hidden max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        <header className="p-4 border-b border-slate-200 flex justify-between items-center flex-shrink-0 bg-white">
+          <h2 className="text-xl font-bold text-slate-800">User Profile & Subscription</h2>
           <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
             <Icon name="close" className="w-5 h-5" />
           </button>
         </header>
-        <main className="p-6 space-y-4 overflow-y-auto">
+        <main className="p-6 space-y-6 overflow-y-auto">
             {!isOnline && <div className="text-red-500 text-sm bg-red-50 p-2 rounded text-center">Offline: Changes cannot be saved.</div>}
             
             <div className="flex flex-col items-center space-y-4">
-                <div className="w-40 h-40 rounded-full overflow-hidden">
+                <div className="w-32 h-32 rounded-full overflow-hidden">
                     <ImageDropzone
                         id="avatar-upload"
                         previewUrl={avatarPreview}
                         onFileChange={handleFileChange}
                         prompt="Upload Avatar"
-                        className="!h-40"
+                        className="!h-32"
                     />
                 </div>
             </div>
-            <FormInput 
-                label="Full Name"
-                id="profile-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-            />
-            <FormInput 
-                label="Email Address"
-                id="profile-email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-            />
-            <div className="grid grid-cols-2 gap-4">
+
+            {/* Profile Info Fields */}
+            <div className="space-y-4 bg-white p-4 rounded-xl border border-slate-200">
+                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Personal Information</h3>
                 <FormInput 
-                    label="Role/Title"
-                    id="profile-role"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
+                    label="Full Name"
+                    id="profile-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                 />
                 <FormInput 
-                    label="Location"
-                    id="profile-location"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
+                    label="Email Address"
+                    id="profile-email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                    <FormInput 
+                        label="Role/Title"
+                        id="profile-role"
+                        value={role}
+                        onChange={(e) => setRole(e.target.value)}
+                    />
+                    <FormInput 
+                        label="Location"
+                        id="profile-location"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                    />
+                </div>
+                <FormTextArea 
+                    label="Bio"
+                    id="profile-bio"
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    rows={3}
                 />
             </div>
-             <FormTextArea 
-                label="Bio"
-                id="profile-bio"
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                rows={4}
-            />
+
+            {/* Subscription Management Section */}
+            <SubscriptionManagement user={user} />
         </main>
-        <footer className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3">
+        <footer className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3 flex-shrink-0">
           <Button onClick={onClose} variant="secondary">Cancel</Button>
           <Button onClick={handleSaveChanges} disabled={!isOnline || isSaving} isLoading={isSaving}>Save Changes</Button>
         </footer>

@@ -5,6 +5,7 @@
  */
 
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
+import { supabase } from "../services/supabaseClient";
 
 let genAIInstance: GoogleGenAI | null = null;
 let currentApiKey = '';
@@ -34,10 +35,19 @@ export const getAI = () => {
         return {
             models: {
                 generateContent: async (args: any) => {
+                    let token = '';
+                    try {
+                        const { data } = await supabase.auth.getSession();
+                        token = data?.session?.access_token || '';
+                    } catch (e) {
+                        console.warn('Could not fetch Supabase auth token for AI call:', e);
+                    }
+
                     const response = await fetch('/api/gemini/generate', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                         },
                         body: JSON.stringify(args)
                     });

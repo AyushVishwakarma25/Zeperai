@@ -11,11 +11,11 @@
  * const apiKey = env.API_KEY;
  */
 
-// The polyfill in index.html is the single source of truth for env vars in this importmap setup.
-const source = (window as any).process?.env || {};
+// The polyfill in index.html is the single source of truth for env vars in browser.
+const source = typeof window !== 'undefined' ? ((window as any).process?.env || {}) : (process.env || {});
 
 const getString = (key: string, fallback: string): string => {
-    const value = source[key];
+    const value = source[key] || (typeof process !== 'undefined' && process.env ? process.env[key] : undefined);
     if (value === undefined || value === null || value === '' || value === 'undefined') {
         return fallback;
     }

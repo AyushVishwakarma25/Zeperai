@@ -1,1 +1,0 @@
-// This file has been consolidated into services/brandService.ts. Please update imports.

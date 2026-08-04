@@ -15,17 +15,10 @@ export const useAppData = () => {
 
     const loadData = useCallback(async () => {
         if (!user) {
-            setCredits(10);
-            setTotalCredits(10);
+            setCredits(0);
+            setTotalCredits(0);
             setBrandKit(null);
             setSavedModels([]);
-            setIsLoading(false);
-            return;
-        }
-
-        if (user.id === 'guest-user-id') {
-            setCredits(10);
-            setTotalCredits(10);
             setIsLoading(false);
             return;
         }
@@ -56,7 +49,7 @@ export const useAppData = () => {
         if (isAdmin) return true;
         if (credits >= cost) {
             setCredits(prev => prev - cost);
-            if (user && user.id !== 'guest-user-id') {
+            if (user) {
                 userService.deductCredits(cost).catch(e => console.error("Credit sync failed", e));
             }
             return true;
@@ -67,7 +60,7 @@ export const useAppData = () => {
     const refundCredits = useCallback((amount: number, isAdmin: boolean) => {
         if (isAdmin) return;
         setCredits(prev => prev + amount);
-        if (user && user.id !== 'guest-user-id') {
+        if (user) {
             userService.deductCredits(-amount).catch(e => console.error("Refund failed", e));
         }
     }, [user]);

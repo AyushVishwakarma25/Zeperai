@@ -2,15 +2,18 @@
 import React from 'react';
 import { Icon } from './ui/Icon';
 import { Button } from './ui/Button';
+import { SubscriptionManagement } from './SubscriptionManagement';
 import { View, UserActivity } from '../types';
 
 interface UserProfile {
+  id?: string;
   name: string;
   role: string;
   bio: string;
   email: string;
   location: string;
   avatarUrl: string;
+  tier?: string;
 }
 
 interface ProfilePageProps {
@@ -94,7 +97,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             </Button>
           </div>
 
-          {/* Account Details & Stats */}
+          {/* Account Details, Stats & Subscription Management */}
           <div className="lg:col-span-2 space-y-8">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-border-light">
               <div className="flex justify-between items-center mb-4">
@@ -151,10 +154,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                   </Button>
               </div>
             </div>
+
+            {/* Subscription Management Card */}
+            <SubscriptionManagement user={{ ...user, tier: userTier }} />
           </div>
         </div>
-
-        {/* Recent Activity Section Removed */}
       </main>
     </div>
   );
