@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { env } from '../utils/env';
+import { env } from '../utils/env.js';
 
 // Suppress known non-critical Supabase Auth errors that cause AI Studio validation to fail
 const originalConsoleError = console.error;

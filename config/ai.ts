@@ -5,7 +5,7 @@
  */
 
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
-import { supabase } from "../services/supabaseClient";
+import { supabase } from "../services/supabaseClient.js";
 
 let genAIInstance: GoogleGenAI | null = null;
 let currentApiKey = '';
