@@ -92,9 +92,6 @@ export const getAI = () => {
            process.env.GeminiAPI || 
            process.env.API_KEY || 
            process.env.GOOGLE_API_KEY || 
-           process.env.VITE_GEMINI_API_KEY || 
-           process.env.VITE_GeminiAPI ||
-           process.env.VITE_API_KEY ||
            process.env.GOOGLE_GENAI_API_KEY ||
            '') 
         : '';

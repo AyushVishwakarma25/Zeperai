@@ -25,17 +25,14 @@ const getString = (key: string, fallback: string): string => {
 export const env = {
     NODE_ENV: getString('NODE_ENV', 'development'),
     
-    // This key is loaded dynamically by AI Studio and may be empty initially.
-    // It's not required on startup, so it should not throw an error.
-    // Services that use it must handle the case where it's an empty string.
-    API_KEY: process.env.API_KEY || process.env.GeminiAPI || getString('GEMINI_API_KEY', getString('GeminiAPI', getString('API_KEY', ''))), 
+    // Secrets like GEMINI_API_KEY / API_KEY are strictly server-side and must NOT be accessible in browser.
+    API_KEY: typeof window !== 'undefined' ? '' : (process.env.GEMINI_API_KEY || process.env.API_KEY || ''), 
     
-    // Supabase keys ARE required for the client to initialize.
-    // We provide the public defaults as fallbacks to prevent crashes.
+    // Supabase public keys for client initialization.
     SUPABASE_URL: getString('VITE_SUPABASE_URL', 'https://kvqzfiezakcbnxbagxjs.supabase.co'),
     SUPABASE_ANON_KEY: getString('VITE_SUPABASE_ANON_KEY', 'sb_publishable_6JMJwxQ-176l71T_ULVl2A_82Z0u_rb'),
 
-    RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || process.env.RzpAPIKey || getString('RAZORPAY_KEY_ID', getString('RzpAPIKey', '')),
+    RAZORPAY_KEY_ID: typeof window !== 'undefined' ? (window as any).RAZORPAY_KEY_ID || 'rzp_test_placeholder' : (process.env.RAZORPAY_KEY_ID || ''),
 
     // A helper function to check if the app is in development mode.
     isDevelopment: () => env.NODE_ENV === 'development',
