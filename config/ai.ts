@@ -52,28 +52,28 @@ export const getAI = () => {
                         body: JSON.stringify(args)
                     });
                     if (!response.ok) {
-                        let errorMsg = '';
+                        let rawError = 'Something went wrong. Please try again.';
                         try {
                             const contentType = response.headers.get('content-type') || '';
                             if (contentType.includes('application/json')) {
                                 const errData = await response.json();
-                                errorMsg = errData.error || errData.message || `Server failed to generate content: ${response.statusText}`;
-                            } else {
-                                const text = await response.text();
-                                const titleMatch = text.match(/<title>([\s\S]*?)<\/title>/i);
-                                const headingMatch = text.match(/<h1>([\s\S]*?)<\/h1>/i);
-                                if (titleMatch) {
-                                    errorMsg = `Server error (${response.status}): ${titleMatch[1].trim()}`;
-                                } else if (headingMatch) {
-                                    errorMsg = `Server error (${response.status}): ${headingMatch[1].trim()}`;
-                                } else {
-                                    errorMsg = `Server error (${response.status}): ${text.substring(0, 150).trim()}${text.length > 150 ? '...' : ''}`;
-                                }
+                                rawError = errData.error || errData.message || rawError;
                             }
                         } catch (e: any) {
-                            errorMsg = `Server error (${response.status}): ${response.statusText || 'Unknown Error'}`;
+                            // ignore parse error
                         }
-                        throw new Error(errorMsg);
+
+                        // Sanitize error message to prevent exposing internal stack traces or path names
+                        const cleanError = rawError && !rawError.includes('at ') && !rawError.includes('node_modules') && !rawError.includes('<html')
+                            ? rawError
+                            : 'Oops! Something went wrong. Our team has been notified.';
+
+                        if (typeof window !== 'undefined') {
+                            window.dispatchEvent(new CustomEvent('app-toast', {
+                                detail: { message: cleanError, type: 'error' }
+                            }));
+                        }
+                        throw new Error(cleanError);
                     }
                     
                     const contentType = response.headers.get('content-type') || '';

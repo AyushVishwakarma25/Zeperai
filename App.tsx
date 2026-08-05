@@ -84,6 +84,20 @@ const AppInternal: React.FC = () => {
 
   const userTier = (user?.tier as 'Free' | 'PayAsYouGo') || 'Free';
 
+  // Global Toast Event Listener
+  useEffect(() => {
+    const handleAppToast = (e: any) => {
+      if (e.detail?.message) {
+        setToast({
+          message: e.detail.message,
+          type: e.detail.type || 'error'
+        });
+      }
+    };
+    window.addEventListener('app-toast', handleAppToast);
+    return () => window.removeEventListener('app-toast', handleAppToast);
+  }, []);
+
   // Admin Check
   React.useEffect(() => {
   }, [user]);

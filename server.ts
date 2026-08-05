@@ -44,6 +44,10 @@ process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUP
 process.env.VITE_SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
 import { getAI } from './config/ai.js';
+import { globalErrorHandler, asyncHandler, setupProcessLevelHandlers, AppError } from './utils/errorHandler.js';
+
+// Initialize global process-level error handling for unhandled rejections and uncaught exceptions
+setupProcessLevelHandlers();
 
 const multerInstance = (multer as any).default || multer;
 const upload = multerInstance({ storage: multerInstance.memoryStorage() });
@@ -177,161 +181,146 @@ app.get(['/api/health', '/health'], (req, res) => {
     return razorpayInstance;
   }
 
-  app.post(['/api/razorpay/create-order', '/api/create-order', '/razorpay/create-order', '/create-order'], requireAuth, async (req: any, res: any) => {
-    try {
-      const { planId, userId, amount, currency = 'INR', receipt } = req.body || {};
-      
-      let finalAmountPaise = 49900; // default 499 INR
-      if (amount) {
-        finalAmountPaise = Math.round(Number(amount) * 100);
-      }
-
-      if (finalAmountPaise < 100) {
-        return res.status(400).json({ error: "Amount must be at least 1 INR." });
-      }
-      
-      const rzp = getRazorpay();
-      if (!rzp) {
-        return res.status(500).json({ error: "Razorpay is not configured on the server." });
-      }
-
-      const generatedReceipt = `rcpt_${(userId || 'anon').substring(0, 10)}_${Date.now()}`.substring(0, 40);
-      const options = {
-        amount: finalAmountPaise, // paise
-        currency: currency,
-        receipt: (receipt || generatedReceipt).substring(0, 40),
-        notes: {
-          planId: (planId || 'pay-as-you-go').substring(0, 50),
-          userId: (userId || '').substring(0, 50)
-        }
-      };
-
-      const order = await rzp.orders.create(options);
-
-      return res.json({ 
-        order, 
-        order_id: order.id, 
-        id: order.id,
-        amount: order.amount, 
-        currency: order.currency,
-        key_id: process.env.RAZORPAY_KEY_ID?.trim() || ''
-      });
-    } catch (error: any) {
-      console.error('Razorpay Create Order Error:', error);
-      return res.status(500).json({ error: error?.error?.description || error.message || 'Failed to create order' });
+  app.post(['/api/razorpay/create-order', '/api/create-order', '/razorpay/create-order', '/create-order'], requireAuth, asyncHandler(async (req: any, res: any) => {
+    const { planId, userId, amount, currency = 'INR', receipt } = req.body || {};
+    
+    let finalAmountPaise = 49900; // default 499 INR
+    if (amount) {
+      finalAmountPaise = Math.round(Number(amount) * 100);
     }
-  });
 
-  app.get(['/api/razorpay/subscription-details', '/api/subscription-details'], requireAuth, async (req: any, res: any) => {
-    try {
-      const keyId = process.env.RAZORPAY_KEY_ID?.trim() || '';
-      if (!keyId) {
-        return res.status(500).json({ error: "Razorpay Key ID is not configured on the server." });
-      }
-
-      const userId = req.user?.id || 'user';
-      // Format consistent subscription ID based on user ID
-      const sanitizedUid = userId.replace(/[^a-zA-Z0-9]/g, '').substring(0, 14);
-      const subscriptionId = `sub_${sanitizedUid || '00000000000001'}`;
-
-      // Calculate next billing date (30 days from today or start of next month)
-      const now = new Date();
-      const nextBilling = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      const formattedBillingDate = nextBilling.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-
-      return res.json({
-        key_id: keyId,
-        subscription_id: subscriptionId,
-        status: 'active',
-        next_billing_date: formattedBillingDate,
-        plan_name: 'Pro Subscription (100 Credits / mo)',
-        amount: '₹499/mo'
-      });
-    } catch (err: any) {
-      console.error('Fetch Subscription Details Error:', err);
-      return res.status(500).json({ error: err.message || 'Failed to fetch subscription details.' });
+    if (finalAmountPaise < 100) {
+      return res.status(400).json({ success: false, error: "Amount must be at least 1 INR.", message: "Amount must be at least 1 INR." });
     }
-  });
+    
+    const rzp = getRazorpay();
+    if (!rzp) {
+      throw new AppError("Razorpay is not configured on the server.", 500, "Payment processing service is temporarily unavailable.");
+    }
 
-  app.post(['/api/razorpay/verify', '/api/verify-payment', '/razorpay/verify', '/verify-payment'], requireAuth, async (req: any, res: any) => {
-    try {
-      const { 
-        razorpay_order_id, 
-        razorpay_payment_id, 
-        razorpay_signature, 
-        userId
-      } = req.body || {};
+    const generatedReceipt = `rcpt_${(userId || 'anon').substring(0, 10)}_${Date.now()}`.substring(0, 40);
+    const options = {
+      amount: finalAmountPaise, // paise
+      currency: currency,
+      receipt: (receipt || generatedReceipt).substring(0, 40),
+      notes: {
+        planId: (planId || 'pay-as-you-go').substring(0, 50),
+        userId: (userId || '').substring(0, 50)
+      }
+    };
 
-      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-        return res.status(400).json({ error: 'Missing required payment verification fields.' });
+    const order = await rzp.orders.create(options);
+
+    return res.json({ 
+      success: true,
+      order, 
+      order_id: order.id, 
+      id: order.id,
+      amount: order.amount, 
+      currency: order.currency,
+      key_id: process.env.RAZORPAY_KEY_ID?.trim() || ''
+    });
+  }));
+
+  app.get(['/api/razorpay/subscription-details', '/api/subscription-details'], requireAuth, asyncHandler(async (req: any, res: any) => {
+    const keyId = process.env.RAZORPAY_KEY_ID?.trim() || '';
+    if (!keyId) {
+      throw new AppError("Razorpay Key ID is not configured on the server.", 500, "Subscription service is temporarily unavailable.");
+    }
+
+    const userId = req.user?.id || 'user';
+    const sanitizedUid = userId.replace(/[^a-zA-Z0-9]/g, '').substring(0, 14);
+    const subscriptionId = `sub_${sanitizedUid || '00000000000001'}`;
+
+    const now = new Date();
+    const nextBilling = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const formattedBillingDate = nextBilling.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    return res.json({
+      success: true,
+      key_id: keyId,
+      subscription_id: subscriptionId,
+      status: 'active',
+      next_billing_date: formattedBillingDate,
+      plan_name: 'Pro Subscription (100 Credits / mo)',
+      amount: '₹499/mo'
+    });
+  }));
+
+  app.post(['/api/razorpay/verify', '/api/verify-payment', '/razorpay/verify', '/verify-payment'], requireAuth, asyncHandler(async (req: any, res: any) => {
+    const { 
+      razorpay_order_id, 
+      razorpay_payment_id, 
+      razorpay_signature, 
+      userId
+    } = req.body || {};
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ success: false, error: 'Missing required payment verification fields.', message: 'Missing required payment verification fields.' });
+    }
+
+    const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
+    if (!keySecret) {
+      throw new AppError('Razorpay Secret Key not configured on server.', 500, 'Payment verification service is temporarily unavailable.');
+    }
+
+    const shasum = crypto.createHmac('sha256', keySecret);
+    shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+    const digest = shasum.digest('hex');
+
+    if (digest !== razorpay_signature) {
+      return res.status(400).json({ success: false, error: 'Signature verification failed.', message: 'Signature verification failed.' });
+    }
+
+    console.log(`[Production] Verified Razorpay Payment: ${razorpay_payment_id} for Order: ${razorpay_order_id}`);
+
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (supabaseUrl && supabaseServiceKey && userId && userId !== 'guest') {
+      const { createClient } = await import('@supabase/supabase-js');
+      const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+      
+      const { data: current, error: fetchErr } = await adminClient
+        .from('user_credits')
+        .select('current_balance, total_quota')
+        .eq('user_id', userId)
+        .single();
+
+      if (fetchErr && fetchErr.code !== 'PGRST116') {
+        console.error('[API: verify] Error fetching user_credits:', fetchErr.message);
       }
 
-      const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
-      if (!keySecret) {
-        return res.status(500).json({ error: 'Razorpay Secret Key not configured on server.' });
-      }
-
-      const shasum = crypto.createHmac('sha256', keySecret);
-      shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
-      const digest = shasum.digest('hex');
-
-      if (digest !== razorpay_signature) {
-        return res.status(400).json({ error: 'Signature verification failed. Potential tampering.' });
-      }
-
-      console.log(`[Production] Verified Razorpay Payment: ${razorpay_payment_id} for Order: ${razorpay_order_id}`);
-
-      const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-      if (supabaseUrl && supabaseServiceKey && userId && userId !== 'guest') {
-        const { createClient } = await import('@supabase/supabase-js');
-        const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+      if (current) {
+        const newCurrent = (current.current_balance || 0) + 100;
+        const newTotal = (current.total_quota || 0) + 100;
         
-        const { data: current, error: fetchErr } = await adminClient
+        await adminClient
           .from('user_credits')
-          .select('current_balance, total_quota')
-          .eq('user_id', userId)
-          .single();
-
-        if (fetchErr && fetchErr.code !== 'PGRST116') {
-          console.error('[API: verify] Error fetching user_credits:', fetchErr.message);
-        }
-
-        if (current) {
-          const newCurrent = (current.current_balance || 0) + 100;
-          const newTotal = (current.total_quota || 0) + 100;
-          
-          await adminClient
-            .from('user_credits')
-            .update({ 
-              current_balance: newCurrent, 
-              total_quota: newTotal, 
-              updated_at: new Date().toISOString() 
-            })
-            .eq('user_id', userId);
-        } else {
-          await adminClient
-            .from('user_credits')
-            .insert({
-              user_id: userId,
-              current_balance: 100,
-              total_quota: 100,
-              updated_at: new Date().toISOString()
-            });
-        }
+          .update({ 
+            current_balance: newCurrent, 
+            total_quota: newTotal, 
+            updated_at: new Date().toISOString() 
+          })
+          .eq('user_id', userId);
+      } else {
+        await adminClient
+          .from('user_credits')
+          .insert({
+            user_id: userId,
+            current_balance: 100,
+            total_quota: 100,
+            updated_at: new Date().toISOString()
+          });
       }
-
-      return res.json({ status: 'ok', verified: true });
-    } catch (error: any) {
-      console.error('Razorpay Verify Error:', error);
-      return res.status(500).json({ error: error.message || 'Signature verification failed.' });
     }
-  });
+
+    return res.json({ success: true, status: 'ok', verified: true });
+  }));
 
   app.post('/api/razorpay/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     try {
@@ -396,69 +385,53 @@ app.get(['/api/health', '/health'], (req, res) => {
     }
   });
   
-  app.get(['/api/proxy-image', '/proxy-image'], async (req, res) => {
+  app.get(['/api/proxy-image', '/proxy-image'], asyncHandler(async (req, res) => {
     const { url } = req.query;
-    if (!url || typeof url !== 'string') return res.status(400).json({ error: 'No URL provided' });
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ success: false, error: 'No URL provided', message: 'No URL provided' });
+    }
     
-    try {
-      const response = await axios.get(url, { responseType: 'arraybuffer' });
-      const contentType = response.headers['content-type'] as string;
-      res.setHeader('Content-Type', contentType || 'image/png');
-      res.send(response.data);
-    } catch (error: any) {
-      res.status(500).json({ error: 'Failed to proxy image' });
+    const response = await axios.get(url, { responseType: 'arraybuffer' });
+    const contentType = response.headers['content-type'] as string;
+    res.setHeader('Content-Type', contentType || 'image/png');
+    res.send(response.data);
+  }));
+
+  app.post(['/api/gemini/generate', '/gemini/generate'], requireAuth, aiLimiter, asyncHandler(async (req: any, res: any) => {
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.VITE_GeminiAPI;
+    const openaiKey = process.env.OPENAI_API_KEY;
+    
+    if (!geminiKey && (!req.body?.model || !req.body.model.toLowerCase().includes('dall-e'))) {
+       throw new AppError("Gemini API Key is not configured on the server.", 500, "AI service configuration is incomplete.");
     }
-  });
-
-  app.post(['/api/gemini/generate', '/gemini/generate'], requireAuth, aiLimiter, async (req: any, res: any) => {
-    try {
-      const geminiKey = process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.VITE_GeminiAPI;
-      const openaiKey = process.env.OPENAI_API_KEY;
-      
-      console.log('--- [API: generate] Verification ---');
-      console.log('Gemini API Key defined:', !!geminiKey);
-      console.log('OpenAI API Key defined (for DALL-E 3):', !!openaiKey);
-      console.log('Selected Model:', req.body?.model);
-      console.log('------------------------------------');
-      
-      if (!geminiKey && (!req.body?.model || !req.body.model.toLowerCase().includes('dall-e'))) {
-         console.warn("[SECURITY WARNING] No Gemini API Key found in process.env! Requests will fail.");
-      }
-      if (!openaiKey && req.body?.model && req.body.model.toLowerCase().includes('dall-e')) {
-         console.warn("[SECURITY WARNING] No OpenAI API Key found in process.env! DALL-E 3 request will fail.");
-      }
-
-      const { model, contents, config } = req.body;
-      const ai = getAI();
-      const response = await ai.models.generateContent({ model, contents, config });
-      
-      let textStr = '';
-      try {
-          if (typeof response.text === 'string') {
-              textStr = response.text;
-          } else {
-              textStr = response.text; // might throw getter error if no text
-          }
-      } catch (e) {
-          // It's an image or something else without text parts
-      }
-
-      res.json({
-        text: textStr,
-        candidates: response.candidates,
-        usageMetadata: response.usageMetadata,
-        modelVersion: response.modelVersion,
-        promptFeedback: response.promptFeedback
-      });
-    } catch (error: any) {
-      console.error('Gemini Proxy Error:', error);
-      res.status(500).json({ 
-          error: error.message || 'Failed to generate content.',
-          details: error.statusText || error.name || 'Unknown API Error',
-          status: error.status || 500
-      });
+    if (!openaiKey && req.body?.model && req.body.model.toLowerCase().includes('dall-e')) {
+       throw new AppError("OpenAI API Key is not configured on the server.", 500, "DALL-E service configuration is incomplete.");
     }
-  });
+
+    const { model, contents, config } = req.body;
+    const ai = getAI();
+    const response = await ai.models.generateContent({ model, contents, config });
+    
+    let textStr = '';
+    try {
+        if (typeof response.text === 'string') {
+            textStr = response.text;
+        } else {
+            textStr = response.text;
+        }
+    } catch (e) {
+        // Image or multi-part content
+    }
+
+    res.json({
+      success: true,
+      text: textStr,
+      candidates: response.candidates,
+      usageMetadata: response.usageMetadata,
+      modelVersion: response.modelVersion,
+      promptFeedback: response.promptFeedback
+    });
+  }));
 
   async function generateServerAIInsights(data: any): Promise<string[]> {
     try {
@@ -595,132 +568,112 @@ app.get(['/api/health', '/health'], (req, res) => {
     };
   }
 
-  app.post(['/api/analyze-shopify', '/analyze-shopify'], requireAuth, upload.array('files'), async (req: any, res: any) => {
-    try {
-      if (!req.files || (req.files as Express.Multer.File[]).length === 0) {
-        return res.status(400).json({ error: "No files uploaded" });
-      }
-      const files = req.files as Express.Multer.File[];
-      const pythonServiceUrl = process.env.PYTHON_SERVICE_URL;
-      const internalSecret = process.env.PYTHON_SERVICE_SECRET || process.env.INTERNAL_SECRET || '';
-
-      let analysisResult: any = null;
-
-      if (pythonServiceUrl) {
-        try {
-          const FormData = (await import('form-data')).default;
-          const axios = (await import('axios')).default;
-          const formData = new FormData();
-
-          for (const file of files) {
-            formData.append('files', file.buffer, {
-              filename: file.originalname,
-              contentType: file.mimetype || 'text/csv'
-            });
-          }
-
-          const response = await axios.post(`${pythonServiceUrl.replace(/\/$/, '')}/analyze`, formData, {
-            headers: {
-              ...formData.getHeaders(),
-              'X-Internal-Secret': internalSecret
-            },
-            timeout: 30000
-          });
-
-          analysisResult = response.data;
-        } catch (pyErr: any) {
-          console.warn('Python service call failed, using local server fallback calculation:', pyErr.message);
-        }
-      }
-
-      if (!analysisResult) {
-        analysisResult = parseShopifyCsvsLocally(files);
-      }
-
-      // Generate server-side AI insights via Gemini
-      const aiInsights = await generateServerAIInsights(analysisResult);
-      analysisResult.aiInsights = aiInsights;
-
-      res.json(analysisResult);
-    } catch (error: any) {
-      console.error('Data Analyst Error:', error.message);
-      res.status(500).json({ error: error.message || 'Failed to analyze data.' });
+  app.post(['/api/analyze-shopify', '/analyze-shopify'], requireAuth, upload.array('files'), asyncHandler(async (req: any, res: any) => {
+    if (!req.files || (req.files as Express.Multer.File[]).length === 0) {
+      return res.status(400).json({ success: false, error: "No files uploaded", message: "No files uploaded" });
     }
-  });
+    const files = req.files as Express.Multer.File[];
+    const pythonServiceUrl = process.env.PYTHON_SERVICE_URL;
+    const internalSecret = process.env.PYTHON_SERVICE_SECRET || process.env.INTERNAL_SECRET || '';
 
-  app.post(['/api/remove-bg-pro', '/remove-bg-pro'], requireAuth, aiLimiter, async (req: any, res: any) => {
+    let analysisResult: any = null;
+
+    if (pythonServiceUrl) {
+      try {
+        const FormData = (await import('form-data')).default;
+        const axios = (await import('axios')).default;
+        const formData = new FormData();
+
+        for (const file of files) {
+          formData.append('files', file.buffer, {
+            filename: file.originalname,
+            contentType: file.mimetype || 'text/csv'
+          });
+        }
+
+        const response = await axios.post(`${pythonServiceUrl.replace(/\/$/, '')}/analyze`, formData, {
+          headers: {
+            ...formData.getHeaders(),
+            'X-Internal-Secret': internalSecret
+          },
+          timeout: 30000
+        });
+
+        analysisResult = response.data;
+      } catch (pyErr: any) {
+        console.warn('Python service call failed, using local server fallback calculation:', pyErr.message);
+      }
+    }
+
+    if (!analysisResult) {
+      analysisResult = parseShopifyCsvsLocally(files);
+    }
+
+    // Generate server-side AI insights via Gemini
+    const aiInsights = await generateServerAIInsights(analysisResult);
+    analysisResult.aiInsights = aiInsights;
+    analysisResult.success = true;
+
+    res.json(analysisResult);
+  }));
+
+  app.post(['/api/remove-bg-pro', '/remove-bg-pro'], requireAuth, aiLimiter, asyncHandler(async (req: any, res: any) => {
     const { imageUrl, imageBase64 } = req.body;
     const proBgUrl = process.env.PRO_BG_API_URL;
     const apiKey = process.env.REMOVE_BG_API_KEY;
 
     if (!proBgUrl && !apiKey) {
-      return res.status(500).json({ error: 'Pro Background API not configured. Set PRO_BG_API_URL or REMOVE_BG_API_KEY.' });
+      throw new AppError('Pro Background API not configured.', 500, 'Background removal service is not configured.');
     }
 
     if (!imageUrl && !imageBase64) {
-      return res.status(400).json({ error: 'No image source provided' });
+      return res.status(400).json({ success: false, error: 'No image source provided', message: 'No image source provided' });
     }
 
-    try {
-      const FormData = (await import('form-data')).default;
-      const axios = (await import('axios')).default;
+    const FormData = (await import('form-data')).default;
+    const axios = (await import('axios')).default;
 
-      const formData = new FormData();
-      
-      const base64Data = imageBase64 ? imageBase64.replace(/^data:image\/\w+;base64,/, "") : null;
+    const formData = new FormData();
+    const base64Data = imageBase64 ? imageBase64.replace(/^data:image\/\w+;base64,/, "") : null;
 
-      if (imageUrl) {
-        formData.append('image_url', imageUrl);
-      } else if (base64Data) {
-        const buffer = Buffer.from(base64Data, 'base64');
-        formData.append('image_file', buffer, { filename: 'image.png' });
-      }
-
-      let response;
-      if (proBgUrl) {
-          // Sovereign Custom Background Removal Server
-          response = await axios.post(proBgUrl, formData, {
-            headers: { ...formData.getHeaders() },
-            responseType: 'arraybuffer',
-          });
-      } else {
-          // Fallback to remove.bg API
-          formData.append('size', 'auto');
-          response = await axios.post('https://api.remove.bg/v1.0/removebg', formData, {
-            headers: {
-              ...formData.getHeaders(),
-              'X-API-Key': apiKey,
-            },
-            responseType: 'arraybuffer',
-          });
-      }
-
-      const base64Result = Buffer.from(response.data, 'binary').toString('base64');
-      res.json({ 
-        imageUrl: `data:image/png;base64,${base64Result}`,
-        success: true 
-      });
-    } catch (error: any) {
-      console.error('Pro BG Error:', error.response?.data?.toString() || error.message);
-      const errorMessage = error.response?.data?.toString() || 'Failed to remove background';
-      res.status(500).json({ error: errorMessage });
+    if (imageUrl) {
+      formData.append('image_url', imageUrl);
+    } else if (base64Data) {
+      const buffer = Buffer.from(base64Data, 'base64');
+      formData.append('image_file', buffer, { filename: 'image.png' });
     }
-  });
+
+    let response;
+    if (proBgUrl) {
+        response = await axios.post(proBgUrl, formData, {
+          headers: { ...formData.getHeaders() },
+          responseType: 'arraybuffer',
+        });
+    } else {
+        formData.append('size', 'auto');
+        response = await axios.post('https://api.remove.bg/v1.0/removebg', formData, {
+          headers: {
+            ...formData.getHeaders(),
+            'X-API-Key': apiKey,
+          },
+          responseType: 'arraybuffer',
+        });
+    }
+
+    const base64Result = Buffer.from(response.data, 'binary').toString('base64');
+    res.json({ 
+      imageUrl: `data:image/png;base64,${base64Result}`,
+      success: true 
+    });
+  }));
 
   // PREVENT VITE FROM SWALLOWING UNHANDLED API CALLS WITH SPA FALLBACK
   app.all('/api/*all', (req, res) => {
     res.status(404).json({ error: `API Route not found: ${req.method} ${req.path}` });
   });
 
-  // Default Error Handler (must be last)
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error('Unhandled Server Error:', err);
-    if (req.path.startsWith('/api/')) {
-        res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
-    } else {
-        next(err);
-    }
-  });
+  // Centralized Global Error Handler Middleware (must be last)
+  app.use(globalErrorHandler);
 
   // Export default for Vercel Serverless Functions
   export default app;
