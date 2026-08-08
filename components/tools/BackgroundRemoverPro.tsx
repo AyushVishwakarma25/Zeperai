@@ -6,6 +6,22 @@ interface BackgroundRemoverProProps {
   onRefundCredits: (cost: number) => void;
 }
 
+async function readErrorMessage(res: Response): Promise<string> {
+  let raw = '';
+  try {
+    raw = await res.text();
+  } catch {
+    return 'Processing failed';
+  }
+  if (!raw) return 'Processing failed';
+  try {
+    const data = JSON.parse(raw);
+    return data.error || data.message || data.detail || raw;
+  } catch {
+    return raw;
+  }
+}
+
 export default function BackgroundRemoverPro({ onDeductCredits, onRefundCredits }: BackgroundRemoverProProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<"idle" | "processing" | "done" | "error">("idle");
@@ -57,14 +73,12 @@ export default function BackgroundRemoverPro({ onDeductCredits, onRefundCredits 
       }
 
       if (!res.ok) {
-        let errStr = "Processing failed";
-        try {
-            const data = await res.json();
-            errStr = data.error || errStr;
-        } catch {
-            errStr = await res.text();
-        }
-        throw new Error(errStr);
+        throw new Error(await readErrorMessage(res));
+      }
+
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.startsWith('image/')) {
+        throw new Error(await readErrorMessage(res));
       }
 
       const blob = await res.blob();

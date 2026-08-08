@@ -41,7 +41,11 @@ export default function BackgroundRemover() {
       setResultUrl(resultObjUrl);
       setStatus("done");
     } catch (e: any) {
-      setErrorMsg(e.message || "Failed to process image");
+      let msg = e?.message || "Failed to process image";
+      if (msg.includes("Failed to fetch") || String(e).includes("Failed to fetch")) {
+        msg = "Unable to download AI model weights (network error). Please check your connection or try the Pro Tier.";
+      }
+      setErrorMsg(msg);
       setStatus("error");
     }
   }, []);

@@ -832,7 +832,21 @@ app.get(['/api/health', '/health'], (req, res) => {
             throw new AppError('Background removal service is not configured.', 500, 'Background removal service is not configured.');
         }
         
-        res.set('Content-Type', 'image/png');
+        const upstreamContentType = String(response.headers['content-type'] || response.headers['Content-Type'] || '');
+        if (upstreamContentType && !upstreamContentType.startsWith('image/')) {
+            let errorText = 'Service returned an invalid non-image response.';
+            try {
+                const rawText = Buffer.from(response.data).toString('utf-8');
+                const json = JSON.parse(rawText);
+                errorText = json.error || json.message || json.detail || rawText.substring(0, 300);
+            } catch {
+                const rawText = Buffer.from(response.data).toString('utf-8');
+                if (rawText) errorText = rawText.substring(0, 300);
+            }
+            throw new AppError(errorText, 500, errorText);
+        }
+        
+        res.set('Content-Type', upstreamContentType || 'image/png');
         res.set('Cache-Control', 'no-store');
         res.send(Buffer.from(response.data, 'binary'));
     } catch (error: any) {
@@ -843,16 +857,35 @@ app.get(['/api/health', '/health'], (req, res) => {
              throw new AppError("Image processing took too long. Please try again.", 504, "Image processing took too long. Please try again.");
         }
         
+        let upstreamDetail = "";
+        if (error.response?.data) {
+            try {
+                const text = Buffer.isBuffer(error.response.data) 
+                  ? error.response.data.toString('utf-8')
+                  : typeof error.response.data === 'string'
+                  ? error.response.data
+                  : JSON.stringify(error.response.data);
+                const parsed = JSON.parse(text);
+                upstreamDetail = parsed.error || parsed.message || parsed.detail || text;
+            } catch {
+                upstreamDetail = typeof error.response.data === 'string'
+                  ? error.response.data
+                  : Buffer.isBuffer(error.response.data)
+                  ? error.response.data.toString('utf-8')
+                  : '';
+            }
+        }
+
         const status = error.response?.status;
         if (status === 401) {
-            throw new AppError("Unable to authenticate with the image processing service.", 401, "Unable to authenticate with the image processing service.");
+            throw new AppError(upstreamDetail || "Unable to authenticate with the image processing service.", 401, upstreamDetail || "Unable to authenticate with the image processing service.");
         } else if (status === 400) {
-            throw new AppError("Please upload a PNG, JPG, JPEG, or WebP image up to 15 MB.", 400, "Please upload a PNG, JPG, JPEG, or WebP image up to 15 MB.");
+            throw new AppError(upstreamDetail || "Please upload a PNG, JPG, JPEG, or WebP image up to 15 MB.", 400, upstreamDetail || "Please upload a PNG, JPG, JPEG, or WebP image up to 15 MB.");
         } else if (status === 413) {
             throw new AppError("Image is too large. Please upload an image under 15 MB.", 413, "Image is too large. Please upload an image under 15 MB.");
         }
         
-        throw new AppError("Something went wrong while processing your image. Please try again.", 500, "Something went wrong while processing your image. Please try again.");
+        throw new AppError(upstreamDetail || "Something went wrong while processing your image. Please try again.", status || 500, upstreamDetail || "Something went wrong while processing your image. Please try again.");
     }
   }));
 
