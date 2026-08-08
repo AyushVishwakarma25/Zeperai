@@ -103,7 +103,7 @@ export const BackgroundRemoverLandingPage: React.FC<Props> = ({ user, onDeductCr
                     activeTab === 'pro' ? 'bg-white/20 text-white' : 'bg-[#4452FB]/10 text-[#4452FB]'
                   }`}
                 >
-                  GPU
+                  HD
                 </span>
               </button>
             </div>
@@ -127,7 +127,7 @@ export const BackgroundRemoverLandingPage: React.FC<Props> = ({ user, onDeductCr
           {[
             { value: '<2s', label: 'Average processing time' },
             { value: '99.2%', label: 'Edge accuracy on hair & fur' },
-            { value: '4M+', label: 'Product photos processed' },
+            { value: 'HD', label: 'Full resolution export' },
             { value: '0', label: 'Signups needed for free tier' },
           ].map((stat) => (
             <div key={stat.label}>

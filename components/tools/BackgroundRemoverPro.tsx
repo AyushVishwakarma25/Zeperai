@@ -101,11 +101,11 @@ export default function BackgroundRemoverPro({ onDeductCredits, onRefundCredits 
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-800">Pro Background Remover</h2>
-          <p className="text-sm text-slate-500">Uses BiRefNet for flawless edges, hair, and fur.</p>
+          <p className="text-sm text-slate-500">High precision edge detection for clean cutouts, hair, and fine details.</p>
         </div>
         <div className="flex flex-col items-end">
             <span className="text-xs font-medium bg-primary/10 text-primary px-3 py-1 rounded-full border border-primary/20">
-            Cloud GPU
+            Pro Engine
             </span>
             <span className="text-xs font-semibold text-slate-400 mt-1">2 Credits</span>
         </div>
@@ -155,7 +155,7 @@ export default function BackgroundRemoverPro({ onDeductCredits, onRefundCredits 
             <div className="h-full bg-primary w-full animate-pulse" />
           </div>
           <p className="text-xs text-slate-500 text-center font-medium">
-            Processing with Pro model on Cloud GPU...
+            Processing image with Pro model...
           </p>
         </div>
       )}

@@ -750,12 +750,13 @@ app.get(['/api/health', '/health'], (req, res) => {
     }
 
     let response;
-    if (apiKey) {
+    if (proBgUrl) {
+        const headers: Record<string, string> = { ...formData.getHeaders() };
+        if (apiKey) {
+          headers['X-Internal-Key'] = apiKey;
+        }
         response = await axios.post(`${proBgUrl}/remove-background`, formData, {
-          headers: { 
-            ...formData.getHeaders(),
-            'X-Internal-Key': apiKey
-          },
+          headers,
           responseType: 'arraybuffer',
         });
     } else if (process.env.REMOVE_BG_API_KEY) {
@@ -805,14 +806,15 @@ app.get(['/api/health', '/health'], (req, res) => {
     
     try {
         let response;
-        if (INTERNAL_API_KEY) {
+        if (PRO_SERVICE_URL) {
             const formData = new FormData();
             formData.append('file', file.buffer, { filename: file.originalname || 'image.png', contentType: file.mimetype });
+            const headers: Record<string, string> = { ...formData.getHeaders() };
+            if (INTERNAL_API_KEY) {
+                headers['X-Internal-Key'] = INTERNAL_API_KEY;
+            }
             response = await axios.post(`${PRO_SERVICE_URL}/remove-background`, formData, {
-                headers: { 
-                    ...formData.getHeaders(),
-                    'X-Internal-Key': INTERNAL_API_KEY
-                },
+                headers,
                 responseType: 'arraybuffer',
                 timeout: 60000,
             });
