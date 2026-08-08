@@ -67,19 +67,13 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
             break;
 
         case AppMode.Fashion:
-            // Fashion Mode Priority: Bulk > Poses > Batch Size
             if (params.bulkImages && params.bulkImages.length > 0) {
-                // If uploading multiple garments/refs, cost is per garment (Batch processing)
                 baseVariations = params.bulkImages.length;
             } else if (params.fashionPose && params.fashionPose.length > 0) {
-                // If specific poses are selected, cost is number of poses
                 let maxPoses = userTier === 'PayAsYouGo' ? 12 : 1;
                 baseVariations = Math.min(params.fashionPose.length, maxPoses);
             } else {
-                // Standard generation batch size slider
-                let maxBatch = userTier === 'PayAsYouGo' ? 12 : 1;
-                const requested = params.batchSize || 1;
-                baseVariations = Math.min(requested, maxBatch);
+                baseVariations = 1;
             }
             break;
 
@@ -107,9 +101,7 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
             if (params.bulkImages && params.bulkImages.length > 0) {
                 baseVariations = params.bulkImages.length;
             } else {
-                let maxBatch = userTier === 'PayAsYouGo' ? 12 : 1;
-                const requested = params.batchSize || 1;
-                baseVariations = Math.min(requested, maxBatch);
+                baseVariations = 1;
             }
             break;
     }

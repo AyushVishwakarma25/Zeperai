@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import type { GenerateImageParams } from '../../types';
 import { AD_TEMPLATES, COMPARISON_LAYOUT_OPTIONS } from '../../constants';
@@ -8,8 +7,12 @@ import { Icon } from '../ui/Icon';
 import { HelpLabel, BestForLabel } from './shared';
 import { CreativeScorecard } from '../CreativeScorecard';
 import { StyleSelector } from '../ui/StyleSelector';
-import { Spinner } from '../ui/Spinner';
-import { generateAdCopy } from '../../services/geminiService';
+import { generateAdCopy, generateAdBackground } from '../../services/geminiService';
+import { AdPromptLibraryPicker } from './AdPromptLibraryPicker';
+import { AdElementEditorPanel } from './AdElementEditorPanel';
+import { AdLayerOverlay } from './AdLayerOverlay';
+import { AD_CREATIVE_PROMPT_LIBRARY, AdPromptTemplate } from './adCreativePromptLibrary';
+import { type AdElementKey } from './layoutBlueprints';
 
 interface AdCreativeControlsProps {
     params: GenerateImageParams;
@@ -21,6 +24,8 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
 }) => {
     const [showScorecard, setShowScorecard] = useState(false);
     const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
+    const [isGeneratingBg, setIsGeneratingBg] = useState(false);
+    const [selectedElement, setSelectedElement] = useState<AdElementKey | null>('title');
 
     // Convert comparison layout options to StyleSelector format
     const comparisonStyleSelectorOptions = COMPARISON_LAYOUT_OPTIONS.map(opt => ({
@@ -29,24 +34,38 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
         thumbnail: opt.thumbnail
     }));
 
-    const handleTemplateSelect = (templateId: string) => {
-        const template = AD_TEMPLATES.find(t => t.id === templateId);
-        if (template) {
-            handleParamChange('adTemplateId', template.id);
-            handleParamChange('adLayout', template.adLayout);
-            handleParamChange('adFontFamily', template.fontFamily);
-            handleParamChange('adTextColor', template.textColor);
+    const handleGenerateBackground = async () => {
+        const template = AD_CREATIVE_PROMPT_LIBRARY.find(t => t.id === params.adTemplateId);
+        if (!template) {
+            alert("Please select an Ad Template first.");
+            return;
+        }
+        setIsGeneratingBg(true);
+        try {
+            const productDesc = params.productDescription || 'featured product';
+            const brandColor = 'deep blue';
+            const promptText = template.prompt
+                .replace(/\[PRODUCT\]/g, productDesc)
+                .replace(/\[BRAND_COLOR\]/g, brandColor);
+            
+            const bgUrl = await generateAdBackground(promptText, template.aspectRatio);
+            handleParamChange('adBackgroundImageUrl', bgUrl);
+        } catch (err) {
+            console.error('Failed to generate ad background:', err);
+        } finally {
+            setIsGeneratingBg(false);
         }
     };
 
     const handleAutoGenerateCopy = async () => {
         if (!params.productDescription) {
-            alert("Please add a Product Description in the Settings (Common Controls) below to generate copy.");
+            alert("Please add a Product Description in Common Controls below to generate copy.");
             return;
         }
         setIsGeneratingCopy(true);
         try {
-            const templateName = AD_TEMPLATES.find(t => t.id === params.adTemplateId)?.name || 'Modern';
+            const templateName = AD_CREATIVE_PROMPT_LIBRARY.find(t => t.id === params.adTemplateId)?.name 
+                || AD_TEMPLATES.find(t => t.id === params.adTemplateId)?.name || 'Modern';
             const result = await generateAdCopy(params.productDescription, templateName);
             handleParamChange('adTitle', result.title);
             handleParamChange('adSubheading', result.subheading);
@@ -58,24 +77,29 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
         }
     };
 
+    const currentTemplate = AD_CREATIVE_PROMPT_LIBRARY.find(t => t.id === params.adTemplateId);
+    const layoutBlueprintId = currentTemplate ? currentTemplate.layoutBlueprintId : (params.adTemplateId || null);
+
     return (
         <>
             <div className="mt-6 flex justify-between items-start mb-4">
                 <BestForLabel text={params.isComparisonMode 
                     ? "D2C brands comparing their product vs competitors or generic alternatives." 
-                    : "High-conversion social media ads with integrated BI performance metrics."} 
+                    : "High-conversion social media ads with interactive background AI and Canva-style editable layers."} 
                 />
             </div>
 
             {/* Mode Switcher */}
             <div className="flex bg-slate-100 p-1 rounded-lg mb-6">
                 <button
+                    type="button"
                     onClick={() => handleParamChange('isComparisonMode', false)}
                     className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${!params.isComparisonMode ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'}`}
                 >
-                    Standard Ad
+                    Standard Ad (Prompt Library v4)
                 </button>
                 <button
+                    type="button"
                     onClick={() => handleParamChange('isComparisonMode', true)}
                     className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${params.isComparisonMode ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'}`}
                 >
@@ -96,28 +120,50 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
                     </div>
                 ) : (
                     <div>
-                        <HelpLabel label="Ad Template" tooltip="Choose a pre-designed template with optimized layouts, fonts, and AI prompts." />
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            {AD_TEMPLATES.map(template => (
-                                <button
-                                    key={template.id}
-                                    onClick={() => handleTemplateSelect(template.id)}
-                                    className={`relative flex flex-col items-center p-3 rounded-xl border-2 transition-all text-left ${
-                                        params.adTemplateId === template.id 
-                                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
-                                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    <div className={`w-full aspect-video rounded-lg mb-2 flex items-center justify-center border ${template.previewColor}`}>
-                                        <span className={`text-xs font-bold ${template.textColor} ${template.fontFamily}`}>
-                                            {template.name}
-                                        </span>
-                                    </div>
-                                    <span className="text-sm font-medium text-slate-800 w-full truncate">{template.name}</span>
-                                    <span className="text-xs text-slate-500 w-full truncate">{template.category}</span>
-                                </button>
-                            ))}
-                        </div>
+                        <AdPromptLibraryPicker 
+                            params={params} 
+                            handleParamChange={handleParamChange} 
+                        />
+
+                        {/* Editable Overlay & Editor Panel */}
+                        {params.adTemplateId && (
+                            <div className="mt-6 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                        <Icon name="layers" className="w-4 h-4 text-primary" />
+                                        Visual Ad Canvas & Layer Editor
+                                    </h4>
+                                    <Button
+                                        variant="primary"
+                                        className="h-8 py-0.5 px-3 text-xs gap-1"
+                                        onClick={handleGenerateBackground}
+                                        disabled={isGeneratingBg || !params.adTemplateId}
+                                        isLoading={isGeneratingBg}
+                                    >
+                                        <Icon name="sparkles" className="w-3.5 h-3.5" />
+                                        {params.adBackgroundImageUrl ? 'Regenerate Background' : 'Generate Background Scene'}
+                                    </Button>
+                                </div>
+
+                                <AdLayerOverlay 
+                                    backgroundImageUrl={params.adBackgroundImageUrl || null}
+                                    layoutBlueprintId={layoutBlueprintId}
+                                    params={params}
+                                    handleParamChange={handleParamChange}
+                                    selectedElement={selectedElement}
+                                    onSelectElement={setSelectedElement}
+                                    onGenerateBackground={handleGenerateBackground}
+                                    isGeneratingBg={isGeneratingBg}
+                                />
+
+                                <AdElementEditorPanel 
+                                    selectedElement={selectedElement}
+                                    layoutBlueprintId={layoutBlueprintId}
+                                    params={params}
+                                    handleParamChange={handleParamChange}
+                                />
+                            </div>
+                        )}
                     </div>
                 )}
                 

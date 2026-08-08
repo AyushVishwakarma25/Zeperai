@@ -133,21 +133,27 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onSetVie
 
     return (
         <div className="w-full h-full bg-main flex flex-col overflow-y-auto">
-            <header className="flex-shrink-0 flex items-center justify-between p-4 md:p-6 border-b border-border-light bg-white/50 backdrop-blur-sm z-10 sticky top-0">
-                <div className="flex items-center">
-                    <button onClick={onToggleSidebar} className="p-2 mr-2 rounded-md text-text-secondary hover:bg-gray-100 lg:hidden">
-                        <Icon name="menu" className="w-6 h-6" />
+            <header className="flex-shrink-0 flex items-center justify-between p-3.5 sm:p-4 md:p-6 border-b border-border-light bg-white/50 backdrop-blur-sm z-10 sticky top-0">
+                <div className="flex items-center min-w-0 mr-2">
+                    <button onClick={onToggleSidebar} className="p-1.5 mr-1.5 sm:mr-2 rounded-md text-text-secondary hover:bg-gray-100 lg:hidden shrink-0">
+                        <Icon name="menu" className="w-5 h-5 sm:w-6 sm:h-6" />
                     </button>
-                    <div className="p-2 bg-indigo-100 rounded-xl mr-3 text-indigo-600">
-                        <Icon name="chart-bar" className="w-6 h-6" />
+                    <div className="p-1.5 sm:p-2 bg-indigo-100 rounded-xl mr-2 sm:mr-3 text-indigo-600 shrink-0">
+                        <Icon name="chart-bar" className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-text-primary font-batangas">Brand Intelligence</h1>
-                        <p className="text-sm text-text-secondary">AI-driven performance analytics for your creative assets.</p>
+                    <div className="min-w-0">
+                        <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-text-primary font-batangas truncate">Brand Intelligence</h1>
+                        <p className="text-xs sm:text-sm text-text-secondary truncate">AI-driven performance analytics for your creative assets.</p>
                     </div>
                 </div>
-                <Button onClick={() => onSetView(View.MyDesigns)} variant="secondary" className="hidden sm:flex">
-                    View Assets
+                <Button 
+                  onClick={() => onSetView(View.MyDesigns)} 
+                  variant="secondary" 
+                  className="!px-2.5 !py-1.5 sm:!px-3.5 sm:!py-2 !text-xs sm:!text-sm whitespace-nowrap shrink-0 font-medium"
+                >
+                    <Icon name="arrow-left" className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 shrink-0" />
+                    <span className="hidden sm:inline">View Assets</span>
+                    <span className="sm:hidden">Assets</span>
                 </Button>
             </header>
 

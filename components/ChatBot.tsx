@@ -117,14 +117,14 @@ export const ChatBot: React.FC<ChatBotProps> = ({ onDeductCredits, onRefundCredi
     };
 
     return (
-        <div className="fixed bottom-6 right-6 z-50">
+        <div className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 ${isOpen ? 'z-50' : 'z-30'}`}>
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
                         initial={{ opacity: 0, y: 20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                        className="mb-4 w-96 h-[500px] bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
+                        className="mb-3 sm:mb-4 w-[calc(100vw-2rem)] sm:w-96 max-w-[384px] h-[75vh] sm:h-[500px] max-h-[500px] bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
                     >
                         {/* Header */}
                         <div className="p-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex items-center justify-between">
@@ -153,7 +153,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({ onDeductCredits, onRefundCredi
                                         <Bot className="w-8 h-8 text-indigo-600" />
                                     </div>
                                     <p className="text-gray-500 text-sm px-8">
-                                        Hi! I'm Zeper. How can I help you with your creative workflow today?
+                                        Hi! I'm Zeper. How can I help you with your creative designs today?
                                     </p>
                                 </div>
                             )}

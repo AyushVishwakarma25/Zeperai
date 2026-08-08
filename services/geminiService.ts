@@ -623,13 +623,12 @@ export const generateImages = async (params: GenerateImageParams, userTier: 'Fre
             }
         }
     } else if (params.appMode === AppMode.Fashion) {
-        // Fashion Mode Logic: Poses OR Batch Size
+        // Fashion Mode Logic: Poses
         const poses = (params.fashionPose && params.fashionPose.length > 0) ? params.fashionPose : [];
         if (poses.length > 0) {
             for (const pose of poses) variations.push({ pose });
         } else {
-            const count = params.batchSize || 1;
-            for (let i = 0; i < count; i++) variations.push({});
+            variations.push({});
         }
     } else if (params.appMode === AppMode.Festival) {
          // Festival Mode Logic: Presets
@@ -644,10 +643,7 @@ export const generateImages = async (params: GenerateImageParams, userTier: 'Fre
         variations.push({});
     } else {
         // Standard / Influencer / AdCreative / Others
-        const count = params.batchSize || 1;
-        for (let i = 0; i < count; i++) {
-            variations.push({});
-        }
+        variations.push({});
     }
 
     const totalOps = aspectRatios.length * variations.length;
@@ -1045,3 +1041,38 @@ export const getABTestSuggestions = async (image: GeneratedImage): Promise<ABTes
         ];
     }
 };
+
+export async function generateAdBackground(prompt: string, aspectRatioStr: string): Promise<string> {
+    const ai = getAI();
+    let aspectRatioConfig: "1:1" | "3:4" | "4:3" | "9:16" | "16:9" = "3:4";
+    if (aspectRatioStr === '9:16') aspectRatioConfig = '9:16';
+    else if (aspectRatioStr === '1:1') aspectRatioConfig = '1:1';
+    else if (aspectRatioStr === '3:4' || aspectRatioStr === '4:5') aspectRatioConfig = '3:4';
+    else if (aspectRatioStr === '16:9') aspectRatioConfig = '16:9';
+
+    const contents = [{ text: prompt }];
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3.1-flash-image',
+            contents: { parts: contents },
+            config: {
+                imageConfig: {
+                    aspectRatio: aspectRatioConfig,
+                    imageSize: '1K'
+                }
+            }
+        });
+
+        for (const part of (response.candidates?.[0]?.content?.parts || [])) {
+            if (part.inlineData) {
+                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            }
+        }
+        throw new Error("Failed to generate background image.");
+    } catch (e) {
+        console.error("generateAdBackground error:", e);
+        return `https://picsum.photos/seed/${encodeURIComponent(prompt.slice(0, 20))}/800/1000`;
+    }
+}
+

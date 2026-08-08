@@ -12,22 +12,15 @@ interface CommonControlsProps {
     params: GenerateImageParams;
     handleParamChange: (param: keyof GenerateImageParams, value: any) => void;
     handleAspectRatioChange: (ratio: AspectRatio) => void; 
-    batchOptions: number[];
+    batchOptions?: number[];
     userTier: 'Free' | 'PayAsYouGo';
     hideMultiSelectLabel?: boolean;
 }
 
 export const CommonControls: React.FC<CommonControlsProps> = ({ 
-    params, handleParamChange, handleAspectRatioChange, batchOptions, userTier, hideMultiSelectLabel 
+    params, handleParamChange, handleAspectRatioChange, userTier, hideMultiSelectLabel 
 }) => {
-    
-    const maxBatch = userTier === 'PayAsYouGo' ? 12 : 1;
-    const canMultiSelect = true; 
-    
-    // Hide batch controls if multiple poses are selected in Fashion mode to prevent combinatorial explosion
-    const hasMultiplePoses = params.appMode === AppMode.Fashion && params.fashionPose && params.fashionPose.length > 0;
-    const hasMultipleProductOptions = params.appMode === AppMode.Product && ((params.productStylePresets?.length || 0) > 1 || (params.selectedAngles?.length || 0) > 1);
-    const showBatchControls = [AppMode.Influencer, AppMode.Fashion, AppMode.AdCreative, AppMode.Product].includes(params.appMode) && !hasMultiplePoses && !hasMultipleProductOptions;
+    const canMultiSelect = true;
 
     return (
         <div className="mt-8 border-t border-slate-100 pt-8">
@@ -221,35 +214,6 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
                     );
                 })()}
             </div>
-
-            {showBatchControls && batchOptions.length > 0 && (
-                <div className="mt-8">
-                    <HelpLabel label="Batch Size" tooltip="Number of variations generated in one go. Higher batches save time." />
-                    <div className="flex gap-2">
-                        {batchOptions.map(count => {
-                            const isDisabled = count > maxBatch;
-                            const isSelected = params.batchSize === count;
-                            return (
-                                <button
-                                    key={count}
-                                    onClick={() => !isDisabled && handleParamChange('batchSize', count)}
-                                    disabled={isDisabled}
-                                    className={`
-                                        flex-1 py-3 px-4 rounded-xl border-2 font-bold text-sm flex items-center justify-center transition-all
-                                        ${isSelected 
-                                            ? 'border-slate-900 bg-slate-900 text-white shadow-md' 
-                                            : (isDisabled 
-                                                ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed' 
-                                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50')}
-                                    `}
-                                >
-                                    {count} {isDisabled && <Icon name="lock" className="w-3 h-3 ml-1.5" />}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

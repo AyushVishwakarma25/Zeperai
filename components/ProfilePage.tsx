@@ -55,22 +55,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
 
   return (
     <div className="w-full h-full bg-main flex flex-col overflow-y-auto">
-      <header className="flex-shrink-0 flex items-center justify-between p-4 md:p-6">
-        <div className="flex items-center">
-            <button onClick={onToggleSidebar} className="p-2 mr-2 rounded-md text-text-secondary hover:bg-gray-100 lg:hidden">
-                <Icon name="menu" className="w-6 h-6" />
+      <header className="flex-shrink-0 flex items-center justify-between p-3.5 sm:p-4 md:p-6 border-b border-border-light bg-white">
+        <div className="flex items-center min-w-0 mr-2">
+            <button onClick={onToggleSidebar} className="p-1.5 mr-1.5 rounded-md text-text-secondary hover:bg-gray-100 lg:hidden shrink-0">
+                <Icon name="menu" className="w-5 h-5" />
             </button>
-            <button onClick={() => onSetView(View.Dashboard)} className="p-2 rounded-full text-text-secondary hover:bg-gray-100">
+            <button onClick={() => onSetView(View.Dashboard)} className="p-1.5 rounded-full text-text-secondary hover:bg-gray-100 shrink-0" title="Back to Dashboard">
                 <Icon name="arrow-left" className="w-5 h-5" />
             </button>
-            <h1 className="text-2xl font-bold text-text-primary ml-4">My Account</h1>
+            <h1 className="text-lg sm:text-2xl font-bold text-text-primary ml-2 sm:ml-4 truncate">My Account</h1>
         </div>
-        <div className='flex items-center space-x-2 md:space-x-4'>
-            <button onClick={onOpenFeedbackModal} className="px-3 py-2 text-xs sm:text-sm font-semibold text-text-secondary bg-white border border-border-light rounded-lg hover:bg-gray-50 transition-colors">
+        <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
+            <button onClick={onOpenFeedbackModal} className="px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-semibold text-text-secondary bg-white border border-border-light rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">
                 Feedback
             </button>
-            <button onClick={onUpgradePlan} className="px-3 py-2 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-primary to-purple-500 rounded-lg hover:opacity-90 transition-opacity shadow-md">
-                Upgrade Plan ✨
+            <button onClick={onUpgradePlan} className="px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-primary to-purple-500 rounded-lg hover:opacity-90 transition-opacity shadow-xs whitespace-nowrap">
+                Upgrade ✨
             </button>
         </div>
       </header>

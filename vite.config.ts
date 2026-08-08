@@ -15,7 +15,21 @@ export default defineConfig(({ mode }) => {
   const apiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY || env.API_KEY || process.env.API_KEY || env.VITE_API_KEY || process.env.VITE_API_KEY;
 
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      {
+        name: 'configure-response-headers',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.url && req.url.startsWith('/models/')) {
+              res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+              res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+            }
+            next();
+          });
+        }
+      }
+    ],
     define: {
       // FIX: Expose Supabase variables to the client via process.env
       'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),

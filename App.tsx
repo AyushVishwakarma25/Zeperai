@@ -474,7 +474,6 @@ const AppInternal: React.FC = () => {
                     onRemoveFloatingImage={() => handleFloatingImageFileChange(null)}
                     onTriggerFloatingUpload={handleTriggerFloatingUpload}
                     onOpenContentGenerator={modals.openContentGenerator}
-                    onOpenCreativeWorkflow={modals.openCreativeWorkflow}
                     userTier={userTier}
                     onInternalImageDrop={handleInternalImageDrop}
                     onFloatingImageDrop={handleFloatingImageFileChange}
@@ -489,6 +488,7 @@ const AppInternal: React.FC = () => {
                     onReportUpdate={(r) => { setShopifyReport(r); if(r) setIsShopifyReportLoaded(true); }}
                     onGenerateAdFromShopify={handleGenerateAdFromShopify}
                     onDeductCredits={handleCheckCredits} // Pass credit handler
+                    onRefundCredits={handleRefundCredits}
 
                     onRemix={handleRemix}
                     inspirationItems={inspirationItems}
@@ -576,8 +576,6 @@ const AppInternal: React.FC = () => {
                 abTestModalImage={abTestModalImage}
                 onCloseABTest={() => setAbTestModalImage(null)}
                 
-                isCreativeWorkflowModalOpen={modals.isCreativeWorkflowOpen}
-                onCloseCreativeWorkflow={modals.closeCreativeWorkflow}
                 onGenerate={handleGenerateWrapper}
                 isGenerating={creative.isLoading}
                 userTier={userTier}

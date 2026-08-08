@@ -351,13 +351,13 @@ export const LandingPage: React.FC = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:auto-rows-[240px]">
-          {/* 1. AI Creative Workflow (Wide 2x1) */}
+          {/* 1. AI Ad Creative Studio (Wide 2x1) */}
           <div className="md:col-span-2 md:row-span-1 bg-[#6366F1] rounded-3xl p-8 relative overflow-hidden group">
             <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 w-48 h-48 bg-white/20 rounded-full blur-2xl group-hover:bg-white/30 transition-all duration-500"></div>
             <div className="relative z-10 h-full flex flex-col justify-between">
               <div>
-                <div className="text-xs font-bold tracking-widest text-indigo-100 uppercase mb-2">Workflow</div>
-                <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight max-w-[280px]">AI Creative Workflow.</h3>
+                <div className="text-xs font-bold tracking-widest text-indigo-100 uppercase mb-2">Ad Studio</div>
+                <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight max-w-[280px]">AI Ad Creative Studio.</h3>
               </div>
               <div className="mt-4">
                 <div className="inline-flex items-center justify-center px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-bold rounded-lg border border-white/30">

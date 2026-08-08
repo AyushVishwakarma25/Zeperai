@@ -14,7 +14,6 @@ const ContentGenerator = lazy(() => import('./ContentGenerator'));
 const ProfileEditModal = lazy(() => import('./ProfileEditModal'));
 const BrandKitModal = lazy(() => import('./BrandKitModal'));
 const ABTestModal = lazy(() => import('./ABTestModal'));
-const CreativeWorkflow = lazy(() => import('./CreativeWorkflow').then(m => ({ default: m.CreativeWorkflow })));
 
 interface GlobalModalsProps {
     editingImage: GeneratedImage | null;
@@ -57,9 +56,6 @@ interface GlobalModalsProps {
 
     abTestModalImage: GeneratedImage | null;
     onCloseABTest: () => void;
-
-    isCreativeWorkflowModalOpen: boolean;
-    onCloseCreativeWorkflow: () => void;
     onGenerate: (params: any) => void;
     isGenerating: boolean;
     userTier: string;
@@ -125,17 +121,6 @@ export const GlobalModals: React.FC<GlobalModalsProps> = (props) => {
                     onClose={props.onCloseABTest} 
                     onGenerate={() => {}} 
                     onDeductCredits={props.onDeductCredits}
-                />
-            )}
-
-            {props.isCreativeWorkflowModalOpen && (
-                <CreativeWorkflow 
-                    brandKit={props.brandKit}
-                    onGenerate={props.onGenerate}
-                    isLoading={props.isGenerating}
-                    onClose={props.onCloseCreativeWorkflow}
-                    userTier={props.userTier}
-                    onOpenPricingModal={props.onOpenPricingModal}
                 />
             )}
         </Suspense>

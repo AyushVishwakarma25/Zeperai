@@ -377,7 +377,7 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                             fullWidth
                             className="!py-3 !text-base shadow-lg shadow-primary/20"
                         >
-                            {userTier === 'Free' ? 'Upgrade to Use Feature' : (isOnline ? (freeUsageCount < AI_WRITER_FREE_LIMIT ? 'Generate Content (Free)' : 'Generate Content (2 Credits)') : 'Offline')}
+                            {userTier === 'Free' ? 'Upgrade to Pro' : (isOnline ? (freeUsageCount < AI_WRITER_FREE_LIMIT ? 'Generate Content (Free)' : 'Generate Content (2 Credits)') : 'Offline')}
                         </Button>
                     </div>
                 </aside>

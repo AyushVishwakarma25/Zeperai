@@ -30,7 +30,6 @@ class ChatService {
         App Context:
         - Photoshoot: Professional studio product shots.
         - Nano Banana Pro: Highest quality image model.
-        - Creative Workflow: Multi-step ad creation.
         `;
 
         try {

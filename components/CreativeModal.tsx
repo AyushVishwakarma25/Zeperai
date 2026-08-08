@@ -152,10 +152,10 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
   const getButtonText = () => {
       if (!isOnline) return 'Reconnecting...';
       if (isLoading) return 'Generating...';
-      if (!isValid) return 'Complete Setup to Continue';
-      if (needsUpgrade) return 'Upgrade for Pro Features';
-      if (isFreeTrialGeneration) return `Generate ${cost} Image(s) (Free Trial)`;
-      return `Generate ${cost} Creative(s) (${cost} Credits)`;
+      if (!isValid) return 'Complete Setup';
+      if (needsUpgrade) return 'Upgrade to Pro';
+      if (isFreeTrialGeneration) return `Generate (Free Trial)`;
+      return `Generate (${cost} ${cost === 1 ? 'Credit' : 'Credits'})`;
   };
 
   const getModalTitle = () => {
@@ -351,18 +351,22 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                         params={params}
                         handleParamChange={handleParamChange}
                         handleAspectRatioChange={handleAspectRatioChange}
-                        batchOptions={[1, 4, 8]}
                         userTier={userTier}
                         hideMultiSelectLabel={isFashion || (mode === AppMode.Product && ((params.productStylePresets?.length || 0) > 1 || (params.selectedAngles?.length || 0) > 1))}
                     />
                 </div>
             </div>
 
-            <footer className="p-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center">
-                 <div className="text-sm font-bold text-primary">
-                    {cost > 0 && `${cost} Credits Required`}
+            <footer className="p-3 sm:p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2 shrink-0">
+                 <div className="text-xs sm:text-sm font-bold text-primary shrink-0">
+                    {cost > 0 && `${cost} ${cost === 1 ? 'Credit' : 'Credits'} Required`}
                  </div>
-                 <Button onClick={handleMainAction} isLoading={isLoading} disabled={!isOnline || !isValid}>
+                 <Button 
+                   onClick={handleMainAction} 
+                   isLoading={isLoading} 
+                   disabled={!isOnline || !isValid}
+                   className="!py-2 !px-3 sm:!px-5 !text-xs sm:!text-sm font-bold whitespace-nowrap"
+                 >
                     {getButtonText()}
                  </Button>
             </footer>

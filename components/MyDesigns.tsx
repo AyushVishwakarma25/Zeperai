@@ -81,20 +81,25 @@ export const MyDesigns: React.FC<MyDesignsProps> = ({
   return (
     <div className="w-full h-full bg-white flex flex-col relative">
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-        <header className="flex-shrink-0 flex items-center justify-between p-4 md:p-6 border-b border-border-light">
-            <div className="flex items-center">
-                <button onClick={onToggleSidebar} className="p-2 mr-2 rounded-md text-text-secondary hover:bg-gray-100 lg:hidden">
-                    <Icon name="menu" className="w-6 h-6" />
+        <header className="flex-shrink-0 flex items-center justify-between p-3.5 sm:p-4 md:p-6 border-b border-border-light bg-white">
+            <div className="flex items-center min-w-0 mr-2">
+                <button onClick={onToggleSidebar} className="p-1.5 mr-1.5 sm:mr-2 rounded-md text-text-secondary hover:bg-gray-100 lg:hidden shrink-0">
+                    <Icon name="menu" className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
-                 <Icon name="folder" className="w-8 h-8 mr-4 text-primary"/>
-                 <div>
-                    <h2 className="text-xl md:text-2xl font-bold text-text-primary">My Designs</h2>
-                    <p className="text-sm text-text-secondary">Your saved creative assets</p>
+                 <Icon name="folder" className="w-6 h-6 sm:w-8 sm:h-8 mr-2 sm:mr-4 text-primary shrink-0"/>
+                 <div className="min-w-0">
+                    <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-text-primary truncate">My Designs</h2>
+                    <p className="text-xs sm:text-sm text-text-secondary truncate">Your saved creative assets</p>
                  </div>
             </div>
-            <Button onClick={() => onSetView(View.Dashboard)} variant="secondary">
-                <Icon name="arrow-left" className="w-5 h-5 mr-2" />
-                Back to Dashboard
+            <Button 
+              onClick={() => onSetView(View.Dashboard)} 
+              variant="secondary"
+              className="!px-2.5 !py-1.5 sm:!px-3.5 sm:!py-2 !text-xs sm:!text-sm whitespace-nowrap shrink-0 font-medium"
+            >
+                <Icon name="arrow-left" className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 shrink-0" />
+                <span className="hidden sm:inline">Back to Dashboard</span>
+                <span className="sm:hidden">Dashboard</span>
             </Button>
         </header>
 

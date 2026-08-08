@@ -45,6 +45,7 @@ export enum View {
   Analytics = 'Analytics',
   ShopifyAnalytics = 'ShopifyAnalytics',
   Inspiration = 'Inspiration',
+  BackgroundRemover = 'BackgroundRemover',
 }
 
 export enum AspectRatio {
@@ -179,6 +180,20 @@ export interface AdTemplate {
   previewColor: string;
 }
 
+export interface ElementTransform {
+  x: number;
+  y: number;
+  width?: number;
+  fontSize?: number;
+  fontFamily?: string;
+  fontWeight?: number | string;
+  color?: string;
+  backgroundColor?: string;
+  borderRadius?: string | number;
+  rotation?: number;
+  visible?: boolean;
+}
+
 export interface GenerateImageParams {
   appMode: AppMode;
   imageModel?: ImageModel;
@@ -215,6 +230,9 @@ export interface GenerateImageParams {
   adTemplateId?: string;
   adFontFamily?: string;
   adTextColor?: string;
+  adElementTransforms?: Record<string, ElementTransform>;
+  adElementText?: Record<string, string>;
+  adBackgroundImageUrl?: string;
   remixReferenceImage?: File;
   remixProductImage?: File;
   remixReferenceImageUrl?: string;

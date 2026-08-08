@@ -224,12 +224,49 @@ app.get(['/api/health', '/health'], (req, res) => {
 
   app.get(['/api/razorpay/subscription-details', '/api/subscription-details'], requireAuth, asyncHandler(async (req: any, res: any) => {
     const keyId = process.env.RAZORPAY_KEY_ID?.trim() || '';
-    if (!keyId) {
-      throw new AppError("Razorpay Key ID is not configured on the server.", 500, "Subscription service is temporarily unavailable.");
+    const userId = req.user?.id;
+
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (supabaseUrl && supabaseServiceKey && userId) {
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+        const { data: subData } = await adminClient
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (subData) {
+          const endDate = subData.current_period_end ? new Date(subData.current_period_end) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          const formattedBillingDate = endDate.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+
+          return res.json({
+            success: true,
+            key_id: keyId,
+            subscription_id: subData.razorpay_subscription_id || subData.id,
+            status: subData.status,
+            next_billing_date: formattedBillingDate,
+            plan_name: subData.plan_name,
+            amount: `₹${subData.amount}${subData.plan_id === 'pro' ? '/mo' : ''}`
+          });
+        }
+      } catch (err) {
+        console.warn('[API: subscription-details] Could not load subscription from Supabase:', err);
+      }
     }
 
-    const userId = req.user?.id || 'user';
-    const sanitizedUid = userId.replace(/[^a-zA-Z0-9]/g, '').substring(0, 14);
+    const sanitizedUid = (userId || 'user').replace(/[^a-zA-Z0-9]/g, '').substring(0, 14);
     const subscriptionId = `sub_${sanitizedUid || '00000000000001'}`;
 
     const now = new Date();
@@ -246,8 +283,8 @@ app.get(['/api/health', '/health'], (req, res) => {
       subscription_id: subscriptionId,
       status: 'active',
       next_billing_date: formattedBillingDate,
-      plan_name: 'Pro Subscription (100 Credits / mo)',
-      amount: '₹499/mo'
+      plan_name: 'Pro Subscription (600 Credits / mo)',
+      amount: '₹599/mo'
     });
   }));
 
@@ -256,7 +293,9 @@ app.get(['/api/health', '/health'], (req, res) => {
       razorpay_order_id, 
       razorpay_payment_id, 
       razorpay_signature, 
-      userId
+      userId,
+      planId,
+      amount
     } = req.body || {};
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -281,45 +320,112 @@ app.get(['/api/health', '/health'], (req, res) => {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+    let creditsToAdd = 100;
+    let planName = 'Pro Plan';
+    let userTier = 'Pro';
+    const numAmount = Number(amount) || 0;
+
+    if (planId === 'pro') {
+      creditsToAdd = 600;
+      planName = 'Pro Subscription (600 Credits / mo)';
+      userTier = 'Pro';
+    } else if (planId === 'payg') {
+      creditsToAdd = 250;
+      planName = 'Pay As You Go (250 Credits)';
+      userTier = 'PayAsYouGo';
+    } else if (numAmount >= 500) {
+      creditsToAdd = 600;
+      planName = 'Pro Subscription (600 Credits / mo)';
+      userTier = 'Pro';
+    } else if (numAmount > 0) {
+      creditsToAdd = numAmount;
+      planName = `Pay As You Go (${numAmount} Credits)`;
+      userTier = 'PayAsYouGo';
+    }
+
     if (supabaseUrl && supabaseServiceKey && userId && userId !== 'guest') {
-      const { createClient } = await import('@supabase/supabase-js');
-      const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-      
-      const { data: current, error: fetchErr } = await adminClient
-        .from('user_credits')
-        .select('current_balance, total_quota')
-        .eq('user_id', userId)
-        .single();
-
-      if (fetchErr && fetchErr.code !== 'PGRST116') {
-        console.error('[API: verify] Error fetching user_credits:', fetchErr.message);
-      }
-
-      if (current) {
-        const newCurrent = (current.current_balance || 0) + 100;
-        const newTotal = (current.total_quota || 0) + 100;
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const adminClient = createClient(supabaseUrl, supabaseServiceKey);
         
-        await adminClient
+        // 1. Update user_credits balance
+        const { data: current } = await adminClient
           .from('user_credits')
-          .update({ 
-            current_balance: newCurrent, 
-            total_quota: newTotal, 
-            updated_at: new Date().toISOString() 
-          })
-          .eq('user_id', userId);
-      } else {
+          .select('current_balance, total_quota')
+          .eq('user_id', userId)
+          .single();
+
+        if (current) {
+          const newCurrent = (current.current_balance || 0) + creditsToAdd;
+          const newTotal = (current.total_quota || 0) + creditsToAdd;
+          
+          await adminClient
+            .from('user_credits')
+            .update({ 
+              current_balance: newCurrent, 
+              total_quota: newTotal, 
+              updated_at: new Date().toISOString() 
+            })
+            .eq('user_id', userId);
+        } else {
+          await adminClient
+            .from('user_credits')
+            .insert({
+              user_id: userId,
+              current_balance: creditsToAdd,
+              total_quota: creditsToAdd,
+              updated_at: new Date().toISOString()
+            });
+        }
+
+        // 2. Record payment transaction
         await adminClient
-          .from('user_credits')
+          .from('payment_transactions')
           .insert({
             user_id: userId,
-            current_balance: 100,
-            total_quota: 100,
+            razorpay_order_id: razorpay_order_id,
+            razorpay_payment_id: razorpay_payment_id,
+            plan_id: planId || 'pro',
+            amount: numAmount || (planId === 'pro' ? 599 : 250),
+            currency: 'INR',
+            credits_added: creditsToAdd,
+            status: 'paid',
+            created_at: new Date().toISOString()
+          });
+
+        // 3. Upsert active subscription record
+        await adminClient
+          .from('subscriptions')
+          .insert({
+            user_id: userId,
+            plan_id: planId || 'pro',
+            plan_name: planName,
+            status: 'active',
+            amount: numAmount || (planId === 'pro' ? 599 : 250),
+            currency: 'INR',
+            credits_allocated: creditsToAdd,
+            razorpay_order_id: razorpay_order_id,
+            razorpay_payment_id: razorpay_payment_id,
+            current_period_start: new Date().toISOString(),
+            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           });
+
+        // 4. Update profile tier
+        await adminClient
+          .from('profiles')
+          .update({
+            tier: userTier
+          })
+          .eq('id', userId);
+
+      } catch (dbErr) {
+        console.error('[API: verify] Error writing subscription/credits to Supabase:', dbErr);
       }
     }
 
-    return res.json({ success: true, status: 'ok', verified: true });
+    return res.json({ success: true, status: 'ok', verified: true, creditsAdded: creditsToAdd });
   }));
 
   app.post('/api/razorpay/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -667,6 +773,46 @@ app.get(['/api/health', '/health'], (req, res) => {
     });
   }));
 
+  app.post(['/api/background-remover-pro'], requireAuth, aiLimiter, upload.single('image'), asyncHandler(async (req: any, res: any) => {
+    const PRO_SERVICE_URL = process.env.BG_REMOVER_PRO_URL;
+    const INTERNAL_API_KEY = process.env.BG_REMOVER_INTERNAL_KEY;
+    
+    if (!PRO_SERVICE_URL || !INTERNAL_API_KEY) {
+      throw new AppError('Background removal service is not configured.', 500, 'Background removal service is not configured.');
+    }
+
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ success: false, error: 'No image provided' });
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      return res.status(400).json({ success: false, error: 'Image too large (max 15MB)' });
+    }
+
+    const FormData = (await import('form-data')).default;
+    const axios = (await import('axios')).default;
+    
+    const formData = new FormData();
+    formData.append('file', file.buffer, { filename: file.originalname || 'image.png', contentType: file.mimetype });
+
+    try {
+        const response = await axios.post(`${PRO_SERVICE_URL}/remove-background`, formData, {
+            headers: { 
+                ...formData.getHeaders(),
+                'x-internal-key': INTERNAL_API_KEY
+            },
+            responseType: 'arraybuffer',
+        });
+        
+        res.set('Content-Type', 'image/png');
+        res.set('Cache-Control', 'no-store');
+        res.send(Buffer.from(response.data, 'binary'));
+    } catch (error: any) {
+        console.error("Pro bg-remover upstream error:", error.response?.status, error.message);
+        throw new AppError("Background removal failed, please try again.", 502, error.message);
+    }
+  }));
+
   // PREVENT VITE FROM SWALLOWING UNHANDLED API CALLS WITH SPA FALLBACK
   app.all('/api/*all', (req, res) => {
     res.status(404).json({ error: `API Route not found: ${req.method} ${req.path}` });
@@ -693,6 +839,11 @@ app.get(['/api/health', '/health'], (req, res) => {
         app.use(vite.middlewares);
       } else {
         const distPath = path.join(process.cwd(), 'dist');
+        app.use('/models', (req, res, next) => {
+          res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+          res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+          next();
+        });
         app.use(express.static(distPath));
         app.get('*all', (req, res) => {
           res.sendFile(path.join(distPath, 'index.html'));

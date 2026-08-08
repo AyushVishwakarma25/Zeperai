@@ -9,15 +9,11 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
     const isFashion = params.appMode === AppMode.Fashion;
 
     if (isFashion) {
-        // Fashion Mode Batch Logic
-        let maxBatch = 1;
-        if (userTier === 'Agency') maxBatch = 12;
-        else if (userTier === 'Standard') maxBatch = 4;
-        
-        // Clamp requested batch size to allowed max
-        const requested = params.batchSize || (maxBatch > 1 ? 4 : 1);
-        numVariants = Math.min(requested, maxBatch);
-        
+        if (params.fashionPose && params.fashionPose.length > 0) {
+            numVariants = params.fashionPose.length;
+        } else {
+            numVariants = 1;
+        }
     } else if (params.appMode === AppMode.Product) {
         // Product Mode Angles Logic
         let maxAngles = 1;
@@ -29,8 +25,7 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
     } else if (params.appMode === AppMode.Bulk && params.bulkImages) {
         numVariants = params.bulkImages.length;
     } else {
-        // Standard batch logic for other modes
-        numVariants = params.batchSize || 1;
+        numVariants = 1;
     }
     
     // If product mode has 0 valid angles, cost is 0

@@ -4,13 +4,128 @@ import { Footer } from './Footer';
 import { Icon } from '../../components/ui/Icon';
 import { useNavigate } from 'react-router-dom';
 
+// ─────────────────────────────────────────────────────────────
+// Plans: Free / Pay As You Go / Pro. Three options, no decision fatigue.
+// ─────────────────────────────────────────────────────────────
+
+interface PlanFeature {
+  text: string;
+  muted?: boolean;
+}
+
+interface Plan {
+  id: string;
+  name: string;
+  tagline: string;
+  price: string;
+  cadence: string;
+  creditsLabel: string;
+  features: PlanFeature[];
+  cta: string;
+  highlight?: boolean;
+  badge?: string;
+}
+
+// 1 credit ≈ ₹1. Real API cost per model is unchanged — only the
+// denomination scaled up so plan totals read as generously as competitors'.
+const PLANS: Plan[] = [
+  {
+    id: 'free',
+    name: 'Free Trial',
+    tagline: 'Perfect for exploring our AI capabilities.',
+    price: '₹0',
+    cadence: '/ 7 days',
+    creditsLabel: '50 Credits',
+    features: [
+      { text: '50 free credits for 7 days' },
+      { text: 'Exclusive access to Product Studio' },
+      { text: 'Community support' },
+      { text: 'Other studios are locked for free tier', muted: true },
+    ],
+    cta: 'Try for Free',
+  },
+  {
+    id: 'payg',
+    name: 'Pay As You Go',
+    tagline: 'Buy credits as you need them. Nothing expires.',
+    price: '₹1',
+    cadence: '/ credit',
+    creditsLabel: 'Buy Any Amount',
+    features: [
+      { text: 'No subscription, no commitment' },
+      { text: 'Credits never expire' },
+      { text: 'All Studios & all 3 models unlocked' },
+      { text: 'Commercial usage rights' },
+    ],
+    cta: 'Buy Credits',
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    tagline: 'All premium studios and features fully unlocked.',
+    price: '₹599',
+    cadence: '/ month',
+    creditsLabel: '600 Credits / mo',
+    features: [
+      { text: '600 credits recurrent monthly' },
+      { text: 'All Studios & all 3 models unlocked' },
+      { text: 'Priority Generation Speed & Resolution' },
+      { text: 'Commercial Usage Rights' },
+    ],
+    cta: 'Subscribe Now',
+    highlight: true,
+    badge: 'Most Popular',
+  },
+];
+
+// ─────────────────────────────────────────────────────────────
+// Models: exactly 3 choices, mapped to real Gemini API image models
+// so cost per generation is predictable at every tier.
+// ─────────────────────────────────────────────────────────────
+
+interface ImageModel {
+  id: string;
+  name: string;
+  apiModel: string;
+  credits: number;
+  badge: string;
+  description: string;
+}
+
+const IMAGE_MODELS: ImageModel[] = [
+  {
+    id: 'basic',
+    name: 'Basic',
+    apiModel: 'Nano Banana',
+    credits: 10,
+    badge: 'Fast & Affordable',
+    description: 'Quick, reliable product shots. Best for drafts, rapid iteration, and everyday listings.',
+  },
+  {
+    id: 'advanced',
+    name: 'Advanced',
+    apiModel: 'Nano Banana 2',
+    credits: 15,
+    badge: 'Sharper Detail',
+    description: 'Improved texture, lighting, and composition. Best for ad creatives and hero images.',
+  },
+  {
+    id: 'pro-max',
+    name: 'Pro Max',
+    apiModel: 'Nano Banana Pro',
+    credits: 40,
+    badge: 'Maximum Quality',
+    description: "Google's flagship image model. Best for final campaign assets where accuracy matters most.",
+  },
+];
+
 export const PricingPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE]">
       <LandingHeader />
-      
+
       <main className="pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h1 className="text-4xl md:text-6xl font-black tracking-tight text-slate-900 mb-6">
@@ -21,131 +136,128 @@ export const PricingPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto items-stretch">
-          {/* Free Plan */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm hover:shadow-md transition-shadow flex flex-col group hover:border-[#4452FB]/30">
-            <h3 className="text-2xl font-bold text-slate-900 mb-2">Free Trial</h3>
-            <p className="text-slate-500 mb-6 text-sm">Perfect for exploring our AI capabilities.</p>
-            <div className="mb-8">
-              <span className="text-5xl font-black text-slate-900">₹0</span>
-              <span className="text-slate-500 text-sm ml-1">/ 7 days</span>
-            </div>
-            
-            <div className="bg-slate-50 rounded-xl p-3 mb-6 text-center border border-slate-100 flex items-center justify-center">
-                <Icon name="stack" className="w-5 h-5 mr-2 text-[#4452FB]" />
-                <span className="font-bold text-slate-700">10 Credits</span>
-            </div>
+        {/* Three plans: Free / Pay As You Go / Pro */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
+          {PLANS.map((plan) => (
+            <div
+              key={plan.id}
+              className={
+                plan.highlight
+                  ? 'bg-[#4452FB] border border-[#4452FB] rounded-3xl p-8 shadow-2xl relative flex flex-col transform md:-translate-y-6'
+                  : 'bg-white border border-slate-200 rounded-3xl p-8 shadow-sm hover:shadow-md transition-shadow flex flex-col group hover:border-[#4452FB]/30'
+              }
+            >
+              {plan.badge && (
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white text-[#4452FB] px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-xl whitespace-nowrap">
+                  {plan.badge}
+                </div>
+              )}
 
-            <ul className="space-y-4 mb-8 flex-1">
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm">10 free credits for 7 days</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm">Exclusive access to Product Studio</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span className="text-slate-700 text-sm">Community support</span>
-              </li>
-              <li className="flex items-start gap-3 text-slate-400">
-                <Icon name="info" className="w-5 h-5 shrink-0 mt-0.5" />
-                <span className="text-xs italic">Other studios are locked for free tier</span>
-              </li>
-            </ul>
-            <button onClick={() => navigate('/signup')} className="w-full py-4 px-4 bg-slate-900 text-white hover:bg-slate-800 font-bold rounded-xl transition-all shadow-lg shadow-slate-200">
-              Try for Free
-            </button>
-          </div>
+              <h3 className={`text-2xl font-bold mb-2 ${plan.highlight ? 'text-white' : 'text-slate-900'}`}>
+                {plan.name}
+              </h3>
+              <p className={`mb-6 text-sm ${plan.highlight ? 'text-blue-100 opacity-90' : 'text-slate-500'}`}>
+                {plan.tagline}
+              </p>
 
-          {/* Pay As You Go (Highlight) */}
-          <div className="bg-[#4452FB] border border-[#4452FB] rounded-3xl p-8 shadow-2xl relative flex flex-col transform md:-translate-y-6">
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white text-[#4452FB] px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-xl">
-              All Features Unlocked
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-2">Pay As You Go Pro</h3>
-            <p className="text-blue-100 mb-6 text-sm opacity-90">All premium studios and features fully unlocked.</p>
-            <div className="mb-8">
-              <span className="text-5xl font-black text-white">₹299</span>
-              <span className="text-blue-100 text-sm ml-1">/ month</span>
-            </div>
+              <div className="mb-8">
+                <span className={`text-5xl font-black ${plan.highlight ? 'text-white' : 'text-slate-900'}`}>
+                  {plan.price}
+                </span>
+                <span className={`text-sm ml-1 ${plan.highlight ? 'text-blue-100' : 'text-slate-500'}`}>
+                  {plan.cadence}
+                </span>
+              </div>
 
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 mb-6 text-center border border-white/20 flex items-center justify-center">
-                <Icon name="sparkles" className="w-5 h-5 mr-2 text-white" />
-                <span className="font-bold text-white text-lg">100 Credits / mo</span>
-            </div>
+              <div
+                className={
+                  plan.highlight
+                    ? 'bg-white/10 backdrop-blur-md rounded-xl p-3 mb-6 text-center border border-white/20 flex items-center justify-center'
+                    : 'bg-slate-50 rounded-xl p-3 mb-6 text-center border border-slate-100 flex items-center justify-center'
+                }
+              >
+                <Icon
+                  name={plan.highlight ? 'sparkles' : 'stack'}
+                  className={`w-5 h-5 mr-2 ${plan.highlight ? 'text-white' : 'text-[#4452FB]'}`}
+                />
+                <span className={`font-bold ${plan.highlight ? 'text-white text-lg' : 'text-slate-700'}`}>
+                  {plan.creditsLabel}
+                </span>
+              </div>
 
-            <ul className="space-y-4 mb-8 flex-1">
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-white shrink-0 mt-0.5" />
-                <span className="text-white text-sm">100 Credits recurrent monthly</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-white shrink-0 mt-0.5" />
-                <span className="text-white text-sm font-semibold">Unlock all Studios (Fashion, UGC, Remix, Festivals)</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-white shrink-0 mt-0.5" />
-                <span className="text-white text-sm">Priority Generation Speed & Resolution</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-white shrink-0 mt-0.5" />
-                <span className="text-white text-sm">Commercial Usage Rights</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Icon name="check" className="w-5 h-5 text-white shrink-0 mt-0.5" />
-                <span className="text-white text-sm">Full Batch Generation Support</span>
-              </li>
-            </ul>
-            <button onClick={() => navigate('/signup')} className="w-full py-4 px-4 bg-white text-[#4452FB] hover:bg-blue-50 font-black rounded-xl transition-all shadow-xl">
-              Subscribe Now
-            </button>
-          </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {plan.features.map((feature, idx) => (
+                  <li
+                    key={idx}
+                    className={`flex items-start gap-3 ${feature.muted ? 'text-slate-400' : ''}`}
+                  >
+                    <Icon
+                      name={feature.muted ? 'info' : 'check'}
+                      className={`w-5 h-5 shrink-0 mt-0.5 ${
+                        feature.muted ? '' : plan.highlight ? 'text-white' : 'text-green-500'
+                      }`}
+                    />
+                    <span
+                      className={
+                        feature.muted
+                          ? 'text-xs italic'
+                          : plan.highlight
+                          ? 'text-white text-sm'
+                          : 'text-slate-700 text-sm'
+                      }
+                    >
+                      {feature.text}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                onClick={() => navigate('/signup')}
+                className={
+                  plan.highlight
+                    ? 'w-full py-4 px-4 bg-white text-[#4452FB] hover:bg-blue-50 font-black rounded-xl transition-all shadow-xl'
+                    : 'w-full py-4 px-4 bg-slate-900 text-white hover:bg-slate-800 font-bold rounded-xl transition-all shadow-lg shadow-slate-200'
+                }
+              >
+                {plan.cta}
+              </button>
+            </div>
+          ))}
         </div>
 
-        {/* Pay As You Go Section */}
-        <div className="mt-20 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 shadow-inner">
-             <h4 className="font-bold text-slate-800 mb-6 flex items-center text-sm uppercase tracking-wide">
-                <Icon name="info" className="w-4 h-4 mr-2 text-[#4452FB]"/>
-                Credit Cost Estimation
-            </h4>
-            <div className="space-y-4">
-                <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-600">Standard Image Generation</span> 
-                    <span className="font-bold text-slate-900">1 Credit</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-600">Pro Image (High Res / High Context)</span> 
-                    <span className="font-bold text-slate-900">4 Credits</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-600">AI Copywriting / Content Assist</span> 
-                    <span className="font-bold text-slate-900">2 Credits</span>
-                </div>
-                <div className="pt-4 border-t border-slate-200 text-xs text-slate-500 italic">
-                  * Bulk generations are calculated per image. Pro models provide better adherence to details.
-                </div>
-            </div>
+        {/* Model picker: exactly 3 options, credits scale with real generation cost */}
+        <div className="mt-20 max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-3">Pick your model per image</h2>
+            <p className="text-slate-500 max-w-2xl mx-auto">
+              Every studio uses the same 3 models. Spend fewer credits on drafts, save Pro Max for the shot that ships.
+            </p>
           </div>
 
-          <div className="bg-white p-8 rounded-3xl border border-dashed border-slate-300 flex flex-col justify-center relative overflow-hidden group hover:border-[#4452FB]/50 transition-colors shadow-sm">
-            <div className="flex justify-between items-center mb-2 relative z-10">
-                <h4 className="font-bold text-slate-800 text-lg">Pay As You Go</h4>
-                <span className="text-[10px] bg-green-100 text-green-700 font-bold px-3 py-1 rounded-full border border-green-200 uppercase tracking-widest">No Expiry</span>
-            </div>
-            <div className="flex items-center justify-between gap-4 mb-6 relative z-10">
-                <p className="text-sm text-slate-500 max-w-[200px]">Instant top-up credits. Perfect for testing or one-off projects.</p>
-                <div className="text-right">
-                    <span className="block font-black text-slate-900 text-3xl">₹200</span>
-                    <span className="text-sm font-bold text-slate-400">25 Credits</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {IMAGE_MODELS.map((model) => (
+              <div
+                key={model.id}
+                className="bg-slate-50 border border-slate-200 rounded-2xl p-6 hover:border-[#4452FB]/40 hover:shadow-sm transition-all"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#4452FB] bg-[#4452FB]/10 px-2.5 py-1 rounded-full">
+                    {model.badge}
+                  </span>
+                  <span className="text-sm font-black text-slate-900">
+                    {model.credits} {model.credits === 1 ? 'Credit' : 'Credits'}
+                  </span>
                 </div>
-            </div>
-            <button onClick={() => navigate('/signup')} className="w-full py-4 bg-white border-2 border-slate-900 text-slate-900 font-bold rounded-xl hover:bg-slate-900 hover:text-white transition-all transform hover:-translate-y-1 shadow-sm relative z-10">
-                Top Up Now
-            </button>
-            <Icon name="sparkles" className="absolute -bottom-4 -right-4 w-24 h-24 text-slate-50 group-hover:text-[#4452FB]/5 transition-colors z-0" />
+                <h4 className="font-bold text-slate-900 text-lg mb-1">{model.name}</h4>
+                <p className="text-xs text-slate-400 font-semibold mb-3">{model.apiModel}</p>
+                <p className="text-sm text-slate-600 leading-relaxed">{model.description}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 text-center text-xs text-slate-400 italic">
+            * Credits are billed per output image. Multi-pose and bulk generations charge one credit set per image, not per click.
           </div>
         </div>
       </main>

@@ -13,6 +13,7 @@ const AnalyticsDashboard = lazy(() => import('./AnalyticsDashboard').then(module
 const ShopifyDashboard = lazy(() => import('./ShopifyDashboard'));
 const ProfilePage = lazy(() => import('./ProfilePage'));
 const InspirationPage = lazy(() => import('./InspirationPage'));
+const BackgroundRemoverTool = lazy(() => import('./tools/BackgroundRemoverTool').then(m => ({ default: m.BackgroundRemoverTool })));
 
 interface AppMainViewProps {
     currentView: View;
@@ -45,7 +46,6 @@ interface AppMainViewProps {
     onRemoveFloatingImage: () => void;
     onTriggerFloatingUpload: () => void;
     onOpenContentGenerator: () => void;
-    onOpenCreativeWorkflow: () => void;
     userTier: 'Free' | 'PayAsYouGo';
     onInternalImageDrop: (image: GeneratedImage, targetMode?: AppMode) => void;
     onFloatingImageDrop: (file: File) => void;
@@ -61,6 +61,7 @@ interface AppMainViewProps {
     onReportUpdate: (report: ShopifyAnalysisResult | null) => void;
     onGenerateAdFromShopify: (productName: string) => void;
     onDeductCredits: (cost: number) => boolean;
+    onRefundCredits: (cost: number) => void;
 
     // My Designs & Inspiration
     onRemix: (item: InspirationItem | GeneratedImage) => void;
@@ -120,7 +121,6 @@ export const AppMainView: React.FC<AppMainViewProps> = (props) => {
                 onRemoveFloatingImage={props.onRemoveFloatingImage}
                 onTriggerFloatingUpload={props.onTriggerFloatingUpload}
                 onOpenContentGenerator={props.onOpenContentGenerator}
-                onOpenCreativeWorkflow={props.onOpenCreativeWorkflow}
                 userTier={props.userTier}
                 onInternalImageDrop={props.onInternalImageDrop}
                 onFloatingImageDrop={props.onFloatingImageDrop}
@@ -184,6 +184,16 @@ export const AppMainView: React.FC<AppMainViewProps> = (props) => {
                     items={props.inspirationItems} 
                     isLoaded={props.isInspirationLoaded} 
                     onItemsLoaded={props.onItemsLoaded} 
+                />
+            )}
+            
+            {props.currentView === View.BackgroundRemover && (
+                <BackgroundRemoverTool
+                    onSetView={props.onSetView}
+                    onToggleSidebar={props.onToggleSidebar}
+                    userTier={props.userTier}
+                    onDeductCredits={props.onDeductCredits}
+                    onRefundCredits={props.onRefundCredits}
                 />
             )}
         </Suspense>

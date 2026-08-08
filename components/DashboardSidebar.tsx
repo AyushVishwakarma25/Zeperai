@@ -214,6 +214,7 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
             <NavItem icon="edit" label="AI Content Writer" onClick={() => { onOpenContentGenerator(); onClose(); }} isOpen={isOpen} />
             
             <NavItem icon="shopping-bag" label="Shopify Analyzer" active={currentView === View.ShopifyAnalytics} onClick={() => { onSetView(View.ShopifyAnalytics); onClose(); }} isOpen={isOpen} />
+            <NavItem icon="image" label="BG Remover" active={currentView === View.BackgroundRemover} onClick={() => { onSetView(View.BackgroundRemover); onClose(); }} isOpen={isOpen} />
             <NavItem icon="folder" label="My Designs" active={currentView === View.MyDesigns} onClick={() => { onSetView(View.MyDesigns); onClose(); }} isOpen={isOpen} />
             <NavItem icon="lightbulb" label="Inspiration" active={currentView === View.Inspiration} onClick={() => { onSetView(View.Inspiration); onClose(); }} isOpen={isOpen} />
             

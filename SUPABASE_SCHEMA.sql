@@ -1,7 +1,9 @@
-export const SUPABASE_SETUP_SQL = `-- Database & Storage setup for ZepperAI
--- Run once in Supabase SQL Editor
+-- ====================================================================
+-- SUPABASE DATABASE SCHEMA FOR ZEPERAI STUDIO
+-- Run this script in your Supabase SQL Editor (https://supabase.com/dashboard/project/_/sql)
+-- ====================================================================
 
--- 1. Create Profiles Table
+-- 1. PROFILES TABLE
 create table if not exists public.profiles (
   id uuid references auth.users on delete cascade not null primary key,
   email text,
@@ -10,11 +12,11 @@ create table if not exists public.profiles (
   bio text,
   location text,
   avatar_url text,
-  tier text default 'Free',
+  tier text default 'Free', -- 'Free', 'PayAsYouGo', 'Pro'
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 2. Create Credits Table
+-- 2. USER CREDITS TABLE
 create table if not exists public.user_credits (
   user_id uuid references public.profiles(id) on delete cascade not null primary key,
   current_balance integer default 50,
@@ -22,14 +24,14 @@ create table if not exists public.user_credits (
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 2b. Create Subscriptions Table
+-- 3. SUBSCRIPTIONS TABLE (Tracks Active & Past Subscriptions)
 create table if not exists public.subscriptions (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
-  plan_id text not null,
-  plan_name text not null,
-  status text not null default 'active',
-  amount integer not null default 0,
+  plan_id text not null, -- 'free', 'payg', 'pro'
+  plan_name text not null, -- 'Free Trial', 'Pay As You Go', 'Pro'
+  status text not null default 'active', -- 'active', 'cancelled', 'expired', 'past_due'
+  amount integer not null default 0, -- Amount in INR/subunit
   currency text default 'INR',
   credits_allocated integer default 0,
   razorpay_subscription_id text,
@@ -41,7 +43,7 @@ create table if not exists public.subscriptions (
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 2c. Create Payment Transactions Table
+-- 4. PAYMENT TRANSACTIONS TABLE (Audit Log for Purchases & Top-Ups)
 create table if not exists public.payment_transactions (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -55,7 +57,7 @@ create table if not exists public.payment_transactions (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 3. Create Designs Table
+-- 5. DESIGNS TABLE
 create table if not exists public.designs (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -67,7 +69,7 @@ create table if not exists public.designs (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 4. Create Brand Kits Table
+-- 6. BRAND KITS TABLE
 create table if not exists public.brand_kits (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null unique,
@@ -83,7 +85,7 @@ create table if not exists public.brand_kits (
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 5. Create Saved Models Table
+-- 7. SAVED MODELS TABLE
 create table if not exists public.saved_models (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -92,7 +94,7 @@ create table if not exists public.saved_models (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 6. Create Feedback Table
+-- 8. FEEDBACK TABLE
 create table if not exists public.feedback (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id),
@@ -102,7 +104,7 @@ create table if not exists public.feedback (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 7. Create Analysis Reports Table
+-- 9. ANALYSIS REPORTS TABLE
 create table if not exists public.analysis_reports (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -110,7 +112,7 @@ create table if not exists public.analysis_reports (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 8. Create Inspiration Gallery Table (Community)
+-- 10. INSPIRATION GALLERY TABLE
 create table if not exists public.inspiration_gallery (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -122,7 +124,9 @@ create table if not exists public.inspiration_gallery (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 9. Enable RLS
+-- ====================================================================
+-- ENABLE ROW LEVEL SECURITY (RLS)
+-- ====================================================================
 alter table public.profiles enable row level security;
 alter table public.user_credits enable row level security;
 alter table public.subscriptions enable row level security;
@@ -134,111 +138,133 @@ alter table public.feedback enable row level security;
 alter table public.analysis_reports enable row level security;
 alter table public.inspiration_gallery enable row level security;
 
--- 10. Policies
+-- ====================================================================
+-- ROW LEVEL SECURITY POLICIES (IDEMPOTENT WITH DROP IF EXISTS)
+-- ====================================================================
+
 -- Profiles
+drop policy if exists "Users can view own profile" on public.profiles;
 create policy "Users can view own profile" on public.profiles for select using (auth.uid() = id);
+
+drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
 
 -- Credits
+drop policy if exists "Users can view own credits" on public.user_credits;
 create policy "Users can view own credits" on public.user_credits for select using (auth.uid() = user_id);
 
 -- Subscriptions
+drop policy if exists "Users can view own subscriptions" on public.subscriptions;
 create policy "Users can view own subscriptions" on public.subscriptions for select using (auth.uid() = user_id);
 
 -- Payment Transactions
+drop policy if exists "Users can view own transactions" on public.payment_transactions;
 create policy "Users can view own transactions" on public.payment_transactions for select using (auth.uid() = user_id);
 
 -- Designs
+drop policy if exists "Users can view own designs" on public.designs;
 create policy "Users can view own designs" on public.designs for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own designs" on public.designs;
 create policy "Users can insert own designs" on public.designs for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own designs" on public.designs;
 create policy "Users can delete own designs" on public.designs for delete using (auth.uid() = user_id);
 
 -- Brand Kits
+drop policy if exists "Users can view own brand kit" on public.brand_kits;
 create policy "Users can view own brand kit" on public.brand_kits for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can upsert own brand kit" on public.brand_kits;
 create policy "Users can upsert own brand kit" on public.brand_kits for all using (auth.uid() = user_id);
 
 -- Saved Models
+drop policy if exists "Users can view own saved models" on public.saved_models;
 create policy "Users can view own saved models" on public.saved_models for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own saved models" on public.saved_models;
 create policy "Users can insert own saved models" on public.saved_models for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own saved models" on public.saved_models;
 create policy "Users can delete own saved models" on public.saved_models for delete using (auth.uid() = user_id);
 
 -- Feedback
+drop policy if exists "Anyone can insert feedback" on public.feedback;
 create policy "Anyone can insert feedback" on public.feedback for insert with check (true);
 
 -- Analysis Reports
+drop policy if exists "Users can view own reports" on public.analysis_reports;
 create policy "Users can view own reports" on public.analysis_reports for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own reports" on public.analysis_reports;
 create policy "Users can insert own reports" on public.analysis_reports for insert with check (auth.uid() = user_id);
 
 -- Inspiration Gallery
+drop policy if exists "Anyone can view inspiration" on public.inspiration_gallery;
 create policy "Anyone can view inspiration" on public.inspiration_gallery for select using (true);
+
+drop policy if exists "Users can insert inspiration" on public.inspiration_gallery;
 create policy "Users can insert inspiration" on public.inspiration_gallery for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own inspiration" on public.inspiration_gallery;
 create policy "Users can delete own inspiration" on public.inspiration_gallery for delete using (auth.uid() = user_id);
 
--- 11. Trigger for New Users
+-- ====================================================================
+-- AUTOMATIC NEW USER HANDLER (TRIGGER)
+-- ====================================================================
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, email, name, avatar_url)
-  values (new.id, new.email, new.raw_user_meta_data->>'name', new.raw_user_meta_data->>'avatar_url');
+  insert into public.profiles (id, email, name, avatar_url, tier)
+  values (new.id, new.email, new.raw_user_meta_data->>'name', new.raw_user_meta_data->>'avatar_url', 'Free')
+  on conflict (id) do nothing;
   
   insert into public.user_credits (user_id, current_balance, total_quota)
-  values (new.id, 50, 50);
+  values (new.id, 50, 50)
+  on conflict (user_id) do nothing;
+
+  insert into public.subscriptions (user_id, plan_id, plan_name, status, amount, credits_allocated)
+  values (new.id, 'free', 'Free Trial', 'active', 0, 50);
   
   return new;
 end;
 $$ language plpgsql security definer;
 
--- Drop existing trigger if it exists to avoid conflicts
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 12. STORAGE SETUP
+-- ====================================================================
+-- INDEXES FOR PERFORMANCE
+-- ====================================================================
+create index if not exists idx_subscriptions_user_id on public.subscriptions(user_id);
+create index if not exists idx_payment_transactions_user_id on public.payment_transactions(user_id);
+create index if not exists idx_designs_user_id on public.designs(user_id);
+
+-- ====================================================================
+-- STORAGE BUCKETS SETUP
+-- ====================================================================
 insert into storage.buckets (id, name, public)
 values ('designs', 'designs', true), ('landing-assets', 'landing-assets', true)
 on conflict (id) do nothing;
 
+drop policy if exists "Public Access Designs" on storage.objects;
 create policy "Public Access Designs"
   on storage.objects for select
   using ( bucket_id = 'designs' );
 
+drop policy if exists "Public Access Landing Assets" on storage.objects;
 create policy "Public Access Landing Assets"
   on storage.objects for select
   using ( bucket_id = 'landing-assets' );
 
+drop policy if exists "Authenticated Users can Upload Designs" on storage.objects;
 create policy "Authenticated Users can Upload Designs"
   on storage.objects for insert
   with check ( bucket_id = 'designs' and auth.role() = 'authenticated' );
 
+drop policy if exists "Authenticated Users can Upload Landing Assets" on storage.objects;
 create policy "Authenticated Users can Upload Landing Assets"
   on storage.objects for insert
   with check ( bucket_id = 'landing-assets' and auth.role() = 'authenticated' );
-
-create policy "Users can update own images Designs"
-  on storage.objects for update
-  using ( bucket_id = 'designs' and auth.uid() = owner );
-
-create policy "Users can update own images Landing Assets"
-  on storage.objects for update
-  using ( bucket_id = 'landing-assets' and auth.uid() = owner );
-
-create policy "Users can delete own images Designs"
-  on storage.objects for delete
-  using ( bucket_id = 'designs' and auth.uid() = owner );
-
-create policy "Users can delete own images Landing Assets"
-  on storage.objects for delete
-  using ( bucket_id = 'landing-assets' and auth.uid() = owner );
-
--- 13. BACKFILL EXISTING USERS
-insert into public.profiles (id, email, name, avatar_url)
-select id, email, raw_user_meta_data->>'name', raw_user_meta_data->>'avatar_url'
-from auth.users
-where id not in (select id from public.profiles);
-
-insert into public.user_credits (user_id, current_balance, total_quota)
-select id, 50, 50
-from public.profiles
-where id not in (select user_id from public.user_credits);
-`;

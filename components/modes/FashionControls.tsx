@@ -30,8 +30,6 @@ export const FashionControls: React.FC<FashionControlsProps> = ({
     const subCategories = (categories && category) ? (categories[category] || []) : [];
     const locks = FASHION_MODEL_LOCKS[gender] || [];
 
-    const maxBatch = userTier === 'PayAsYouGo' ? 12 : 1;
-
     // Handle Pose Toggle
     const handlePoseToggle = (pose: string) => {
         const currentPoses = params.fashionPose || [];
@@ -44,15 +42,6 @@ export const FashionControls: React.FC<FashionControlsProps> = ({
         }
 
         handleParamChange('fashionPose', newPoses);
-        
-        // Auto-update batch size to match number of selected poses (clamped by tier limit)
-        if (newPoses.length > 0) {
-            const newBatchSize = Math.min(newPoses.length, maxBatch);
-            handleParamChange('batchSize', newBatchSize);
-        } else {
-            // Reset to 1 or default logic if no poses selected
-            handleParamChange('batchSize', 1); 
-        }
     };
 
     const hasPoseSelection = params.fashionPose && params.fashionPose.length > 0;
@@ -90,12 +79,12 @@ export const FashionControls: React.FC<FashionControlsProps> = ({
             <div className="mt-4">
                 <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center gap-2">
-                        <HelpLabel label="Model Poses" tooltip="Select poses for your shoot. Batch size will auto-update." className="mb-0" />
+                        <HelpLabel label="Model Poses" tooltip="Select poses for your shoot." className="mb-0" />
                         {hasPoseSelection && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">MULTI-SELECT ON</span>}
                     </div>
                     {hasPoseSelection && (
                         <button 
-                            onClick={() => { handleParamChange('fashionPose', []); handleParamChange('batchSize', 1); }}
+                            onClick={() => { handleParamChange('fashionPose', []); }}
                             className="text-xs text-slate-400 hover:text-red-500 font-medium flex items-center transition-colors px-2 py-1 rounded hover:bg-red-50"
                         >
                             <Icon name="remove" className="w-3 h-3 mr-1" />
@@ -107,8 +96,6 @@ export const FashionControls: React.FC<FashionControlsProps> = ({
                 <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-200">
                     {FASHION_POSE_OPTIONS.map((pose) => {
                         const isSelected = params.fashionPose?.includes(pose);
-                        // Clean up pose label for display (first 4 words)
-                        const label = pose.split(' ').slice(0, 4).join(' ') + '...'; 
                         return (
                             <ControlButton
                                 key={pose}
@@ -123,7 +110,7 @@ export const FashionControls: React.FC<FashionControlsProps> = ({
                 </div>
                 {!hasPoseSelection && (
                     <p className="text-xs text-slate-400 mt-2 italic">
-                        No specific poses selected. AI will auto-generate varied poses based on batch size.
+                        No specific poses selected. AI will auto-generate a natural pose.
                     </p>
                 )}
             </div>

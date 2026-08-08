@@ -229,14 +229,23 @@ const MainContentComponent: React.FC<MainContentProps> = (props) => {
   return (
     <div className="w-full h-full bg-white flex flex-col">
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-        <header className="flex-shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 md:p-6 border-b border-border-light gap-4">
-            <div className="flex items-center w-full sm:w-auto">
-                <Icon name={isFashionOrInfluencer ? "shirt" : "sparkles"} className="w-8 h-8 mr-4 text-primary flex-shrink-0"/>
-                <div><h2 className="text-xl md:text-2xl font-bold font-batangas text-text-primary">{isFashionOrInfluencer ? "Review Studio" : "Generated Results"}</h2><p className="text-sm text-text-secondary">{isFashionOrInfluencer ? "Select your best shots" : `${props.generatedImages.length} items created`}</p></div>
+        <header className="flex-shrink-0 flex items-center justify-between p-3.5 sm:p-4 md:p-6 border-b border-border-light bg-white gap-2">
+            <div className="flex items-center min-w-0 mr-2">
+                <Icon name={isFashionOrInfluencer ? "shirt" : "sparkles"} className="w-6 h-6 sm:w-8 sm:h-8 mr-2 sm:mr-4 text-primary shrink-0"/>
+                <div className="min-w-0">
+                    <h2 className="text-lg sm:text-xl md:text-2xl font-bold font-batangas text-text-primary truncate">{isFashionOrInfluencer ? "Review Studio" : "Generated Results"}</h2>
+                    <p className="text-xs sm:text-sm text-text-secondary truncate">{isFashionOrInfluencer ? "Select your best shots" : `${props.generatedImages.length} items created`}</p>
+                </div>
             </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-                <Button onClick={props.onReturnToSettings} variant="secondary" fullWidth><Icon name="settings" className="w-5 h-5 mr-2" />Back to Settings</Button>
-            </div>
+            <Button 
+              onClick={props.onReturnToSettings} 
+              variant="secondary" 
+              className="!px-2.5 !py-1.5 sm:!px-3.5 sm:!py-2 !text-xs sm:!text-sm whitespace-nowrap shrink-0 font-medium"
+            >
+                <Icon name="settings" className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 shrink-0" />
+                <span className="hidden sm:inline">Back to Settings</span>
+                <span className="sm:hidden">Settings</span>
+            </Button>
         </header>
         <main className="flex-grow flex flex-row overflow-hidden">
             <div className="flex-1 overflow-y-auto">
