@@ -2,7 +2,7 @@ import React, { useRef, useState, useCallback, useEffect } from "react";
 import * as ort from "onnxruntime-web";
 
 // TODO: Replace with actual model URL when provided by user
-const MODEL_URL = "/models/rmbg-1.4-int8.onnx"; 
+const MODEL_URL = "/models/rmbg-1.4.onnx"; 
 const MODEL_INPUT_SIZE = 1024; 
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
@@ -13,6 +13,7 @@ function getSession() {
       ? Math.min(4, navigator.hardwareConcurrency)
       : 1;
     ort.env.wasm.simd = true;
+    ort.env.wasm.wasmPaths = "/";
     sessionPromise = ort.InferenceSession.create(MODEL_URL, {
       executionProviders: ["webgl", "wasm"],
       graphOptimizationLevel: "all",

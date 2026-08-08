@@ -45,6 +45,12 @@ export const LandingHeader: React.FC = () => {
               >
                 How It Works
               </Link>
+              <Link 
+                to="/tools/background-remover" 
+                className="text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors"
+              >
+                Background Remover
+              </Link>
             </div>
 
             <div className="flex items-center gap-2">
@@ -78,9 +84,16 @@ export const LandingHeader: React.FC = () => {
             <Link 
               to="/#how-it-works" 
               onClick={(e) => handleScrollTo(e, 'how-it-works')}
-              className="text-base font-medium text-slate-700 hover:text-slate-900 py-2 pb-4"
+              className="text-base font-medium text-slate-700 hover:text-slate-900 py-2 border-b border-slate-100"
             >
               How It Works
+            </Link>
+            <Link 
+              to="/tools/background-remover" 
+              className="text-base font-medium text-slate-700 hover:text-slate-900 py-2 pb-4"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Background Remover
             </Link>
           </div>
         )}

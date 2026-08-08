@@ -774,8 +774,8 @@ app.get(['/api/health', '/health'], (req, res) => {
   }));
 
   app.post(['/api/background-remover-pro'], requireAuth, aiLimiter, upload.single('image'), asyncHandler(async (req: any, res: any) => {
-    const PRO_SERVICE_URL = process.env.BG_REMOVER_PRO_URL;
-    const INTERNAL_API_KEY = process.env.BG_REMOVER_INTERNAL_KEY;
+    const PRO_SERVICE_URL = process.env.BG_REMOVER_URL || "https://zeperai-bg-remover-pro-rrttxscxyq-as.a.run.app";
+    const INTERNAL_API_KEY = process.env.BG_REMOVER_API_KEY;
     
     if (!PRO_SERVICE_URL || !INTERNAL_API_KEY) {
       throw new AppError('Background removal service is not configured.', 500, 'Background removal service is not configured.');
@@ -785,8 +785,14 @@ app.get(['/api/health', '/health'], (req, res) => {
     if (!file) {
       return res.status(400).json({ success: false, error: 'No image provided' });
     }
+    
+    const validMimeTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/jpg'];
+    if (!validMimeTypes.includes(file.mimetype)) {
+      throw new AppError("Please upload a PNG, JPG, JPEG, or WebP image up to 15 MB.", 400, "Please upload a PNG, JPG, JPEG, or WebP image up to 15 MB.");
+    }
+
     if (file.size > 15 * 1024 * 1024) {
-      return res.status(400).json({ success: false, error: 'Image too large (max 15MB)' });
+      throw new AppError("Image is too large. Please upload an image under 15 MB.", 413, "Image is too large. Please upload an image under 15 MB.");
     }
 
     const FormData = (await import('form-data')).default;
@@ -799,9 +805,10 @@ app.get(['/api/health', '/health'], (req, res) => {
         const response = await axios.post(`${PRO_SERVICE_URL}/remove-background`, formData, {
             headers: { 
                 ...formData.getHeaders(),
-                'x-internal-key': INTERNAL_API_KEY
+                'X-Internal-Key': INTERNAL_API_KEY
             },
             responseType: 'arraybuffer',
+            timeout: 60000,
         });
         
         res.set('Content-Type', 'image/png');
@@ -809,7 +816,21 @@ app.get(['/api/health', '/health'], (req, res) => {
         res.send(Buffer.from(response.data, 'binary'));
     } catch (error: any) {
         console.error("Pro bg-remover upstream error:", error.response?.status, error.message);
-        throw new AppError("Background removal failed, please try again.", 502, error.message);
+        
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+             throw new AppError("Image processing took too long. Please try again.", 504, "Image processing took too long. Please try again.");
+        }
+        
+        const status = error.response?.status;
+        if (status === 401) {
+            throw new AppError("Unable to authenticate with the image processing service.", 401, "Unable to authenticate with the image processing service.");
+        } else if (status === 400) {
+            throw new AppError("Please upload a PNG, JPG, JPEG, or WebP image up to 15 MB.", 400, "Please upload a PNG, JPG, JPEG, or WebP image up to 15 MB.");
+        } else if (status === 413) {
+            throw new AppError("Image is too large. Please upload an image under 15 MB.", 413, "Image is too large. Please upload an image under 15 MB.");
+        }
+        
+        throw new AppError("Something went wrong while processing your image. Please try again.", 500, "Something went wrong while processing your image. Please try again.");
     }
   }));
 
@@ -824,12 +845,10 @@ app.get(['/api/health', '/health'], (req, res) => {
   // Export default for Vercel Serverless Functions
   export default app;
 
-  // Only start server locally (not when processed by Vercel's serverless builder)
-  if (!process.env.VERCEL) {
-    const PORT = 3000;
-    
-    // --- VITE & STATIC SERVING ---
-    const setupViteAndStart = async () => {
+  const PORT = 3000;
+  
+  // --- VITE & STATIC SERVING ---
+  const setupViteAndStart = async () => {
       if (process.env.NODE_ENV !== 'production') {
         const { createServer: createViteServer } = await import('vite');
         const vite = await createViteServer({
@@ -856,6 +875,5 @@ app.get(['/api/health', '/health'], (req, res) => {
     };
     
     setupViteAndStart();
-  }
 
 

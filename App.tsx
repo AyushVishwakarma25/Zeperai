@@ -28,6 +28,7 @@ import { ChatBot } from './components/ChatBot';
 
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LandingPage } from './src/landing/LandingPage';
+import { BackgroundRemoverLandingPage } from './src/landing/BackgroundRemoverLandingPage';
 import { PrivacyPolicyPage } from './src/landing/PrivacyPolicyPage';
 import { TermsPage } from './src/landing/TermsPage';
 import { PricingPage } from './src/landing/PricingPage';
@@ -420,6 +421,7 @@ const AppInternal: React.FC = () => {
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/tools/background-remover" element={<BackgroundRemoverLandingPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
       <Route path="/about" element={<AboutUsPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/login" element={!user ? <LoginPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to="/dashboard" replace />} />
