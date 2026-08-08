@@ -1,4 +1,5 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import { supabase } from "../../services/supabaseClient";
 
 interface BackgroundRemoverProProps {
   onDeductCredits: (cost: number) => boolean;
@@ -11,8 +12,24 @@ export default function BackgroundRemoverPro({ onDeductCredits, onRefundCredits 
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isAuthLoaded, setIsAuthLoaded] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(() => setIsAuthLoaded(true));
+  }, []);
 
   const handleFile = async (file: File) => {
+    if (!isAuthLoaded) return; // Guard against race conditions
+
+    // Fetch the freshest session which automatically handles refresh if expired
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    if (!token) {
+      window.location.href = "/login?returnTo=%2Ftools%2Fbackground-remover";
+      return;
+    }
+
     // Check credits before uploading
     if (!onDeductCredits(2)) return;
 
@@ -29,9 +46,15 @@ export default function BackgroundRemoverPro({ onDeductCredits, onRefundCredits 
       const res = await fetch("/api/background-remover-pro", {
         method: "POST",
         body: formData,
-        // Authentication token is handled by the browser cookie/session if any, 
-        // or we might need to add Bearer token. I will fetch the session using Supabase.
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
+
+      if (res.status === 401) {
+          window.location.href = "/login?returnTo=%2Ftools%2Fbackground-remover";
+          throw new Error("Session expired. Redirecting to login...");
+      }
 
       if (!res.ok) {
         let errStr = "Processing failed";

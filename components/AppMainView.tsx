@@ -13,7 +13,6 @@ const AnalyticsDashboard = lazy(() => import('./AnalyticsDashboard').then(module
 const ShopifyDashboard = lazy(() => import('./ShopifyDashboard'));
 const ProfilePage = lazy(() => import('./ProfilePage'));
 const InspirationPage = lazy(() => import('./InspirationPage'));
-const BackgroundRemoverTool = lazy(() => import('./tools/BackgroundRemoverTool').then(m => ({ default: m.BackgroundRemoverTool })));
 
 interface AppMainViewProps {
     currentView: View;
@@ -184,16 +183,6 @@ export const AppMainView: React.FC<AppMainViewProps> = (props) => {
                     items={props.inspirationItems} 
                     isLoaded={props.isInspirationLoaded} 
                     onItemsLoaded={props.onItemsLoaded} 
-                />
-            )}
-            
-            {props.currentView === View.BackgroundRemover && (
-                <BackgroundRemoverTool
-                    onSetView={props.onSetView}
-                    onToggleSidebar={props.onToggleSidebar}
-                    userTier={props.userTier}
-                    onDeductCredits={props.onDeductCredits}
-                    onRefundCredits={props.onRefundCredits}
                 />
             )}
         </Suspense>

@@ -415,6 +415,15 @@ const AppInternal: React.FC = () => {
 
   const isStoryboardResult = !!creative.params.storyboardScenes && creative.params.storyboardScenes.length > 0;
 
+  const getReturnPath = () => {
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get('returnTo');
+    if (returnTo && returnTo.startsWith('/')) {
+      return returnTo;
+    }
+    return '/dashboard';
+  };
+
   return (
     <Routes>
       <Route path="/" element={!user ? <LandingPage /> : <Navigate to="/dashboard" replace />} />
@@ -424,8 +433,8 @@ const AppInternal: React.FC = () => {
       <Route path="/tools/background-remover" element={<BackgroundRemoverLandingPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
       <Route path="/about" element={<AboutUsPage />} />
       <Route path="/contact" element={<ContactPage />} />
-      <Route path="/login" element={!user ? <LoginPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to="/dashboard" replace />} />
-      <Route path="/signup" element={!user ? <SignupPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to="/dashboard" replace />} />
+      <Route path="/login" element={!user ? <LoginPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to={getReturnPath()} replace />} />
+      <Route path="/signup" element={!user ? <SignupPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to={getReturnPath()} replace />} />
       <Route path="/dashboard" element={
         !user ? <Navigate to="/login" replace /> : (
           <>

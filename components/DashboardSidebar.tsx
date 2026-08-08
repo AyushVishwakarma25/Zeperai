@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Icon } from './ui/Icon';
 import { BrandLogo } from './ui/BrandLogo';
 import { AppMode, View, GeneratedImage } from '../types';
@@ -68,19 +69,19 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
     onInternalImageDrop,
     onShowDevMessage
 }) => {
+  const navigate = useNavigate();
   const [isModesOpen, setIsModesOpen] = useState(true);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [dragOverMode, setDragOverMode] = useState<AppMode | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   
-    const creativeModes = [
+    const creativeModes: { label: string, mode?: AppMode, action?: () => void, isDev?: boolean }[] = [
         { label: 'AI UGC Influencer', mode: AppMode.Influencer },
         { label: 'Product Photoshoot', mode: AppMode.Product },
         { label: 'Fashion Photoshoot', mode: AppMode.Fashion },
         { label: 'Ad Creative', mode: AppMode.AdCreative },
         { label: 'Festival Shoot', mode: AppMode.Festival },
         { label: 'Remix', mode: AppMode.Remix },
-        { label: 'Background Remover', action: onStartImageEdit },
     ];
 
   useEffect(() => {
@@ -214,7 +215,7 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
             <NavItem icon="edit" label="AI Content Writer" onClick={() => { onOpenContentGenerator(); onClose(); }} isOpen={isOpen} />
             
             <NavItem icon="shopping-bag" label="Shopify Analyzer" active={currentView === View.ShopifyAnalytics} onClick={() => { onSetView(View.ShopifyAnalytics); onClose(); }} isOpen={isOpen} />
-            <NavItem icon="image" label="BG Remover" active={currentView === View.BackgroundRemover} onClick={() => { onSetView(View.BackgroundRemover); onClose(); }} isOpen={isOpen} />
+            <NavItem icon="image" label="BG Remover" active={window.location.pathname === '/tools/background-remover'} onClick={() => { navigate('/tools/background-remover'); onClose(); }} isOpen={isOpen} />
             <NavItem icon="folder" label="My Designs" active={currentView === View.MyDesigns} onClick={() => { onSetView(View.MyDesigns); onClose(); }} isOpen={isOpen} />
             <NavItem icon="lightbulb" label="Inspiration" active={currentView === View.Inspiration} onClick={() => { onSetView(View.Inspiration); onClose(); }} isOpen={isOpen} />
             

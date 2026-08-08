@@ -725,10 +725,10 @@ app.get(['/api/health', '/health'], (req, res) => {
 
   app.post(['/api/remove-bg-pro', '/remove-bg-pro'], requireAuth, aiLimiter, asyncHandler(async (req: any, res: any) => {
     const { imageUrl, imageBase64 } = req.body;
-    const proBgUrl = process.env.PRO_BG_API_URL;
-    const apiKey = process.env.REMOVE_BG_API_KEY;
+    const proBgUrl = process.env.BG_REMOVER_PRO_URL || process.env.BG_REMOVER_URL || "https://zeperai-bg-remover-pro-rrttxscxyq-as.a.run.app";
+    const apiKey = process.env.BG_REMOVER_INTERNAL_KEY || process.env.BG_REMOVER_API_KEY || "";
 
-    if (!proBgUrl && !apiKey) {
+    if (!proBgUrl) {
       throw new AppError('Pro Background API not configured.', 500, 'Background removal service is not configured.');
     }
 
@@ -746,24 +746,29 @@ app.get(['/api/health', '/health'], (req, res) => {
       formData.append('image_url', imageUrl);
     } else if (base64Data) {
       const buffer = Buffer.from(base64Data, 'base64');
-      formData.append('image_file', buffer, { filename: 'image.png' });
+      formData.append('file', buffer, { filename: 'image.png' });
     }
 
     let response;
-    if (proBgUrl) {
-        response = await axios.post(proBgUrl, formData, {
-          headers: { ...formData.getHeaders() },
+    if (apiKey) {
+        response = await axios.post(`${proBgUrl}/remove-background`, formData, {
+          headers: { 
+            ...formData.getHeaders(),
+            'X-Internal-Key': apiKey
+          },
           responseType: 'arraybuffer',
         });
-    } else {
+    } else if (process.env.REMOVE_BG_API_KEY) {
         formData.append('size', 'auto');
         response = await axios.post('https://api.remove.bg/v1.0/removebg', formData, {
           headers: {
             ...formData.getHeaders(),
-            'X-API-Key': apiKey,
+            'X-API-Key': process.env.REMOVE_BG_API_KEY,
           },
           responseType: 'arraybuffer',
         });
+    } else {
+        throw new AppError('Background removal service is not configured.', 500, 'Background removal service is not configured.');
     }
 
     const base64Result = Buffer.from(response.data, 'binary').toString('base64');
@@ -774,10 +779,10 @@ app.get(['/api/health', '/health'], (req, res) => {
   }));
 
   app.post(['/api/background-remover-pro'], requireAuth, aiLimiter, upload.single('image'), asyncHandler(async (req: any, res: any) => {
-    const PRO_SERVICE_URL = process.env.BG_REMOVER_URL || "https://zeperai-bg-remover-pro-rrttxscxyq-as.a.run.app";
-    const INTERNAL_API_KEY = process.env.BG_REMOVER_API_KEY;
+    const PRO_SERVICE_URL = process.env.BG_REMOVER_PRO_URL || process.env.BG_REMOVER_URL || "https://zeperai-bg-remover-pro-rrttxscxyq-as.a.run.app";
+    const INTERNAL_API_KEY = process.env.BG_REMOVER_INTERNAL_KEY || process.env.BG_REMOVER_API_KEY || "";
     
-    if (!PRO_SERVICE_URL || !INTERNAL_API_KEY) {
+    if (!PRO_SERVICE_URL) {
       throw new AppError('Background removal service is not configured.', 500, 'Background removal service is not configured.');
     }
 
@@ -798,23 +803,40 @@ app.get(['/api/health', '/health'], (req, res) => {
     const FormData = (await import('form-data')).default;
     const axios = (await import('axios')).default;
     
-    const formData = new FormData();
-    formData.append('file', file.buffer, { filename: file.originalname || 'image.png', contentType: file.mimetype });
-
     try {
-        const response = await axios.post(`${PRO_SERVICE_URL}/remove-background`, formData, {
-            headers: { 
-                ...formData.getHeaders(),
-                'X-Internal-Key': INTERNAL_API_KEY
-            },
-            responseType: 'arraybuffer',
-            timeout: 60000,
-        });
+        let response;
+        if (INTERNAL_API_KEY) {
+            const formData = new FormData();
+            formData.append('file', file.buffer, { filename: file.originalname || 'image.png', contentType: file.mimetype });
+            response = await axios.post(`${PRO_SERVICE_URL}/remove-background`, formData, {
+                headers: { 
+                    ...formData.getHeaders(),
+                    'X-Internal-Key': INTERNAL_API_KEY
+                },
+                responseType: 'arraybuffer',
+                timeout: 60000,
+            });
+        } else if (process.env.REMOVE_BG_API_KEY) {
+            const removeBgFormData = new FormData();
+            removeBgFormData.append('image_file', file.buffer, { filename: file.originalname || 'image.png' });
+            removeBgFormData.append('size', 'auto');
+            response = await axios.post('https://api.remove.bg/v1.0/removebg', removeBgFormData, {
+                headers: {
+                    ...removeBgFormData.getHeaders(),
+                    'X-API-Key': process.env.REMOVE_BG_API_KEY,
+                },
+                responseType: 'arraybuffer',
+                timeout: 60000,
+            });
+        } else {
+            throw new AppError('Background removal service is not configured.', 500, 'Background removal service is not configured.');
+        }
         
         res.set('Content-Type', 'image/png');
         res.set('Cache-Control', 'no-store');
         res.send(Buffer.from(response.data, 'binary'));
     } catch (error: any) {
+        if (error instanceof AppError) throw error;
         console.error("Pro bg-remover upstream error:", error.response?.status, error.message);
         
         if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {

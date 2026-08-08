@@ -45,7 +45,6 @@ export enum View {
   Analytics = 'Analytics',
   ShopifyAnalytics = 'ShopifyAnalytics',
   Inspiration = 'Inspiration',
-  BackgroundRemover = 'BackgroundRemover',
 }
 
 export enum AspectRatio {

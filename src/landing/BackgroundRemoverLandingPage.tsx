@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { LandingHeader } from './LandingHeader';
 import { Footer } from './Footer';
-import BackgroundRemover from '../../components/tools/BackgroundRemover';
 import BackgroundRemoverPro from '../../components/tools/BackgroundRemoverPro';
+import BackgroundRemover from '../../components/tools/BackgroundRemover';
 
 interface Props {
   user: any;
@@ -12,12 +12,31 @@ interface Props {
 }
 
 export const BackgroundRemoverLandingPage: React.FC<Props> = ({ user, onDeductCredits, onRefundCredits }) => {
-  const [activeTab, setActiveTab] = useState<'free' | 'pro'>('free');
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'pro' ? 'pro' : 'free';
+  const [activeTab, setActiveTab] = useState<'free' | 'pro'>(initialTab);
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'pro') {
+      setActiveTab('pro');
+    } else {
+      setActiveTab('free');
+    }
+  }, [searchParams]);
+
+  const handleTabClick = (tab: 'free' | 'pro') => {
+    if (tab === 'pro' && !user) {
+      navigate('/login?returnTo=%2Ftools%2Fbackground-remover%3Ftab%3Dpro');
+      return;
+    }
+    setActiveTab(tab);
+    setSearchParams(tab === 'pro' ? { tab: 'pro' } : {});
+  };
 
   const handleDeductCredits = (cost: number) => {
     if (!user) {
-      navigate('/login');
+      navigate('/login?returnTo=%2Ftools%2Fbackground-remover%3Ftab%3Dpro');
       return false;
     }
     if (onDeductCredits) {
@@ -55,13 +74,13 @@ export const BackgroundRemoverLandingPage: React.FC<Props> = ({ user, onDeductCr
             </span>
           </h1>
           <p className="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto font-light leading-relaxed mb-10">
-            Drop a product photo and get a clean, transparent cutout in seconds. Free to use with no signup required.
+            Drop a product photo and get a clean, transparent cutout in seconds.
           </p>
 
           <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/90 shadow-xl shadow-slate-200/60 max-w-4xl mx-auto text-left">
             <div className="flex items-center justify-center space-x-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200/80 w-fit mx-auto mb-8">
               <button
-                onClick={() => setActiveTab('free')}
+                onClick={() => handleTabClick('free')}
                 className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
                   activeTab === 'free'
                     ? 'bg-white text-slate-900 shadow-sm'
@@ -71,7 +90,7 @@ export const BackgroundRemoverLandingPage: React.FC<Props> = ({ user, onDeductCr
                 Free Tier
               </button>
               <button
-                onClick={() => setActiveTab('pro')}
+                onClick={() => handleTabClick('pro')}
                 className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
                   activeTab === 'pro'
                     ? 'bg-[#4452FB] text-white shadow-sm'
@@ -104,6 +123,7 @@ export const BackgroundRemoverLandingPage: React.FC<Props> = ({ user, onDeductCr
       {/* Metrics Section */}
       <section className="border-y border-slate-200/80 bg-slate-50/80 py-14 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-6 text-center">
+
           {[
             { value: '<2s', label: 'Average processing time' },
             { value: '99.2%', label: 'Edge accuracy on hair & fur' },

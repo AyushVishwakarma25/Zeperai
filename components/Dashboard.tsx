@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Icon } from './ui/Icon';
 import { AppMode, GeneratedImage } from '../types';
 
@@ -129,7 +130,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
     userName = 'there',
     onShowDevMessage
 }) => {
-
+    const navigate = useNavigate();
     const isProLocked = (userTier === 'Free');
 
     // Updated colors using the requested palette:
@@ -191,7 +192,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#FCD8FC', // card-pink (Reusing for edit/utility)
             accentColor: '#BE185D', // pink-700
             iconName: 'magic-wand',
-            onClick: () => onStartImageEdit()
+            onClick: () => navigate('/tools/background-remover')
         },
         {
             title: 'Image Restyle',

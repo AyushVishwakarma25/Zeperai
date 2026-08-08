@@ -3,9 +3,7 @@ import { removeBackground } from "@imgly/background-removal";
 
 export default function BackgroundRemover() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [status, setStatus] = useState<
-    "idle" | "loading-model" | "processing" | "done" | "error"
-  >("idle");
+  const [status, setStatus] = useState<"idle" | "loading-model" | "processing" | "done" | "error">("idle");
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState("");
   const [resultUrl, setResultUrl] = useState<string | null>(null);
@@ -39,125 +37,102 @@ export default function BackgroundRemover() {
           }
         },
       });
-
-      const url = URL.createObjectURL(blob);
-      setResultUrl(url);
-      setProgress(100);
+      const resultObjUrl = URL.createObjectURL(blob);
+      setResultUrl(resultObjUrl);
       setStatus("done");
-    } catch (err) {
-      console.error("Background removal error:", err);
-      setErrorMsg(
-        err instanceof Error ? err.message : "Something went wrong processing this image."
-      );
+    } catch (e: any) {
+      setErrorMsg(e.message || "Failed to process image");
       setStatus("error");
     }
   }, []);
 
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processFile(file);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processFile(e.target.files[0]);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFile(e.dataTransfer.files[0]);
+    }
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-800">Free Background Remover</h2>
-        <span className="text-xs font-medium bg-slate-100 text-slate-600 px-3 py-1 rounded-full border border-slate-200">
-          Runs on your device
-        </span>
-      </div>
-
-      <div
-        onClick={() => fileInputRef.current?.click()}
+    <div className="w-full">
+      <div 
+        className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center cursor-pointer hover:bg-slate-50 transition-colors"
         onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault();
-          const file = e.dataTransfer.files?.[0];
-          if (file) processFile(file);
-        }}
-        className="border-2 border-dashed border-slate-300 hover:border-primary/50 hover:bg-primary/5 rounded-2xl min-h-[300px] flex flex-col items-center justify-center cursor-pointer p-6 transition-colors overflow-hidden relative"
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
       >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          onChange={onFileChange}
-          className="hidden"
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          className="hidden" 
+          accept="image/png, image/jpeg, image/webp" 
+          onChange={handleFileChange} 
         />
-        {!originalUrl && (
-          <div className="text-center">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
+        
+        {status === "idle" && (
+          <div className="text-slate-500">
+            <p className="font-semibold mb-2">Click or drag an image here to remove the background</p>
+            <p className="text-sm">Standard quality, processing on your device</p>
+          </div>
+        )}
+        
+        {(status === "loading-model" || status === "processing") && (
+          <div className="text-slate-500 flex flex-col items-center">
+            <div className="w-full max-w-xs bg-slate-200 rounded-full h-2.5 mb-2 dark:bg-gray-700">
+              <div className="bg-primary h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
             </div>
-            <p className="text-sm font-medium text-slate-700">Click or drag an image here</p>
-            <p className="text-xs text-slate-500 mt-1">Supports PNG, JPG, WEBP</p>
+            <p className="text-sm">{progressText} {progress}%</p>
           </div>
         )}
-        {originalUrl && status !== "done" && (
-          <img src={originalUrl} alt="preview" className="max-w-full max-h-[400px] rounded-lg object-contain" />
-        )}
+
         {status === "done" && resultUrl && (
-          <div className="w-full flex justify-center items-center h-full">
-            <CheckerboardImage src={resultUrl} />
+          <div className="flex flex-col items-center gap-4">
+             <img src={resultUrl} alt="Result" className="max-w-xs rounded-lg shadow-sm bg-checkered" />
+             <div className="flex gap-2">
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); setStatus("idle"); setResultUrl(null); setOriginalUrl(null); }}
+                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
+                 >
+                     Start Over
+                 </button>
+                 <a 
+                   href={resultUrl} 
+                   download="background-removed.png"
+                   onClick={(e) => e.stopPropagation()}
+                   className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium transition-colors shadow-sm shadow-primary/30"
+                 >
+                     Download Image
+                 </a>
+             </div>
           </div>
+        )}
+
+        {status === "error" && (
+           <div className="text-red-500">
+               <p className="font-semibold mb-2">Error processing image</p>
+               <p className="text-sm">{errorMsg}</p>
+               <button 
+                 onClick={(e) => { e.stopPropagation(); setStatus("idle"); setErrorMsg(""); }}
+                 className="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
+               >
+                   Try Again
+               </button>
+           </div>
         )}
       </div>
-
-      {(status === "loading-model" || status === "processing") && (
-        <div className="space-y-2">
-          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-primary transition-all duration-300 ease-out"
-              style={{ width: `${progress || 15}%` }}
-            />
-          </div>
-          <p className="text-xs text-slate-500 text-center font-medium">
-            {progressText || (status === "loading-model" ? "Loading AI model..." : "Removing background...")}
-          </p>
-        </div>
-      )}
-
-      {status === "error" && (
-        <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium">
-          {errorMsg}
-        </div>
-      )}
-
-      {status === "done" && resultUrl && (
-        <div className="flex flex-col items-center gap-4">
-          <a
-            href={resultUrl}
-            download="background-removed.png"
-            className="w-full sm:w-auto px-8 py-3 bg-primary hover:bg-primary/90 text-white font-medium rounded-xl transition-colors shadow-sm text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Download Result
-          </a>
-          <p className="text-xs text-slate-500 text-center max-w-sm">
-            Need even higher resolution? Switch to the <button className="text-primary font-medium hover:underline">Pro Tier</button> for server-side GPU processing.
-          </p>
-        </div>
-      )}
+      <style>{`
+        .bg-checkered {
+          background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
+          background-size: 20px 20px;
+          background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+      `}</style>
     </div>
   );
 }
-
-function CheckerboardImage({ src }: { src: string }) {
-  return (
-    <div
-      className="rounded-xl overflow-hidden shadow-sm ring-1 ring-slate-200"
-      style={{
-        backgroundImage:
-          "linear-gradient(45deg, #f1f5f9 25%, transparent 25%), linear-gradient(-45deg, #f1f5f9 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f1f5f9 75%), linear-gradient(-45deg, transparent 75%, #f1f5f9 75%)",
-        backgroundSize: "20px 20px",
-        backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
-        backgroundColor: "white",
-      }}
-    >
-      <img src={src} alt="result" className="max-w-full max-h-[400px] object-contain block" />
-    </div>
-  );
-}
-
