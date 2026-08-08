@@ -1,100 +1,5 @@
-import React, { useRef, useState, useCallback, useEffect } from "react";
-import * as ort from "onnxruntime-web";
-
-// TODO: Replace with actual model URL when provided by user
-const MODEL_URL = "/models/rmbg-1.4.onnx"; 
-const MODEL_INPUT_SIZE = 1024; 
-
-let sessionPromise: Promise<ort.InferenceSession> | null = null;
-
-function getSession() {
-  if (!sessionPromise) {
-    ort.env.wasm.numThreads = navigator.hardwareConcurrency
-      ? Math.min(4, navigator.hardwareConcurrency)
-      : 1;
-    ort.env.wasm.simd = true;
-    ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/";
-    sessionPromise = ort.InferenceSession.create(MODEL_URL, {
-      executionProviders: ["webgl", "wasm"],
-      graphOptimizationLevel: "all",
-    });
-  }
-  return sessionPromise;
-}
-
-function preprocess(img: HTMLImageElement): {
-  tensor: ort.Tensor;
-  origWidth: number;
-  origHeight: number;
-} {
-  const canvas = document.createElement("canvas");
-  canvas.width = MODEL_INPUT_SIZE;
-  canvas.height = MODEL_INPUT_SIZE;
-  const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(img, 0, 0, MODEL_INPUT_SIZE, MODEL_INPUT_SIZE);
-  const { data } = ctx.getImageData(0, 0, MODEL_INPUT_SIZE, MODEL_INPUT_SIZE);
-
-  const float32Data = new Float32Array(3 * MODEL_INPUT_SIZE * MODEL_INPUT_SIZE);
-  const mean = [0.5, 0.5, 0.5];
-  const std = [1.0, 1.0, 1.0];
-  const pixelCount = MODEL_INPUT_SIZE * MODEL_INPUT_SIZE;
-
-  for (let i = 0; i < pixelCount; i++) {
-    float32Data[i] = (data[i * 4] / 255 - mean[0]) / std[0]; // R
-    float32Data[pixelCount + i] = (data[i * 4 + 1] / 255 - mean[1]) / std[1]; // G
-    float32Data[2 * pixelCount + i] = (data[i * 4 + 2] / 255 - mean[2]) / std[2]; // B
-  }
-
-  return {
-    tensor: new ort.Tensor("float32", float32Data, [1, 3, MODEL_INPUT_SIZE, MODEL_INPUT_SIZE]),
-    origWidth: img.naturalWidth,
-    origHeight: img.naturalHeight,
-  };
-}
-
-async function applyMask(
-  img: HTMLImageElement,
-  maskData: Float32Array,
-  origWidth: number,
-  origHeight: number
-): Promise<Blob> {
-  const maskCanvas = document.createElement("canvas");
-  maskCanvas.width = MODEL_INPUT_SIZE;
-  maskCanvas.height = MODEL_INPUT_SIZE;
-  const maskCtx = maskCanvas.getContext("2d")!;
-  const maskImageData = maskCtx.createImageData(MODEL_INPUT_SIZE, MODEL_INPUT_SIZE);
-  for (let i = 0; i < maskData.length; i++) {
-    const v = Math.max(0, Math.min(255, maskData[i] * 255));
-    maskImageData.data[i * 4] = v;
-    maskImageData.data[i * 4 + 1] = v;
-    maskImageData.data[i * 4 + 2] = v;
-    maskImageData.data[i * 4 + 3] = 255;
-  }
-  maskCtx.putImageData(maskImageData, 0, 0);
-
-  const outCanvas = document.createElement("canvas");
-  outCanvas.width = origWidth;
-  outCanvas.height = origHeight;
-  const outCtx = outCanvas.getContext("2d")!;
-  outCtx.drawImage(img, 0, 0, origWidth, origHeight);
-  const outData = outCtx.getImageData(0, 0, origWidth, origHeight);
-
-  const resizedMaskCanvas = document.createElement("canvas");
-  resizedMaskCanvas.width = origWidth;
-  resizedMaskCanvas.height = origHeight;
-  const resizedCtx = resizedMaskCanvas.getContext("2d")!;
-  resizedCtx.drawImage(maskCanvas, 0, 0, origWidth, origHeight);
-  const resizedMask = resizedCtx.getImageData(0, 0, origWidth, origHeight);
-
-  for (let i = 0; i < origWidth * origHeight; i++) {
-    outData.data[i * 4 + 3] = resizedMask.data[i * 4];
-  }
-  outCtx.putImageData(outData, 0, 0);
-
-  return new Promise((resolve) => {
-    outCanvas.toBlob((blob) => resolve(blob!), "image/png");
-  });
-}
+import React, { useRef, useState, useCallback } from "react";
+import { removeBackground } from "@imgly/background-removal";
 
 export default function BackgroundRemover() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -102,50 +7,45 @@ export default function BackgroundRemover() {
     "idle" | "loading-model" | "processing" | "done" | "error"
   >("idle");
   const [progress, setProgress] = useState(0);
+  const [progressText, setProgressText] = useState("");
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
-
-  useEffect(() => {
-    getSession().catch(() => {});
-  }, []);
 
   const processFile = useCallback(async (file: File) => {
     setStatus("loading-model");
     setResultUrl(null);
     setErrorMsg("");
+    setProgress(0);
+    setProgressText("Initializing AI model...");
+
     const objUrl = URL.createObjectURL(file);
     setOriginalUrl(objUrl);
 
     try {
-      const img = new Image();
-      img.src = objUrl;
-      await new Promise((res, rej) => {
-        img.onload = res;
-        img.onerror = rej;
+      const blob = await removeBackground(file, {
+        progress: (key: string, current: number, total: number) => {
+          if (key.includes("fetch")) {
+            setStatus("loading-model");
+            setProgressText("Downloading AI model weights...");
+          } else {
+            setStatus("processing");
+            setProgressText("Removing background...");
+          }
+
+          if (total > 0) {
+            const pct = Math.min(100, Math.round((current / total) * 100));
+            setProgress(pct);
+          }
+        },
       });
 
-      const session = await getSession();
-      setStatus("processing");
-      setProgress(40);
-
-      const { tensor, origWidth, origHeight } = preprocess(img);
-      const feeds: Record<string, ort.Tensor> = {};
-      feeds[session.inputNames[0]] = tensor;
-
-      const results = await session.run(feeds);
-      setProgress(80);
-
-      const outputName = session.outputNames[0];
-      const maskTensor = results[outputName];
-      const maskData = maskTensor.data as Float32Array;
-
-      const blob = await applyMask(img, maskData, origWidth, origHeight);
-      setResultUrl(URL.createObjectURL(blob));
+      const url = URL.createObjectURL(blob);
+      setResultUrl(url);
       setProgress(100);
       setStatus("done");
     } catch (err) {
-      console.error(err);
+      console.error("Background removal error:", err);
       setErrorMsg(
         err instanceof Error ? err.message : "Something went wrong processing this image."
       );
@@ -214,7 +114,7 @@ export default function BackgroundRemover() {
             />
           </div>
           <p className="text-xs text-slate-500 text-center font-medium">
-            {status === "loading-model" ? "Loading AI model (once per session)..." : "Removing background..."}
+            {progressText || (status === "loading-model" ? "Loading AI model..." : "Removing background...")}
           </p>
         </div>
       )}
@@ -236,7 +136,7 @@ export default function BackgroundRemover() {
             Download Result
           </a>
           <p className="text-xs text-slate-500 text-center max-w-sm">
-            Not perfectly clean? Complex edges like hair or fur might need the <button className="text-primary font-medium hover:underline">Pro Tier</button> which uses a larger cloud GPU model.
+            Need even higher resolution? Switch to the <button className="text-primary font-medium hover:underline">Pro Tier</button> for server-side GPU processing.
           </p>
         </div>
       )}
@@ -260,3 +160,4 @@ function CheckerboardImage({ src }: { src: string }) {
     </div>
   );
 }
+
