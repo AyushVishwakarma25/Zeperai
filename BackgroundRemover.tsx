@@ -35,6 +35,7 @@ function getSession() {
       ? Math.min(4, navigator.hardwareConcurrency)
       : 1;
     ort.env.wasm.simd = true;
+    ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/";
     sessionPromise = ort.InferenceSession.create(MODEL_URL, {
       executionProviders: ["webgl", "wasm"], // tries WebGL first, falls back to WASM
       graphOptimizationLevel: "all",
