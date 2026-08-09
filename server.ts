@@ -114,6 +114,7 @@ app.use(helmet({
         "'unsafe-inline'",
         "'unsafe-eval'",
         "https://checkout.razorpay.com",
+        "https://api.razorpay.com",
         "https://cdn.tailwindcss.com"
       ],
       styleSrc: [
