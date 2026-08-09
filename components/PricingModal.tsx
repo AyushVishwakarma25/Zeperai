@@ -4,24 +4,11 @@ import { Icon } from './ui/Icon';
 import { Spinner } from './ui/Spinner';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { supabase } from '../services/supabaseClient';
+import { openCheckout } from '../services/razorpayService';
 
 interface PricingModalProps {
   onClose: () => void;
 }
-
-const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
-        if ((window as any).Razorpay) {
-            resolve(true);
-            return;
-        }
-        const script = document.createElement('script');
-        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-        script.onload = () => resolve(true);
-        script.onerror = () => resolve(false);
-        document.body.appendChild(script);
-    });
-};
 
 interface PricingPlan {
   id: string;
@@ -179,108 +166,35 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
       setLoadingPriceId(plan.priceId);
       
       try {
-          const isScriptLoaded = await loadRazorpayScript();
-          if (!isScriptLoaded) {
-              throw new Error("Failed to load Razorpay Payment Gateway. Check internet connection.");
-          }
-          
-          const { data: { session } } = await supabase.auth.getSession();
           const { data: { user } } = await supabase.auth.getUser();
-          if (!user || !session?.access_token) {
+          if (!user) {
               throw new Error("You must be logged in to purchase credits. Please sign in or register first.");
           }
-          const userId = user.id;
           const email = user.email || 'customer@zeperai.in';
-          const token = session.access_token;
 
-          const res = await fetch('/api/razorpay/create-order', {
-              method: 'POST',
-              headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+          await openCheckout({
+              planId: plan.id,
+              planName: plan.name,
+              amount: plan.rawAmount,
+              creditsText: plan.credits,
+              userEmail: email,
+              onSuccess: () => {
+                  setSuccessMessage(`Congratulations! Your ${plan.name} has been activated! Reloading...`);
+                  setTimeout(() => {
+                    onClose();
+                    window.location.reload();
+                  }, 2000);
               },
-              body: JSON.stringify({ 
-                planId: plan.id, 
-                userId, 
-                amount: plan.rawAmount 
-              })
-          });
-
-          if (!res.ok) {
-              const errBody = await res.json().catch(() => ({}));
-              throw new Error(errBody.error || "Internal Server Error during checkout.");
-          }
-
-          const { order, key_id } = await res.json();
-          
-          if (!key_id) {
-             throw new Error("Razorpay Key ID is missing from server response.");
-          }
-
-          const options = {
-              key: key_id,
-              amount: order.amount,
-              currency: order.currency,
-              name: 'ZeperAI Studio',
-              description: `${plan.name} (${plan.credits})`,
-              order_id: order.id,
-              prefill: {
-                  email: email,
-                  contact: ''
+              onError: (err) => {
+                  setErrorMessage(err.message || "Payment failed or was canceled.");
+                  setLoadingPriceId(null);
               },
-              theme: {
-                  color: '#4452FB'
-              },
-              handler: async function (response: any) {
-                  setLoadingPriceId(plan.priceId);
-                  try {
-                      const verifyRes = await fetch('/api/razorpay/verify', {
-                          method: 'POST',
-                          headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                          },
-                          body: JSON.stringify({
-                              razorpay_order_id: response.razorpay_order_id,
-                              razorpay_payment_id: response.razorpay_payment_id,
-                              razorpay_signature: response.razorpay_signature,
-                              userId: userId,
-                              planId: plan.id,
-                              amount: plan.rawAmount
-                          })
-                      });
-
-                      if (!verifyRes.ok) {
-                          const verifyErr = await verifyRes.json();
-                          throw new Error(verifyErr.error || "Payment verification failed.");
-                      }
-
-                      setSuccessMessage(`Congratulations! Your ${plan.name} has been activated! Reloading...`);
-                      setTimeout(() => {
-                        onClose();
-                        window.location.reload();
-                      }, 2500);
-                  } catch (err: any) {
-                      setErrorMessage(`Signature Verification Error: ${err.message}`);
-                  } finally {
-                      setLoadingPriceId(null);
-                  }
-              },
-              modal: {
-                  ondismiss: function () {
-                      setLoadingPriceId(null);
-                  }
+              onDismiss: () => {
+                  setLoadingPriceId(null);
               }
-          };
-
-          const rzp1 = new (window as any).Razorpay(options);
-          rzp1.on('payment.failed', function (response: any) {
-             setErrorMessage(`Payment Failed: ${response.error.description}`);
-             setLoadingPriceId(null);
           });
-          rzp1.open();
       } catch (e: any) {
-          console.error(e);
+          console.error('Checkout error:', e);
           setErrorMessage(e instanceof Error ? e.message : 'Checkout failed');
           setLoadingPriceId(null);
       }
