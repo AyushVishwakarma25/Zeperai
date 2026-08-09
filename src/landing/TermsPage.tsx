@@ -30,7 +30,7 @@ export const TermsPage: React.FC = () => {
             </div>
             <div className="h-3 w-px bg-slate-200" />
             <div>
-              <span className="text-slate-400">Contact / Reg No:</span> 7307990640
+              <span className="text-slate-400">Contact:</span> +91 7307990640
             </div>
           </div>
         </div>
@@ -38,7 +38,7 @@ export const TermsPage: React.FC = () => {
         {/* Content Card */}
         <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/80 shadow-xs space-y-8 text-slate-700 leading-relaxed text-sm sm:text-base">
           <p className="text-base sm:text-lg font-medium text-slate-800 leading-relaxed">
-            These Terms and Conditions (&quot;<strong>Terms</strong>&quot;) govern your access to and use of ZeperAI (zeperai.in and related applications), operated by Falcon Canvas AI, a sole proprietorship registered in India (Registration No. / Contact No. 7307990640), registered office in Lucknow, Uttar Pradesh, India (&quot;<strong>ZeperAI</strong>&quot;, &quot;<strong>we</strong>&quot;, &quot;<strong>us</strong>&quot;, &quot;<strong>our</strong>&quot;).
+            These Terms and Conditions (&quot;<strong>Terms</strong>&quot;) govern your access to and use of ZeperAI (zeperai.in and related applications), operated by Falcon Canvas AI, a sole proprietorship registered in India, with its registered office in Lucknow, Uttar Pradesh, India (&quot;<strong>ZeperAI</strong>&quot;, &quot;<strong>we</strong>&quot;, &quot;<strong>us</strong>&quot;, &quot;<strong>our</strong>&quot;). Contact: +91 7307990640.
           </p>
 
           <div className="p-4 bg-indigo-50/60 border border-indigo-100 rounded-2xl text-slate-800 font-medium text-xs sm:text-sm">

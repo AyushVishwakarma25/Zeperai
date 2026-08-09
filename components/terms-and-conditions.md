@@ -2,7 +2,7 @@
 
 **Effective date: August 2026**
 
-These Terms and Conditions ("**Terms**") govern your access to and use of ZeperAI (zeperai.in and related applications), operated by Falcon Canvas AI, a sole proprietorship registered in India (Registration No. / Contact No. 7307990640), registered office in Lucknow, Uttar Pradesh, India ("**ZeperAI**", "**we**", "**us**", "**our**").
+These Terms and Conditions ("**Terms**") govern your access to and use of ZeperAI (zeperai.in and related applications), operated by Falcon Canvas AI, a sole proprietorship registered in India, registered office in Lucknow, Uttar Pradesh, India ("**ZeperAI**", "**we**", "**us**", "**our**"). Contact: +91 7307990640.
 
 By creating an account or using the Services, you agree to these Terms. If you do not agree, please do not use the Services.
 

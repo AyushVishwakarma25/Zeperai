@@ -24,6 +24,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
   const isDev = (window as any).process?.env?.NODE_ENV === 'development' || window.location.hostname === 'localhost';
 
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    setError(null);
+    try {
+      await authService.signInWithGoogle();
+    } catch (err: any) {
+      setError(err instanceof Error ? err.message : 'Google sign in failed');
+      setIsGoogleLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -81,6 +94,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           <div className="text-center mb-8">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight">Welcome back</h2>
             <p className="text-slate-500 mt-2">Log in to your ZeperAi account</p>
+          </div>
+
+          {/* Social Login Section */}
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={isGoogleLoading || isLoading}
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold rounded-xl transition-all shadow-xs hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed mb-6"
+          >
+            {isGoogleLoading ? (
+              <span className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Icon name="google" className="w-5 h-5" />
+            )}
+            <span>Continue with Google</span>
+          </button>
+
+          <div className="relative flex items-center justify-center mb-6">
+            <div className="border-t border-slate-200 w-full" />
+            <span className="bg-white px-3 text-xs font-semibold uppercase tracking-wider text-slate-400 absolute">
+              or
+            </span>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">

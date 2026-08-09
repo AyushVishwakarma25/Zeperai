@@ -30,7 +30,7 @@ export const PrivacyPolicyPage: React.FC = () => {
             </div>
             <div className="h-3 w-px bg-slate-200" />
             <div>
-              <span className="text-slate-400">Contact / Reg No:</span> 7307990640
+              <span className="text-slate-400">Contact:</span> +91 7307990640
             </div>
           </div>
         </div>
@@ -38,7 +38,7 @@ export const PrivacyPolicyPage: React.FC = () => {
         {/* Content Card */}
         <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/80 shadow-xs space-y-8 text-slate-700 leading-relaxed text-sm sm:text-base">
           <p className="text-base sm:text-lg font-medium text-slate-800 leading-relaxed">
-            ZeperAI (&quot;<strong>ZeperAI</strong>&quot;, &quot;<strong>we</strong>&quot;, &quot;<strong>us</strong>&quot;, &quot;<strong>our</strong>&quot;) is operated by Falcon Canvas AI, a sole proprietorship registered in India (Registration No. / Contact No. 7307990640), with its registered office in Lucknow, Uttar Pradesh, India. ZeperAI provides AI-powered image and creative editing tools, including background removal, product photo generation, ad creative generation, and related services (the &quot;<strong>Services</strong>&quot;), available at zeperai.in and related applications.
+            ZeperAI (&quot;<strong>ZeperAI</strong>&quot;, &quot;<strong>we</strong>&quot;, &quot;<strong>us</strong>&quot;, &quot;<strong>our</strong>&quot;) is operated by Falcon Canvas AI, a sole proprietorship registered in India, with its registered office in Lucknow, Uttar Pradesh, India. ZeperAI provides AI-powered image and creative editing tools, including background removal, product photo generation, ad creative generation, and related services (the &quot;<strong>Services</strong>&quot;), available at zeperai.in and related applications. Contact: +91 7307990640.
           </p>
 
           <p>

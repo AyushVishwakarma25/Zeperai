@@ -2,7 +2,7 @@
 
 **Last updated: August 2026**
 
-ZeperAI ("**ZeperAI**", "**we**", "**us**", "**our**") is operated by Falcon Canvas AI, a sole proprietorship registered in India (Registration No. / Contact No. 7307990640), with its registered office in Lucknow, Uttar Pradesh, India. ZeperAI provides AI-powered image and creative editing tools, including background removal, product photo generation, ad creative generation, and related services (the "**Services**"), available at zeperai.in and related applications.
+ZeperAI ("**ZeperAI**", "**we**", "**us**", "**our**") is operated by Falcon Canvas AI, a sole proprietorship registered in India, with its registered office in Lucknow, Uttar Pradesh, India. Contact: +91 7307990640. ZeperAI provides AI-powered image and creative editing tools, including background removal, product photo generation, ad creative generation, and related services (the "**Services**"), available at zeperai.in and related applications.
 
 This Privacy Policy explains what personal data we collect when you use the Services, why we collect it, and the choices you have.
 
