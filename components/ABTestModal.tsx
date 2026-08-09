@@ -26,6 +26,7 @@ import { Spinner } from './ui/Spinner';
 import { getABTestSuggestions, editImage } from '../services/geminiService';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { Skeleton } from './ui/Skeleton';
+import { FeaturePricingTable } from './FeaturePricingTable';
 
 interface ABTestModalProps {
   image: GeneratedImage;
@@ -33,11 +34,13 @@ interface ABTestModalProps {
   onGenerate: (params: any) => void;
   onApiError?: () => void;
   onDeductCredits: (cost: number) => boolean;
+  onOpenPricingModal?: () => void;
 }
 
-const ABTestModal: React.FC<ABTestModalProps> = ({ image, onClose, onGenerate, onApiError, onDeductCredits }) => {
+const ABTestModal: React.FC<ABTestModalProps> = ({ image, onClose, onGenerate, onApiError, onDeductCredits, onOpenPricingModal }) => {
     const isOnline = useNetworkStatus();
     const [suggestions, setSuggestions] = useState<ABTestSuggestion[]>([]);
+    const [showPricingTable, setShowPricingTable] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [hasGenerated, setHasGenerated] = useState(false);
@@ -111,10 +114,29 @@ const ABTestModal: React.FC<ABTestModalProps> = ({ image, onClose, onGenerate, o
                         <Icon name="variants" className="w-6 h-6 mr-3 text-primary" />
                         <h2 className="text-xl font-bold text-slate-800">A/B Testing Variants</h2>
                     </div>
-                    <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
-                        <Icon name="close" className="w-5 h-5"/>
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => setShowPricingTable(!showPricingTable)}
+                            className="text-xs font-bold text-[#4452FB] bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors flex items-center gap-1"
+                        >
+                            <Icon name="stack" className="w-3.5 h-3.5 text-primary" />
+                            <span>Pricing Table</span>
+                        </button>
+                        <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
+                            <Icon name="close" className="w-5 h-5"/>
+                        </button>
+                    </div>
                 </header>
+
+                {showPricingTable && (
+                    <div className="p-4 bg-slate-100 border-b border-slate-200 shrink-0 max-h-[50vh] overflow-y-auto">
+                        <FeaturePricingTable
+                            onOpenPricingModal={onOpenPricingModal}
+                            onClose={() => setShowPricingTable(false)}
+                            compact
+                        />
+                    </div>
+                )}
 
                 <div className="flex-grow flex overflow-hidden">
                     <aside className="w-1/3 bg-slate-50 p-4 border-r border-slate-200">

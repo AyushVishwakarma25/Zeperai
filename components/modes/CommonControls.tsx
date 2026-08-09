@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { GenerateImageParams, AspectRatio } from '../../types';
 import { AppMode, ResolutionQuality, ImageModel } from '../../types';
 import { ASPECT_RATIO_OPTIONS, OUTPUT_FORMAT_OPTIONS, RESOLUTION_QUALITY_OPTIONS } from '../../constants';
@@ -7,6 +7,7 @@ import { Select } from '../ui/Select';
 import { Icon } from '../ui/Icon';
 import { ControlButton, SectionTitle, HelpLabel } from './shared';
 import { toggleAspectRatio } from '../../utils/configLogic';
+import { FeaturePricingTable } from '../FeaturePricingTable';
 
 interface CommonControlsProps {
     params: GenerateImageParams;
@@ -15,12 +16,14 @@ interface CommonControlsProps {
     batchOptions?: number[];
     userTier: 'Free' | 'PayAsYouGo';
     hideMultiSelectLabel?: boolean;
+    onOpenPricingModal?: () => void;
 }
 
 export const CommonControls: React.FC<CommonControlsProps> = ({ 
-    params, handleParamChange, handleAspectRatioChange, userTier, hideMultiSelectLabel 
+    params, handleParamChange, handleAspectRatioChange, userTier, hideMultiSelectLabel, onOpenPricingModal
 }) => {
     const canMultiSelect = true;
+    const [showPricingTable, setShowPricingTable] = useState(false);
 
     return (
         <div className="mt-8 border-t border-slate-100 pt-8">
@@ -213,6 +216,24 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
                         </div>
                     );
                 })()}
+
+                <button
+                    onClick={() => setShowPricingTable(!showPricingTable)}
+                    className="mt-3 w-full py-2 px-3 bg-slate-100 hover:bg-slate-200/80 text-slate-700 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all border border-slate-200/70"
+                >
+                    <Icon name="sparkles" className="w-3.5 h-3.5 text-primary" />
+                    <span>{showPricingTable ? 'Hide Pricing Table' : 'View Full Pricing & Model Table'}</span>
+                </button>
+
+                {showPricingTable && (
+                    <div className="mt-4">
+                        <FeaturePricingTable
+                            onOpenPricingModal={onOpenPricingModal}
+                            onClose={() => setShowPricingTable(false)}
+                            compact
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );

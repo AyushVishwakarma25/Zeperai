@@ -112,25 +112,46 @@ interface ImageModelInfo {
 
 const IMAGE_MODELS: ImageModelInfo[] = [
   {
-    name: 'Basic',
-    apiModel: 'Nano Banana',
-    credits: 10,
-    badge: 'Fast & Affordable',
-    description: 'Quick, reliable product shots. Best for drafts and rapid iteration.',
+    name: 'Imagen 3 Fast',
+    apiModel: 'Gemini 2.5 Flash',
+    credits: 1,
+    badge: 'Eco / Speed',
+    description: 'Quick drafts & high-volume iteration.',
   },
   {
-    name: 'Advanced',
-    apiModel: 'Nano Banana 2',
-    credits: 15,
-    badge: 'Sharper Detail',
-    description: 'Improved texture, lighting, and composition. Best for ad creatives.',
+    name: 'Imagen 3 High Quality',
+    apiModel: 'Gemini 3.1 Flash',
+    credits: 2,
+    badge: 'Recommended',
+    description: 'Enhanced texture, lighting, and placement.',
   },
   {
-    name: 'Pro Max',
-    apiModel: 'Nano Banana Pro',
-    credits: 40,
-    badge: 'Maximum Quality',
-    description: "Google's flagship image model. Best for final campaign assets.",
+    name: 'Nano Banana Pro',
+    apiModel: 'Gemini 3 Pro Vision',
+    credits: 3,
+    badge: 'New 🍌',
+    description: 'Advanced vision & prompt comprehension.',
+  },
+  {
+    name: 'Imagen 3 Pro',
+    apiModel: 'Gemini 3 Pro',
+    credits: 4,
+    badge: 'Pro Flagship',
+    description: 'Google flagship photorealistic image model.',
+  },
+  {
+    name: 'Nano Banana 2',
+    apiModel: 'Banana V2 Creative',
+    credits: 5,
+    badge: 'New 🍌',
+    description: 'Hyper-vivid colors and cinematic styling.',
+  },
+  {
+    name: 'DALL-E 3',
+    apiModel: 'ChatGPT DALL-E 3',
+    credits: 6,
+    badge: 'OpenAI',
+    description: 'OpenAI flagship model for complex layout.',
   },
 ];
 
@@ -139,11 +160,11 @@ const ModelCreditPicker = () => (
         <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
                 <Icon name="info" className="w-4 h-4 text-primary shrink-0"/>
-                Pick Your Model Per Image
+                6 AI Model Options (Select per Generation)
             </div>
-            <span className="text-[10px] text-slate-400 italic">Spend fewer credits on drafts, save Pro Max for shipping</span>
+            <span className="text-[10px] text-slate-400 italic">Save credits on drafts, choose Pro models for production</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
             {IMAGE_MODELS.map((model) => (
                 <div key={model.name} className="bg-white border border-slate-200 rounded-lg p-2.5 flex flex-col justify-between">
                     <div>
@@ -152,7 +173,7 @@ const ModelCreditPicker = () => (
                                 {model.badge}
                             </span>
                             <span className="text-xs font-black text-slate-900">
-                                {model.credits} Cr
+                                {model.credits} {model.credits === 1 ? 'Credit' : 'Credits'}
                             </span>
                         </div>
                         <div className="font-bold text-slate-900 text-xs">{model.name}</div>
@@ -163,7 +184,7 @@ const ModelCreditPicker = () => (
             ))}
         </div>
         <div className="mt-2 text-[10px] text-slate-400 text-center italic">
-            * Credits are billed per output image. Multi-pose and bulk generations charge one credit set per image, not per click.
+            * Credits are billed per output image. Multi-pose and bulk generations charge one credit set per image.
         </div>
     </div>
 );

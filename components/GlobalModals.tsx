@@ -121,6 +121,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = (props) => {
                     onClose={props.onCloseABTest} 
                     onGenerate={() => {}} 
                     onDeductCredits={props.onDeductCredits}
+                    onOpenPricingModal={props.onOpenPricingModal}
                 />
             )}
         </Suspense>

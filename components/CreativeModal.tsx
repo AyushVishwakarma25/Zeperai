@@ -223,7 +223,15 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                     <h2 className="text-xl font-bold text-slate-800">{getModalTitle()}</h2>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={onReset} className="text-xs font-medium text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors mr-2 flex items-center">
+                    <button 
+                        onClick={onOpenPricingModal}
+                        className="text-xs font-bold text-[#4452FB] bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors flex items-center gap-1"
+                        title="View Feature & Model Rates"
+                    >
+                        <Icon name="stack" className="w-3.5 h-3.5 text-primary" />
+                        <span>Pricing Table</span>
+                    </button>
+                    <button onClick={onReset} className="text-xs font-medium text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors flex items-center">
                         <Icon name="remove" className="w-3 h-3 mr-1" /> Reset
                     </button>
                     <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
@@ -353,6 +361,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                         handleAspectRatioChange={handleAspectRatioChange}
                         userTier={userTier}
                         hideMultiSelectLabel={isFashion || (mode === AppMode.Product && ((params.productStylePresets?.length || 0) > 1 || (params.selectedAngles?.length || 0) > 1))}
+                        onOpenPricingModal={onOpenPricingModal}
                     />
                 </div>
             </div>

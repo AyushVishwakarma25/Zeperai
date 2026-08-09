@@ -31,6 +31,7 @@ import { LandingPage } from './src/landing/LandingPage';
 import { BackgroundRemoverLandingPage } from './src/landing/BackgroundRemoverLandingPage';
 import { PrivacyPolicyPage } from './src/landing/PrivacyPolicyPage';
 import { TermsPage } from './src/landing/TermsPage';
+import { CookiePolicyPage } from './src/landing/CookiePolicyPage';
 import { PricingPage } from './src/landing/PricingPage';
 import { AboutUsPage } from './src/landing/AboutUsPage';
 import { ContactPage } from './src/landing/ContactPage';
@@ -429,6 +430,9 @@ const AppInternal: React.FC = () => {
       <Route path="/" element={!user ? <LandingPage /> : <Navigate to="/dashboard" replace />} />
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
       <Route path="/terms" element={<TermsPage />} />
+      <Route path="/cookies" element={<CookiePolicyPage />} />
+      <Route path="/cookie-policy" element={<CookiePolicyPage />} />
+      <Route path="/legal/cookie-policy" element={<CookiePolicyPage />} />
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/tools/background-remover" element={<BackgroundRemoverLandingPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
       <Route path="/about" element={<AboutUsPage />} />

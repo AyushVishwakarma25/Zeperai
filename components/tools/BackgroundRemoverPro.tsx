@@ -1,9 +1,11 @@
 import React, { useRef, useState, useEffect } from "react";
 import { supabase } from "../../services/supabaseClient";
+import { FeaturePricingTable } from "../FeaturePricingTable";
 
 interface BackgroundRemoverProProps {
   onDeductCredits: (cost: number) => boolean;
   onRefundCredits: (cost: number) => void;
+  onOpenPricingModal?: () => void;
 }
 
 async function readErrorMessage(res: Response): Promise<string> {
@@ -22,12 +24,13 @@ async function readErrorMessage(res: Response): Promise<string> {
   }
 }
 
-export default function BackgroundRemoverPro({ onDeductCredits, onRefundCredits }: BackgroundRemoverProProps) {
+export default function BackgroundRemoverPro({ onDeductCredits, onRefundCredits, onOpenPricingModal }: BackgroundRemoverProProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<"idle" | "processing" | "done" | "error">("idle");
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showPricingTable, setShowPricingTable] = useState(false);
   const [isAuthLoaded, setIsAuthLoaded] = useState(false);
 
   useEffect(() => {
@@ -178,6 +181,24 @@ export default function BackgroundRemoverPro({ onDeductCredits, onRefundCredits 
           </a>
         </div>
       )}
+
+      <div className="pt-2 border-t border-slate-100">
+        <button
+          onClick={() => setShowPricingTable(!showPricingTable)}
+          className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200/80 text-slate-700 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all border border-slate-200/70"
+        >
+          <span>{showPricingTable ? 'Hide Feature Pricing Table' : 'View Feature & Model Rates Table'}</span>
+        </button>
+        {showPricingTable && (
+          <div className="mt-3">
+            <FeaturePricingTable
+              onOpenPricingModal={onOpenPricingModal}
+              onClose={() => setShowPricingTable(false)}
+              compact
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

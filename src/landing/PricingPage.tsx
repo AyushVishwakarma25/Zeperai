@@ -94,28 +94,52 @@ interface ImageModel {
 
 const IMAGE_MODELS: ImageModel[] = [
   {
-    id: 'basic',
-    name: 'Basic',
-    apiModel: 'Nano Banana',
-    credits: 10,
-    badge: 'Fast & Affordable',
-    description: 'Quick, reliable product shots. Best for drafts, rapid iteration, and everyday listings.',
+    id: 'fast',
+    name: 'Imagen 3 Fast',
+    apiModel: 'Gemini 2.5 Flash',
+    credits: 1,
+    badge: 'Eco / Speed',
+    description: 'Quick drafts & rapid iteration. Perfect for early concepts.',
   },
   {
-    id: 'advanced',
-    name: 'Advanced',
-    apiModel: 'Nano Banana 2',
-    credits: 15,
-    badge: 'Sharper Detail',
-    description: 'Improved texture, lighting, and composition. Best for ad creatives and hero images.',
+    id: 'hq',
+    name: 'Imagen 3 High Quality',
+    apiModel: 'Gemini 3.1 Flash',
+    credits: 2,
+    badge: 'Recommended',
+    description: 'Enhanced lighting, texture accuracy, and high quality placements.',
   },
   {
-    id: 'pro-max',
-    name: 'Pro Max',
-    apiModel: 'Nano Banana Pro',
-    credits: 40,
-    badge: 'Maximum Quality',
-    description: "Google's flagship image model. Best for final campaign assets where accuracy matters most.",
+    id: 'banana-pro',
+    name: 'Nano Banana Pro',
+    apiModel: 'Gemini 3 Pro Vision',
+    credits: 3,
+    badge: 'New 🍌',
+    description: 'Advanced vision engine with exceptional prompt comprehension.',
+  },
+  {
+    id: 'pro',
+    name: 'Imagen 3 Pro',
+    apiModel: 'Gemini 3 Pro',
+    credits: 4,
+    badge: 'Pro Flagship',
+    description: "Google's state-of-the-art model for true photorealism and high details.",
+  },
+  {
+    id: 'banana-2',
+    name: 'Nano Banana 2',
+    apiModel: 'Banana V2 Creative',
+    credits: 5,
+    badge: 'New 🍌',
+    description: 'Hyper-vivid colors, ultra-creative layouts, and cinematic flair.',
+  },
+  {
+    id: 'dalle3',
+    name: 'DALL-E 3',
+    apiModel: 'ChatGPT DALL-E 3',
+    credits: 6,
+    badge: 'OpenAI',
+    description: "OpenAI's flagship creative model for complex multi-element designs.",
   },
 ];
 
@@ -226,16 +250,16 @@ export const PricingPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Model picker: exactly 3 options, credits scale with real generation cost */}
+        {/* Model picker: 6 options, credits scale with real generation cost */}
         <div className="mt-20 max-w-6xl mx-auto">
           <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-3">Pick your model per image</h2>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-3">Pick your AI model per image (6 Options Offered)</h2>
             <p className="text-slate-500 max-w-2xl mx-auto">
-              Every studio uses the same 3 models. Spend fewer credits on drafts, save Pro Max for the shot that ships.
+              Choose from 6 flagship AI models across Google, OpenAI, and Banana Vision. Spend fewer credits on drafts, choose Pro models for production assets.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {IMAGE_MODELS.map((model) => (
               <div
                 key={model.id}

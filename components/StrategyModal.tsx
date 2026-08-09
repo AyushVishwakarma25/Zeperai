@@ -8,10 +8,12 @@ import { generateMoodBoard, analyzeBrandLogo, fileToBase64 } from '../services/g
 import { processImageFile } from '../utils/images';
 import { ImageDropzone } from './ui/ImageDropzone';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { FeaturePricingTable } from './FeaturePricingTable';
 
 interface StrategyModalProps {
   onClose: () => void;
   onApplyGuidelines: (guidelines: BrandGuidelines) => void;
+  onOpenPricingModal?: () => void;
 }
 
 const TabButton: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
@@ -53,9 +55,10 @@ const TagList: React.FC<{ title: string; tags: string[] }> = ({ title, tags }) =
     </div>
 );
 
-const StrategyModal: React.FC<StrategyModalProps> = ({ onClose, onApplyGuidelines }) => {
+const StrategyModal: React.FC<StrategyModalProps> = ({ onClose, onApplyGuidelines, onOpenPricingModal }) => {
     const isOnline = useNetworkStatus();
     const [activeTab, setActiveTab] = useState<'moodboard' | 'brand'>('moodboard');
+    const [showPricingTable, setShowPricingTable] = useState(false);
     
     // Moodboard state
     const [moodboardInput, setMoodboardInput] = useState('');
@@ -130,10 +133,29 @@ const StrategyModal: React.FC<StrategyModalProps> = ({ onClose, onApplyGuideline
                         <Icon name="strategy" className="w-6 h-6 mr-3 text-primary" />
                         <h2 className="text-xl font-bold text-slate-800">Creative Strategy Hub</h2>
                     </div>
-                    <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
-                        <Icon name="close" className="w-5 h-5"/>
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => setShowPricingTable(!showPricingTable)}
+                            className="text-xs font-bold text-[#4452FB] bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors flex items-center gap-1"
+                        >
+                            <Icon name="stack" className="w-3.5 h-3.5 text-primary" />
+                            <span>Pricing Table</span>
+                        </button>
+                        <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
+                            <Icon name="close" className="w-5 h-5"/>
+                        </button>
+                    </div>
                 </header>
+
+                {showPricingTable && (
+                    <div className="p-4 bg-slate-100 border-b border-slate-200 shrink-0 max-h-[50vh] overflow-y-auto">
+                        <FeaturePricingTable
+                            onOpenPricingModal={onOpenPricingModal}
+                            onClose={() => setShowPricingTable(false)}
+                            compact
+                        />
+                    </div>
+                )}
 
                 <div className="p-4 flex-shrink-0">
                     <div className="flex justify-center items-center p-1 bg-slate-200/80 rounded-lg space-x-1">

@@ -12,6 +12,7 @@ import { Toggle } from './ui/Toggle';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { Toast } from './ui/Toast';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { FeaturePricingTable } from './FeaturePricingTable';
 
 const AI_WRITER_FREE_LIMIT = 10;
 
@@ -150,6 +151,7 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
   const [rememberStyle, setRememberStyle] = useState(false);
   const [freeUsageCount, setFreeUsageCount] = useState(0);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  const [showPricingTable, setShowPricingTable] = useState(false);
   
   const languages = [
       {label: 'English', value: 'English'},
@@ -279,10 +281,29 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                         </span>
                     )}
                 </div>
-                <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
-                    <Icon name="close" className="w-5 h-5"/>
-                </button>
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={() => setShowPricingTable(!showPricingTable)}
+                        className="text-xs font-bold text-[#4452FB] bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors flex items-center gap-1"
+                    >
+                        <Icon name="stack" className="w-3.5 h-3.5 text-primary" />
+                        <span>Pricing Table</span>
+                    </button>
+                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
+                        <Icon name="close" className="w-5 h-5"/>
+                    </button>
+                </div>
             </header>
+
+            {showPricingTable && (
+                <div className="p-4 bg-slate-100 border-b border-slate-200 shrink-0 max-h-[50vh] overflow-y-auto">
+                    <FeaturePricingTable
+                        onOpenPricingModal={onOpenPricingModal}
+                        onClose={() => setShowPricingTable(false)}
+                        compact
+                    />
+                </div>
+            )}
 
             <div className="flex-grow flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <aside className="w-full lg:w-[26rem] flex-shrink-0 p-6 border-b lg:border-b-0 lg:border-r border-border-light lg:overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 bg-slate-50/50">
