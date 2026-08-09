@@ -197,27 +197,48 @@ app.get(['/api/health', '/health'], (req, res) => {
 });
 
 // --- RAZORPAY PAYMENT GATEWAY ---
+  function cleanEnvKey(val: string | undefined): string {
+    if (!val) return '';
+    let cleaned = String(val).trim();
+    // Strip surrounding quotes if present ("key" or 'key')
+    if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+      cleaned = cleaned.slice(1, -1).trim();
+    }
+    // Remove inline newlines or escaped quotes
+    return cleaned.replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/[\r\n]/g, '');
+  }
+
+  function getRazorpayKeys() {
+    const keyId = cleanEnvKey(process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID);
+    const keySecret = cleanEnvKey(process.env.RAZORPAY_KEY_SECRET || process.env.VITE_RAZORPAY_KEY_SECRET);
+    return { keyId, keySecret };
+  }
+
   let razorpayInstance: any = null;
+  let cachedKeyId = '';
+  let cachedKeySecret = '';
 
   function getRazorpay() {
-    const keyId = process.env.RAZORPAY_KEY_ID?.trim();
-    const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
+    const { keyId, keySecret } = getRazorpayKeys();
     
     if (!keyId || !keySecret) {
-      console.error('Razorpay keys not configured.');
+      console.error('[Razorpay Init] Razorpay keys not configured in environment.');
       return null;
     }
 
-    if (!razorpayInstance) {
+    if (!razorpayInstance || cachedKeyId !== keyId || cachedKeySecret !== keySecret) {
       try {
         const RazorpayClass = (Razorpay as any).default || Razorpay;
         razorpayInstance = new (RazorpayClass as any)({
           key_id: keyId,
           key_secret: keySecret
         });
-        console.log('[Razorpay Init] Razorpay instance created successfully.');
+        cachedKeyId = keyId;
+        cachedKeySecret = keySecret;
+        console.log(`[Razorpay Init] Created Razorpay instance with Key ID starting with ${keyId.substring(0, 8)}...`);
       } catch (err: any) {
-        console.error('Failed to initialize Razorpay SDK:', err.message);
+        console.error('[Razorpay Init] Failed to initialize Razorpay SDK:', err.message);
+        return null;
       }
     }
     return razorpayInstance;
@@ -225,6 +246,7 @@ app.get(['/api/health', '/health'], (req, res) => {
 
   app.post(['/api/razorpay/create-order', '/api/create-order', '/razorpay/create-order', '/create-order'], requireAuth, asyncHandler(async (req: any, res: any) => {
     const { planId, userId, amount, currency = 'INR', receipt } = req.body || {};
+    const effectiveUserId = req.user?.id || userId || '';
     
     let finalAmountPaise = 49900; // default 499 INR
     if (amount) {
@@ -236,18 +258,19 @@ app.get(['/api/health', '/health'], (req, res) => {
     }
     
     const rzp = getRazorpay();
-    if (!rzp) {
-      throw new AppError("Razorpay is not configured on the server.", 500, "Payment processing service is temporarily unavailable.");
+    const { keyId } = getRazorpayKeys();
+    if (!rzp || !keyId) {
+      throw new AppError("Razorpay is not configured on the server. Please ensure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET environment variables are set.", 500, "Payment processing service is temporarily unavailable.");
     }
 
-    const generatedReceipt = `rcpt_${(userId || 'anon').substring(0, 10)}_${Date.now()}`.substring(0, 40);
+    const generatedReceipt = `rcpt_${(effectiveUserId || 'anon').substring(0, 10)}_${Date.now()}`.substring(0, 40);
     const options = {
       amount: finalAmountPaise, // paise
       currency: currency,
       receipt: (receipt || generatedReceipt).substring(0, 40),
       notes: {
         planId: (planId || 'pay-as-you-go').substring(0, 50),
-        userId: (userId || '').substring(0, 50)
+        userId: (effectiveUserId || '').substring(0, 50)
       }
     };
 
@@ -257,7 +280,7 @@ app.get(['/api/health', '/health'], (req, res) => {
     } catch (rzpErr: any) {
       console.error("Razorpay create order error:", JSON.stringify(rzpErr));
       if (rzpErr.statusCode === 401) {
-        throw new AppError("Invalid Razorpay API keys.", 500, "Payment processing is currently unavailable due to invalid gateway configuration (API keys are invalid). Please check your Razorpay keys.");
+        throw new AppError("Invalid Razorpay API keys. Please verify that your RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in Settings/Environment Variables match your active Razorpay dashboard credentials (Key ID should look like rzp_live_... or rzp_test_...).", 500, "Payment processing failed because the configured Razorpay API keys are invalid.");
       }
       throw new AppError(rzpErr.error?.description || "Payment order creation failed", 500, "Payment processing failed. Please try again.");
     }
@@ -269,12 +292,12 @@ app.get(['/api/health', '/health'], (req, res) => {
       id: order.id,
       amount: order.amount, 
       currency: order.currency,
-      key_id: process.env.RAZORPAY_KEY_ID?.trim() || ''
+      key_id: keyId
     });
   }));
 
   app.get(['/api/razorpay/subscription-details', '/api/subscription-details'], requireAuth, asyncHandler(async (req: any, res: any) => {
-    const keyId = process.env.RAZORPAY_KEY_ID?.trim() || '';
+    const { keyId } = getRazorpayKeys();
     const userId = req.user?.id;
 
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -348,12 +371,13 @@ app.get(['/api/health', '/health'], (req, res) => {
       planId,
       amount
     } = req.body || {};
+    const effectiveUserId = req.user?.id || userId || '';
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({ success: false, error: 'Missing required payment verification fields.', message: 'Missing required payment verification fields.' });
     }
 
-    const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
+    const keySecret = cleanEnvKey(process.env.RAZORPAY_KEY_SECRET || process.env.VITE_RAZORPAY_KEY_SECRET);
     if (!keySecret) {
       throw new AppError('Razorpay Secret Key not configured on server.', 500, 'Payment verification service is temporarily unavailable.');
     }
@@ -394,7 +418,7 @@ app.get(['/api/health', '/health'], (req, res) => {
       userTier = 'PayAsYouGo';
     }
 
-    if (supabaseUrl && supabaseServiceKey && userId && userId !== 'guest') {
+    if (supabaseUrl && supabaseServiceKey && effectiveUserId && effectiveUserId !== 'guest') {
       try {
         const { createClient } = await import('@supabase/supabase-js');
         const adminClient = createClient(supabaseUrl, supabaseServiceKey);
@@ -403,7 +427,7 @@ app.get(['/api/health', '/health'], (req, res) => {
         const { data: current } = await adminClient
           .from('user_credits')
           .select('current_balance, total_quota')
-          .eq('user_id', userId)
+          .eq('user_id', effectiveUserId)
           .single();
 
         if (current) {
@@ -417,12 +441,12 @@ app.get(['/api/health', '/health'], (req, res) => {
               total_quota: newTotal, 
               updated_at: new Date().toISOString() 
             })
-            .eq('user_id', userId);
+            .eq('user_id', effectiveUserId);
         } else {
           await adminClient
             .from('user_credits')
             .insert({
-              user_id: userId,
+              user_id: effectiveUserId,
               current_balance: creditsToAdd,
               total_quota: creditsToAdd,
               updated_at: new Date().toISOString()
@@ -433,7 +457,7 @@ app.get(['/api/health', '/health'], (req, res) => {
         await adminClient
           .from('payment_transactions')
           .insert({
-            user_id: userId,
+            user_id: effectiveUserId,
             razorpay_order_id: razorpay_order_id,
             razorpay_payment_id: razorpay_payment_id,
             plan_id: planId || 'pro',
@@ -448,7 +472,7 @@ app.get(['/api/health', '/health'], (req, res) => {
         await adminClient
           .from('subscriptions')
           .insert({
-            user_id: userId,
+            user_id: effectiveUserId,
             plan_id: planId || 'pro',
             plan_name: planName,
             status: 'active',
@@ -469,7 +493,7 @@ app.get(['/api/health', '/health'], (req, res) => {
           .update({
             tier: userTier
           })
-          .eq('id', userId);
+          .eq('id', effectiveUserId);
 
       } catch (dbErr) {
         console.error('[API: verify] Error writing subscription/credits to Supabase:', dbErr);
@@ -481,7 +505,7 @@ app.get(['/api/health', '/health'], (req, res) => {
 
   app.post('/api/razorpay/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     try {
-      const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+      const secret = cleanEnvKey(process.env.RAZORPAY_WEBHOOK_SECRET);
       if (!secret) {
         console.error('RAZORPAY_WEBHOOK_SECRET is not configured');
         return res.status(500).json({ error: 'Webhook secret not configured' });
