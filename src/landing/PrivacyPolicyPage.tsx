@@ -52,6 +52,31 @@ export const PrivacyPolicyPage: React.FC = () => {
             </a>.
           </div>
 
+          {/* Compliance Badges Banner */}
+          <div className="bg-gradient-to-r from-indigo-50/80 via-blue-50/50 to-indigo-50/80 border border-indigo-100 rounded-2xl p-4 sm:p-5">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-900 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Global Data Protection & Regulatory Compliance
+            </h3>
+            <div className="flex flex-wrap gap-2 text-xs font-bold">
+              <span className="px-3 py-1 bg-white border border-indigo-200/80 text-indigo-900 rounded-lg shadow-2xs flex items-center gap-1.5">
+                <span className="text-emerald-600 font-extrabold">✓</span> GDPR (EU & UK)
+              </span>
+              <span className="px-3 py-1 bg-white border border-indigo-200/80 text-indigo-900 rounded-lg shadow-2xs flex items-center gap-1.5">
+                <span className="text-emerald-600 font-extrabold">✓</span> CCPA / CPRA (California)
+              </span>
+              <span className="px-3 py-1 bg-white border border-indigo-200/80 text-indigo-900 rounded-lg shadow-2xs flex items-center gap-1.5">
+                <span className="text-emerald-600 font-extrabold">✓</span> LGPD (Brazil)
+              </span>
+              <span className="px-3 py-1 bg-white border border-indigo-200/80 text-indigo-900 rounded-lg shadow-2xs flex items-center gap-1.5">
+                <span className="text-emerald-600 font-extrabold">✓</span> PIPL (China)
+              </span>
+              <span className="px-3 py-1 bg-white border border-indigo-200/80 text-indigo-900 rounded-lg shadow-2xs flex items-center gap-1.5">
+                <span className="text-emerald-600 font-extrabold">✓</span> DPDP Act 2023 (India)
+              </span>
+            </div>
+          </div>
+
           <hr className="border-slate-100" />
 
           {/* Section 1 */}
@@ -147,21 +172,87 @@ export const PrivacyPolicyPage: React.FC = () => {
           </section>
 
           {/* Section 6 */}
-          <section className="space-y-3">
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900">6. Your rights</h2>
-            <p>You can:</p>
-            <ul className="list-disc pl-6 space-y-2 text-slate-700">
-              <li>Access, correct, or update your account information at any time from your account settings</li>
-              <li>Request deletion of your account and associated data</li>
-              <li>Withdraw consent for marketing communications at any time</li>
-              <li>Request a copy of the personal data we hold about you</li>
-            </ul>
-            <p className="text-xs sm:text-sm font-medium text-slate-800 pt-1">
-              To exercise any of these rights, email{' '}
+          <section className="space-y-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900">6. Your Rights & Global Compliance Provisions</h2>
+            <p>
+              ZeperAI complies with major international data privacy regulations. Depending on your jurisdiction, you have specific statutory rights regarding your personal information:
+            </p>
+
+            {/* GDPR (EU / UK) */}
+            <div className="border border-slate-200 rounded-2xl p-5 bg-slate-50/50 space-y-3">
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-indigo-100 text-[#4452FB] text-xs font-black rounded">GDPR</span>
+                European Union (EU) & United Kingdom (UK) Provisions
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-700">
+                Under the General Data Protection Regulation (GDPR), users in the EEA and UK have the right to:
+              </p>
+              <ul className="list-disc pl-5 space-y-1 text-xs sm:text-sm text-slate-700">
+                <li><strong>Right of Access & Portability:</strong> Request copies of your personal data in a structured, machine-readable format.</li>
+                <li><strong>Right to Rectification:</strong> Request correction of inaccurate or incomplete personal information.</li>
+                <li><strong>Right to Erasure (&quot;Right to be Forgotten&quot;):</strong> Request deletion of your personal data when no longer needed.</li>
+                <li><strong>Right to Restrict or Object:</strong> Limit or object to our processing based on legitimate interests or direct marketing.</li>
+                <li><strong>Withdrawal of Consent:</strong> Revoke consent at any time where processing is based on consent.</li>
+              </ul>
+              <p className="text-xs text-slate-500">
+                Legal Basis for Processing: Performance of contract, user consent, compliance with legal obligations, and legitimate operational interests.
+              </p>
+            </div>
+
+            {/* CCPA / CPRA (California) */}
+            <div className="border border-slate-200 rounded-2xl p-5 bg-slate-50/50 space-y-3">
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-black rounded">CCPA / CPRA</span>
+                California Consumer Privacy Act (California, USA)
+              </h3>
+              <ul className="list-disc pl-5 space-y-1 text-xs sm:text-sm text-slate-700">
+                <li><strong>Right to Know & Access:</strong> Access categories and specific pieces of personal information collected.</li>
+                <li><strong>Right to Delete:</strong> Request deletion of personal information collected from you.</li>
+                <li><strong>Right to Correct:</strong> Correct inaccurate personal information.</li>
+                <li><strong>No Sale / Sharing of Personal Data:</strong> ZeperAI <strong>does NOT sell or share</strong> your personal data or uploaded images for cross-context behavioral advertising.</li>
+                <li><strong>Non-Discrimination:</strong> We will never discriminate or alter service quality for exercising your CCPA rights.</li>
+              </ul>
+            </div>
+
+            {/* LGPD (Brazil) */}
+            <div className="border border-slate-200 rounded-2xl p-5 bg-slate-50/50 space-y-3">
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-black rounded">LGPD</span>
+                Lei Geral de Proteção de Dados (Brazil)
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-700">
+                Brazilian users are guaranteed rights under LGPD, including confirmation of processing, data access, correction of incomplete or outdated data, anonymization/blocking/deletion of unnecessary data, and data portability.
+              </p>
+            </div>
+
+            {/* PIPL (China) */}
+            <div className="border border-slate-200 rounded-2xl p-5 bg-slate-50/50 space-y-3">
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-xs font-black rounded">PIPL</span>
+                Personal Information Protection Law (China)
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-700">
+                For users subject to PIPL, ZeperAI processes personal information on explicit user consent and necessary contract performance. You maintain rights to know, decide, restrict, object, access, copy, and request erasure of your personal information.
+              </p>
+            </div>
+
+            {/* DPDP Act 2023 (India) */}
+            <div className="border border-slate-200 rounded-2xl p-5 bg-slate-50/50 space-y-3">
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-purple-100 text-purple-900 text-xs font-black rounded">DPDP Act</span>
+                Digital Personal Data Protection Act 2023 (India)
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-700">
+                As an entity operating from India, ZeperAI complies with the DPDP Act 2023. Data Principals have rights to access information about processed personal data, seek correction/erasure, register grievances, and nominate another individual in the event of death or incapacity.
+              </p>
+            </div>
+
+            <div className="p-4 bg-indigo-50/60 border border-indigo-100 rounded-2xl text-slate-800 font-medium text-xs sm:text-sm">
+              <strong>To exercise any privacy rights:</strong> Email our Data Protection team at{' '}
               <a href="mailto:growth@zeperai.in" className="text-[#4452FB] font-bold hover:underline">
                 growth@zeperai.in
-              </a>. We will respond within a reasonable time, and in any case within 30 days.
-            </p>
+              </a>. We acknowledge all requests promptly and fulfill statutory obligations within 30 days.
+            </div>
           </section>
 
           {/* Section 7 */}

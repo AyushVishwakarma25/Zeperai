@@ -137,7 +137,6 @@ export const FeaturePricingTable: React.FC<FeaturePricingTableProps> = ({
           {onOpenPricingModal && (
             <Button
               variant="primary"
-              size="sm"
               onClick={onOpenPricingModal}
               className="!py-1.5 !px-3 !text-xs font-bold"
             >

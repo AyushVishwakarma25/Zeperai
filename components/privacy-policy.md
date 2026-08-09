@@ -52,16 +52,33 @@ We do not sell your personal data. We share data only with:
 
 All third-party providers are only permitted to use your data to provide services to us, not for their own purposes.
 
-### 6. Your rights
+### 6. Your Rights & Global Compliance Provisions
 
-You can:
+ZeperAI complies with major international data privacy regulations including **GDPR** (EU/UK), **CCPA/CPRA** (California), **LGPD** (Brazil), **PIPL** (China), and the **DPDP Act 2023** (India). Depending on your jurisdiction, you have specific statutory rights:
 
-- Access, correct, or update your account information at any time from your account settings
-- Request deletion of your account and associated data
-- Withdraw consent for marketing communications at any time
-- Request a copy of the personal data we hold about you
+#### GDPR (EU & UK)
+- **Right of Access & Portability:** Request a structured, machine-readable copy of your data.
+- **Right to Rectification:** Request correction of inaccurate information.
+- **Right to Erasure ("Right to be Forgotten"):** Request deletion of your personal data.
+- **Right to Object or Restrict Processing:** Object to processing based on legitimate interests or direct marketing.
+- **Withdrawal of Consent:** Revoke consent at any time.
 
-To exercise any of these rights, email **growth@zeperai.in**. We will respond within a reasonable time, and in any case within 30 days.
+#### CCPA / CPRA (California, USA)
+- **Right to Know & Access:** Request details on categories and specific personal information collected.
+- **Right to Delete & Correct:** Request deletion or correction of your personal information.
+- **No Sale / Sharing of Data:** ZeperAI **does NOT sell or share** personal data or uploaded images for cross-context behavioral advertising.
+- **Non-Discrimination:** Equal service quality regardless of privacy rights exercised.
+
+#### LGPD (Brazil)
+- Confirmation of processing, access, data correction, anonymization/blocking/deletion, and data portability.
+
+#### PIPL (China)
+- Explicit consent mechanisms, right to know/decide/restrict/object, and right to request erasure or copying of personal information.
+
+#### DPDP Act 2023 (India)
+- Rights of Data Principals to access information, request correction/erasure, register grievances, and nominate representatives.
+
+To exercise any privacy rights, email **growth@zeperai.in**. Requests are fulfilled within 30 days.
 
 ### 7. Data security
 
