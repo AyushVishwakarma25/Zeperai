@@ -93,8 +93,49 @@ const aiLimiter = rateLimit({
 
 const allowedOrigins = ['https://www.zeperai.in', 'https://zeperai.in'];
 app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginEmbedderPolicy: false,
+  frameguard: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: [
+        "'self'",
+        "https://api.razorpay.com",
+        "https://lumberjack.razorpay.com",
+        "https://checkout.razorpay.com",
+        "https://*.supabase.co",
+        "wss://*.supabase.co",
+        "https://generativelanguage.googleapis.com",
+        "https://*.run.app"
+      ],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "'unsafe-eval'",
+        "https://checkout.razorpay.com",
+        "https://cdn.tailwindcss.com"
+      ],
+      styleSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https://fonts.googleapis.com",
+        "https://cdn.tailwindcss.com"
+      ],
+      fontSrc: [
+        "'self'",
+        "https://fonts.gstatic.com",
+        "data:"
+      ],
+      frameSrc: [
+        "'self'",
+        "https://api.razorpay.com",
+        "https://checkout.razorpay.com"
+      ],
+      frameAncestors: ["'self'", "*"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"]
+    }
+  }
 }));
 app.use(cors({
   origin: (origin, callback) => {
