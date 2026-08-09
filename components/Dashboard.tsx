@@ -21,11 +21,11 @@ const ColorfulCard: React.FC<ColorfulCardProps> = ({ title, description, color, 
         <button
             type="button"
             onClick={isLocked && onUnlock ? onUnlock : onClick}
-            className="group flex flex-col bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 h-full text-left min-h-[220px]"
+            className="group flex flex-col bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 h-full text-left min-h-[160px] sm:min-h-[180px]"
         >
             {/* Header Section (Colored) */}
             <div 
-                className="h-28 sm:h-32 relative overflow-hidden flex items-center justify-center transition-colors duration-300"
+                className="h-24 sm:h-28 relative overflow-hidden flex items-center justify-center transition-colors duration-300"
                 style={{ backgroundColor: color }}
             >
                 {thumbnail && !isLocked ? (
@@ -54,11 +54,11 @@ const ColorfulCard: React.FC<ColorfulCardProps> = ({ title, description, color, 
             </div>
 
             {/* Body Section (White) */}
-            <div className="p-4 flex flex-col flex-grow w-full">
-                <h3 className="text-base font-bold mb-1 text-slate-900 group-hover:text-primary transition-colors tracking-tight">
+            <div className="p-3 flex flex-col flex-grow w-full">
+                <h3 className="text-sm font-bold mb-1 text-slate-900 group-hover:text-primary transition-colors tracking-tight">
                     {title}
                 </h3>
-                <p className="text-slate-500 text-xs mb-3 flex-grow leading-relaxed font-medium line-clamp-2">
+                <p className="text-slate-500 text-xs mb-2 flex-grow leading-relaxed font-medium line-clamp-2">
                     {description}
                 </p>
                 
@@ -214,10 +214,10 @@ const DashboardHome: React.FC<DashboardProps> = ({
     ];
 
     return (
-      <div className="py-1 pb-8">
-        <h1 className="text-xl md:text-2xl font-batangas font-bold text-text-primary text-center mb-5">What are we creating today, {userName}?</h1>
+      <div className="py-1 pb-4">
+        <h1 className="text-lg md:text-xl font-batangas font-bold text-text-primary text-center mb-4">What are we creating today, {userName}?</h1>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 max-w-[1600px] mx-auto mb-10 px-2 sm:px-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-[1600px] mx-auto mb-6 px-2 sm:px-4">
             {tools.map((tool) => (
                 <ColorfulCard 
                     key={tool.title}
@@ -227,13 +227,13 @@ const DashboardHome: React.FC<DashboardProps> = ({
         </div>
 
         {/* Brand Boost CTA Banner */}
-        <div className="mt-10 p-6 sm:p-8 rounded-2xl bg-slate-900 text-white relative overflow-hidden text-center max-w-[1600px] mx-auto shadow-xl mx-4">
+        <div className="mt-4 p-3 sm:p-4 rounded-2xl bg-slate-900 text-white relative overflow-hidden text-center max-w-[1600px] mx-auto shadow-lg mx-4">
             <div className="absolute inset-0 opacity-20 pointer-events-none">
                 <div className="absolute top-0 left-0 w-64 h-64 bg-primary blur-[120px]"></div>
                 <div className="absolute bottom-0 right-0 w-64 h-64 bg-indigo-400 blur-[120px]"></div>
             </div>
             <div className="relative z-10 max-w-2xl mx-auto">
-                <h2 className="text-xl sm:text-2xl font-bold mb-4">Ready to boost your brand?</h2>
+                <h2 className="text-lg sm:text-xl font-bold mb-3">Ready to boost your brand?</h2>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                     <button 
                         onClick={onOpenPricingModal}

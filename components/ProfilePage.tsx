@@ -55,7 +55,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
 
   return (
     <div className="w-full h-full bg-main flex flex-col overflow-y-auto">
-      <header className="flex-shrink-0 flex items-center justify-between p-3.5 sm:p-4 md:p-6 border-b border-border-light bg-white">
+      <header className="flex-shrink-0 flex items-center justify-between p-3 md:p-4 border-b border-border-light bg-white">
         <div className="flex items-center min-w-0 mr-2">
             <button onClick={onToggleSidebar} className="p-1.5 mr-1.5 rounded-md text-text-secondary hover:bg-gray-100 lg:hidden shrink-0">
                 <Icon name="menu" className="w-5 h-5" />
@@ -75,81 +75,81 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         </div>
       </header>
 
-      <main className="flex-grow p-4 md:p-6 space-y-8">
+      <main className="flex-grow p-3 md:p-4 space-y-3 md:space-y-4">
         {/* Top Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
           {/* Profile Card */}
-          <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-border-light text-center flex flex-col items-center">
-            <div className="relative mb-4">
-              <img src={user.avatarUrl} alt={user.name} className="w-32 h-32 rounded-full object-cover ring-4 ring-primary/20" />
-              <div className="absolute bottom-0 right-0 bg-white rounded-full p-1 border border-border-light shadow-sm">
-                  <span className="block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary rounded-full">
+          <div className="lg:col-span-1 bg-white p-3 md:p-4 rounded-2xl shadow-sm border border-border-light text-center flex flex-col items-center">
+            <div className="relative mb-3">
+              <img src={user.avatarUrl} alt={user.name} className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover ring-4 ring-primary/20" />
+              <div className="absolute bottom-0 right-0 bg-white rounded-full p-0.5 border border-border-light shadow-sm">
+                  <span className="block px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary rounded-full">
                       {userTier}
                   </span>
               </div>
             </div>
-            <h2 className="text-2xl font-bold text-text-primary">{user.name}</h2>
-            <p className="text-sm text-text-secondary font-medium mb-4">{user.role}</p>
-            <p className="text-sm text-text-secondary mb-6">{user.bio}</p>
-            <Button onClick={onEditProfile} variant="dark" fullWidth>
-              <Icon name="edit" className="w-4 h-4 mr-2" />
+            <h2 className="text-xl font-bold text-text-primary">{user.name}</h2>
+            <p className="text-xs text-text-secondary font-medium mb-3">{user.role}</p>
+            <p className="text-xs text-text-secondary mb-4">{user.bio}</p>
+            <Button onClick={onEditProfile} variant="dark" fullWidth className="!py-1.5 !text-sm">
+              <Icon name="edit" className="w-3.5 h-3.5 mr-2" />
               Edit Profile
             </Button>
           </div>
 
           {/* Account Details, Stats & Subscription Management */}
-          <div className="lg:col-span-2 space-y-8">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-border-light">
-              <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-bold text-text-primary">Account Details</h3>
+          <div className="lg:col-span-2 space-y-3 md:space-y-4">
+            <div className="bg-white p-3 md:p-4 rounded-2xl shadow-sm border border-border-light">
+              <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-base font-bold text-text-primary">Account Details</h3>
                   <button onClick={onEditProfile} className="text-sm text-primary font-medium hover:underline">
                       Edit
                   </button>
               </div>
-              <div className="grid grid-cols-1 gap-6 text-sm">
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">Email Address</label>
-                  <p className="text-text-primary font-medium break-all">{user.email}</p>
+              <div className="grid grid-cols-1 gap-4 text-sm">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <label className="block text-[10px] font-semibold text-text-secondary uppercase tracking-wider mb-1">Email Address</label>
+                  <p className="text-text-primary text-sm font-medium break-all">{user.email}</p>
                 </div>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-border-light text-center flex flex-col justify-center">
-                <p className="text-sm text-text-secondary font-medium">Total Generations</p>
-                <p className="text-4xl font-bold text-text-primary mt-2">{recentActivity.length}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+              <div className="bg-white p-3 md:p-4 rounded-2xl shadow-sm border border-border-light text-center flex flex-col justify-center">
+                <p className="text-xs text-text-secondary font-medium">Total Generations</p>
+                <p className="text-2xl font-bold text-text-primary mt-1">{recentActivity.length}</p>
               </div>
               
               {/* Active Credits Card */}
-              <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-2xl shadow-lg border border-slate-700 text-center relative overflow-hidden text-white group transition-transform hover:-translate-y-1">
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-3 md:p-4 rounded-2xl shadow-lg border border-slate-700 text-center relative overflow-hidden text-white group transition-transform hover:-translate-y-1">
                 <div className="relative z-10 flex flex-col h-full justify-between">
                     <div>
-                        <p className="text-sm text-slate-300 font-medium uppercase tracking-wide">Available Credits</p>
-                        <div className="flex items-baseline justify-center mt-2">
-                            <p className={`text-5xl font-extrabold ${credits < 10 ? 'text-red-400' : 'text-white'}`}>
+                        <p className="text-[10px] sm:text-xs text-slate-300 font-medium uppercase tracking-wide">Available Credits</p>
+                        <div className="flex items-baseline justify-center mt-1">
+                            <p className={`text-3xl font-extrabold ${credits < 10 ? 'text-red-400' : 'text-white'}`}>
                                 {credits}
                             </p>
-                            <span className="text-slate-400 ml-1">/ {totalCredits}</span>
+                            <span className="text-slate-400 text-xs ml-1">/ {totalCredits}</span>
                         </div>
                     </div>
                     
-                    <div className="w-full bg-slate-700 rounded-full h-2 mt-4 overflow-hidden">
+                    <div className="w-full bg-slate-700 rounded-full h-1 mt-2.5 overflow-hidden">
                         <div 
-                            className="bg-primary h-2 rounded-full transition-all duration-1000 ease-out" 
+                            className="bg-primary h-1 rounded-full transition-all duration-1000 ease-out" 
                             style={{ width: `${(credits / totalCredits) * 100}%` }}
                         />
                     </div>
-                    <p className="text-xs text-slate-400 mt-2">Renews in 12 days</p>
+                    <p className="text-[10px] text-slate-400 mt-1">Renews in 12 days</p>
                 </div>
                 {/* Decorative Elements */}
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-20 h-20 bg-primary rounded-full blur-3xl opacity-20 group-hover:opacity-30 transition-opacity"></div>
-                <Icon name="sparkles" className="absolute -bottom-6 -right-6 w-32 h-32 text-white/5 rotate-12" />
+                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-12 h-12 bg-primary rounded-full blur-3xl opacity-20 group-hover:opacity-30 transition-opacity"></div>
+                <Icon name="sparkles" className="absolute -bottom-4 -right-4 w-20 h-20 text-white/5 rotate-12" />
               </div>
 
-              <div className="flex flex-col justify-center gap-3 bg-white p-6 rounded-2xl shadow-sm border border-border-light">
-                  <p className="text-xs text-center text-text-secondary uppercase tracking-wider font-semibold mb-1">Current Plan</p>
-                  <p className="text-2xl font-bold text-center text-primary mb-2">{userTier}</p>
-                  <Button onClick={onUpgradePlan} className="!text-sm w-full shadow-sm">
+              <div className="flex flex-col justify-center gap-2 bg-white p-3 md:p-4 rounded-2xl shadow-sm border border-border-light">
+                  <p className="text-[10px] text-center text-text-secondary uppercase tracking-wider font-semibold mb-0.5">Current Plan</p>
+                  <p className="text-xl font-bold text-center text-primary mb-1">{userTier}</p>
+                  <Button onClick={onUpgradePlan} className="!text-xs !py-1.5 w-full shadow-sm">
                     Top Up / Upgrade
                   </Button>
               </div>
