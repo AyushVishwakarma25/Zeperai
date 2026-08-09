@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { DesignsProvider } from './contexts/DesignsContext';
@@ -14,14 +15,16 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <ErrorBoundary>
-      <BrowserRouter>
-        <AuthProvider>
-          <DesignsProvider>
-            <App />
-          </DesignsProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </ErrorBoundary>
+    <HelmetProvider>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <AuthProvider>
+            <DesignsProvider>
+              <App />
+            </DesignsProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </ErrorBoundary>
+    </HelmetProvider>
   </React.StrictMode>
 );
