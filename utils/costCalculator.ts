@@ -33,10 +33,9 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
 
     let baseCost = numVariants * numRatios;
 
-    // Apply High Quality Multiplier (4x) only if the user is on a tier that actually supports/uses the Pro model
-    const isProTier = userTier === 'Standard' || userTier === 'Agency';
-    if (params.resolutionQuality === ResolutionQuality.High && isProTier) {
-        baseCost *= 4;
+    // Apply 2K Quality Multiplier (1.5x) if 2K resolution quality is selected
+    if (params.resolutionQuality === ResolutionQuality.TwoK) {
+        baseCost = Math.ceil(baseCost * 1.5);
     }
 
     return baseCost;

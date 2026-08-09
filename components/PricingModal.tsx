@@ -112,46 +112,18 @@ interface ImageModelInfo {
 
 const IMAGE_MODELS: ImageModelInfo[] = [
   {
-    name: 'Imagen 3 Fast',
-    apiModel: 'Gemini 2.5 Flash',
+    name: 'Nano Banana',
+    apiModel: 'Gemini 3.1 Flash Image',
     credits: 1,
-    badge: 'Eco / Speed',
-    description: 'Quick drafts & high-volume iteration.',
-  },
-  {
-    name: 'Imagen 3 High Quality',
-    apiModel: 'Gemini 3.1 Flash',
-    credits: 2,
-    badge: 'Recommended',
-    description: 'Enhanced texture, lighting, and placement.',
+    badge: 'Standard 🍌',
+    description: 'Fast, studio-quality generation for everyday marketing and ad creatives.',
   },
   {
     name: 'Nano Banana Pro',
-    apiModel: 'Gemini 3 Pro Vision',
-    credits: 3,
-    badge: 'New 🍌',
-    description: 'Advanced vision & prompt comprehension.',
-  },
-  {
-    name: 'Imagen 3 Pro',
-    apiModel: 'Gemini 3 Pro',
-    credits: 4,
-    badge: 'Pro Flagship',
-    description: 'Google flagship photorealistic image model.',
-  },
-  {
-    name: 'Nano Banana 2',
-    apiModel: 'Banana V2 Creative',
-    credits: 5,
-    badge: 'New 🍌',
-    description: 'Hyper-vivid colors and cinematic styling.',
-  },
-  {
-    name: 'DALL-E 3',
-    apiModel: 'ChatGPT DALL-E 3',
-    credits: 6,
-    badge: 'OpenAI',
-    description: 'OpenAI flagship model for complex layout.',
+    apiModel: 'Gemini 3 Pro Image',
+    credits: 2,
+    badge: 'Pro Flagship 🍌',
+    description: 'Flagship model for hyper-realistic lighting, intricate textures, and text perfection.',
   },
 ];
 

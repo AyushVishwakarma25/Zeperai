@@ -13,16 +13,12 @@ export enum AppMode {
 
 export enum ResolutionQuality {
   Standard = 'Standard',
-  High = 'High',
+  TwoK = '2K',
 }
 
 export enum ImageModel {
-  Imagen3Fast = 'Imagen 3 Fast',
-  Imagen3HighQuality = 'Imagen 3 High Quality',
-  Imagen3Pro = 'Imagen 3 Pro',
-  DallE3 = 'DALL-E 3',
+  NanoBanana = 'Nano Banana',
   NanoBananaPro = 'Nano Banana Pro',
-  NanoBanana2 = 'Nano Banana 2',
 }
 
 export enum ProductCategory {

@@ -489,33 +489,14 @@ async function generateSingleImage(params: GenerateImageParams, aspectRatio: Asp
     else if (aspectRatio === AspectRatio.PortraitPost || aspectRatio === AspectRatio.FashionShopify) aspectRatioConfig = "3:4";
     
     // Determine the target Google GenAI model
-    let modelName = 'gemini-3.1-flash-image'; // Default legacy fallback
-    if (params.imageModel) {
-        switch (params.imageModel) {
-            case ImageModel.Imagen3Fast:
-                modelName = 'gemini-2.5-flash-image';
-                break;
-            case ImageModel.Imagen3HighQuality:
-                modelName = 'gemini-3.1-flash-image';
-                break;
-            case ImageModel.Imagen3Pro:
-                modelName = 'gemini-3-pro-image';
-                break;
-            case ImageModel.DallE3:
-                modelName = 'dall-e-3';
-                break;
-            case ImageModel.NanoBananaPro:
-                modelName = 'gemini-3-pro-image';
-                break;
-            case ImageModel.NanoBanana2:
-                modelName = 'gemini-3.1-flash-image';
-                break;
-        }
+    let modelName = 'gemini-3.1-flash-image'; // Nano Banana standard model
+    if (params.imageModel === ImageModel.NanoBananaPro) {
+        modelName = 'gemini-3-pro-image'; // Nano Banana Pro high quality model
     }
 
     // Determine target size for supported models
     let imageSize: "512px" | "1K" | "2K" | "4K" = "1K";
-    if (params.resolutionQuality === ResolutionQuality.High) {
+    if (params.resolutionQuality === ResolutionQuality.TwoK) {
         imageSize = "2K";
     }
 

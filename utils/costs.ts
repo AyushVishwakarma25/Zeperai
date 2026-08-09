@@ -13,32 +13,15 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
     const numRatios = (params.aspectRatios && params.aspectRatios.length > 0) ? params.aspectRatios.length : 1;
     
     // Model Multipliers:
-    // Imagen 3 Fast: 1x
-    // Imagen 3 High Quality: 2x
-    // Imagen 3 Pro: 4x
-    let modelMultiplier = 2; // Default to 2 (High Quality) per original behavior
-    if (params.imageModel) {
-        switch (params.imageModel) {
-            case ImageModel.Imagen3Fast:
-                modelMultiplier = 1;
-                break;
-            case ImageModel.Imagen3HighQuality:
-                modelMultiplier = 2;
-                break;
-            case ImageModel.Imagen3Pro:
-                modelMultiplier = 4;
-                break;
-            case ImageModel.DallE3:
-                modelMultiplier = 6;
-                break;
-            case ImageModel.NanoBananaPro:
-                modelMultiplier = 3;
-                break;
-            case ImageModel.NanoBanana2:
-                modelMultiplier = 5;
-                break;
-        }
+    // Nano Banana: 1x (Standard model)
+    // Nano Banana Pro: 2x (Pro model)
+    let modelMultiplier = 1;
+    if (params.imageModel === ImageModel.NanoBananaPro) {
+        modelMultiplier = 2;
     }
+
+    // Quality Multiplier: 2K quality adds +1 credit per image
+    let qualityMultiplier = params.resolutionQuality === ResolutionQuality.TwoK ? 1.5 : 1;
 
     let baseVariations = 1;
 
@@ -107,8 +90,8 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
     }
 
     // 3. Final Calculation
-    // (Base Items) * (Output Ratios) * (Model Multiplier)
-    const totalCost = Math.max(1, baseVariations * numRatios * modelMultiplier);
+    // Math.ceil((Base Items) * (Output Ratios) * (Model Multiplier) * (Quality Multiplier))
+    const totalCost = Math.max(1, Math.ceil(baseVariations * numRatios * modelMultiplier * qualityMultiplier));
 
     return totalCost;
 };

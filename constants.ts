@@ -6,7 +6,7 @@ export const FREE_TRIAL_LIMIT = 50;
 
 export const INITIAL_GENERATE_PARAMS: GenerateImageParams = {
   appMode: AppMode.Influencer,
-  imageModel: ImageModel.Imagen3HighQuality,
+  imageModel: ImageModel.NanoBanana,
   productDescription: '',
   aspectRatios: [AspectRatio.PortraitPost],
   outputFormat: OutputFormat.JPG,
@@ -270,7 +270,7 @@ export const OUTPUT_FORMAT_OPTIONS = [
 
 export const RESOLUTION_QUALITY_OPTIONS = [
   { label: 'Standard', value: ResolutionQuality.Standard },
-  { label: 'High', value: ResolutionQuality.High },
+  { label: '2K Quality', value: ResolutionQuality.TwoK },
 ];
 
 export const ASPECT_RATIO_OPTIONS = [

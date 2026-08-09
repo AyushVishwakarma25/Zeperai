@@ -111,118 +111,58 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
                 </div>
             </div>
 
-            {/* AI Image Generation Model Selection */}
+            {/* AI Generation Model Selection - Simplified to Nano Banana & Nano Banana Pro */}
             <div className="mt-8 pt-8 border-t border-slate-100">
                 <div className="flex items-center justify-between mb-3">
                     <SectionTitle title="AI Generation Model" className="m-0" />
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold uppercase tracking-wider">
-                        Dropdown Select
+                        2 Options
                     </span>
                 </div>
                 
-                {/* Dropdown element */}
-                <div className="relative mb-3">
-                    <select
-                        value={params.imageModel || ImageModel.Imagen3HighQuality}
-                        onChange={(e) => handleParamChange('imageModel', e.target.value as ImageModel)}
-                        className="w-full bg-white border-2 border-slate-200 text-slate-800 py-3 px-4 pr-10 rounded-xl font-medium text-sm focus:outline-none focus:border-primary transition-all cursor-pointer appearance-none shadow-sm hover:border-slate-300"
+                {/* 2-Option selector buttons */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                    <button
+                        type="button"
+                        onClick={() => handleParamChange('imageModel', ImageModel.NanoBanana)}
+                        className={`p-3 rounded-xl border-2 text-left transition-all ${
+                            (params.imageModel || ImageModel.NanoBanana) === ImageModel.NanoBanana
+                                ? 'border-primary bg-primary/5 shadow-xs'
+                                : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
                     >
-                        <option value={ImageModel.Imagen3Fast}>Imagen 3 Fast (1 Credit)</option>
-                        <option value={ImageModel.Imagen3HighQuality}>Imagen 3 High Quality (2 Credits)</option>
-                        <option value={ImageModel.NanoBananaPro}>Nano Banana Pro (3 Credits) 🍌</option>
-                        <option value={ImageModel.Imagen3Pro}>Imagen 3 Pro (4 Credits)</option>
-                        <option value={ImageModel.NanoBanana2}>Nano Banana 2 (5 Credits) 🍌</option>
-                        <option value={ImageModel.DallE3}>DALL-E 3 (ChatGPT - 6 Credits)</option>
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                        <Icon name="chevron-down" className="w-4 h-4" />
-                    </div>
-                </div>
-
-                {/* Display card for selected model */}
-                {(() => {
-                    const currentModel = params.imageModel || ImageModel.Imagen3HighQuality;
-                    const modelOptions = [
-                        { 
-                            value: ImageModel.Imagen3Fast, 
-                            label: 'Imagen 3 Fast', 
-                            desc: 'Speed optimized, ideal for fast iterations & general concepts.', 
-                            cost: '1 Credit / img',
-                            badge: 'Eco',
-                            color: 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                        },
-                        { 
-                            value: ImageModel.Imagen3HighQuality, 
-                            label: 'Imagen 3 High Quality', 
-                            desc: 'Enhanced textures, lighting, and layout accuracy.', 
-                            cost: '2 Credits / img',
-                            badge: 'Recommended',
-                            color: 'bg-primary/10 text-primary border-primary/20'
-                        },
-                        { 
-                            value: ImageModel.NanoBananaPro, 
-                            label: 'Nano Banana Pro', 
-                            desc: 'Advanced Banana vision engine. Exceptional prompt comprehension with natural artistic styling.', 
-                            cost: '3 Credits / img',
-                            badge: 'New 🍌',
-                            color: 'bg-yellow-50 text-yellow-600 border-yellow-200'
-                        },
-                        { 
-                            value: ImageModel.Imagen3Pro, 
-                            label: 'Imagen 3 Pro', 
-                            desc: 'Google\'s state-of-the-art flagship model for exceptional details & true photorealism.', 
-                            cost: '4 Credits / img',
-                            badge: 'Pro',
-                            color: 'bg-amber-50 text-amber-600 border-amber-100'
-                        },
-                        { 
-                            value: ImageModel.NanoBanana2, 
-                            label: 'Nano Banana 2', 
-                            desc: 'Next-gen Banana model tuned for hyper-vivid colors, ultra-creative layouts, and cinematic flair.', 
-                            cost: '5 Credits / img',
-                            badge: 'New 🍌',
-                            color: 'bg-yellow-50 text-yellow-600 border-yellow-200'
-                        },
-                        { 
-                            value: ImageModel.DallE3, 
-                            label: 'DALL-E 3 (ChatGPT)', 
-                            desc: 'OpenAI\'s premium creative model. Superb composition compliance and complex design execution.', 
-                            cost: '6 Credits / img',
-                            badge: 'Dall-E',
-                            color: 'bg-purple-50 text-purple-600 border-purple-100'
-                        }
-                    ];
-                    
-                    const opt = modelOptions.find(o => o.value === currentModel) || modelOptions[1];
-                    
-                    return (
-                        <div className="flex flex-col p-4 rounded-xl border border-slate-200/80 bg-slate-50/50 shadow-inner">
-                            <div className="flex justify-between items-center w-full mb-1.5 gap-2">
-                                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>
-                                    {opt.label}
-                                </span>
-                                <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border ${opt.color}`}>
-                                    {opt.badge}
-                                </span>
-                            </div>
-                            <p className="text-[11px] text-slate-500 font-medium mb-3 leading-relaxed">
-                                {opt.desc}
-                            </p>
-                            <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100 font-semibold text-slate-700">
-                                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Cost</span>
-                                <span className="text-primary font-bold">{opt.cost}</span>
-                            </div>
+                        <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-slate-800">Nano Banana</span>
+                            <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded-md font-bold">Standard (1x)</span>
                         </div>
-                    );
-                })()}
+                        <p className="text-[10px] text-slate-500 leading-tight">Fast, studio-quality output for general creatives & ads.</p>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => handleParamChange('imageModel', ImageModel.NanoBananaPro)}
+                        className={`p-3 rounded-xl border-2 text-left transition-all ${
+                            params.imageModel === ImageModel.NanoBananaPro
+                                ? 'border-primary bg-primary/5 shadow-xs'
+                                : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                    >
+                        <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                                Nano Banana Pro 🍌
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-md font-bold">Pro (2x)</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-tight">Flagship photorealism, detailed lighting & text perfection.</p>
+                    </button>
+                </div>
 
                 <button
                     onClick={() => setShowPricingTable(!showPricingTable)}
-                    className="mt-3 w-full py-2 px-3 bg-slate-100 hover:bg-slate-200/80 text-slate-700 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all border border-slate-200/70"
+                    className="mt-1 w-full py-2 px-3 bg-slate-100 hover:bg-slate-200/80 text-slate-700 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all border border-slate-200/70"
                 >
                     <Icon name="sparkles" className="w-3.5 h-3.5 text-primary" />
-                    <span>{showPricingTable ? 'Hide Pricing Table' : 'View Full Pricing & Model Table'}</span>
+                    <span>{showPricingTable ? 'Hide Credit Rates' : 'View Credit Rates'}</span>
                 </button>
 
                 {showPricingTable && (
