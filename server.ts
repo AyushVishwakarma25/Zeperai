@@ -101,9 +101,14 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       connectSrc: [
         "'self'",
+        "https://*.razorpay.com",
         "https://api.razorpay.com",
         "https://lumberjack.razorpay.com",
         "https://checkout.razorpay.com",
+        "https://*.rzp.io",
+        "https://rzp.io",
+        "wss://*.razorpay.com",
+        "wss://*.rzp.io",
         "https://*.supabase.co",
         "wss://*.supabase.co",
         "https://generativelanguage.googleapis.com",
@@ -113,8 +118,11 @@ app.use(helmet({
         "'self'",
         "'unsafe-inline'",
         "'unsafe-eval'",
+        "https://*.razorpay.com",
         "https://checkout.razorpay.com",
         "https://api.razorpay.com",
+        "https://*.rzp.io",
+        "https://rzp.io",
         "https://cdn.tailwindcss.com"
       ],
       styleSrc: [
@@ -130,11 +138,14 @@ app.use(helmet({
       ],
       frameSrc: [
         "'self'",
+        "https://*.razorpay.com",
         "https://api.razorpay.com",
-        "https://checkout.razorpay.com"
+        "https://checkout.razorpay.com",
+        "https://*.rzp.io",
+        "https://rzp.io"
       ],
       frameAncestors: ["'self'", "*"],
-      imgSrc: ["'self'", "data:", "blob:", "https:"]
+      imgSrc: ["'self'", "data:", "blob:", "https:", "https://*.razorpay.com", "https://*.rzp.io"]
     }
   }
 }));
@@ -294,6 +305,46 @@ app.get(['/api/health', '/health'], (req, res) => {
       currency: order.currency,
       key_id: keyId
     });
+  }));
+
+  app.post(['/api/razorpay/create-subscription', '/api/create-subscription', '/razorpay/create-subscription', '/create-subscription'], requireAuth, asyncHandler(async (req: any, res: any) => {
+    const { planId, totalCount = 12 } = req.body || {};
+    const effectiveUserId = req.user?.id || req.body?.userId || '';
+
+    const rzp = getRazorpay();
+    const { keyId } = getRazorpayKeys();
+    if (!rzp || !keyId) {
+      throw new AppError("Razorpay is not configured on the server. Please ensure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET environment variables are set.", 500, "Payment processing service is temporarily unavailable.");
+    }
+
+    const razorpayPlanId = (planId && planId.startsWith('plan_')) ? planId : (process.env.RAZORPAY_PLAN_ID || 'plan_TLpoJ6op29AgoH');
+
+    try {
+      const subscription = await rzp.subscriptions.create({
+        plan_id: razorpayPlanId,
+        total_count: Number(totalCount) || 12,
+        quantity: 1,
+        customer_notify: 1,
+        notes: {
+          userId: (effectiveUserId || '').substring(0, 50),
+          planId: (planId || 'pro').substring(0, 50)
+        }
+      });
+
+      return res.json({
+        success: true,
+        subscription,
+        subscription_id: subscription.id,
+        id: subscription.id,
+        key_id: keyId
+      });
+    } catch (rzpErr: any) {
+      console.error("Razorpay create subscription error:", JSON.stringify(rzpErr));
+      if (rzpErr.statusCode === 401) {
+        throw new AppError("Invalid Razorpay API keys. Please check your credentials.", 500, "Payment processing failed because Razorpay API keys are invalid.");
+      }
+      throw new AppError(rzpErr.error?.description || rzpErr.message || "Failed to create Razorpay subscription", 500, rzpErr.error?.description || "Subscription creation failed.");
+    }
   }));
 
   app.get(['/api/razorpay/subscription-details', '/api/subscription-details'], requireAuth, asyncHandler(async (req: any, res: any) => {

@@ -74,6 +74,27 @@ export const createRazorpayOrder = async (params: CreateOrderParams) => {
   return await res.json();
 };
 
+export const createRazorpaySubscription = async (params: { planId: string; totalCount?: number }) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || '';
+
+  const res = await fetch('/api/razorpay/create-subscription', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify(params)
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody.message || errBody.error || 'Failed to create Razorpay subscription.');
+  }
+
+  return await res.json();
+};
+
 export const verifyRazorpayPayment = async (params: VerifyPaymentParams) => {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token || '';
