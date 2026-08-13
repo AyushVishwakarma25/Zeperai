@@ -1,6 +1,5 @@
 
 import { AppMode, ResolutionQuality, GenerateImageParams, ImageModel } from '../types';
-import { CATALOG_BUNDLE_DISCOUNT } from '../constants';
 
 /**
  * Calculates the total credit cost for a generation request.
@@ -25,7 +24,6 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
     let qualityMultiplier = params.resolutionQuality === ResolutionQuality.TwoK ? 1.5 : 1;
 
     let baseVariations = 1;
-    let isCatalogBatch = false;
 
     // 2. Calculate Base Variations based on Mode
     switch (params.appMode) {
@@ -57,16 +55,6 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
             } else if (params.fashionPose && params.fashionPose.length > 0) {
                 let maxPoses = userTier === 'PayAsYouGo' ? 12 : 1;
                 baseVariations = Math.min(params.fashionPose.length, maxPoses);
-                // A manually-picked multi-pose set generated together also counts as a
-                // catalog batch for discount purposes.
-                isCatalogBatch = !!params.catalogMode && baseVariations > 1;
-            } else if (params.catalogMode) {
-                // No poses hand-picked, but Catalog Mode is on: the generation engine
-                // (services/geminiService.ts) auto-fills a curated pose set of this size —
-                // charge for what actually gets generated, not 1.
-                const setSize = params.catalogSetSize === 4 ? 4 : 5;
-                baseVariations = setSize;
-                isCatalogBatch = true;
             } else {
                 baseVariations = 1;
             }
@@ -103,38 +91,7 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
 
     // 3. Final Calculation
     // Math.ceil((Base Items) * (Output Ratios) * (Model Multiplier) * (Quality Multiplier))
-    let totalCost = Math.max(1, Math.ceil(baseVariations * numRatios * modelMultiplier * qualityMultiplier));
-
-    // 4. Catalog Set Bundle Discount
-    // Reward generating a full multi-pose catalog set in one go instead of paying full
-    // price per image. Floored at 1 credit per image generated so we never sell below cost.
-    if (isCatalogBatch) {
-        totalCost = Math.max(baseVariations, Math.ceil(totalCost * CATALOG_BUNDLE_DISCOUNT));
-    }
+    const totalCost = Math.max(1, Math.ceil(baseVariations * numRatios * modelMultiplier * qualityMultiplier));
 
     return totalCost;
 };
-
-/**
- * Returns discount metadata for display purposes (e.g. "20% off, was 5 credits")
- * without affecting the actual charge logic above. Returns null when no discount applies.
- */
-export const getCatalogDiscountInfo = (params: GenerateImageParams, userTier: string): { fullPrice: number; discountedPrice: number; percentOff: number } | null => {
-    if (params.appMode !== AppMode.Fashion || !params.catalogMode) return null;
-
-    const withoutDiscount: GenerateImageParams = { ...params, catalogMode: false };
-    // Force the same effective pose count so we compare apples to apples even when
-    // poses were auto-filled by Catalog Mode.
-    if (!params.fashionPose || params.fashionPose.length === 0) {
-        const setSize = params.catalogSetSize === 4 ? 4 : 5;
-        withoutDiscount.fashionPose = new Array(setSize).fill('pose');
-    }
-
-    const fullPrice = calculateGenerationCost(withoutDiscount, userTier);
-    const discountedPrice = calculateGenerationCost(params, userTier);
-    if (fullPrice <= discountedPrice) return null;
-
-    const percentOff = Math.round((1 - discountedPrice / fullPrice) * 100);
-    return { fullPrice, discountedPrice, percentOff };
-};
-

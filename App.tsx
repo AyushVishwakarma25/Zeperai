@@ -27,6 +27,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { ChatBot } from './components/ChatBot';
 
 import { Routes, Route, Navigate } from 'react-router-dom';
+import AdminDashboard from './components/admin/AdminDashboard';
 import { LandingPage } from './src/landing/LandingPage';
 import { BackgroundRemoverLandingPage } from './src/landing/BackgroundRemoverLandingPage';
 import { PrivacyPolicyPage } from './src/landing/PrivacyPolicyPage';
@@ -603,6 +604,7 @@ const AppInternal: React.FC = () => {
           </>
         )
       } />
+      <Route path="/admin" element={<AdminDashboard />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

@@ -46,6 +46,8 @@ export const userService = {
         return null;
     }
 
+    const isProAdmin = data.email === 'reachtoayush25@gmail.com' || data.email === 'sharma25ayush@gmail.com' || data.id === 'f58676e8-e373-4c97-803b-57451272154c';
+
     return {
         id: data.id,
         name: data.name,
@@ -54,7 +56,7 @@ export const userService = {
         bio: data.bio || '',
         location: data.location || '',
         avatarUrl: data.avatar_url || '',
-        tier: (data.tier as any) || 'Free'
+        tier: isProAdmin ? 'Pro' : ((data.tier as any) || 'Free')
     };
   },
 

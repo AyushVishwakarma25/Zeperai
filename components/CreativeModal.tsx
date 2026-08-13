@@ -7,7 +7,7 @@ import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 import { ImageDropzone } from './ui/ImageDropzone';
 import { FormTextArea } from './ui/Form';
-import { calculateGenerationCost, getCatalogDiscountInfo } from '../utils/costs';
+import { calculateGenerationCost } from '../utils/costs';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { SectionTitle, HelpLabel } from './modes/shared';
 import { toggleAspectRatio } from '../utils/configLogic';
@@ -125,7 +125,6 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
   }, [params.frontProductImage, suggestedEnvironments.length, analyzingContext, handleAnalyzeContext]);
 
   const cost = useMemo(() => calculateGenerationCost(params, userTier), [params, userTier]);
-  const catalogDiscount = useMemo(() => getCatalogDiscountInfo(params, userTier), [params, userTier]);
 
   const isFreeTier = userTier === 'Free';
   const isStandardGeneration = params.resolutionQuality === ResolutionQuality.Standard;
@@ -368,13 +367,8 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
             </div>
 
             <footer className="p-3 sm:p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2 shrink-0">
-                 <div className="text-xs sm:text-sm font-bold text-primary shrink-0 flex items-center gap-1.5">
+                 <div className="text-xs sm:text-sm font-bold text-primary shrink-0">
                     {cost > 0 && `${cost} ${cost === 1 ? 'Credit' : 'Credits'} Required`}
-                    {catalogDiscount && (
-                        <span className="text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">
-                            {catalogDiscount.percentOff}% OFF Catalog Set
-                        </span>
-                    )}
                  </div>
                  <Button 
                    onClick={handleMainAction} 
