@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { supabase } from '../../services/supabaseClient';
+import { getAdminAuthHeader, clearAdminSession } from './adminAuthHelper';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
@@ -9,7 +9,6 @@ import { Spinner } from '../ui/Spinner';
 import SubscriptionsList from './SubscriptionsList';
 import AdminOverview from './AdminOverview';
 import StorageManager from './StorageManager';
-
 import UserDetailModal from './UserDetailModal';
 
 export default function AdminDashboard() {
@@ -28,22 +27,21 @@ export default function AdminDashboard() {
   useEffect(() => {
     const checkAdmin = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          navigate('/');
+        const authHeader = await getAdminAuthHeader();
+        if (!authHeader) {
+          navigate('/admin-login');
           return;
         }
-        const authHeader = session.access_token;
         const res = await axios.get('/api/admin/check', {
           headers: { Authorization: `Bearer ${authHeader}` }
         });
         if (res.data.is_admin) {
           setIsAdmin(true);
         } else {
-          navigate('/');
+          navigate('/admin-login');
         }
       } catch (err) {
-        navigate('/');
+        navigate('/admin-login');
       }
     };
     checkAdmin();
@@ -58,8 +56,7 @@ export default function AdminDashboard() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      const authHeader = session?.access_token;
+      const authHeader = await getAdminAuthHeader();
       
       const res = await axios.get('/api/admin/users', {
         headers: { Authorization: `Bearer ${authHeader}` },
@@ -74,6 +71,11 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleAdminLogout = () => {
+    clearAdminSession();
+    navigate('/admin-login');
+  };
+
   if (isAdmin === null) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900"><Spinner className="w-8 h-8" /></div>;
   }
@@ -82,8 +84,14 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <Button variant="secondary" onClick={() => navigate('/dashboard')}>Back to App</Button>
+          <div>
+            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+            <p className="text-sm text-slate-500 mt-1">ZeperAI Central Operations & Controls</p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <Button variant="secondary" onClick={() => navigate('/dashboard')}>Back to App</Button>
+            <Button variant="dark" onClick={handleAdminLogout}>Logout Admin</Button>
+          </div>
         </div>
 
         

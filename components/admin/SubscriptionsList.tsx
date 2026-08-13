@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { supabase } from '../../services/supabaseClient';
+import { getAdminAuthHeader } from './adminAuthHelper';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Spinner';
@@ -26,9 +26,8 @@ export default function SubscriptionsList() {
   }, [page, statusFilter]);
 
   const getHeaders = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const authHeader = session?.access_token;
-    return { Authorization: `Bearer ` };
+    const authHeader = await getAdminAuthHeader();
+    return { Authorization: `Bearer ${authHeader || ''}` };
   };
 
   const fetchSubscriptions = async () => {

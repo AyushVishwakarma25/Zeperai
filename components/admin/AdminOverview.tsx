@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { supabase } from '../../services/supabaseClient';
+import { getAdminAuthHeader } from './adminAuthHelper';
 import { Card } from '../ui/Card';
 import { Spinner } from '../ui/Spinner';
 import { Icon } from '../ui/Icon';
@@ -16,8 +16,7 @@ export default function AdminOverview() {
   const fetchSummary = async () => {
     try {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      const authHeader = session?.access_token;
+      const authHeader = await getAdminAuthHeader();
       const res = await axios.get('/api/admin/dashboard/summary', {
         headers: { Authorization: `Bearer ${authHeader}` }
       });

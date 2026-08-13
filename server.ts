@@ -162,9 +162,51 @@ app.use(cors({
 app.use(globalLimiter);
 
 // --- SECURITY: Authentication Middleware ---
+const ADMIN_SECRET_SIGN = process.env.ADMIN_JWT_SECRET || 'zeperai_admin_secure_key_2026_antigravity';
+
+const createAdminToken = (username: string) => {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({
+    sub: 'admin-master',
+    username,
+    role: 'superadmin',
+    is_admin: true,
+    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+  })).toString('base64url');
+  const signature = crypto.createHmac('sha256', ADMIN_SECRET_SIGN).update(`${header}.${payload}`).digest('base64url');
+  return `${header}.${payload}.${signature}`;
+};
+
+const verifyAdminToken = (token: string) => {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const [header, payload, signature] = parts;
+    const expectedSig = crypto.createHmac('sha256', ADMIN_SECRET_SIGN).update(`${header}.${payload}`).digest('base64url');
+    if (signature !== expectedSig) return null;
+    const parsedPayload = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (parsedPayload.exp && parsedPayload.exp < Math.floor(Date.now() / 1000)) return null;
+    return parsedPayload;
+  } catch (e) {
+    return null;
+  }
+};
+
 const requireAuth = async (req: any, res: any, next: any) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) return res.status(401).json({ error: 'Not authenticated. Please log in to generate content.' });
+  if (!token) return res.status(401).json({ error: 'Not authenticated. Please log in to continue.' });
+
+  // First check if this is an Admin Portal token
+  const adminPayload = verifyAdminToken(token);
+  if (adminPayload) {
+    req.user = {
+      id: adminPayload.sub,
+      email: `${adminPayload.username}@zeperai.internal`,
+      is_admin: true,
+      isAdminPortal: true
+    };
+    return next();
+  }
 
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
@@ -205,6 +247,12 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const requireAdmin = async (req: any, res: any, next: any) => {
   if (!req.user || !req.user.id) return res.status(401).json({ error: 'Not authenticated.' });
+  
+  // If authenticated via Admin Portal direct login
+  if (req.user.isAdminPortal && req.user.is_admin) {
+    return next();
+  }
+
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseServiceKey) {
@@ -621,6 +669,19 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     res.json({ success: true, count: objectPaths.length, bytesFreed });
   }));
 
+
+  app.post('/api/admin/login', (req, res) => {
+    const { username, password } = req.body || {};
+    const adminUser = process.env.ADMIN_USERNAME || 'admin';
+    const adminPass = process.env.ADMIN_PASSWORD || '12345678';
+
+    if (username === adminUser && password === adminPass) {
+      const token = createAdminToken(username);
+      return res.json({ success: true, token, user: { username, role: 'superadmin', isAdmin: true } });
+    }
+
+    return res.status(401).json({ error: 'Invalid admin credentials.' });
+  });
 
   app.get('/api/admin/check', requireAuth, requireAdmin, (req, res) => {
     res.json({ success: true, is_admin: true });

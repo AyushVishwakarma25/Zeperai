@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { supabase } from '../../services/supabaseClient';
+import { getAdminAuthHeader } from './adminAuthHelper';
 import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Spinner';
 import { Icon } from '../ui/Icon';
@@ -30,8 +30,7 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
   const fetchUser = async () => {
     try {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      const authHeader = session?.access_token;
+      const authHeader = await getAdminAuthHeader();
       const res = await axios.get(`/api/admin/users/${userId}`, {
         headers: { Authorization: `Bearer ${authHeader}` }
       });
@@ -45,9 +44,8 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
   };
 
   const getHeaders = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const authHeader = session?.access_token;
-    return { Authorization: `Bearer ` };
+    const authHeader = await getAdminAuthHeader();
+    return { Authorization: `Bearer ${authHeader || ''}` };
   };
 
   const handleAdjustCredits = async () => {
