@@ -25,12 +25,17 @@ export default function StorageManager() {
     const { data: { session } } = await supabase.auth.getSession();
     const authHeader = session?.access_token;
     return { Authorization: `Bearer ` };
+  const getHeaders = () => {
+    const token = localStorage.getItem('supabase.auth.token');
+    const authHeader = JSON.parse(token || '{}')?.currentSession?.access_token;
+    return { Authorization: `Bearer ${authHeader}` };
   };
 
   const fetchOverview = async () => {
     try {
       setLoadingOverview(true);
       const res = await axios.get('/api/admin/storage/overview', { headers: await getHeaders() });
+      const res = await axios.get('/api/admin/storage/overview', { headers: getHeaders() });
       setOverview(res.data);
     } catch (err) {
       console.error(err);
@@ -44,6 +49,7 @@ export default function StorageManager() {
       setLoadingOrphaned(true);
       setShowOrphaned(true);
       const res = await axios.get('/api/admin/storage/orphaned', { headers: await getHeaders() });
+      const res = await axios.get('/api/admin/storage/orphaned', { headers: getHeaders() });
       setOrphanedFiles(res.data.orphaned);
     } catch (err) {
       console.error(err);
@@ -69,6 +75,7 @@ export default function StorageManager() {
       await axios.post('/api/admin/storage/cleanup-orphaned', 
         { objectPaths: pathsArray, totalBytes: sizeToFree }, 
         { headers: await getHeaders() }
+        { headers: getHeaders() }
       );
       
       setSelectedPaths(new Set());
@@ -108,6 +115,7 @@ export default function StorageManager() {
 
   if (loadingOverview && !overview) {
     return <div className="py-12 flex justify-center"><Spinner className="w-8 h-8" /></div>;
+    return <div className="py-12 flex justify-center"><Spinner size="lg" /></div>;
   }
 
   if (!overview) return null;
@@ -134,6 +142,7 @@ export default function StorageManager() {
             </div>
             {overview.orphanedCount > 0 && (
               <Button variant={showOrphaned ? 'secondary' : 'primary'} onClick={showOrphaned ? () => setShowOrphaned(false) : fetchOrphaned}>
+              <Button size="sm" variant={showOrphaned ? "outline" : "primary"} onClick={showOrphaned ? () => setShowOrphaned(false) : fetchOrphaned}>
                 {showOrphaned ? 'Hide Details' : 'View Orphans'}
               </Button>
             )}
@@ -149,6 +158,8 @@ export default function StorageManager() {
              {selectedPaths.size > 0 && (
                <Button variant="secondary" className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20" onClick={handleDeleteSelected} disabled={deleting}>
                  {deleting ? <Spinner className="w-4 h-4 mr-2" /> : <Icon name="trash-2" className="w-4 h-4 mr-2" />}
+               <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20" onClick={handleDeleteSelected} disabled={deleting}>
+                 {deleting ? <Spinner size="sm" className="mr-2" /> : <Icon name="trash-2" className="w-4 h-4 mr-2" />}
                  Delete Selected ({selectedPaths.size})
                </Button>
              )}

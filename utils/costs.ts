@@ -55,15 +55,11 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
             if (params.bulkImages && params.bulkImages.length > 0) {
                 baseVariations = params.bulkImages.length;
             } else if (params.fashionPose && params.fashionPose.length > 0) {
-                let maxPoses = userTier === 'PayAsYouGo' ? 12 : 1;
-                baseVariations = Math.min(params.fashionPose.length, maxPoses);
-                // A manually-picked multi-pose set generated together also counts as a
-                // catalog batch for discount purposes.
-                isCatalogBatch = !!params.catalogMode && baseVariations > 1;
+                baseVariations = Math.min(params.fashionPose.length, 12);
+                // Multi-pose selection counts as a catalog batch for bundle discount
+                isCatalogBatch = params.fashionPose.length > 1 || !!params.catalogMode;
             } else if (params.catalogMode) {
-                // No poses hand-picked, but Catalog Mode is on: the generation engine
-                // (services/geminiService.ts) auto-fills a curated pose set of this size —
-                // charge for what actually gets generated, not 1.
+                // No poses hand-picked, but Catalog Mode is on: auto-fills a curated pose set
                 const setSize = params.catalogSetSize === 4 ? 4 : 5;
                 baseVariations = setSize;
                 isCatalogBatch = true;
@@ -107,9 +103,9 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
 
     // 4. Catalog Set Bundle Discount
     // Reward generating a full multi-pose catalog set in one go instead of paying full
-    // price per image. Floored at 1 credit per image generated so we never sell below cost.
+    // price per image.
     if (isCatalogBatch) {
-        totalCost = Math.max(baseVariations, Math.ceil(totalCost * CATALOG_BUNDLE_DISCOUNT));
+        totalCost = Math.max(1, Math.round(totalCost * CATALOG_BUNDLE_DISCOUNT));
     }
 
     return totalCost;
@@ -120,18 +116,24 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
  * without affecting the actual charge logic above. Returns null when no discount applies.
  */
 export const getCatalogDiscountInfo = (params: GenerateImageParams, userTier: string): { fullPrice: number; discountedPrice: number; percentOff: number } | null => {
-    if (params.appMode !== AppMode.Fashion || !params.catalogMode) return null;
+    if (params.appMode !== AppMode.Fashion) return null;
+    const isCatalog = params.catalogMode || (params.fashionPose && params.fashionPose.length > 1);
+    if (!isCatalog) return null;
 
-    const withoutDiscount: GenerateImageParams = { ...params, catalogMode: false };
-    // Force the same effective pose count so we compare apples to apples even when
-    // poses were auto-filled by Catalog Mode.
-    if (!params.fashionPose || params.fashionPose.length === 0) {
-        const setSize = params.catalogSetSize === 4 ? 4 : 5;
-        withoutDiscount.fashionPose = new Array(setSize).fill('pose');
-    }
+    const count = (params.fashionPose && params.fashionPose.length > 0) 
+        ? params.fashionPose.length 
+        : (params.catalogSetSize === 4 ? 4 : 5);
 
-    const fullPrice = calculateGenerationCost(withoutDiscount, userTier);
+    const singlePoseParams: GenerateImageParams = { 
+        ...params, 
+        catalogMode: false, 
+        fashionPose: ['pose'] 
+    };
+
+    const perImageFullPrice = calculateGenerationCost(singlePoseParams, userTier);
+    const fullPrice = perImageFullPrice * count;
     const discountedPrice = calculateGenerationCost(params, userTier);
+
     if (fullPrice <= discountedPrice) return null;
 
     const percentOff = Math.round((1 - discountedPrice / fullPrice) * 100);

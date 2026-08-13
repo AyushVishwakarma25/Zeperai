@@ -29,14 +29,18 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
         <div className="mt-8 border-t border-slate-100 pt-8">
             <div className="flex justify-between items-end mb-4">
                 <SectionTitle title="Aspect Ratio" className="!mb-0" />
-                {canMultiSelect && !hideMultiSelectLabel && (
+                {!hideMultiSelectLabel ? (
                     <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-md font-semibold tracking-wide border border-slate-200">
                         MULTI-SELECT AVAILABLE
+                    </span>
+                ) : (
+                    <span className="text-[10px] bg-amber-50 text-amber-700 px-2 py-1 rounded-md font-bold tracking-wide border border-amber-200">
+                        SINGLE RATIO PER CATALOG BATCH
                     </span>
                 )}
             </div>
             
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mb-8">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mb-4">
                 {ASPECT_RATIO_OPTIONS.map(opt => {
                     const isSelected = params.aspectRatios?.includes(opt.value);
                     return (
@@ -64,6 +68,11 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
                     );
                 })}
             </div>
+            {hideMultiSelectLabel && (
+                <p className="text-xs text-slate-400 mb-8 italic">
+                    Catalog sets generate all 4–5 poses in a single, standardized aspect ratio (3:4 Portrait is recommended for e-commerce listings).
+                </p>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>

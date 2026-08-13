@@ -1688,7 +1688,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   // Export default for Vercel Serverless Functions
   export default app;
 
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
   
   // --- VITE & STATIC SERVING ---
   const setupViteAndStart = async () => {

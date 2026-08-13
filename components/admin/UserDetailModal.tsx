@@ -32,6 +32,8 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       const authHeader = session?.access_token;
+      const token = localStorage.getItem('supabase.auth.token');
+      const authHeader = JSON.parse(token || '{}')?.currentSession?.access_token;
       const res = await axios.get(`/api/admin/users/${userId}`, {
         headers: { Authorization: `Bearer ${authHeader}` }
       });
@@ -48,12 +50,17 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
     const { data: { session } } = await supabase.auth.getSession();
     const authHeader = session?.access_token;
     return { Authorization: `Bearer ` };
+  const getHeaders = () => {
+    const token = localStorage.getItem('supabase.auth.token');
+    const authHeader = JSON.parse(token || '{}')?.currentSession?.access_token;
+    return { Authorization: `Bearer ${authHeader}` };
   };
 
   const handleAdjustCredits = async () => {
     if (!creditReason) return alert("Reason is required");
     try {
       await axios.post(`/api/admin/users/${userId}/adjust-credits`, { amount: creditAmount, reason: creditReason }, { headers: await getHeaders() });
+      await axios.post(`/api/admin/users/${userId}/adjust-credits`, { amount: creditAmount, reason: creditReason }, { headers: getHeaders() });
       setCreditAmount(0);
       setCreditReason('');
       fetchUser();
@@ -67,6 +74,7 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
     if (!banReason) return alert("Reason is required");
     try {
       await axios.post(`/api/admin/users/${userId}/ban`, { reason: banReason }, { headers: await getHeaders() });
+      await axios.post(`/api/admin/users/${userId}/ban`, { reason: banReason }, { headers: getHeaders() });
       setBanReason('');
       fetchUser();
       onUpdated();
@@ -78,6 +86,7 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
   const handleUnban = async () => {
     try {
       await axios.post(`/api/admin/users/${userId}/unban`, {}, { headers: await getHeaders() });
+      await axios.post(`/api/admin/users/${userId}/unban`, {}, { headers: getHeaders() });
       fetchUser();
       onUpdated();
     } catch (err: any) {
@@ -91,6 +100,7 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
     try {
       await axios.delete(`/api/admin/users/${userId}`, { 
         headers: await getHeaders(),
+        headers: getHeaders(),
         data: { confirmationEmail: deleteEmailConfirm }
       });
       onUpdated();
@@ -104,6 +114,7 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-8"><Spinner className="w-8 h-8" /></div>
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-8"><Spinner size="lg" /></div>
       </div>
     );
   }
@@ -147,6 +158,7 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
           </button>
           <button 
             className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${activeTab === 'actions' ? 'border-primary text-slate-900 dark:text-white' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+            className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${activeTab === 'actions' ? 'border-[#8B5CF6] text-slate-900 dark:text-white' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
             onClick={() => setActiveTab('actions')}
           >
             Admin Actions
@@ -232,6 +244,7 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
                   />
                 </div>
                 <Button onClick={handleAdjustCredits} variant="primary" className="bg-primary hover:bg-primary-hover text-white">Apply Adjustment</Button>
+                <Button onClick={handleAdjustCredits} variant="primary" size="sm" className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white">Apply Adjustment</Button>
               </div>
 
               <div className="bg-amber-50 dark:bg-amber-900/10 p-5 rounded-xl border border-amber-100 dark:border-amber-900/30">
@@ -240,6 +253,7 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
                   <div>
                     <p className="text-sm text-amber-800 dark:text-amber-400 mb-3">User was banned on {new Date(user.banned_at).toLocaleString()}<br/>Reason: {user.banned_reason}</p>
                     <Button onClick={handleUnban} variant="secondary" className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30">Revoke Ban</Button>
+                    <Button onClick={handleUnban} variant="outline" size="sm" className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30">Revoke Ban</Button>
                   </div>
                 ) : (
                   <div>
@@ -251,6 +265,7 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
                       onChange={(e) => setBanReason(e.target.value)}
                     />
                     <Button onClick={handleBan} variant="secondary" className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30">Suspend User</Button>
+                    <Button onClick={handleBan} variant="outline" size="sm" className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30">Suspend User</Button>
                   </div>
                 )}
               </div>
@@ -272,6 +287,7 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
                     onClick={handleDelete} 
                     variant="primary" 
                     
+                    size="sm" 
                     className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
                     disabled={deleteEmailConfirm !== user.email}
                   >

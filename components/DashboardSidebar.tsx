@@ -242,6 +242,9 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
                           <Icon name="lock" className="w-4 h-4 mr-3" /> Admin Panel
                         </button>
                       )}
+                      <button onClick={() => window.location.href='/admin'} className="w-full flex items-center px-3 py-2 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100 transition-colors text-left">
+                        <Icon name="lock" className="w-4 h-4 mr-3" /> Admin Panel
+                      </button>
                       <button onClick={() => handleMenuItemClick(onLogout)} className="w-full flex items-center px-3 py-2 text-sm font-semibold text-red-600 rounded-lg hover:bg-red-50 transition-colors text-left">
                           <Icon name="logout" className="w-5 h-5 mr-3" />
                           <span>Sign out</span>
