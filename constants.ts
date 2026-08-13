@@ -1,5 +1,5 @@
 
-import { AspectRatio, ModelGender, StylePreset, SkinTone, ClothingType, AppMode, OutputFormat, AdLayout, ResolutionQuality, ProductCategory, MarketplacePreset, CaptionTone, FashionGender, ModelPersona, ProProductStyleCategory, GenerateImageParams, OutfitChoice, ImageModel } from './types';
+import { AspectRatio, ModelGender, StylePreset, SkinTone, ClothingType, AppMode, OutputFormat, AdLayout, ResolutionQuality, ProductCategory, MarketplacePreset, CaptionTone, FashionGender, FashionShootType, ModelPersona, ProProductStyleCategory, GenerateImageParams, OutfitChoice, ImageModel } from './types';
 
 export const AI_SUGGESTED = 'AI Suggested';
 export const FREE_TRIAL_LIMIT = 50;
@@ -77,19 +77,55 @@ export const FASHION_POSE_OPTIONS = [
     'Adjusting garment (pallu or sleeve) naturally'
 ];
 
+// Curated default pose sets used when "Catalog Mode" is on and the user hasn't
+// hand-picked poses. Mirrors how a real e-commerce shoot (Myntra/Amazon/Flipkart)
+// covers a garment: hero front, angle, back, detail, lifestyle.
+export const FASHION_POSE_TEMPLATES: Record<string, string[]> = {
+  [FashionShootType.ModelShoot]: [
+    'Full length front view hero shot, standing confidently looking at camera',
+    'Mid-shot (thigh-high) 45-degree angle, one hand on waist, sophisticated expression',
+    'Full length back view, looking slightly over the shoulder',
+    'Close-up portrait showing garment neckline and jewelry detail',
+    'Walking motion shot, capturing natural movement of the fabric',
+  ],
+  [FashionShootType.GhostMannequin]: [
+    'Full length front view, symmetrical, invisible mannequin effect',
+    'Full length back view, symmetrical, invisible mannequin effect',
+    'Close-up on collar, neckline and stitching detail',
+    'Close-up on cuff, hem and fabric texture detail',
+    '3/4 angle view showing garment drape and fit',
+  ],
+};
+
+// Discount applied to the credit cost of a Catalog Mode batch (4-5 images generated
+// together), rewarding users for producing a full set instead of paying full price
+// per image. Displayed in the UI and applied in utils/costs.ts.
+export const CATALOG_BUNDLE_DISCOUNT = 0.8; // 20% off vs. paying per-image
+
 export const FASHION_MODEL_LOCKS = {
   [FashionGender.Women]: [
-    { id: 'W-Aria', name: 'Aria - Elegant Pro', desc: 'Sophisticated, classic model features' },
-    { id: 'W-Zara', name: 'Zara - Modern Urban', desc: 'Edgy, contemporary street-style look' },
-    { id: 'W-Diya', name: 'Diya - Ethnic Traditional', desc: 'Graceful features for Indian wear' },
+    { id: 'W-Aria', name: 'Aria - Elegant Pro', desc: 'Sophisticated, classic model features', region: 'North Indian', skinTone: 'Wheatish' },
+    { id: 'W-Zara', name: 'Zara - Modern Urban', desc: 'Edgy, contemporary street-style look', region: 'Mumbai Urban', skinTone: 'Medium' },
+    { id: 'W-Diya', name: 'Diya - Ethnic Traditional', desc: 'Graceful features for Indian wear', region: 'North Indian', skinTone: 'Fair' },
+    { id: 'W-Meera', name: 'Meera - South Indian Classic', desc: 'Warm, classic South Indian features', region: 'Tamil/Kerala', skinTone: 'Deep' },
+    { id: 'W-Simran', name: 'Simran - Punjabi Glam', desc: 'Sharp, striking Punjabi features', region: 'Punjabi', skinTone: 'Fair' },
+    { id: 'W-Ananya', name: 'Ananya - Bengali Soft', desc: 'Soft, artistic Bengali features', region: 'Bengali', skinTone: 'Medium' },
+    { id: 'W-Kavya', name: 'Kavya - Maharashtrian Earthy', desc: 'Natural, earthy Maharashtrian features', region: 'Maharashtrian', skinTone: 'Medium-Deep' },
+    { id: 'W-Fatima', name: 'Fatima - Hyderabadi Elegant', desc: 'Refined, elegant Deccan features', region: 'Hyderabadi', skinTone: 'Wheatish' },
   ],
   [FashionGender.Men]: [
-    { id: 'M-Kabir', name: 'Kabir - Classic Indian', desc: 'Strong features for Sherwanis/Suits' },
-    { id: 'M-Leo', name: 'Leo - Athletic Western', desc: 'Fit build for active/casual wear' },
+    { id: 'M-Kabir', name: 'Kabir - Classic Indian', desc: 'Strong features for Sherwanis/Suits', region: 'North Indian', skinTone: 'Wheatish' },
+    { id: 'M-Leo', name: 'Leo - Athletic Western', desc: 'Fit build for active/casual wear', region: 'Mumbai Urban', skinTone: 'Medium' },
+    { id: 'M-Arjun', name: 'Arjun - South Indian Athletic', desc: 'Well-built, classic South Indian features', region: 'Tamil/Kerala', skinTone: 'Deep' },
+    { id: 'M-Rohan', name: 'Rohan - Corporate Modern', desc: 'Clean-cut, corporate-friendly look', region: 'North Indian', skinTone: 'Fair' },
+    { id: 'M-Vikram', name: 'Vikram - Rajasthani Rugged', desc: 'Robust, rugged Rajasthani features', region: 'Rajasthani', skinTone: 'Wheatish' },
+    { id: 'M-Aditya', name: 'Aditya - Bengali Intellectual', desc: 'Refined, understated Bengali features', region: 'Bengali', skinTone: 'Medium' },
   ],
   [FashionGender.Kids]: [
-    { id: 'K-Noah', name: 'Noah - Playful Boy', desc: 'Cheerful and energetic' },
-    { id: 'K-Mia', name: 'Mia - Sweet Girl', desc: 'Natural and charming' },
+    { id: 'K-Noah', name: 'Noah - Playful Boy', desc: 'Cheerful and energetic', region: 'North Indian', skinTone: 'Medium' },
+    { id: 'K-Mia', name: 'Mia - Sweet Girl', desc: 'Natural and charming', region: 'North Indian', skinTone: 'Wheatish' },
+    { id: 'K-Advait', name: 'Advait - South Indian Boy', desc: 'Bright, friendly South Indian features', region: 'Tamil/Kerala', skinTone: 'Deep' },
+    { id: 'K-Anaya', name: 'Anaya - Bengali Girl', desc: 'Soft, gentle Bengali features', region: 'Bengali', skinTone: 'Medium' },
   ]
 };
 
