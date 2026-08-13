@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getAdminAuthHeader, clearAdminSession } from './adminAuthHelper';
+import { getAdminAuthHeader } from './adminAuthHelper';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
@@ -29,7 +29,7 @@ export default function AdminDashboard() {
       try {
         const authHeader = await getAdminAuthHeader();
         if (!authHeader) {
-          navigate('/admin-login');
+          navigate('/dashboard');
           return;
         }
         const res = await axios.get('/api/admin/check', {
@@ -38,10 +38,10 @@ export default function AdminDashboard() {
         if (res.data.is_admin) {
           setIsAdmin(true);
         } else {
-          navigate('/admin-login');
+          navigate('/dashboard');
         }
       } catch (err) {
-        navigate('/admin-login');
+        navigate('/dashboard');
       }
     };
     checkAdmin();
@@ -71,11 +71,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleAdminLogout = () => {
-    clearAdminSession();
-    navigate('/admin-login');
-  };
-
   if (isAdmin === null) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900"><Spinner className="w-8 h-8" /></div>;
   }
@@ -90,7 +85,6 @@ export default function AdminDashboard() {
           </div>
           <div className="flex items-center space-x-3">
             <Button variant="secondary" onClick={() => navigate('/dashboard')}>Back to App</Button>
-            <Button variant="dark" onClick={handleAdminLogout}>Logout Admin</Button>
           </div>
         </div>
 

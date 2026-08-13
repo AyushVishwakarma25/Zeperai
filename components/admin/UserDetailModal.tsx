@@ -83,6 +83,32 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
     }
   };
 
+  const handleToggleAdmin = async () => {
+    const nextAdminState = !user?.is_admin;
+    const confirmMsg = nextAdminState 
+      ? `Grant admin privileges to ${user?.email}?` 
+      : `Revoke admin privileges from ${user?.email}?`;
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      await axios.post(`/api/admin/users/${userId}/toggle-admin`, { is_admin: nextAdminState }, { headers: await getHeaders() });
+      fetchUser();
+      onUpdated();
+    } catch (err: any) {
+      alert(err.response?.data?.error || "Error updating admin status");
+    }
+  };
+
+  const handleUpdateTier = async (newTier: string) => {
+    try {
+      await axios.post(`/api/admin/users/${userId}/update-tier`, { tier: newTier }, { headers: await getHeaders() });
+      fetchUser();
+      onUpdated();
+    } catch (err: any) {
+      alert(err.response?.data?.error || "Error updating user tier");
+    }
+  };
+
   const handleDelete = async () => {
     if (deleteEmailConfirm !== user?.email) return alert("Email confirmation does not match");
     if (!confirm("Are you absolutely sure? This cannot be undone and deletes all user data and storage.")) return;
@@ -211,6 +237,34 @@ export default function UserDetailModal({ userId, onClose, onUpdated }: Props) {
           {activeTab === 'actions' && (
             <div className="space-y-8">
               
+              <div className="bg-slate-50 dark:bg-slate-800/30 p-5 rounded-xl border border-slate-100 dark:border-slate-800">
+                <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Account Tier & Roles</h3>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <label className="text-xs text-slate-500 font-medium block mb-1">Current Tier</label>
+                    <select 
+                      value={user.tier || 'Free'}
+                      onChange={(e) => handleUpdateTier(e.target.value)}
+                      className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"
+                    >
+                      <option value="Free">Free</option>
+                      <option value="PayAsYouGo">PayAsYouGo</option>
+                      <option value="Pro">Pro</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 font-medium block mb-1">Admin Privileges</label>
+                    <Button 
+                      onClick={handleToggleAdmin}
+                      variant="secondary"
+                      className={user.is_admin ? "border-red-500 text-red-600 hover:bg-red-50" : "border-primary text-primary hover:bg-primary/10"}
+                    >
+                      {user.is_admin ? 'Revoke Admin Privileges' : 'Grant Admin Privileges'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-slate-50 dark:bg-slate-800/30 p-5 rounded-xl border border-slate-100 dark:border-slate-800">
                 <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Adjust Credits</h3>
                 <div className="flex space-x-3 mb-3">

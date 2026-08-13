@@ -235,6 +235,12 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
                           <Icon name="headset" className="w-5 h-5 mr-3 text-slate-400" />
                           <span>Help Center</span>
                       </button>
+                      {user?.isAdmin && (
+                          <button onClick={() => handleMenuItemClick(() => navigate('/admin'))} className="w-full flex items-center px-3 py-2 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100 transition-colors text-left">
+                              <Icon name="lock" className="w-5 h-5 mr-3 text-primary" />
+                              <span>Admin Panel</span>
+                          </button>
+                      )}
                       <div className="my-1 h-px bg-slate-100" />
                       
                       <button onClick={() => handleMenuItemClick(onLogout)} className="w-full flex items-center px-3 py-2 text-sm font-semibold text-red-600 rounded-lg hover:bg-red-50 transition-colors text-left">

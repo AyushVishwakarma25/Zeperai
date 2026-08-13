@@ -161,37 +161,7 @@ app.use(cors({
 }));
 app.use(globalLimiter);
 
-// --- SECURITY: Authentication Middleware ---
-const ADMIN_SECRET_SIGN = process.env.ADMIN_JWT_SECRET || 'zeperai_admin_secure_key_2026_antigravity';
-
-const createAdminToken = (username: string) => {
-  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const payload = Buffer.from(JSON.stringify({
-    sub: 'admin-master',
-    username,
-    role: 'superadmin',
-    is_admin: true,
-    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
-  })).toString('base64url');
-  const signature = crypto.createHmac('sha256', ADMIN_SECRET_SIGN).update(`${header}.${payload}`).digest('base64url');
-  return `${header}.${payload}.${signature}`;
-};
-
-const verifyAdminToken = (token: string) => {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const [header, payload, signature] = parts;
-    const expectedSig = crypto.createHmac('sha256', ADMIN_SECRET_SIGN).update(`${header}.${payload}`).digest('base64url');
-    if (signature !== expectedSig) return null;
-    const parsedPayload = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    if (parsedPayload.exp && parsedPayload.exp < Math.floor(Date.now() / 1000)) return null;
-    return parsedPayload;
-  } catch (e) {
-    return null;
-  }
-};
-
+// --- SECURITY: Authentication & Database Helpers ---
 export const getAdminSupabaseClient = async () => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
@@ -210,18 +180,6 @@ const requireAuth = async (req: any, res: any, next: any) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Not authenticated. Please log in to continue.' });
 
-  // First check if this is an Admin Portal token
-  const adminPayload = verifyAdminToken(token);
-  if (adminPayload) {
-    req.user = {
-      id: adminPayload.sub,
-      email: `${adminPayload.username}@zeperai.internal`,
-      is_admin: true,
-      isAdminPortal: true
-    };
-    return next();
-  }
-
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
 
@@ -231,19 +189,6 @@ const requireAuth = async (req: any, res: any, next: any) => {
     const { data, error } = await supabase.auth.getUser(token);
 
     if (error || !data?.user) {
-      // Fallback: Check if token is a valid JWT payload for user details
-      try {
-        const parts = token.split('.');
-        if (parts.length === 3) {
-          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
-          if (payload && (payload.sub || payload.id)) {
-            req.user = { id: payload.sub || payload.id, email: payload.email || 'user@example.com' };
-            return next();
-          }
-        }
-      } catch (jwtErr) {
-        // ignore JWT parse error
-      }
       return res.status(401).json({ error: 'Invalid or expired session. Please sign in again.' });
     }
 
@@ -261,11 +206,6 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const requireAdmin = async (req: any, res: any, next: any) => {
   if (!req.user || !req.user.id) return res.status(401).json({ error: 'Not authenticated.' });
-  
-  // If authenticated via Admin Portal direct login
-  if (req.user.isAdminPortal && req.user.is_admin) {
-    return next();
-  }
 
   try {
     const adminClient = await getAdminSupabaseClient();
@@ -713,20 +653,6 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     res.json({ success: true, count: objectPaths.length, bytesFreed });
   }));
 
-
-  app.post('/api/admin/login', (req, res) => {
-    const { username, password } = req.body || {};
-    const adminUser = process.env.ADMIN_USERNAME || 'admin';
-    const adminPass = process.env.ADMIN_PASSWORD || '12345678';
-
-    if (username === adminUser && password === adminPass) {
-      const token = createAdminToken(username);
-      return res.json({ success: true, token, user: { username, role: 'superadmin', isAdmin: true } });
-    }
-
-    return res.status(401).json({ error: 'Invalid admin credentials.' });
-  });
-
   app.get('/api/admin/check', requireAuth, requireAdmin, (req, res) => {
     res.json({ success: true, is_admin: true });
   });
@@ -922,6 +848,63 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
 
     res.json({ success: true });
+  }));
+
+  app.post('/api/admin/users/:id/toggle-admin', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const targetUserId = req.params.id;
+    const { is_admin } = req.body;
+    if (typeof is_admin !== 'boolean') throw new AppError('is_admin boolean is required', 400);
+
+    const adminClient = await getAdminSupabaseClient();
+
+    const { error } = await adminClient.from('profiles').update({
+      is_admin
+    }).eq('id', targetUserId);
+    if (error) throw new AppError(error.message, 500);
+
+    try {
+      await adminClient.from('admin_actions').insert({
+        admin_id: isUuid(req.user.id) ? req.user.id : null,
+        action: 'change_admin_privileges',
+        target_user_id: isUuid(targetUserId) ? targetUserId : null,
+        details: { is_admin, admin_email: req.user.email }
+      });
+    } catch (logErr) {
+      console.warn('Failed to log admin action:', logErr);
+    }
+
+    res.json({ success: true, is_admin });
+  }));
+
+  app.post('/api/admin/users/:id/update-tier', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const targetUserId = req.params.id;
+    const { tier } = req.body;
+    if (!tier || !['Free', 'PayAsYouGo', 'Pro'].includes(tier)) {
+      throw new AppError('Valid tier (Free, PayAsYouGo, Pro) is required', 400);
+    }
+
+    const adminClient = await getAdminSupabaseClient();
+
+    const { data: prevProfile } = await adminClient.from('profiles').select('tier').eq('id', targetUserId).single();
+    const oldTier = prevProfile?.tier || 'Free';
+
+    const { error } = await adminClient.from('profiles').update({
+      tier
+    }).eq('id', targetUserId);
+    if (error) throw new AppError(error.message, 500);
+
+    try {
+      await adminClient.from('admin_actions').insert({
+        admin_id: isUuid(req.user.id) ? req.user.id : null,
+        action: 'update_user_tier',
+        target_user_id: isUuid(targetUserId) ? targetUserId : null,
+        details: { old_tier: oldTier, new_tier: tier, admin_email: req.user.email }
+      });
+    } catch (logErr) {
+      console.warn('Failed to log admin action:', logErr);
+    }
+
+    res.json({ success: true, tier });
   }));
 
   app.delete('/api/admin/users/:id', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
