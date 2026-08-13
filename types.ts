@@ -264,6 +264,8 @@ export interface GenerateImageParams {
   marketplacePreset?: MarketplacePreset;
   storyboardScenes?: string[];
   fashionPose?: string[];
+  catalogMode?: boolean;
+  catalogSetSize?: number; // 4 or 5 — how many images in the auto-generated set
   applyBrandIdentity?: boolean;
   adCtaBgColor?: string;
   adTitleSize?: number;

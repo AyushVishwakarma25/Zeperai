@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { supabase } from '../../services/supabaseClient';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Spinner';
@@ -24,17 +25,17 @@ export default function SubscriptionsList() {
     fetchSubscriptions();
   }, [page, statusFilter]);
 
-  const getHeaders = () => {
-    const token = localStorage.getItem('supabase.auth.token');
-    const authHeader = JSON.parse(token || '{}')?.currentSession?.access_token;
-    return { Authorization: `Bearer ${authHeader}` };
+  const getHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const authHeader = session?.access_token;
+    return { Authorization: `Bearer ` };
   };
 
   const fetchSubscriptions = async () => {
     try {
       setLoading(true);
       const res = await axios.get('/api/admin/subscriptions', {
-        headers: getHeaders(),
+        headers: await getHeaders(),
         params: { status: statusFilter, limit, offset: (page - 1) * limit }
       });
       setSubscriptions(res.data.subscriptions);
@@ -52,7 +53,7 @@ export default function SubscriptionsList() {
       setCancelLoading(true);
       await axios.post(`/api/admin/subscriptions/${cancelModalSub.id}/cancel`, 
         { reason: cancelReason, immediate: cancelImmediate }, 
-        { headers: getHeaders() }
+        { headers: await getHeaders() }
       );
       setCancelModalSub(null);
       setCancelReason('');
@@ -69,7 +70,7 @@ export default function SubscriptionsList() {
     try {
       setDriftChecking(true);
       setDriftResults(null);
-      const res = await axios.get('/api/admin/subscriptions-reconcile', { headers: getHeaders() });
+      const res = await axios.get('/api/admin/subscriptions-reconcile', { headers: await getHeaders() });
       setDriftResults(res.data.mismatches);
     } catch (err: any) {
       alert(err.response?.data?.error || "Error checking drift");
@@ -105,8 +106,8 @@ export default function SubscriptionsList() {
            </select>
          </div>
          
-         <Button onClick={handleReconcile} variant="outline" size="sm" disabled={driftChecking}>
-            {driftChecking ? <Spinner size="sm" className="mr-2" /> : null}
+         <Button onClick={handleReconcile} variant="secondary" disabled={driftChecking}>
+            {driftChecking ? <Spinner className="w-4 h-4 mr-2" /> : null}
             Check for drift
          </Button>
       </div>
@@ -150,7 +151,7 @@ export default function SubscriptionsList() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {loading && subscriptions.length === 0 ? (
-                <tr><td colSpan={6} className="py-8 text-center text-slate-500"><Spinner size="sm" className="mx-auto mb-2" /> Loading subscriptions...</td></tr>
+                <tr><td colSpan={6} className="py-8 text-center text-slate-500"><Spinner className="w-4 h-4 mx-auto mb-2" /> Loading subscriptions...</td></tr>
               ) : subscriptions.map(sub => (
                 <tr key={sub.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <td className="px-4 py-4">
@@ -166,7 +167,7 @@ export default function SubscriptionsList() {
                   <td className="px-4 py-4">{new Date(sub.current_period_end).toLocaleDateString()}</td>
                   <td className="px-4 py-4 text-right">
                     {sub.status === 'active' && sub.razorpay_subscription_id && !sub.cancel_at_period_end && (
-                       <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => setCancelModalSub(sub)}>
+                       <Button variant="ghost" className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => setCancelModalSub(sub)}>
                          Cancel
                        </Button>
                     )}
@@ -178,9 +179,9 @@ export default function SubscriptionsList() {
         </div>
         
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-          <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Previous</Button>
+          <Button variant="secondary" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Previous</Button>
           <span className="text-sm text-slate-500">Page {page}</span>
-          <Button variant="outline" size="sm" disabled={subscriptions.length < limit} onClick={() => setPage(p => p + 1)}>Next</Button>
+          <Button variant="secondary" disabled={subscriptions.length < limit} onClick={() => setPage(p => p + 1)}>Next</Button>
         </div>
       </Card>
 
@@ -209,7 +210,7 @@ export default function SubscriptionsList() {
                    id="immediate"
                    checked={cancelImmediate}
                    onChange={e => setCancelImmediate(e.target.checked)}
-                   className="rounded text-[#8B5CF6] focus:ring-[#8B5CF6]"
+                   className="rounded text-primary focus:ring-primary"
                  />
                  <label htmlFor="immediate" className="text-sm font-medium text-red-600 dark:text-red-400">Cancel immediately (no refund)</label>
                </div>
@@ -219,9 +220,9 @@ export default function SubscriptionsList() {
             </div>
             
             <div className="flex justify-end space-x-3">
-               <Button variant="outline" onClick={() => { setCancelModalSub(null); setCancelReason(''); }}>Keep Active</Button>
+               <Button variant="secondary" onClick={() => { setCancelModalSub(null); setCancelReason(''); }}>Keep Active</Button>
                <Button variant="primary" className="bg-red-600 hover:bg-red-700 text-white" disabled={cancelLoading} onClick={handleCancelSubmit}>
-                 {cancelLoading ? <Spinner size="sm" /> : 'Confirm Cancellation'}
+                 {cancelLoading ? <Spinner className="w-4 h-4" /> : 'Confirm Cancellation'}
                </Button>
             </div>
           </div>

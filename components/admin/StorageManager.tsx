@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { supabase } from '../../services/supabaseClient';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Spinner';
@@ -20,16 +21,16 @@ export default function StorageManager() {
     fetchOverview();
   }, []);
 
-  const getHeaders = () => {
-    const token = localStorage.getItem('supabase.auth.token');
-    const authHeader = JSON.parse(token || '{}')?.currentSession?.access_token;
-    return { Authorization: `Bearer ${authHeader}` };
+  const getHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const authHeader = session?.access_token;
+    return { Authorization: `Bearer ` };
   };
 
   const fetchOverview = async () => {
     try {
       setLoadingOverview(true);
-      const res = await axios.get('/api/admin/storage/overview', { headers: getHeaders() });
+      const res = await axios.get('/api/admin/storage/overview', { headers: await getHeaders() });
       setOverview(res.data);
     } catch (err) {
       console.error(err);
@@ -42,7 +43,7 @@ export default function StorageManager() {
     try {
       setLoadingOrphaned(true);
       setShowOrphaned(true);
-      const res = await axios.get('/api/admin/storage/orphaned', { headers: getHeaders() });
+      const res = await axios.get('/api/admin/storage/orphaned', { headers: await getHeaders() });
       setOrphanedFiles(res.data.orphaned);
     } catch (err) {
       console.error(err);
@@ -67,7 +68,7 @@ export default function StorageManager() {
       setDeleting(true);
       await axios.post('/api/admin/storage/cleanup-orphaned', 
         { objectPaths: pathsArray, totalBytes: sizeToFree }, 
-        { headers: getHeaders() }
+        { headers: await getHeaders() }
       );
       
       setSelectedPaths(new Set());
@@ -106,7 +107,7 @@ export default function StorageManager() {
   };
 
   if (loadingOverview && !overview) {
-    return <div className="py-12 flex justify-center"><Spinner size="lg" /></div>;
+    return <div className="py-12 flex justify-center"><Spinner className="w-8 h-8" /></div>;
   }
 
   if (!overview) return null;
@@ -132,7 +133,7 @@ export default function StorageManager() {
                <p className="text-xs text-slate-500 mt-1">Waste: {formatBytes(overview.orphanedSize)}</p>
             </div>
             {overview.orphanedCount > 0 && (
-              <Button size="sm" variant={showOrphaned ? "outline" : "primary"} onClick={showOrphaned ? () => setShowOrphaned(false) : fetchOrphaned}>
+              <Button variant={showOrphaned ? 'secondary' : 'primary'} onClick={showOrphaned ? () => setShowOrphaned(false) : fetchOrphaned}>
                 {showOrphaned ? 'Hide Details' : 'View Orphans'}
               </Button>
             )}
@@ -146,8 +147,8 @@ export default function StorageManager() {
           <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-900/20 flex items-center justify-between">
              <h2 className="font-bold text-amber-800 dark:text-amber-400">Orphaned Files Management</h2>
              {selectedPaths.size > 0 && (
-               <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20" onClick={handleDeleteSelected} disabled={deleting}>
-                 {deleting ? <Spinner size="sm" className="mr-2" /> : <Icon name="trash-2" className="w-4 h-4 mr-2" />}
+               <Button variant="secondary" className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20" onClick={handleDeleteSelected} disabled={deleting}>
+                 {deleting ? <Spinner className="w-4 h-4 mr-2" /> : <Icon name="trash-2" className="w-4 h-4 mr-2" />}
                  Delete Selected ({selectedPaths.size})
                </Button>
              )}

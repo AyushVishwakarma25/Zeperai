@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import type { GenerateImageParams } from '../../types';
 import { FashionGender, FashionShootType, FashionBodyType, FashionAgeBracket, RegionalStyle } from '../../types';
-import { FASHION_CATEGORIES, FASHION_MODEL_LOCKS, FASHION_POSE_OPTIONS } from '../../constants';
+import { FASHION_CATEGORIES, FASHION_MODEL_LOCKS, FASHION_POSE_OPTIONS, FASHION_POSE_TEMPLATES } from '../../constants';
 import { Select } from '../ui/Select';
 import { Icon } from '../ui/Icon';
 import { Toggle } from '../ui/Toggle';
@@ -76,10 +76,44 @@ export const FashionControls: React.FC<FashionControlsProps> = ({
                 </div>
             )}
 
+            <div className="mt-6 p-4 bg-slate-50 border border-slate-200 rounded-xl relative">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                        <Icon name="camera" className="w-5 h-5 mr-2 text-primary" />
+                        <span className="text-sm font-semibold text-slate-800">Catalog Mode</span>
+                    </div>
+                    <Toggle
+                        label=""
+                        enabled={params.catalogMode || false}
+                        onChange={(v) => handleParamChange('catalogMode', v)}
+                    />
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                    Generate a full 4-5 image set (front, angle, back, detail, lifestyle) in one go — ready for Amazon, Flipkart, or Myntra listings. The same model's face and build stay consistent across every shot.
+                </p>
+                {params.catalogMode && (
+                    <div className="mt-3">
+                        <HelpLabel label="Set Size" className="mb-1" />
+                        <div className="flex gap-2">
+                            {[4, 5].map(size => (
+                                <ControlButton
+                                    key={size}
+                                    onClick={() => handleParamChange('catalogSetSize', size)}
+                                    selected={(params.catalogSetSize || 5) === size}
+                                    className="!text-xs px-4 py-1.5"
+                                >
+                                    {size} images
+                                </ControlButton>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
             <div className="mt-4">
                 <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center gap-2">
-                        <HelpLabel label="Model Poses" tooltip="Select poses for your shoot." className="mb-0" />
+                        <HelpLabel label="Model Poses" tooltip={params.catalogMode ? "Optional: hand-pick poses to override the default catalog set." : "Select poses for your shoot."} className="mb-0" />
                         {hasPoseSelection && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">MULTI-SELECT ON</span>}
                     </div>
                     {hasPoseSelection && (
@@ -110,7 +144,9 @@ export const FashionControls: React.FC<FashionControlsProps> = ({
                 </div>
                 {!hasPoseSelection && (
                     <p className="text-xs text-slate-400 mt-2 italic">
-                        No specific poses selected. AI will auto-generate a natural pose.
+                        {params.catalogMode
+                            ? `No poses picked — we'll use the default ${params.catalogSetSize || 5}-pose catalog set for this shoot type.`
+                            : 'No specific poses selected. AI will auto-generate a natural pose.'}
                     </p>
                 )}
             </div>

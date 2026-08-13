@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { supabase } from '../../services/supabaseClient';
 import { Card } from '../ui/Card';
 import { Spinner } from '../ui/Spinner';
 import { Icon } from '../ui/Icon';
@@ -15,8 +16,8 @@ export default function AdminOverview() {
   const fetchSummary = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('supabase.auth.token');
-      const authHeader = JSON.parse(token || '{}')?.currentSession?.access_token;
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeader = session?.access_token;
       const res = await axios.get('/api/admin/dashboard/summary', {
         headers: { Authorization: `Bearer ${authHeader}` }
       });
@@ -29,7 +30,7 @@ export default function AdminOverview() {
   };
 
   if (loading && !summary) {
-    return <div className="py-12 flex justify-center"><Spinner size="lg" /></div>;
+    return <div className="py-12 flex justify-center"><Spinner className="w-8 h-8" /></div>;
   }
 
   if (!summary) return null;
@@ -71,7 +72,7 @@ export default function AdminOverview() {
               <p className="text-sm font-medium text-slate-500 mb-1">Estimated MRR</p>
               <h3 className="text-2xl font-bold">₹{summary.mrr}</h3>
             </div>
-            <div className="w-10 h-10 rounded-full bg-[#8B5CF6]/20 text-[#8B5CF6] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center">
               <Icon name="credit-card" className="w-5 h-5" />
             </div>
           </div>
