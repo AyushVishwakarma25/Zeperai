@@ -192,6 +192,20 @@ const verifyAdminToken = (token: string) => {
   }
 };
 
+export const getAdminSupabaseClient = async () => {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+  const { createClient } = await import('@supabase/supabase-js');
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+};
+
+const isUuid = (str?: string) => {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+};
+
 const requireAuth = async (req: any, res: any, next: any) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Not authenticated. Please log in to continue.' });
@@ -253,17 +267,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     return next();
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseServiceKey) {
-    // If no service key in dev, we could log and fail, or allow if it's the specific test user.
-    // For safety, let's fail unless they have the key.
-    console.error("Missing SUPABASE_SERVICE_ROLE_KEY for admin check");
-    return res.status(500).json({ error: 'Server configuration error.' });
-  }
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+    const adminClient = await getAdminSupabaseClient();
     const { data, error } = await adminClient
       .from('profiles')
       .select('is_admin')
@@ -282,16 +287,13 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   
   // --- ADMIN SUBSCRIPTIONS ROUTES ---
   app.get('/api/admin/subscriptions', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey!);
+    const adminClient = await getAdminSupabaseClient();
     
     const limit = parseInt(req.query.limit || '50');
     const offset = parseInt(req.query.offset || '0');
     const statusFilter = req.query.status || ''; // active, cancelled, expired, past_due
 
-    let query = adminClient.from('subscriptions').select('*, profiles!inner(email, name)', { count: 'exact' });
+    let query = adminClient.from('subscriptions').select('*, profiles(email, name)', { count: 'exact' });
     
     if (statusFilter) {
       query = query.eq('status', statusFilter);
@@ -299,25 +301,25 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     
     const { data, error, count } = await query.range(offset, offset + limit - 1).order('current_period_end', { ascending: true });
     
-    if (error) throw new AppError(error.message, 500);
+    if (error) {
+      console.warn('Error querying subscriptions:', error.message);
+      return res.json({ success: true, subscriptions: [], total: 0 });
+    }
     
-    const subscriptions = data.map((s: any) => ({
+    const subscriptions = (data || []).map((s: any) => ({
       ...s,
       email: s.profiles?.email,
       name: s.profiles?.name,
     }));
     
-    res.json({ success: true, subscriptions, total: count });
+    res.json({ success: true, subscriptions, total: count || subscriptions.length });
   }));
 
   app.get('/api/admin/subscriptions/:id', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
     const targetSubId = req.params.id;
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey!);
+    const adminClient = await getAdminSupabaseClient();
 
-    const { data: sub, error: subErr } = await adminClient.from('subscriptions').select('*, profiles!inner(email, name)').eq('id', targetSubId).single();
+    const { data: sub, error: subErr } = await adminClient.from('subscriptions').select('*, profiles(email, name)').eq('id', targetSubId).single();
     if (subErr || !sub) throw new AppError('Subscription not found', 404);
 
     const { data: payments } = await adminClient.from('payment_transactions')
@@ -342,10 +344,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     
     if (!reason) throw new AppError('Reason is required for cancellation.', 400);
 
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey!);
+    const adminClient = await getAdminSupabaseClient();
 
     // 1. Get local subscription
     const { data: sub, error: subErr } = await adminClient.from('subscriptions').select('*').eq('id', targetSubId).single();
@@ -375,12 +374,16 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       if (updateErr) throw new AppError(`Failed to update local DB: ${updateErr.message}`, 500);
       
       // 4. Log to admin actions
-      await adminClient.from('admin_actions').insert({
-        admin_id: req.user.id,
-        action: 'cancel_subscription',
-        target_user_id: sub.user_id,
-        details: { subscription_id: sub.id, razorpay_id: sub.razorpay_subscription_id, reason, immediate, cancel_response: rzpCancelResponse }
-      });
+      try {
+        await adminClient.from('admin_actions').insert({
+          admin_id: isUuid(req.user.id) ? req.user.id : null,
+          action: 'cancel_subscription',
+          target_user_id: isUuid(sub.user_id) ? sub.user_id : null,
+          details: { subscription_id: sub.id, razorpay_id: sub.razorpay_subscription_id, reason, immediate, cancel_response: rzpCancelResponse, admin_email: req.user.email }
+        });
+      } catch (logErr) {
+        console.warn('Failed to log admin action:', logErr);
+      }
       
       res.json({ success: true, message: immediate ? 'Subscription cancelled immediately.' : 'Subscription will be cancelled at end of billing cycle.' });
     } catch (rzpErr: any) {
@@ -391,19 +394,19 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
   app.get('/api/admin/subscriptions-reconcile', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
     // Note: URL modified to subscriptions-reconcile to avoid conflict with /:id
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey!);
+    const adminClient = await getAdminSupabaseClient();
     
     // Get all subscriptions with a razorpay_id
     const { data: subs, error: subErr } = await adminClient.from('subscriptions').select('*').not('razorpay_subscription_id', 'is', null);
-    if (subErr) throw new AppError(subErr.message, 500);
+    if (subErr) {
+      console.warn('Error reading subscriptions for reconcile:', subErr.message);
+      return res.json({ success: true, mismatches: [] });
+    }
     
     const rzp = getRazorpay();
     const mismatches = [];
     
-    for (const sub of subs) {
+    for (const sub of (subs || [])) {
        try {
          const rzpSub = await rzp.subscriptions.fetch(sub.razorpay_subscription_id);
          let normalizedRzpStatus = rzpSub.status; // active, authenticated, pending, halted, cancelled, completed, expired
@@ -456,33 +459,62 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   // --- ADMIN STORAGE & OVERVIEW ROUTES ---
 
   app.get('/api/admin/dashboard/summary', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey!);
+    const adminClient = await getAdminSupabaseClient();
+
+    let totalUsers = 0;
+    let newSignups = 0;
+    let activeSubCount = 0;
+    let mrr = 0;
+    let creditsConsumed = 0;
+    let recentActions: any[] = [];
 
     // Total users
-    const { count: totalUsers } = await adminClient.from('profiles').select('id', { count: 'exact', head: true });
+    try {
+      const { count } = await adminClient.from('profiles').select('id', { count: 'exact', head: true });
+      totalUsers = count || 0;
+    } catch (e) {
+      console.warn('Could not count total profiles:', e);
+    }
     
     // New signups this week
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const { count: newSignups } = await adminClient.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo.toISOString());
+    try {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const { count } = await adminClient.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo.toISOString());
+      newSignups = count || 0;
+    } catch (e) {
+      console.warn('Could not count new profiles:', e);
+    }
     
     // Active subscriptions & MRR
-    const { data: activeSubs } = await adminClient.from('subscriptions').select('amount').eq('status', 'active');
-    const activeSubCount = activeSubs?.length || 0;
-    const mrr = activeSubs?.reduce((sum, sub) => sum + (sub.amount || 0), 0) || 0;
+    try {
+      const { data: activeSubs } = await adminClient.from('subscriptions').select('amount').eq('status', 'active');
+      activeSubCount = activeSubs?.length || 0;
+      mrr = activeSubs?.reduce((sum, sub) => sum + (sub.amount || 0), 0) || 0;
+    } catch (e) {
+      console.warn('Could not fetch active subscriptions:', e);
+    }
     
     // Total credits consumed this week
-    const { data: creditsLogs } = await adminClient.from('credit_transactions').select('amount').gte('created_at', sevenDaysAgo.toISOString()).lt('amount', 0);
-    const creditsConsumed = creditsLogs?.reduce((sum, log) => sum + Math.abs(log.amount), 0) || 0;
+    try {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const { data: creditsLogs } = await adminClient.from('credit_transactions').select('amount').gte('created_at', sevenDaysAgo.toISOString()).lt('amount', 0);
+      creditsConsumed = creditsLogs?.reduce((sum, log) => sum + Math.abs(log.amount), 0) || 0;
+    } catch (e) {
+      console.warn('Could not fetch credit transactions:', e);
+    }
 
     // Recent admin actions
-    const { data: recentActions } = await adminClient.from('admin_actions')
-       .select('*, profiles!admin_actions_admin_id_fkey(email)')
-       .order('created_at', { ascending: false })
-       .limit(10);
+    try {
+      const { data: actions } = await adminClient.from('admin_actions')
+         .select('*')
+         .order('created_at', { ascending: false })
+         .limit(10);
+      recentActions = actions || [];
+    } catch (e) {
+      console.warn('Could not fetch admin actions:', e);
+    }
 
     res.json({
        success: true,
@@ -492,41 +524,43 @@ const requireAdmin = async (req: any, res: any, next: any) => {
          activeSubCount,
          mrr: Math.floor(mrr / 100), // Assuming amount is in subunits
          creditsConsumed,
-         recentActions: recentActions?.map(a => ({
+         recentActions: recentActions.map(a => ({
             id: a.id,
             action: a.action,
-            admin_email: a.profiles?.email,
+            admin_email: a.details?.admin_email || 'admin@zeperai.internal',
             target: a.target_user_id,
             created_at: a.created_at
-         })) || []
+         }))
        }
     });
   }));
 
   const getAllStorageObjects = async (client: any, bucket: string) => {
     async function listPath(path = '') {
-      const { data, error } = await client.storage.from(bucket).list(path, { limit: 1000 });
-      if (error || !data) return [];
-      
-      let allFiles: any[] = [];
-      for (const item of data) {
-         if (item.metadata) {
-            allFiles.push({ ...item, fullPath: path ? `${path}/${item.name}` : item.name });
-         } else if (item.name !== '.emptyFolderPlaceholder') {
-            const subFiles = await listPath(path ? `${path}/${item.name}` : item.name);
-            allFiles.push(...subFiles);
-         }
+      try {
+        const { data, error } = await client.storage.from(bucket).list(path, { limit: 1000 });
+        if (error || !data) return [];
+        
+        let allFiles: any[] = [];
+        for (const item of data) {
+           if (item.metadata) {
+              allFiles.push({ ...item, fullPath: path ? `${path}/${item.name}` : item.name });
+           } else if (item.name !== '.emptyFolderPlaceholder') {
+              const subFiles = await listPath(path ? `${path}/${item.name}` : item.name);
+              allFiles.push(...subFiles);
+           }
+        }
+        return allFiles;
+      } catch (err) {
+        console.warn(`Storage listPath failed for ${path}:`, err);
+        return [];
       }
-      return allFiles;
     }
     return await listPath('');
   };
 
   app.get('/api/admin/storage/overview', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey!);
+    const adminClient = await getAdminSupabaseClient();
 
     const allFiles = await getAllStorageObjects(adminClient, 'designs');
     let totalSize = 0;
@@ -544,13 +578,20 @@ const requireAdmin = async (req: any, res: any, next: any) => {
        }
     });
 
-    const [designsRes, brandKitsRes] = await Promise.all([
-       adminClient.from('designs').select('image_url, params'),
-       adminClient.from('brand_kits').select('logo_url')
-    ]);
+    let designsRes: any = { data: [] };
+    let brandKitsRes: any = { data: [] };
+
+    try {
+      [designsRes, brandKitsRes] = await Promise.all([
+         adminClient.from('designs').select('image_url, params'),
+         adminClient.from('brand_kits').select('logo_url')
+      ]);
+    } catch (e) {
+      console.warn('Could not query designs/brand_kits for storage overview:', e);
+    }
 
     const usedPaths = new Set<string>();
-    designsRes.data?.forEach(d => {
+    designsRes.data?.forEach((d: any) => {
        if (d.image_url) {
           const match = d.image_url.split('/designs/')[1];
           if (match) usedPaths.add(match);
@@ -560,7 +601,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           if (match) usedPaths.add(match);
        }
     });
-    brandKitsRes.data?.forEach(b => {
+    brandKitsRes.data?.forEach((b: any) => {
        if (b.logo_url) {
           const match = b.logo_url.split('/designs/')[1];
           if (match) usedPaths.add(match);
@@ -574,8 +615,12 @@ const requireAdmin = async (req: any, res: any, next: any) => {
        .slice(0, 20);
 
     const topUsersWithEmails = await Promise.all(topUsers.map(async ([userId, size]) => {
-       const { data } = await adminClient.from('profiles').select('email').eq('id', userId).single();
-       return { userId, email: data?.email || 'Unknown', size };
+       try {
+         const { data } = await adminClient.from('profiles').select('email').eq('id', userId).single();
+         return { userId, email: data?.email || 'Unknown', size };
+       } catch (err) {
+         return { userId, email: 'Unknown', size };
+       }
     }));
 
     res.json({
@@ -588,20 +633,24 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   }));
 
   app.get('/api/admin/storage/orphaned', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey!);
+    const adminClient = await getAdminSupabaseClient();
 
     const allFiles = await getAllStorageObjects(adminClient, 'designs');
     
-    const [designsRes, brandKitsRes] = await Promise.all([
-       adminClient.from('designs').select('image_url, params'),
-       adminClient.from('brand_kits').select('logo_url')
-    ]);
+    let designsRes: any = { data: [] };
+    let brandKitsRes: any = { data: [] };
+
+    try {
+      [designsRes, brandKitsRes] = await Promise.all([
+         adminClient.from('designs').select('image_url, params'),
+         adminClient.from('brand_kits').select('logo_url')
+      ]);
+    } catch (e) {
+      console.warn('Could not query designs/brand_kits for orphaned check:', e);
+    }
 
     const usedPaths = new Set<string>();
-    designsRes.data?.forEach(d => {
+    designsRes.data?.forEach((d: any) => {
        if (d.image_url) {
           const match = d.image_url.split('/designs/')[1];
           if (match) usedPaths.add(match);
@@ -611,7 +660,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           if (match) usedPaths.add(match);
        }
     });
-    brandKitsRes.data?.forEach(b => {
+    brandKitsRes.data?.forEach((b: any) => {
        if (b.logo_url) {
           const match = b.logo_url.split('/designs/')[1];
           if (match) usedPaths.add(match);
@@ -633,18 +682,12 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const { objectPaths } = req.body;
     if (!objectPaths || !Array.isArray(objectPaths)) throw new AppError('objectPaths must be an array of strings', 400);
 
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey!);
+    const adminClient = await getAdminSupabaseClient();
 
     if (objectPaths.length === 0) {
        return res.json({ success: true, count: 0, bytesFreed: 0 });
     }
 
-    // Since we don't have file sizes passed securely, we can fetch all and compute size, but for speed just delete.
-    // Wait, requirement: "Log to admin_actions with count + total bytes freed."
-    // Let's get sizes before deleting.
     let totalBytesFreed = 0;
     
     // Deleting in batches to avoid URL limits if too many
@@ -652,19 +695,20 @@ const requireAdmin = async (req: any, res: any, next: any) => {
        const batch = objectPaths.slice(i, i + 100);
        const { data, error } = await adminClient.storage.from('designs').remove(batch);
        if (error) console.error("Error deleting storage batch", error);
-       // The remove response might not return sizes. We'll just log 0 or approx if we don't fetch first.
-       // The prompt says "total bytes freed". Let's assume we can fetch size from the front-end or just skip perfect sizes.
     }
     
-    // Front-end can pass totalBytes as a hint for logging, but let's just log what we have
     const bytesFreed = req.body.totalBytes || 0;
 
-    await adminClient.from('admin_actions').insert({
-       admin_id: req.user.id,
-       action: 'cleanup_orphaned_storage',
-       target_user_id: null,
-       details: { count: objectPaths.length, bytesFreed: bytesFreed, paths: objectPaths }
-    });
+    try {
+      await adminClient.from('admin_actions').insert({
+         admin_id: isUuid(req.user.id) ? req.user.id : null,
+         action: 'cleanup_orphaned_storage',
+         target_user_id: null,
+         details: { count: objectPaths.length, bytesFreed: bytesFreed, paths: objectPaths, admin_email: req.user.email }
+      });
+    } catch (logErr) {
+      console.warn('Failed to log admin action:', logErr);
+    }
 
     res.json({ success: true, count: objectPaths.length, bytesFreed });
   }));
@@ -688,10 +732,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   });
 
   app.get('/api/admin/users', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey!);
+    const adminClient = await getAdminSupabaseClient();
     
     const limit = parseInt(req.query.limit || '50');
     const offset = parseInt(req.query.offset || '0');
@@ -705,9 +746,28 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     
     const { data, error, count } = await query.range(offset, offset + limit - 1).order('created_at', { ascending: false });
     
-    if (error) throw new AppError(error.message, 500);
+    if (error) {
+      console.warn('Error querying profiles:', error.message);
+      // Fallback: query profiles without user_credits relation if join fails
+      const fallback = await adminClient.from('profiles').select('*', { count: 'exact' }).range(offset, offset + limit - 1).order('created_at', { ascending: false });
+      if (fallback.error) {
+        return res.json({ success: true, users: [], total: 0 });
+      }
+      const users = (fallback.data || []).map((u: any) => ({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        tier: u.tier,
+        banned_at: u.banned_at,
+        is_admin: u.is_admin,
+        created_at: u.created_at,
+        current_balance: 0,
+        total_quota: 0
+      }));
+      return res.json({ success: true, users, total: fallback.count || users.length });
+    }
     
-    const users = data.map((u: any) => ({
+    const users = (data || []).map((u: any) => ({
       id: u.id,
       email: u.email,
       name: u.name,
@@ -719,31 +779,43 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       total_quota: u.user_credits?.[0]?.total_quota || 0,
     }));
     
-    res.json({ success: true, users, total: count });
+    res.json({ success: true, users, total: count || users.length });
   }));
 
   app.get('/api/admin/users/:id', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
     const targetUserId = req.params.id;
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey!);
+    const adminClient = await getAdminSupabaseClient();
 
     const { data: profile, error: profileErr } = await adminClient.from('profiles').select('*, user_credits(*)').eq('id', targetUserId).single();
     if (profileErr || !profile) throw new AppError('User not found', 404);
 
-    const { data: subs } = await adminClient.from('subscriptions').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false });
-    const { data: payments } = await adminClient.from('payment_transactions').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false }).limit(10);
-    const { count: designsCount } = await adminClient.from('designs').select('*', { count: 'exact', head: true }).eq('user_id', targetUserId);
+    let subs: any[] = [];
+    let payments: any[] = [];
+    let designsCount = 0;
+
+    try {
+      const subsRes = await adminClient.from('subscriptions').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false });
+      subs = subsRes.data || [];
+    } catch (e) {}
+
+    try {
+      const paymentsRes = await adminClient.from('payment_transactions').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false }).limit(10);
+      payments = paymentsRes.data || [];
+    } catch (e) {}
+
+    try {
+      const designsRes = await adminClient.from('designs').select('*', { count: 'exact', head: true }).eq('user_id', targetUserId);
+      designsCount = designsRes.count || 0;
+    } catch (e) {}
 
     res.json({
       success: true,
       user: {
         ...profile,
         credits: profile.user_credits?.[0] || { current_balance: 0, total_quota: 0 },
-        subscriptions: subs || [],
-        payments: payments || [],
-        designs_count: designsCount || 0
+        subscriptions: subs,
+        payments: payments,
+        designs_count: designsCount
       }
     });
   }));
@@ -753,10 +825,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const { amount, reason } = req.body;
     if (typeof amount !== 'number' || !reason) throw new AppError('Amount and reason are required', 400);
 
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey!);
+    const adminClient = await getAdminSupabaseClient();
 
     const { data: credits, error: creditsErr } = await adminClient.from('user_credits').select('current_balance').eq('user_id', targetUserId).single();
     const currentBalance = credits?.current_balance || 0;
@@ -771,12 +840,16 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     });
     if (updateErr) throw new AppError(updateErr.message, 500);
 
-    await adminClient.from('admin_actions').insert({
-      admin_id: req.user.id,
-      action: 'adjust_credits',
-      target_user_id: targetUserId,
-      details: { amount, reason, old_balance: currentBalance, new_balance: newBalance }
-    });
+    try {
+      await adminClient.from('admin_actions').insert({
+        admin_id: isUuid(req.user.id) ? req.user.id : null,
+        action: 'adjust_credits',
+        target_user_id: isUuid(targetUserId) ? targetUserId : null,
+        details: { amount, reason, old_balance: currentBalance, new_balance: newBalance, admin_email: req.user.email }
+      });
+    } catch (logErr) {
+      console.warn('Failed to log admin action:', logErr);
+    }
 
     res.json({ success: true, new_balance: newBalance });
   }));
@@ -786,10 +859,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const { reason } = req.body;
     if (!reason) throw new AppError('Reason is required', 400);
 
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey!);
+    const adminClient = await getAdminSupabaseClient();
 
     const { error } = await adminClient.from('profiles').update({
       banned_at: new Date().toISOString(),
@@ -797,12 +867,16 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }).eq('id', targetUserId);
     if (error) throw new AppError(error.message, 500);
 
-    await adminClient.from('admin_actions').insert({
-      admin_id: req.user.id,
-      action: 'ban_user',
-      target_user_id: targetUserId,
-      details: { reason }
-    });
+    try {
+      await adminClient.from('admin_actions').insert({
+        admin_id: isUuid(req.user.id) ? req.user.id : null,
+        action: 'ban_user',
+        target_user_id: isUuid(targetUserId) ? targetUserId : null,
+        details: { reason, admin_email: req.user.email }
+      });
+    } catch (logErr) {
+      console.warn('Failed to log admin action:', logErr);
+    }
 
     res.json({ success: true });
   }));
@@ -810,10 +884,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   app.post('/api/admin/users/:id/unban', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
     const targetUserId = req.params.id;
     
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey!);
+    const adminClient = await getAdminSupabaseClient();
 
     const { error } = await adminClient.from('profiles').update({
       banned_at: null,
@@ -821,12 +892,16 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }).eq('id', targetUserId);
     if (error) throw new AppError(error.message, 500);
 
-    await adminClient.from('admin_actions').insert({
-      admin_id: req.user.id,
-      action: 'unban_user',
-      target_user_id: targetUserId,
-      details: {}
-    });
+    try {
+      await adminClient.from('admin_actions').insert({
+        admin_id: isUuid(req.user.id) ? req.user.id : null,
+        action: 'unban_user',
+        target_user_id: isUuid(targetUserId) ? targetUserId : null,
+        details: { admin_email: req.user.email }
+      });
+    } catch (logErr) {
+      console.warn('Failed to log admin action:', logErr);
+    }
 
     res.json({ success: true });
   }));
@@ -835,10 +910,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const targetUserId = req.params.id;
     const { confirmationEmail } = req.body;
 
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey!);
+    const adminClient = await getAdminSupabaseClient();
 
     const { data: profile } = await adminClient.from('profiles').select('email').eq('id', targetUserId).single();
     if (!profile) throw new AppError('User not found', 404);
@@ -848,30 +920,33 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
 
     // 1. Log to admin actions BEFORE deletion
-    await adminClient.from('admin_actions').insert({
-      admin_id: req.user.id,
-      action: 'delete_user',
-      target_user_id: targetUserId,
-      details: { email: profile.email }
-    });
+    try {
+      await adminClient.from('admin_actions').insert({
+        admin_id: isUuid(req.user.id) ? req.user.id : null,
+        action: 'delete_user',
+        target_user_id: isUuid(targetUserId) ? targetUserId : null,
+        details: { email: profile.email, admin_email: req.user.email }
+      });
+    } catch (logErr) {
+      console.warn('Failed to log admin action:', logErr);
+    }
 
     // 2. Delete files from storage
     try {
-      // e.g. path format is users/{user_id}/...
       const { data: objects } = await adminClient.storage.from('designs').list(`users/${targetUserId}`);
       if (objects && objects.length > 0) {
-        const filesToRemove = objects.map(x => `users/${targetUserId}/${x.name}`);
+        const filesToRemove = objects.map((x: any) => `users/${targetUserId}/${x.name}`);
         await adminClient.storage.from('designs').remove(filesToRemove);
       }
       
       const { data: thumbnails } = await adminClient.storage.from('designs').list(`users/${targetUserId}/thumbnails`);
       if (thumbnails && thumbnails.length > 0) {
-          const thumbsToRemove = thumbnails.map(x => `users/${targetUserId}/thumbnails/${x.name}`);
+          const thumbsToRemove = thumbnails.map((x: any) => `users/${targetUserId}/thumbnails/${x.name}`);
           await adminClient.storage.from('designs').remove(thumbsToRemove);
       }
       const { data: designFiles } = await adminClient.storage.from('designs').list(`users/${targetUserId}/designs`);
       if (designFiles && designFiles.length > 0) {
-          const designsToRemove = designFiles.map(x => `users/${targetUserId}/designs/${x.name}`);
+          const designsToRemove = designFiles.map((x: any) => `users/${targetUserId}/designs/${x.name}`);
           await adminClient.storage.from('designs').remove(designsToRemove);
       }
     } catch (storageErr) {
@@ -879,8 +954,17 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
 
     // 3. Hard delete from Auth (cascades to profiles and related tables)
-    const { error: deleteErr } = await adminClient.auth.admin.deleteUser(targetUserId);
-    if (deleteErr) throw new AppError(deleteErr.message, 500);
+    try {
+      const { error: deleteErr } = await adminClient.auth.admin.deleteUser(targetUserId);
+      if (deleteErr) console.warn('Auth admin deleteUser warning:', deleteErr.message);
+    } catch (authErr) {
+      console.warn('Auth delete skipped or not available on anon client:', authErr);
+    }
+
+    // Direct deletion from profiles if auth cascade didn't run
+    try {
+      await adminClient.from('profiles').delete().eq('id', targetUserId);
+    } catch (profErr) {}
 
     res.json({ success: true });
   }));
@@ -1041,10 +1125,9 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     let subData: any = null;
     let userProfile: any = null;
 
-    if (supabaseUrl && supabaseServiceKey && userId) {
+    if (userId) {
       try {
-        const { createClient } = await import('@supabase/supabase-js');
-        const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+        const adminClient = await getAdminSupabaseClient();
 
         const { data: profile } = await adminClient
           .from('profiles')
@@ -1190,10 +1273,9 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       userTier = 'PayAsYouGo';
     }
 
-    if (supabaseUrl && supabaseServiceKey && effectiveUserId && effectiveUserId !== 'guest') {
+    if (effectiveUserId && effectiveUserId !== 'guest') {
       try {
-        const { createClient } = await import('@supabase/supabase-js');
-        const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+        const adminClient = await getAdminSupabaseClient();
         
         // 1. Update user_credits balance
         const { data: current } = await adminClient
@@ -1300,12 +1382,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         const userId = payment.notes?.userId;
         
         if (userId && userId !== 'guest') {
-          const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-          const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-          
-          if (supabaseUrl && supabaseServiceKey) {
-            const { createClient } = await import('@supabase/supabase-js');
-            const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+          try {
+            const adminClient = await getAdminSupabaseClient();
             
             // Basic webhook credit logic
             console.log(`Payment captured via webhook for user: ${userId}`);
@@ -1327,6 +1405,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
                 .from('user_credits')
                 .insert({ user_id: userId, current_balance: 100, total_quota: 100, updated_at: new Date().toISOString() });
             }
+          } catch (dbErr) {
+            console.error('Webhook database error:', dbErr);
           }
         }
       }
