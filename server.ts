@@ -738,36 +738,43 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const offset = parseInt(req.query.offset || '0');
     const search = req.query.search || '';
 
-    let query = adminClient.from('profiles').select('id, email, name, tier, banned_at, is_admin, created_at, user_credits(current_balance, total_quota)', { count: 'exact' });
+    let query = adminClient.from('profiles').select('*', { count: 'exact' });
     
     if (search) {
       query = query.ilike('email', `%${search}%`);
     }
     
-    const { data, error, count } = await query.range(offset, offset + limit - 1).order('created_at', { ascending: false });
+    const { data: profiles, error, count } = await query.range(offset, offset + limit - 1).order('created_at', { ascending: false });
     
     if (error) {
       console.warn('Error querying profiles:', error.message);
-      // Fallback: query profiles without user_credits relation if join fails
-      const fallback = await adminClient.from('profiles').select('*', { count: 'exact' }).range(offset, offset + limit - 1).order('created_at', { ascending: false });
-      if (fallback.error) {
-        return res.json({ success: true, users: [], total: 0 });
+      return res.json({ success: true, users: [], total: 0 });
+    }
+
+    const userIds = (profiles || []).map((p: any) => p.id).filter(Boolean);
+    const creditsMap: Record<string, { current_balance: number; total_quota: number }> = {};
+
+    if (userIds.length > 0) {
+      try {
+        const { data: creditsData } = await adminClient
+          .from('user_credits')
+          .select('user_id, current_balance, total_quota')
+          .in('user_id', userIds);
+
+        if (creditsData) {
+          creditsData.forEach((c: any) => {
+            creditsMap[c.user_id] = {
+              current_balance: c.current_balance || 0,
+              total_quota: c.total_quota || 0,
+            };
+          });
+        }
+      } catch (creditsErr) {
+        console.warn('Could not query user_credits for profiles list:', creditsErr);
       }
-      const users = (fallback.data || []).map((u: any) => ({
-        id: u.id,
-        email: u.email,
-        name: u.name,
-        tier: u.tier,
-        banned_at: u.banned_at,
-        is_admin: u.is_admin,
-        created_at: u.created_at,
-        current_balance: 0,
-        total_quota: 0
-      }));
-      return res.json({ success: true, users, total: fallback.count || users.length });
     }
     
-    const users = (data || []).map((u: any) => ({
+    const users = (profiles || []).map((u: any) => ({
       id: u.id,
       email: u.email,
       name: u.name,
@@ -775,8 +782,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       banned_at: u.banned_at,
       is_admin: u.is_admin,
       created_at: u.created_at,
-      current_balance: u.user_credits?.[0]?.current_balance || 0,
-      total_quota: u.user_credits?.[0]?.total_quota || 0,
+      current_balance: creditsMap[u.id]?.current_balance || 0,
+      total_quota: creditsMap[u.id]?.total_quota || 0,
     }));
     
     res.json({ success: true, users, total: count || users.length });
@@ -786,12 +793,23 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const targetUserId = req.params.id;
     const adminClient = await getAdminSupabaseClient();
 
-    const { data: profile, error: profileErr } = await adminClient.from('profiles').select('*, user_credits(*)').eq('id', targetUserId).single();
+    const { data: profile, error: profileErr } = await adminClient.from('profiles').select('*').eq('id', targetUserId).single();
     if (profileErr || !profile) throw new AppError('User not found', 404);
 
+    let credits: any = { current_balance: 0, total_quota: 0 };
     let subs: any[] = [];
     let payments: any[] = [];
     let designsCount = 0;
+
+    try {
+      const { data: creditsData } = await adminClient.from('user_credits').select('*').eq('user_id', targetUserId).maybeSingle();
+      if (creditsData) {
+        credits = {
+          current_balance: creditsData.current_balance || 0,
+          total_quota: creditsData.total_quota || 0
+        };
+      }
+    } catch (e) {}
 
     try {
       const subsRes = await adminClient.from('subscriptions').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false });
@@ -812,7 +830,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       success: true,
       user: {
         ...profile,
-        credits: profile.user_credits?.[0] || { current_balance: 0, total_quota: 0 },
+        credits,
         subscriptions: subs,
         payments: payments,
         designs_count: designsCount
