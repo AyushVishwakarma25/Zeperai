@@ -7,9 +7,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { getAI } from '../config/ai';
 import { supabase } from './supabaseClient';
-import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS, UGC_STYLE_OPTIONS, AD_STYLE_PRESETS, FASHION_POSE_OPTIONS, FASHION_POSE_TEMPLATES, FASHION_MODEL_LOCKS, FESTIVAL_PRESETS, AD_TEMPLATES } from '../constants';
+import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS, UGC_STYLE_OPTIONS, AD_STYLE_PRESETS, FASHION_POSE_OPTIONS, FESTIVAL_PRESETS, AD_TEMPLATES } from '../constants';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis, ABTestSuggestion } from '../types';
-import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, FashionGender, RegionalStyle, ProductCategory, ResolutionQuality, AdLayout, ImageModel } from '../types';
+import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, RegionalStyle, ProductCategory, ResolutionQuality, AdLayout, ImageModel } from '../types';
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -220,27 +220,6 @@ async function optimizePromptWithBrandKit(originalPrompt: string, brandKit?: Bra
     }
 }
 
-// Resolves a Fashion model lock into descriptive, prompt-usable text. Falls back to a
-// deterministic default per gender so every generation gets an authentic Indian face
-// description baked into the text prompt itself — not just whatever image reference
-// chaining happens to produce. This means realism doesn't depend on the identity-lock
-// image-chaining succeeding; it's a baseline the text prompt always carries.
-function resolveFashionModelIdentity(fashionGender: FashionGender | undefined, modelLockId?: string): string {
-    const genderKey = fashionGender && FASHION_MODEL_LOCKS[fashionGender as keyof typeof FASHION_MODEL_LOCKS]
-        ? fashionGender
-        : FashionGender.Women;
-    const genderLocks = FASHION_MODEL_LOCKS[genderKey as keyof typeof FASHION_MODEL_LOCKS] || FASHION_MODEL_LOCKS[FashionGender.Women];
-
-    const lock = (modelLockId && genderLocks.find(l => l.id === modelLockId)) || genderLocks[0];
-    if (!lock) return '';
-
-    const regionPart = (lock as any).region ? `${(lock as any).region} features` : '';
-    const skinPart = (lock as any).skinTone ? `${(lock as any).skinTone} skin tone` : '';
-    const traits = [regionPart, skinPart].filter(Boolean).join(', ');
-
-    return `Model Identity: ${lock.name} — ${lock.desc}${traits ? `, ${traits}` : ''}. Authentic Indian features with natural skin texture and realistic imperfections (visible pores, subtle asymmetry) — avoid an artificial, overly airbrushed AI look. Maintain this exact face and build consistently.`;
-}
-
 async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit | null, activeImages?: File[], pose?: string, modelSeedUrl?: string): Promise<any[]> {
     const { 
         productDescription, appMode, marketplacePreset, hyperRealism, 
@@ -431,13 +410,7 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
                     corePrompt = `Fashion Photography. Subject: ${optimizedDescription || 'Professional clothing showcase'}. Indian Model. Pose: ${pose || 'Standard'}.`;
                 }
                 
-                if (!modelSeedUrl && fashionShootType !== FashionShootType.GhostMannequin) {
-                    // No image reference yet, and there's an actual model in frame: fall back
-                    // to descriptive text identity so the model still gets an authentic,
-                    // consistent-sounding Indian persona even before face-lock chaining kicks in.
-                    const identityText = resolveFashionModelIdentity(params.fashionGender, modelLockId);
-                    if (identityText) corePrompt += ` ${identityText}`;
-                }
+                if (modelLockId) corePrompt += ` Use fixed model persona: ${modelLockId}.`;
                 
                 if (modelSeedUrl) {
                     corePrompt += `\n\n[CRITICAL INSTRUCTION - FACE PRESERVATION ONLY]\nI have provided an image of a model. You MUST use EXACTLY this face identity and skin tone. However, you MUST completely DISCARD the pose, clothing, and background of the attached model image. The new pose MUST be exactly: ${pose || 'Hero fashion pose'}. Generate an entirely new photo with the new garment and pose, keeping ONLY the face from the reference image.`;
@@ -632,16 +605,7 @@ export const generateImages = async (params: GenerateImageParams, userTier: 'Fre
         }
     } else if (params.appMode === AppMode.Fashion) {
         // Fashion Mode Logic: Poses
-        // Manual pose picks always win. If Catalog Mode is on and nothing was
-        // hand-picked, fall back to a curated pose set for the chosen shoot type
-        // instead of generating a single generic image.
-        let poses = (params.fashionPose && params.fashionPose.length > 0) ? params.fashionPose : [];
-        if (poses.length === 0 && params.catalogMode) {
-            const shootType = params.fashionShootType || FashionShootType.ModelShoot;
-            const template = FASHION_POSE_TEMPLATES[shootType] || FASHION_POSE_TEMPLATES[FashionShootType.ModelShoot];
-            const setSize = params.catalogSetSize === 4 ? 4 : 5;
-            poses = template.slice(0, setSize);
-        }
+        const poses = (params.fashionPose && params.fashionPose.length > 0) ? params.fashionPose : [];
         if (poses.length > 0) {
             for (const pose of poses) variations.push({ pose });
         } else {
@@ -665,85 +629,41 @@ export const generateImages = async (params: GenerateImageParams, userTier: 'Fre
 
     const totalOps = aspectRatios.length * variations.length;
 
-    // --- IDENTITY LOCK FOR FASHION CATALOG BATCHES ---
-    // When generating a multi-pose catalog set with a model in it, every image must
-    // share the same face/build or the "catalog" looks like 5 different people.
-    // If the user hasn't already supplied a reference face (modelSeedUrl / modelLockId),
-    // we generate the first pose normally, then feed THAT result back in as the face
-    // reference for the remaining poses so identity stays locked across the set.
-    const needsIdentityLock =
-        params.appMode === AppMode.Fashion &&
-        params.fashionShootType !== FashionShootType.GhostMannequin &&
-        variations.length > 1 &&
-        !modelSeedUrl &&
-        !params.modelLockId;
-
-    const results: GeneratedImage[] = [];
-
-    if (needsIdentityLock) {
-        for (const ratio of aspectRatios) {
-            const [firstVariation, ...restVariations] = variations;
-            const firstPose = firstVariation.pose || firstVariation.angle;
-
-            // 1. Generate the anchor image first (no reference yet).
-            const anchorImage = await generateSingleImage(
-                { ...params }, ratio, userTier, brandKit, activeImages, firstPose, sourceProductImageUrl, undefined
-            );
-            completedJobs++;
-            if (onProgress) onProgress(completedJobs, totalOps);
-            results.push(anchorImage);
-
-            // 2. Use the anchor's generated face/build as the locked reference for the rest.
-            const lockedSeedUrl = anchorImage.imageUrl;
-            const restPromises = restVariations.map(variation => {
-                const poseOrAngle = variation.pose || variation.angle;
-                return generateSingleImage(
-                    { ...params }, ratio, userTier, brandKit, activeImages, poseOrAngle, sourceProductImageUrl, lockedSeedUrl
-                ).then(res => {
-                    completedJobs++;
-                    if (onProgress) onProgress(completedJobs, totalOps);
-                    return res;
-                });
-            });
-            results.push(...await Promise.all(restPromises));
-        }
-    } else {
-        // --- EXECUTE IN PARALLEL (standard path) ---
-        const promises: Promise<GeneratedImage>[] = [];
-
-        for (const ratio of aspectRatios) {
-            for (const variation of variations) {
-                const singleRunParams = { ...params };
-
-                if (variation.preset) {
-                    if (params.appMode === AppMode.Festival) singleRunParams.festivalStyle = variation.preset;
-                    else singleRunParams.productStylePreset = variation.preset;
-                }
-
-                // Map angle or pose to the 'pose' argument
-                const poseOrAngle = variation.pose || variation.angle;
-
-                const promise = generateSingleImage(
-                    singleRunParams,
-                    ratio,
-                    userTier,
-                    brandKit,
-                    activeImages,
-                    poseOrAngle,
-                    sourceProductImageUrl,
-                    modelSeedUrl
-                ).then(res => {
-                    completedJobs++;
-                    if (onProgress) onProgress(completedJobs, totalOps);
-                    return res;
-                });
-
-                promises.push(promise);
+    // --- EXECUTE IN PARALLEL ---
+    const promises: Promise<GeneratedImage>[] = [];
+    
+    for (const ratio of aspectRatios) {
+        for (const variation of variations) {
+            const singleRunParams = { ...params };
+            
+            if (variation.preset) {
+                if (params.appMode === AppMode.Festival) singleRunParams.festivalStyle = variation.preset;
+                else singleRunParams.productStylePreset = variation.preset;
             }
-        }
+            
+            // Map angle or pose to the 'pose' argument
+            const poseOrAngle = variation.pose || variation.angle;
 
-        results.push(...await Promise.all(promises));
+            const promise = generateSingleImage(
+                singleRunParams, 
+                ratio, 
+                userTier, 
+                brandKit, 
+                activeImages, 
+                poseOrAngle, 
+                sourceProductImageUrl, 
+                modelSeedUrl
+            ).then(res => {
+                completedJobs++;
+                if (onProgress) onProgress(completedJobs, totalOps);
+                return res;
+            });
+            
+            promises.push(promise);
+        }
     }
+    
+    const results = await Promise.all(promises);
     
     // Auto-generate Ad Copy if left blank
     if (params.appMode === AppMode.AdCreative && !params.adTitle && !params.adSubheading && !params.adCta) {
