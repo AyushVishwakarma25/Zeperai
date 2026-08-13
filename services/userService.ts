@@ -59,7 +59,6 @@ export const userService = {
         avatarUrl: data.avatar_url || '',
         tier: isProAdmin ? 'Pro' : ((data.tier as any) || 'Free'),
         isAdmin: !!data.is_admin
-        tier: isProAdmin ? 'Pro' : ((data.tier as any) || 'Free')
     };
   },
 

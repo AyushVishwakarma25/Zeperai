@@ -18,8 +18,6 @@ export default function AdminOverview() {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       const authHeader = session?.access_token;
-      const token = localStorage.getItem('supabase.auth.token');
-      const authHeader = JSON.parse(token || '{}')?.currentSession?.access_token;
       const res = await axios.get('/api/admin/dashboard/summary', {
         headers: { Authorization: `Bearer ${authHeader}` }
       });
@@ -33,7 +31,6 @@ export default function AdminOverview() {
 
   if (loading && !summary) {
     return <div className="py-12 flex justify-center"><Spinner className="w-8 h-8" /></div>;
-    return <div className="py-12 flex justify-center"><Spinner size="lg" /></div>;
   }
 
   if (!summary) return null;
@@ -76,7 +73,6 @@ export default function AdminOverview() {
               <h3 className="text-2xl font-bold">₹{summary.mrr}</h3>
             </div>
             <div className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center">
-            <div className="w-10 h-10 rounded-full bg-[#8B5CF6]/20 text-[#8B5CF6] flex items-center justify-center">
               <Icon name="credit-card" className="w-5 h-5" />
             </div>
           </div>
