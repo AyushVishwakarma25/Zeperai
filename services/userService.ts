@@ -11,7 +11,8 @@ export interface UserProfileData {
   bio: string;
   location: string;
   avatarUrl: string;
-  tier: 'Free' | 'PayAsYouGo';
+  tier: 'Free' | 'PayAsYouGo' | 'Pro';
+  isAdmin?: boolean;
 }
 
 export interface CreditBalance {
@@ -56,6 +57,8 @@ export const userService = {
         bio: data.bio || '',
         location: data.location || '',
         avatarUrl: data.avatar_url || '',
+        tier: isProAdmin ? 'Pro' : ((data.tier as any) || 'Free'),
+        isAdmin: !!data.is_admin
         tier: isProAdmin ? 'Pro' : ((data.tier as any) || 'Free')
     };
   },

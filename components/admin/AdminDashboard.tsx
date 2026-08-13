@@ -27,6 +27,12 @@ export default function AdminDashboard() {
   useEffect(() => {
     const checkAdmin = async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          navigate('/');
+          return;
+        }
+        const authHeader = session.access_token;
         const token = localStorage.getItem('supabase.auth.token');
         if (!token) {
           navigate('/');
@@ -60,6 +66,8 @@ export default function AdminDashboard() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeader = session?.access_token;
       const token = localStorage.getItem('supabase.auth.token');
       const authHeader = JSON.parse(token || '{}')?.currentSession?.access_token;
       
@@ -77,6 +85,7 @@ export default function AdminDashboard() {
   };
 
   if (isAdmin === null) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900"><Spinner className="w-8 h-8" /></div>;
     return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900"><Spinner size="lg" /></div>;
   }
 
@@ -85,6 +94,7 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <Button variant="secondary" onClick={() => navigate('/dashboard')}>Back to App</Button>
           <Button variant="outline" onClick={() => navigate('/dashboard')}>Back to App</Button>
         </div>
 
@@ -104,6 +114,7 @@ export default function AdminDashboard() {
             Users
           </button>
           <button 
+            className={`pb-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'subscriptions' ? 'border-primary text-slate-900 dark:text-white' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
             className={`pb-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'subscriptions' ? 'border-[#8B5CF6] text-slate-900 dark:text-white' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
             onClick={() => setActiveTab('subscriptions')}
           >
@@ -155,6 +166,10 @@ export default function AdminDashboard() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {loading && users.length === 0 ? (
+                  <tr><td colSpan={6} className="py-8 text-center text-slate-500"><Spinner className="w-4 h-4 mx-auto mb-2" /> Loading users...</td></tr>
+                ) : users.map(user => (
+                  <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="py-4">{user.email} {user.is_admin && <span className="ml-2 text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full font-medium">Admin</span>}</td>
                   <tr><td colSpan={6} className="py-8 text-center text-slate-500"><Spinner size="sm" className="mx-auto mb-2" /> Loading users...</td></tr>
                 ) : users.map(user => (
                   <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
@@ -170,6 +185,7 @@ export default function AdminDashboard() {
                       )}
                     </td>
                     <td className="py-4 text-right">
+                      <Button variant="ghost" onClick={() => setSelectedUserId(user.id)}>Manage</Button>
                       <Button variant="ghost" size="sm" onClick={() => setSelectedUserId(user.id)}>Manage</Button>
                     </td>
                   </tr>
@@ -180,6 +196,8 @@ export default function AdminDashboard() {
 
           <div className="flex items-center justify-between mt-6">
             <Button 
+              variant="secondary" 
+              
               variant="outline" 
               size="sm" 
               disabled={page === 1} 
@@ -189,6 +207,8 @@ export default function AdminDashboard() {
             </Button>
             <span className="text-sm text-slate-500">Page {page}</span>
             <Button 
+              variant="secondary" 
+              
               variant="outline" 
               size="sm" 
               disabled={users.length < limit} 

@@ -237,6 +237,11 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
                       </button>
                       <div className="my-1 h-px bg-slate-100" />
                       
+                      {user?.isAdmin && (
+                        <button onClick={() => handleMenuItemClick(() => navigate('/admin'))} className="w-full flex items-center px-3 py-2 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100 transition-colors text-left">
+                          <Icon name="lock" className="w-4 h-4 mr-3" /> Admin Panel
+                        </button>
+                      )}
                       <button onClick={() => window.location.href='/admin'} className="w-full flex items-center px-3 py-2 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100 transition-colors text-left">
                         <Icon name="lock" className="w-4 h-4 mr-3" /> Admin Panel
                       </button>

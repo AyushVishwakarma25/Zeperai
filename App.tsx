@@ -101,10 +101,6 @@ const AppInternal: React.FC = () => {
     return () => window.removeEventListener('app-toast', handleAppToast);
   }, []);
 
-  // Admin Check
-  React.useEffect(() => {
-  }, [user]);
-
   // Credit Logic Wrapper
   const handleCheckCredits = useCallback((cost: number) => {
       const success = appData.checkAndDeductCredits(cost, false);
