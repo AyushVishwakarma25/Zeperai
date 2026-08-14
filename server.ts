@@ -322,6 +322,101 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     });
   });
 
+  // --- USER PROFILE ROUTES (Service Role Protected) ---
+  app.get('/api/user/profile', requireAuth, asyncHandler(async (req: any, res: any) => {
+    const adminClient = await getAdminSupabaseClient();
+    const userId = req.user.id;
+    const userEmail = req.user.email || '';
+
+    // 1. Fetch profile from DB using service client (bypasses RLS recursion)
+    let { data: profile, error } = await adminClient
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    // 2. If profile doesn't exist yet, automatically create it
+    if (!profile) {
+      const isProAdmin = userEmail === 'reachtoayush25@gmail.com' || userEmail === 'sharma25ayush@gmail.com' || userId === 'f58676e8-e373-4c97-803b-57451272154c';
+      const initialProfile = {
+        id: userId,
+        email: userEmail,
+        name: req.user.user_metadata?.full_name || req.user.name || userEmail.split('@')[0] || 'Creator',
+        role: 'Creator',
+        bio: '',
+        location: '',
+        avatar_url: req.user.user_metadata?.avatar_url || '',
+        tier: isProAdmin ? 'Pro' : 'Free',
+        is_admin: isProAdmin
+      };
+
+      const { data: newProfile, error: insertErr } = await adminClient
+        .from('profiles')
+        .upsert(initialProfile, { onConflict: 'id' })
+        .select()
+        .single();
+
+      if (!insertErr && newProfile) {
+        profile = newProfile;
+      } else {
+        profile = initialProfile;
+      }
+    }
+
+    const isProAdmin = profile.email === 'reachtoayush25@gmail.com' || profile.email === 'sharma25ayush@gmail.com' || profile.id === 'f58676e8-e373-4c97-803b-57451272154c' || !!profile.is_admin;
+
+    return res.json({
+      id: profile.id,
+      name: profile.name || userEmail.split('@')[0] || 'User',
+      email: profile.email || userEmail,
+      role: profile.role || 'Creator',
+      bio: profile.bio || '',
+      location: profile.location || '',
+      avatarUrl: profile.avatar_url || '',
+      tier: isProAdmin ? 'Pro' : (profile.tier || 'Free'),
+      isAdmin: isProAdmin
+    });
+  }));
+
+  app.put('/api/user/profile', requireAuth, asyncHandler(async (req: any, res: any) => {
+    const adminClient = await getAdminSupabaseClient();
+    const userId = req.user.id;
+    const updates = req.body || {};
+
+    const dbUpdates: any = { updated_at: new Date().toISOString() };
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
+    if (updates.location !== undefined) dbUpdates.location = updates.location;
+    if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
+    if (updates.avatar_url !== undefined) dbUpdates.avatar_url = updates.avatar_url;
+    if (updates.role !== undefined) dbUpdates.role = updates.role;
+
+    const { data, error } = await adminClient
+      .from('profiles')
+      .update(dbUpdates)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message || 'Failed to update profile' });
+    }
+
+    const isProAdmin = data.email === 'reachtoayush25@gmail.com' || data.email === 'sharma25ayush@gmail.com' || data.id === 'f58676e8-e373-4c97-803b-57451272154c' || !!data.is_admin;
+
+    return res.json({
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      role: data.role || 'Creator',
+      bio: data.bio || '',
+      location: data.location || '',
+      avatarUrl: data.avatar_url || '',
+      tier: isProAdmin ? 'Pro' : (data.tier || 'Free'),
+      isAdmin: isProAdmin
+    });
+  }));
+
   // --- ADMIN ROUTES ---
   
   // --- ADMIN SUBSCRIPTIONS ROUTES ---

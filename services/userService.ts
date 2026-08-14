@@ -23,6 +23,33 @@ export interface CreditBalance {
 export const userService = {
   // Fetch User Profile
   async getUserProfile(userId?: string): Promise<UserProfileData | null> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      // 1. Try server-side service role endpoint first (bypasses RLS recursion completely)
+      if (token && (!userId || userId === session?.user?.id)) {
+        try {
+          const res = await fetch('/api/user/profile', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          if (res.ok) {
+            const profile = await res.json();
+            if (profile && profile.id) {
+              return profile;
+            }
+          }
+        } catch (serverErr) {
+          // Fall back to direct Supabase query
+        }
+      }
+    } catch (e) {
+      // Continue to Supabase direct query
+    }
+
     let uid = userId;
     if (!uid) {
         const { data: { user } } = await supabase.auth.getUser();
@@ -64,8 +91,32 @@ export const userService = {
 
   // Update User Profile
   async updateUserProfile(updates: Partial<UserProfileData>): Promise<UserProfileData> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const user = session?.user;
     if (!user) throw new Error("No authenticated user");
+
+    // 1. Try server-side service role endpoint first
+    if (token) {
+      try {
+        const res = await fetch('/api/user/profile', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updates)
+        });
+        if (res.ok) {
+          const updated = await res.json();
+          if (updated && updated.id) {
+            return updated;
+          }
+        }
+      } catch (e) {
+        // Fall back to direct Supabase query
+      }
+    }
 
     // Map camelCase to snake_case for DB
     const dbUpdates: any = {};
