@@ -91,7 +91,8 @@ export const LandingPage: React.FC = () => {
           </div>
           <h1 className="text-5xl md:text-7xl font-black tracking-tight text-slate-900 mx-auto leading-[1.1] max-w-5xl relative mb-6">
             <Icon name="sparkles" className="absolute -top-6 -left-8 w-10 h-10 text-yellow-400 hidden md:block" />
-            Stop Prompting. Start Launching.
+            Stop Prompting<br />
+            Start Launching
             <Icon name="sparkles" className="absolute -bottom-4 -right-8 w-8 h-8 text-yellow-400 hidden md:block" />
           </h1>
           <p className="text-xl md:text-2xl text-slate-600 mb-10 max-w-3xl mx-auto leading-relaxed relative z-10 font-light">
@@ -173,34 +174,7 @@ export const LandingPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Bottom Actions */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-8 border-t-2 border-slate-900 pt-6 relative z-10">
-          <div className="flex items-center gap-3 w-full md:w-1/3">
-            <div className="w-6 h-6 rounded-full bg-yellow-400 flex items-center justify-center font-black text-slate-900 text-xs">1</div>
-            <span className="font-bold text-slate-900 text-sm uppercase tracking-wide">Always be updated in Creative AI</span>
-          </div>
 
-          <div className="flex items-center justify-center gap-4 w-full md:w-1/3">
-            <button className="flex items-center gap-2 px-6 py-3 rounded-full border-2 border-slate-200 font-bold text-sm hover:bg-slate-50 transition-colors">
-              <Icon name="mouse" className="w-4 h-4" /> Scroll for More
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3 w-full md:w-1/3 justify-start md:justify-end">
-             <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden shrink-0 border-2 border-white shadow-sm">
-                  <img src="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/shot-hero-box-reach.png" alt="Avatar" className="w-full h-full object-cover" />
-                </div>
-                <div className="text-xs text-slate-500 max-w-[180px] leading-tight">
-                  "ZeperAi completely transformed our jewelry cataloging."
-                  <div className="font-bold text-slate-900 mt-0.5">— Vansh Rastogi</div>
-                </div>
-             </div>
-             <button onClick={() => navigate('/login')} className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 transition-colors ml-2 shrink-0">
-               <Icon name="arrow-right" className="w-4 h-4" />
-             </button>
-          </div>
-        </div>
       </section>
 
       {/* SOCIAL PROOF BAR */}
@@ -350,147 +324,95 @@ export const LandingPage: React.FC = () => {
           </h2>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:auto-rows-[240px]">
-          {/* 1. AI Ad Creative Studio (Wide 2x1) */}
-          <div className="md:col-span-2 md:row-span-1 bg-[#6366F1] rounded-3xl p-8 relative overflow-hidden group">
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 w-48 h-48 bg-white/20 rounded-full blur-2xl group-hover:bg-white/30 transition-all duration-500"></div>
-            <div className="relative z-10 h-full flex flex-col justify-between">
-              <div>
-                <div className="text-xs font-bold tracking-widest text-indigo-100 uppercase mb-2">Ad Studio</div>
-                <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight max-w-[280px]">AI Ad Creative Studio.</h3>
-              </div>
-              <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-bold rounded-lg border border-white/30">
-                  Professional ad creation in minutes
-                </div>
-              </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* 1. AD STUDIO */}
+          <div className="bg-[#6366F1] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
+            <div>
+              <div className="text-xs font-bold tracking-widest text-indigo-100 uppercase mb-3">Ad Studio</div>
+              <h3 className="text-2xl font-bold text-white leading-tight">AI Ad Creative Studio.</h3>
             </div>
-            <div className="absolute right-4 bottom-4 w-32 h-32 opacity-90 group-hover:rotate-12 transition-transform duration-500">
-               <div className="w-full h-full bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center">
-                 <Icon name="sparkles" className="w-16 h-16 text-white" />
-               </div>
+            <div className="mt-6">
+              <span className="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-bold rounded-lg border border-white/30">
+                Professional ad creation in minutes
+              </span>
             </div>
           </div>
 
-          {/* 2. Product Studio (Wide 2x1) */}
-          <div className="md:col-span-2 md:row-span-1 bg-[#2DD4BF] rounded-3xl p-8 relative overflow-hidden group">
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 w-48 h-48 bg-white/20 rounded-full blur-2xl group-hover:bg-white/30 transition-all duration-500"></div>
-            <div className="relative z-10 h-full flex flex-col justify-between">
-              <div>
-                <div className="text-xs font-bold tracking-widest text-teal-900 uppercase mb-2">Product</div>
-                <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight max-w-[280px]">Professional product visuals instantly.</h3>
-              </div>
-              <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-bold rounded-lg border border-white/30">
-                  Cut shoot costs by 90%
-                </div>
-              </div>
+          {/* 2. PRODUCT */}
+          <div className="bg-[#2DD4BF] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
+            <div>
+              <div className="text-xs font-bold tracking-widest text-teal-900 uppercase mb-3">Product</div>
+              <h3 className="text-2xl font-bold text-teal-950 leading-tight">Professional product visuals instantly.</h3>
             </div>
-            <div className="absolute right-4 bottom-4 w-32 h-32 opacity-90 group-hover:scale-110 transition-transform duration-500">
-               <img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=300&q=80" alt="Product" className="w-full h-full object-cover rounded-full shadow-xl border-4 border-white" />
+            <div className="mt-6">
+              <span className="inline-flex items-center px-4 py-2 bg-white/30 backdrop-blur-sm text-teal-950 text-sm font-bold rounded-lg border border-white/40">
+                Cut shoot costs by 90%
+              </span>
             </div>
           </div>
 
-          {/* 2. AI UGC Influencer (Tall 1x2) */}
-          <div className="md:col-span-1 md:row-span-2 bg-[#6366F1] rounded-3xl p-8 relative overflow-hidden group">
-            <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=400&q=80" alt="Fashion" className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-30 transition-opacity duration-500 mix-blend-overlay" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#4f46e5] via-[#4f46e5]/40 to-transparent"></div>
-            <div className="relative z-10 h-full flex flex-col justify-between">
-              <div>
-                <div className="text-xs font-bold tracking-widest text-indigo-100 uppercase mb-2">Influencer</div>
-                <h3 className="text-2xl font-bold text-white leading-tight">Realistic UGC content at scale.</h3>
-              </div>
-              <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm">
-                  No creator fees
-                </div>
-              </div>
+          {/* 3. INFLUENCER */}
+          <div className="bg-[#4F46E5] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
+            <div>
+              <div className="text-xs font-bold tracking-widest text-indigo-100 uppercase mb-3">Influencer</div>
+              <h3 className="text-2xl font-bold text-white leading-tight">Realistic UGC content at scale.</h3>
+            </div>
+            <div className="mt-6">
+              <span className="inline-flex items-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm">
+                No creator fees
+              </span>
             </div>
           </div>
 
-          {/* 3. Fashion Studio (Tall 1x2) */}
-          <div className="md:col-span-1 md:row-span-2 bg-[#FBBF24] rounded-3xl p-8 relative overflow-hidden group">
-            <div className="relative z-10 h-full flex flex-col justify-between">
-              <div>
-                <div className="text-xs font-bold tracking-widest text-amber-900 uppercase mb-2">Fashion</div>
-                <h3 className="text-2xl font-bold text-slate-900 leading-tight">On-model clothing visuals.</h3>
-              </div>
-              <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm">
-                  Go live same day
-                </div>
-              </div>
+          {/* 4. FASHION */}
+          <div className="bg-[#FBBF24] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
+            <div>
+              <div className="text-xs font-bold tracking-widest text-amber-900 uppercase mb-3">Fashion</div>
+              <h3 className="text-2xl font-bold text-slate-900 leading-tight">On-model clothing visuals.</h3>
             </div>
-            <div className="absolute -bottom-10 -right-10 w-64 h-64 opacity-90 group-hover:scale-105 transition-transform duration-500">
-               <img src="https://images.unsplash.com/photo-1434389678219-16ffb4f63262?auto=format&fit=crop&w=400&q=80" alt="Fashion" className="w-full h-full object-cover rounded-full shadow-2xl" />
+            <div className="mt-6">
+              <span className="inline-flex items-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm">
+                Go live same day
+              </span>
             </div>
           </div>
 
-          {/* 4. Ad Generator (Tall 1x2) */}
-          <div className="md:col-span-1 md:row-span-2 bg-[#F43F5E] rounded-3xl p-8 relative overflow-hidden group">
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-            <div className="relative z-10 h-full flex flex-col justify-between">
-              <div>
-                <div className="text-xs font-bold tracking-widest text-white/80 uppercase mb-2">Intelligence</div>
-                <h3 className="text-2xl font-bold text-white leading-tight">Predictive creative analytics.</h3>
-              </div>
-              <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm">
-                  Stop guessing
-                </div>
-              </div>
+          {/* 5. INTELLIGENCE */}
+          <div className="bg-[#F43F5E] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
+            <div>
+              <div className="text-xs font-bold tracking-widest text-rose-100 uppercase mb-3">Intelligence</div>
+              <h3 className="text-2xl font-bold text-white leading-tight">Predictive creative analytics.</h3>
             </div>
-            <div className="absolute bottom-0 right-0 w-48 h-48 translate-x-8 translate-y-8">
-               <div className="w-full h-full bg-white/20 backdrop-blur-md rounded-2xl rotate-12 border border-white/30 shadow-2xl flex items-center justify-center">
-                 <Icon name="bar-chart-2" className="w-16 h-16 text-white" />
-               </div>
+            <div className="mt-6">
+              <span className="inline-flex items-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm">
+                Stop guessing
+              </span>
             </div>
           </div>
 
-          {/* 5. 100+ Templates (Tall 1x2) */}
-          <div className="md:col-span-1 md:row-span-2 bg-[#A855F7] rounded-3xl p-8 relative overflow-hidden group">
-            <div className="relative z-10 h-full flex flex-col justify-between">
-              <div>
-                <div className="text-xs font-bold tracking-widest text-purple-100 uppercase mb-2">Templates</div>
-                <h3 className="text-2xl font-bold text-white leading-tight">100+ High-CTR Presets.</h3>
-              </div>
-              <div className="mt-4">
-                <div className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm">
-                  Proven to convert
-                </div>
-              </div>
+          {/* 6. TEMPLATES */}
+          <div className="bg-[#A855F7] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
+            <div>
+              <div className="text-xs font-bold tracking-widest text-purple-100 uppercase mb-3">Templates</div>
+              <h3 className="text-2xl font-bold text-white leading-tight">100+ High-CTR Presets.</h3>
             </div>
-            <div className="absolute -bottom-8 -right-8 w-56 h-56">
-               <img src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=400&q=80" alt="Social" className="w-full h-full object-cover rounded-3xl shadow-2xl -rotate-6 group-hover:rotate-0 transition-transform duration-500 border-4 border-white" />
+            <div className="mt-6">
+              <span className="inline-flex items-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm">
+                Proven to convert
+              </span>
             </div>
           </div>
 
-          {/* 6. Shopify Analytics (Wide 2x1) */}
-          <div className="md:col-span-2 md:row-span-1 bg-[#3B82F6] rounded-3xl p-8 relative overflow-hidden group">
-            <div className="relative z-10 h-full flex flex-col justify-between">
-              <div>
-                <div className="text-xs font-bold tracking-widest text-blue-100 uppercase mb-2">Integration</div>
-                <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight max-w-[320px]">Upload your Shopify store data.</h3>
-              </div>
-              <div className="mt-4">
-                <button 
-                  onClick={() => navigate('/login')}
-                  className="inline-flex items-center justify-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm hover:scale-105 transition-all"
-                >
-                  Data Analysis
-                </button>
-              </div>
+          {/* 7. INTEGRATION */}
+          <div className="bg-[#3B82F6] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
+            <div>
+              <div className="text-xs font-bold tracking-widest text-blue-100 uppercase mb-3">Integration</div>
+              <h3 className="text-2xl font-bold text-white leading-tight">Upload your Shopify store data.</h3>
             </div>
-            <div className="absolute right-0 bottom-0 w-64 h-full hidden sm:block">
-               <div className="absolute right-8 top-1/2 -translate-y-1/2 w-40 h-32 bg-white rounded-xl shadow-xl border border-slate-100 p-4 transform group-hover:-translate-y-1/2 group-hover:-translate-x-4 transition-transform duration-500">
-                 <div className="w-full h-2 bg-slate-100 rounded-full mb-3"></div>
-                 <div className="w-3/4 h-2 bg-slate-100 rounded-full mb-4"></div>
-                 <div className="flex items-end gap-2 h-12">
-                   <div className="w-1/4 bg-blue-200 h-1/2 rounded-t-sm"></div>
-                   <div className="w-1/4 bg-blue-400 h-3/4 rounded-t-sm"></div>
-                   <div className="w-1/4 bg-blue-600 h-full rounded-t-sm"></div>
-                 </div>
-               </div>
+            <div className="mt-6">
+              <span className="inline-flex items-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm">
+                Data Analysis
+              </span>
             </div>
           </div>
         </div>
