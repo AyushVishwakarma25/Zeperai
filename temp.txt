@@ -1,6 +1,0 @@
-                    onReportUpdate={(r) => { setShopifyReport(r); if(r) setIsShopifyReportLoaded(true); }}
-                    onGenerateAdFromShopify={handleGenerateAdFromShopify}
-                    onDeductCredits={handleCheckCredits} // Pass credit handler
-
-                    onRemix={handleRemix}
-                    inspirationItems={inspirationItems}

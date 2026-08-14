@@ -36,5 +36,9 @@ export default defineConfig(({ mode }) => {
       'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
       'process.env.RAZORPAY_KEY_ID': JSON.stringify(env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || ''),
     },
+    build: {
+      outDir: 'dist',
+      emptyOutDir: true,
+    },
   };
 });

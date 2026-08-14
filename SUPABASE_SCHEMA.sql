@@ -13,6 +13,10 @@ create table if not exists public.profiles (
   location text,
   avatar_url text,
   tier text default 'Free', -- 'Free', 'PayAsYouGo', 'Pro'
+  is_admin boolean default false,
+  banned_at timestamp with time zone,
+  banned_reason text,
+  last_active_at timestamp with time zone default timezone('utc'::text, now()),
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -144,7 +148,8 @@ alter table public.inspiration_gallery enable row level security;
 
 -- Profiles
 drop policy if exists "Users can view own profile" on public.profiles;
-create policy "Users can view own profile" on public.profiles for select using (auth.uid() = id);
+drop policy if exists "Public profiles are viewable by everyone" on public.profiles;
+create policy "Public profiles are viewable by everyone" on public.profiles for select using (true);
 
 drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
@@ -239,8 +244,15 @@ create trigger on_auth_user_created
 -- INDEXES FOR PERFORMANCE
 -- ====================================================================
 create index if not exists idx_subscriptions_user_id on public.subscriptions(user_id);
+create index if not exists idx_subscriptions_status on public.subscriptions(status);
+create index if not exists idx_subscriptions_created_at on public.subscriptions(created_at desc);
 create index if not exists idx_payment_transactions_user_id on public.payment_transactions(user_id);
+create index if not exists idx_payment_transactions_status on public.payment_transactions(status);
+create index if not exists idx_payment_transactions_created_at on public.payment_transactions(created_at desc);
 create index if not exists idx_designs_user_id on public.designs(user_id);
+create index if not exists idx_designs_created_at on public.designs(created_at desc);
+create index if not exists idx_profiles_tier on public.profiles(tier);
+create index if not exists idx_profiles_created_at on public.profiles(created_at desc);
 
 -- ====================================================================
 -- STORAGE BUCKETS SETUP

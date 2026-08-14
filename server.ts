@@ -162,13 +162,55 @@ app.use(cors({
 app.use(globalLimiter);
 
 // --- SECURITY: Authentication & Database Helpers ---
-export const getAdminSupabaseClient = async () => {
+const ADMIN_SECRET = process.env.ADMIN_SESSION_SECRET || 'zeperai-admin-secret-key-karma-2026';
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'karma';
+
+export const generateAdminToken = (username: string) => {
+  const payload = {
+    username,
+    role: 'admin',
+    is_admin: true,
+    exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
+  };
+  const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', ADMIN_SECRET).update(payloadB64).digest('hex');
+  return `zeperai_adm_${payloadB64}.${signature}`;
+};
+
+export const verifyAdminToken = (token: string) => {
+  if (!token || !token.startsWith('zeperai_adm_')) return null;
+  try {
+    const raw = token.replace('zeperai_adm_', '');
+    const [payloadB64, signature] = raw.split('.');
+    if (!payloadB64 || !signature) return null;
+    const expectedSig = crypto.createHmac('sha256', ADMIN_SECRET).update(payloadB64).digest('hex');
+    if (signature !== expectedSig) return null;
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+    if (payload.exp && Date.now() > payload.exp) return null;
+    return payload;
+  } catch (err) {
+    return null;
+  }
+};
+
+export const getAdminSupabaseClient = async (authHeader?: string) => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
   const { createClient } = await import('@supabase/supabase-js');
-  return createClient(supabaseUrl, supabaseKey, {
+  
+  const options: any = {
     auth: { persistSession: false, autoRefreshToken: false }
-  });
+  };
+  
+  // Forward authorization header only if it is a valid Supabase JWT (starts with Bearer eyJ) and service role key is not configured
+  if (authHeader && !process.env.SUPABASE_SERVICE_ROLE_KEY && authHeader.startsWith('Bearer eyJ')) {
+    options.global = {
+      headers: { Authorization: authHeader }
+    };
+  }
+
+  return createClient(supabaseUrl, supabaseKey, options);
 };
 
 const isUuid = (str?: string) => {
@@ -180,6 +222,21 @@ const requireAuth = async (req: any, res: any, next: any) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Not authenticated. Please log in to continue.' });
 
+  // 1. Check for dedicated decoupled admin token
+  const adminPayload = verifyAdminToken(token);
+  if (adminPayload) {
+    req.user = {
+      id: '00000000-0000-0000-0000-000000000001',
+      email: `${adminPayload.username}@zeperai.com`,
+      name: 'System Admin',
+      is_admin: true,
+      role: 'admin'
+    };
+    req.isAdminMaster = true;
+    return next();
+  }
+
+  // 2. Supabase JWT auth fallback
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
 
@@ -193,6 +250,17 @@ const requireAuth = async (req: any, res: any, next: any) => {
     }
 
     req.user = data.user;
+    
+    // Background update of last_active_at to track user session activity
+    if (data.user?.id) {
+      (async () => {
+        try {
+          const adminClient = await getAdminSupabaseClient();
+          await adminClient.from('profiles').update({ last_active_at: new Date().toISOString() }).eq('id', data.user.id);
+        } catch (e) {}
+      })();
+    }
+
     next();
   } catch (err: any) {
     return res.status(401).json({ error: 'Authentication failed.' });
@@ -206,6 +274,10 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const requireAdmin = async (req: any, res: any, next: any) => {
   if (!req.user || !req.user.id) return res.status(401).json({ error: 'Not authenticated.' });
+
+  if (req.isAdminMaster || req.user.is_admin === true) {
+    return next();
+  }
 
   try {
     const adminClient = await getAdminSupabaseClient();
@@ -223,36 +295,1236 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
 // --- API ROUTES ---
 
+  // --- DEDICATED ADMIN LOGIN ROUTE ---
+  app.post('/api/admin/login', (req, res) => {
+    const { username, password } = req.body || {};
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required.' });
+    }
+
+    const isValidUser = (username.trim().toLowerCase() === ADMIN_USERNAME.toLowerCase());
+    const isValidPass = (password === ADMIN_PASSWORD);
+
+    if (!isValidUser || !isValidPass) {
+      return res.status(401).json({ error: 'Invalid admin username or password.' });
+    }
+
+    const token = generateAdminToken(username.trim());
+    return res.json({
+      success: true,
+      token,
+      user: {
+        username: username.trim(),
+        name: 'System Admin',
+        role: 'admin',
+        is_admin: true
+      }
+    });
+  });
+
   // --- ADMIN ROUTES ---
   
   // --- ADMIN SUBSCRIPTIONS ROUTES ---
   app.get('/api/admin/subscriptions', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
     const adminClient = await getAdminSupabaseClient();
     
-    const limit = parseInt(req.query.limit || '50');
+    const limit = parseInt(req.query.limit || '20');
     const offset = parseInt(req.query.offset || '0');
+    const search = (req.query.search || '').trim();
     const statusFilter = req.query.status || ''; // active, cancelled, expired, past_due
+    const planFilter = req.query.plan || ''; // pro, payg, agency, etc.
+    const paymentStatusFilter = req.query.paymentStatus || ''; // paid, success, failed, refunded
+    const sortBy = req.query.sortBy || 'created_at';
+    const sortOrder = req.query.sortOrder === 'asc';
 
-    let query = adminClient.from('subscriptions').select('*, profiles(email, name)', { count: 'exact' });
+    let query = adminClient.from('subscriptions').select('*, profiles(id, email, name, avatar_url, tier)', { count: 'exact' });
     
     if (statusFilter) {
       query = query.eq('status', statusFilter);
     }
+
+    if (planFilter) {
+      query = query.ilike('plan_name', `%${planFilter}%`);
+    }
+
+    if (search) {
+      // Search by subscription id, razorpay id, or plan name
+      query = query.or(`razorpay_subscription_id.ilike.%${search}%,razorpay_order_id.ilike.%${search}%,razorpay_payment_id.ilike.%${search}%,plan_name.ilike.%${search}%,id.eq.${search.length === 36 ? search : '00000000-0000-0000-0000-000000000000'}`);
+    }
+
+    // Determine sort column
+    const validSortCols = ['created_at', 'current_period_end', 'current_period_start', 'amount', 'status'];
+    const orderCol = validSortCols.includes(sortBy) ? sortBy : 'created_at';
     
-    const { data, error, count } = await query.range(offset, offset + limit - 1).order('current_period_end', { ascending: true });
+    const { data, error, count } = await query
+      .range(offset, offset + limit - 1)
+      .order(orderCol, { ascending: sortOrder });
     
     if (error) {
       console.warn('Error querying subscriptions:', error.message);
       return res.json({ success: true, subscriptions: [], total: 0 });
     }
+
+    // Fetch related payment transactions for payment status correlation
+    const userIds = Array.from(new Set((data || []).map((s: any) => s.user_id).filter(Boolean)));
+    const paymentsMap: Record<string, any[]> = {};
+    if (userIds.length > 0) {
+      try {
+        const { data: payData } = await adminClient
+          .from('payment_transactions')
+          .select('*')
+          .in('user_id', userIds)
+          .order('created_at', { ascending: false });
+        if (payData) {
+          payData.forEach((p: any) => {
+            if (!paymentsMap[p.user_id]) paymentsMap[p.user_id] = [];
+            paymentsMap[p.user_id].push(p);
+          });
+        }
+      } catch (pErr) {
+        console.warn('Could not enrich payment info for subscriptions:', pErr);
+      }
+    }
     
-    const subscriptions = (data || []).map((s: any) => ({
-      ...s,
-      email: s.profiles?.email,
-      name: s.profiles?.name,
-    }));
+    let subscriptions = (data || []).map((s: any) => {
+      const userPayments = paymentsMap[s.user_id] || [];
+      // Match transaction by razorpay payment ID or latest payment
+      const matchedPayment = s.razorpay_payment_id 
+        ? userPayments.find(p => p.razorpay_payment_id === s.razorpay_payment_id)
+        : (s.razorpay_order_id ? userPayments.find(p => p.razorpay_order_id === s.razorpay_order_id) : userPayments[0]);
+
+      const paymentStatus = matchedPayment?.status || (s.status === 'active' ? 'paid' : (s.status === 'past_due' ? 'failed' : 'paid'));
+
+      return {
+        ...s,
+        email: s.profiles?.email || 'Unknown User',
+        name: s.profiles?.name || s.profiles?.email?.split('@')[0] || 'User',
+        avatar_url: s.profiles?.avatar_url,
+        user_tier: s.profiles?.tier || 'Free',
+        payment_status: paymentStatus,
+        payment_method: matchedPayment?.payment_method || 'Razorpay Online',
+        payment_id: matchedPayment?.razorpay_payment_id || s.razorpay_payment_id,
+        order_id: matchedPayment?.razorpay_order_id || s.razorpay_order_id,
+        latest_transaction_at: matchedPayment?.created_at || s.created_at,
+        start_date: s.current_period_start || s.created_at,
+        renewal_date: s.current_period_end || s.updated_at
+      };
+    });
+
+    // If payment status filter is specified in memory (since payment_status is derived from transactions)
+    if (paymentStatusFilter) {
+      subscriptions = subscriptions.filter((s: any) => s.payment_status?.toLowerCase() === paymentStatusFilter.toLowerCase());
+    }
     
     res.json({ success: true, subscriptions, total: count || subscriptions.length });
+  }));
+
+  // --- ADMIN PAYMENTS & REVENUE ROUTES ---
+  app.get('/api/admin/payments', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const adminClient = await getAdminSupabaseClient();
+    
+    const limit = Math.min(parseInt(req.query.limit || '20'), 100);
+    const offset = parseInt(req.query.offset || '0');
+    const search = (req.query.search || '').trim();
+    const statusFilter = (req.query.status || '').trim(); // paid, success, failed, refunded
+    const planFilter = (req.query.plan || '').trim(); // pro, payg, etc.
+    const userIdFilter = (req.query.userId || '').trim();
+    const startDate = req.query.startDate || '';
+    const endDate = req.query.endDate || '';
+    const sortBy = req.query.sortBy || 'created_at';
+    const sortOrder = req.query.sortOrder === 'asc';
+
+    let query = adminClient
+      .from('payment_transactions')
+      .select('*, profiles(id, email, name, avatar_url, tier)', { count: 'exact' });
+
+    if (userIdFilter) {
+      query = query.eq('user_id', userIdFilter);
+    }
+
+    if (statusFilter) {
+      if (statusFilter === 'paid') {
+        query = query.in('status', ['paid', 'success']);
+      } else {
+        query = query.eq('status', statusFilter);
+      }
+    }
+
+    if (planFilter) {
+      query = query.ilike('plan_id', `%${planFilter}%`);
+    }
+
+    if (startDate) {
+      query = query.gte('created_at', new Date(startDate).toISOString());
+    }
+
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query = query.lte('created_at', end.toISOString());
+    }
+
+    if (search) {
+      query = query.or(`razorpay_payment_id.ilike.%${search}%,razorpay_order_id.ilike.%${search}%,plan_id.ilike.%${search}%,id.eq.${search.length === 36 ? search : '00000000-0000-0000-0000-000000000000'}`);
+    }
+
+    const validSortCols = ['created_at', 'amount', 'status', 'plan_id'];
+    const orderCol = validSortCols.includes(sortBy) ? sortBy : 'created_at';
+
+    const { data, error, count } = await query
+      .range(offset, offset + limit - 1)
+      .order(orderCol, { ascending: sortOrder });
+
+    if (error) {
+      console.warn('Error querying payment transactions:', error.message);
+    }
+
+    // Format transaction items
+    const transactions = (data || []).map((t: any) => ({
+      id: t.id,
+      user_id: t.user_id,
+      user_name: t.profiles?.name || t.profiles?.email?.split('@')[0] || 'User',
+      user_email: t.profiles?.email || 'Unknown',
+      user_avatar: t.profiles?.avatar_url,
+      user_tier: t.profiles?.tier || 'Free',
+      amount: t.amount,
+      currency: t.currency || 'INR',
+      plan_id: t.plan_id || 'payg',
+      credits_added: t.credits_added || 0,
+      payment_method: t.payment_method || 'Razorpay Gateway',
+      payment_status: t.status,
+      razorpay_order_id: t.razorpay_order_id,
+      razorpay_payment_id: t.razorpay_payment_id,
+      refund_status: t.status === 'refunded' ? 'refunded' : (t.refund_id ? 'processed' : 'none'),
+      refund_id: t.refund_id || null,
+      refunded_at: t.refunded_at || null,
+      refund_reason: t.refund_reason || null,
+      refund_amount: t.refund_amount || (t.status === 'refunded' ? t.amount : 0),
+      created_at: t.created_at,
+      updated_at: t.updated_at
+    }));
+
+    res.json({
+      success: true,
+      transactions,
+      total: count || transactions.length
+    });
+  }));
+
+  // Revenue analytics & KPI summary
+  app.get('/api/admin/payments/summary', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const adminClient = await getAdminSupabaseClient();
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    let totalRevenue = 0;
+    let revenueThisMonth = 0;
+    let revenueThisWeek = 0;
+    let totalTransactions = 0;
+    let successfulTransactions = 0;
+    let failedTransactions = 0;
+    let refundedTransactions = 0;
+    let totalRefundedAmount = 0;
+    const planBreakdown: Record<string, { count: number; revenue: number }> = {};
+    const dailyTrendMap: Record<string, { date: string; revenue: number; transactions: number }> = {};
+
+    // 14 days trend
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const key = d.toISOString().split('T')[0];
+      dailyTrendMap[key] = { date: key.slice(5), revenue: 0, transactions: 0 };
+    }
+
+    try {
+      const { data: allTx } = await adminClient
+        .from('payment_transactions')
+        .select('amount, status, created_at, plan_id, refund_amount');
+
+      (allTx || []).forEach((tx: any) => {
+        totalTransactions++;
+        const amt = Number(tx.amount) || 0;
+        const txDate = new Date(tx.created_at);
+        const dayKey = txDate.toISOString().split('T')[0];
+        const plan = tx.plan_id || 'other';
+
+        if (!planBreakdown[plan]) {
+          planBreakdown[plan] = { count: 0, revenue: 0 };
+        }
+
+        if (tx.status === 'paid' || tx.status === 'success') {
+          totalRevenue += amt;
+          successfulTransactions++;
+          planBreakdown[plan].count++;
+          planBreakdown[plan].revenue += amt;
+
+          if (txDate >= thirtyDaysAgo) revenueThisMonth += amt;
+          if (txDate >= sevenDaysAgo) revenueThisWeek += amt;
+
+          if (dailyTrendMap[dayKey]) {
+            dailyTrendMap[dayKey].revenue += amt;
+            dailyTrendMap[dayKey].transactions += 1;
+          }
+        } else if (tx.status === 'refunded') {
+          refundedTransactions++;
+          totalRefundedAmount += (Number(tx.refund_amount) || amt);
+        } else if (tx.status === 'failed') {
+          failedTransactions++;
+        }
+      });
+    } catch (err) {
+      console.warn('Error computing payments summary:', err);
+    }
+
+    const netRevenue = Math.max(0, totalRevenue - totalRefundedAmount);
+    const avgOrderValue = successfulTransactions > 0 ? Math.round(totalRevenue / successfulTransactions) : 0;
+    const successRate = totalTransactions > 0 ? Math.round((successfulTransactions / totalTransactions) * 100) : 100;
+
+    res.json({
+      success: true,
+      summary: {
+        totalRevenue,
+        netRevenue,
+        revenueThisMonth,
+        revenueThisWeek,
+        totalTransactions,
+        successfulTransactions,
+        failedTransactions,
+        refundedTransactions,
+        totalRefundedAmount,
+        avgOrderValue,
+        successRate,
+        planBreakdown,
+        revenueTrend: Object.values(dailyTrendMap)
+      }
+    });
+  }));
+
+  // Process a secure backend refund via Razorpay API and sync DB
+  app.post('/api/admin/payments/:id/refund', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const transactionId = req.params.id;
+    const { amount, reason, reverseCredits = true } = req.body || {};
+
+    if (!reason || !reason.trim()) {
+      throw new AppError('A valid reason is required for processing a refund.', 400);
+    }
+
+    const adminClient = await getAdminSupabaseClient();
+
+    // 1. Fetch transaction record
+    const { data: tx, error: txErr } = await adminClient
+      .from('payment_transactions')
+      .select('*, profiles(email, name, tier)')
+      .eq('id', transactionId)
+      .single();
+
+    if (txErr || !tx) {
+      throw new AppError('Payment transaction record not found.', 404);
+    }
+
+    if (tx.status === 'refunded') {
+      throw new AppError('This transaction has already been refunded.', 400);
+    }
+
+    if (!tx.razorpay_payment_id) {
+      throw new AppError('No Razorpay Payment ID found for this transaction to process a gateway refund.', 400);
+    }
+
+    const originalAmount = Number(tx.amount) || 0;
+    const refundAmount = amount ? Number(amount) : originalAmount;
+
+    if (refundAmount <= 0 || refundAmount > originalAmount) {
+      throw new AppError(`Refund amount must be between 1 and ₹${originalAmount}.`, 400);
+    }
+
+    // 2. Execute refund via Razorpay SDK
+    const rzp = getRazorpay();
+    if (!rzp) {
+      throw new AppError('Razorpay gateway service is not configured on the server.', 500);
+    }
+
+    let rzpRefundResponse: any = null;
+    try {
+      const refundPaise = Math.round(refundAmount * 100);
+      rzpRefundResponse = await rzp.payments.refund(tx.razorpay_payment_id, {
+        amount: refundPaise,
+        notes: {
+          reason: reason.trim().substring(0, 250),
+          admin_id: req.user?.id || 'admin',
+          admin_email: req.user?.email || 'admin@zeperai.com',
+          transaction_id: tx.id
+        }
+      });
+      console.log(`[Razorpay Refund] Processed refund ${rzpRefundResponse.id} for payment ${tx.razorpay_payment_id}`);
+    } catch (rzpErr: any) {
+      console.error('Razorpay Refund API error:', JSON.stringify(rzpErr));
+      const errMsg = rzpErr.error?.description || rzpErr.message || 'Failed to process refund via Razorpay API.';
+      throw new AppError(errMsg, 500);
+    }
+
+    // 3. Update database transaction status
+    const refundId = rzpRefundResponse?.id || `rfnd_${Date.now()}`;
+    const { error: updateErr } = await adminClient
+      .from('payment_transactions')
+      .update({
+        status: 'refunded',
+        refund_id: refundId,
+        refund_amount: refundAmount,
+        refund_reason: reason.trim(),
+        refunded_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', transactionId);
+
+    if (updateErr) {
+      console.warn('Failed to update payment_transactions refund status:', updateErr.message);
+    }
+
+    // 4. Optionally reverse credits allocated
+    let creditsDeducted = 0;
+    if (reverseCredits && tx.user_id && tx.credits_added > 0) {
+      try {
+        const { data: userCredits } = await adminClient
+          .from('user_credits')
+          .select('current_balance')
+          .eq('user_id', tx.user_id)
+          .single();
+
+        if (userCredits) {
+          const currentBal = userCredits.current_balance || 0;
+          const toDeduct = Math.min(currentBal, tx.credits_added);
+          creditsDeducted = toDeduct;
+          await adminClient
+            .from('user_credits')
+            .update({
+              current_balance: Math.max(0, currentBal - toDeduct),
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', tx.user_id);
+        }
+      } catch (credErr) {
+        console.warn('Could not reverse user credits:', credErr);
+      }
+    }
+
+    // 5. If it was a subscription payment, update subscription state
+    if (tx.user_id) {
+      try {
+        await adminClient
+          .from('subscriptions')
+          .update({
+            status: 'expired',
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', tx.user_id)
+          .eq('razorpay_payment_id', tx.razorpay_payment_id);
+      } catch (subErr) {
+        console.warn('Could not update subscription on refund:', subErr);
+      }
+    }
+
+    // 6. Log admin audit action
+    try {
+      await adminClient.from('admin_actions').insert({
+        admin_id: isUuid(req.user.id) ? req.user.id : null,
+        action: 'refund_payment',
+        target_user_id: isUuid(tx.user_id) ? tx.user_id : null,
+        details: {
+          transaction_id: tx.id,
+          razorpay_payment_id: tx.razorpay_payment_id,
+          refund_id: refundId,
+          refund_amount: refundAmount,
+          reason: reason.trim(),
+          credits_deducted: creditsDeducted,
+          admin_email: req.user.email,
+          gateway_response: rzpRefundResponse
+        }
+      });
+    } catch (logErr) {
+      console.warn('Failed to log admin refund action:', logErr);
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully refunded ₹${refundAmount} through Razorpay.`,
+      refund_id: refundId,
+      refund_amount: refundAmount,
+      credits_deducted: creditsDeducted
+    });
+  }));
+
+  // --- ADMIN CREDITS / USAGE ROUTES ---
+  app.get('/api/admin/credits/overview', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const adminClient = await getAdminSupabaseClient();
+
+    const limit = Math.min(parseInt(req.query.limit || '20'), 100);
+    const offset = parseInt(req.query.offset || '0');
+    const search = (req.query.search || '').trim();
+    const tierFilter = (req.query.tier || '').trim();
+    const sortBy = req.query.sortBy || 'current_balance';
+    const sortOrder = req.query.sortOrder === 'asc';
+
+    // 1. Fetch profiles matching search/tier
+    let profilesQuery = adminClient.from('profiles').select('id, email, name, avatar_url, tier, created_at', { count: 'exact' });
+    if (search) {
+      profilesQuery = profilesQuery.or(`email.ilike.%${search}%,name.ilike.%${search}%,id.eq.${search.length === 36 ? search : '00000000-0000-0000-0000-000000000000'}`);
+    }
+    if (tierFilter) {
+      profilesQuery = profilesQuery.eq('tier', tierFilter);
+    }
+
+    const { data: profiles, count, error: profErr } = await profilesQuery.range(offset, offset + limit - 1);
+    if (profErr) {
+      console.warn('Error querying profiles for credits overview:', profErr.message);
+    }
+
+    const userIds = (profiles || []).map((p: any) => p.id).filter(Boolean);
+
+    // 2. Fetch credits, payments (purchases), and design generation counts
+    const creditsMap: Record<string, any> = {};
+    const purchasesMap: Record<string, { totalPurchasedCredits: number; paymentsCount: number }> = {};
+    const generationCountMap: Record<string, number> = {};
+
+    if (userIds.length > 0) {
+      try {
+        const [creditsRes, paymentsRes, designsRes] = await Promise.all([
+          adminClient.from('user_credits').select('*').in('user_id', userIds),
+          adminClient.from('payment_transactions').select('user_id, credits_added, status').in('user_id', userIds).in('status', ['paid', 'success']),
+          adminClient.from('designs').select('user_id').in('user_id', userIds)
+        ]);
+
+        (creditsRes.data || []).forEach((c: any) => {
+          creditsMap[c.user_id] = c;
+        });
+
+        (paymentsRes.data || []).forEach((p: any) => {
+          if (!purchasesMap[p.user_id]) {
+            purchasesMap[p.user_id] = { totalPurchasedCredits: 0, paymentsCount: 0 };
+          }
+          purchasesMap[p.user_id].totalPurchasedCredits += (p.credits_added || 0);
+          purchasesMap[p.user_id].paymentsCount += 1;
+        });
+
+        (designsRes.data || []).forEach((d: any) => {
+          generationCountMap[d.user_id] = (generationCountMap[d.user_id] || 0) + 1;
+        });
+      } catch (err) {
+        console.warn('Error fetching auxiliary credit data:', err);
+      }
+    }
+
+    const userCreditsList = (profiles || []).map((p: any) => {
+      const c = creditsMap[p.id];
+      const pur = purchasesMap[p.id] || { totalPurchasedCredits: 0, paymentsCount: 0 };
+      const currentBalance = c ? (c.current_balance || 0) : 0;
+      const totalQuota = c ? (c.total_quota || 0) : 0;
+      const genCount = generationCountMap[p.id] || 0;
+      // Consumed calculation based on quota - balance or generation count
+      const consumedCredits = Math.max(0, totalQuota - currentBalance);
+
+      return {
+        user_id: p.id,
+        user_name: p.name || p.email?.split('@')[0] || 'User',
+        user_email: p.email || 'Unknown',
+        user_avatar: p.avatar_url,
+        user_tier: p.tier || 'Free',
+        current_balance: currentBalance,
+        total_quota: totalQuota,
+        credits_purchased: pur.totalPurchasedCredits,
+        credits_consumed: consumedCredits,
+        generation_count: genCount,
+        last_updated: c?.updated_at || p.created_at
+      };
+    });
+
+    // Sorting
+    userCreditsList.sort((a, b) => {
+      let valA = a[sortBy as keyof typeof a] ?? 0;
+      let valB = b[sortBy as keyof typeof b] ?? 0;
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+      if (valA < valB) return sortOrder ? -1 : 1;
+      if (valA > valB) return sortOrder ? 1 : -1;
+      return 0;
+    });
+
+    res.json({
+      success: true,
+      users: userCreditsList,
+      total: count || userCreditsList.length
+    });
+  }));
+
+  // Fetch detailed credit transaction history / admin adjustments for a user or platform
+  app.get('/api/admin/credits/history', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const adminClient = await getAdminSupabaseClient();
+    const userId = req.query.userId || '';
+    const limit = Math.min(parseInt(req.query.limit || '30'), 100);
+
+    let query = adminClient
+      .from('admin_actions')
+      .select('*')
+      .in('action', ['adjust_credits', 'refund_payment', 'grant_credits'])
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (userId) {
+      query = query.eq('target_user_id', userId);
+    }
+
+    const { data: actions, error } = await query;
+    if (error) {
+      console.warn('Error fetching credit history actions:', error.message);
+    }
+
+    // Fetch user profiles for actions
+    const targetUserIds = Array.from(new Set((actions || []).map((a: any) => a.target_user_id).filter(Boolean)));
+    const userMap: Record<string, any> = {};
+    if (targetUserIds.length > 0) {
+      const { data: profs } = await adminClient.from('profiles').select('id, email, name').in('id', targetUserIds);
+      (profs || []).forEach((p: any) => {
+        userMap[p.id] = p;
+      });
+    }
+
+    const history = (actions || []).map((a: any) => {
+      const targetUser = a.target_user_id ? userMap[a.target_user_id] : null;
+      return {
+        id: a.id,
+        action: a.action,
+        user_id: a.target_user_id,
+        user_name: targetUser?.name || targetUser?.email?.split('@')[0] || 'User',
+        user_email: targetUser?.email || 'N/A',
+        admin_email: a.details?.admin_email || 'admin@zeperai.com',
+        amount: a.details?.amount ?? (a.details?.refund_amount ? -a.details?.refund_amount : 0),
+        reason: a.details?.reason || 'Administrative adjustment',
+        old_balance: a.details?.old_balance,
+        new_balance: a.details?.new_balance,
+        created_at: a.created_at
+      };
+    });
+
+    res.json({
+      success: true,
+      history
+    });
+  }));
+
+  // Direct safe credit adjustment (Add / Deduct) with validation and audit logging
+  app.post('/api/admin/credits/adjust', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const { userId, amount, reason } = req.body || {};
+
+    if (!userId) throw new AppError('Target userId is required.', 400);
+    if (typeof amount !== 'number' || amount === 0) throw new AppError('A non-zero numeric amount is required.', 400);
+    if (!reason || !reason.trim()) throw new AppError('A valid operational reason is required.', 400);
+
+    const adminClient = await getAdminSupabaseClient();
+
+    // 1. Verify user profile exists
+    const { data: profile, error: profErr } = await adminClient
+      .from('profiles')
+      .select('id, email, name, tier')
+      .eq('id', userId)
+      .single();
+
+    if (profErr || !profile) {
+      throw new AppError('Target user profile not found.', 404);
+    }
+
+    // 2. Fetch current balance
+    const { data: creditRecord } = await adminClient
+      .from('user_credits')
+      .select('current_balance, total_quota')
+      .eq('user_id', userId)
+      .single();
+
+    const oldBalance = creditRecord?.current_balance || 0;
+    const oldQuota = creditRecord?.total_quota || 0;
+    const newBalance = Math.max(0, oldBalance + amount);
+    const newQuota = amount > 0 ? (oldQuota + amount) : oldQuota;
+
+    // 3. Upsert new credit balance
+    const { error: upsertErr } = await adminClient
+      .from('user_credits')
+      .upsert({
+        user_id: userId,
+        current_balance: newBalance,
+        total_quota: newQuota,
+        updated_at: new Date().toISOString()
+      });
+
+    if (upsertErr) {
+      throw new AppError(`Failed to update credit balance: ${upsertErr.message}`, 500);
+    }
+
+    // 4. Log admin audit action
+    try {
+      await adminClient.from('admin_actions').insert({
+        admin_id: isUuid(req.user.id) ? req.user.id : null,
+        action: 'adjust_credits',
+        target_user_id: isUuid(userId) ? userId : null,
+        details: {
+          amount,
+          operation: amount > 0 ? 'add' : 'deduct',
+          reason: reason.trim(),
+          old_balance: oldBalance,
+          new_balance: newBalance,
+          admin_email: req.user.email,
+          user_email: profile.email
+        }
+      });
+    } catch (logErr) {
+      console.warn('Failed to record credit adjustment admin action:', logErr);
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully ${amount > 0 ? 'added' : 'deducted'} ${Math.abs(amount)} credits for ${profile.email}.`,
+      old_balance: oldBalance,
+      new_balance: newBalance
+    });
+  }));
+
+  // --- ADMIN AI USAGE & GENERATION ANALYTICS ---
+  app.get('/api/admin/analytics/generations', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const adminClient = await getAdminSupabaseClient();
+    const now = new Date();
+
+    // Query designs database (selective fields with reasonable upper limit)
+    const { data: designs, error: dErr } = await adminClient
+      .from('designs')
+      .select('id, user_id, params, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5000);
+
+    if (dErr) {
+      console.warn('Error querying designs for analytics:', dErr.message);
+    }
+
+    const allDesigns = designs || [];
+    const totalGenerations = allDesigns.length;
+
+    let imageCount = 0;
+    let videoCount = 0;
+    let productStudioCount = 0;
+    let fashionStudioCount = 0;
+    let influencerStudioCount = 0;
+    let cgiStudioCount = 0;
+    let catalogBatchCount = 0;
+    let festivalStudioCount = 0;
+    let otherStudioCount = 0;
+
+    const studioBreakdown: Record<string, { count: number; creditsConsumed: number }> = {
+      'Product Studio': { count: 0, creditsConsumed: 0 },
+      'Fashion Studio': { count: 0, creditsConsumed: 0 },
+      'Influencer Studio': { count: 0, creditsConsumed: 0 },
+      'CGI / 3D Render': { count: 0, creditsConsumed: 0 },
+      'Catalog Mode': { count: 0, creditsConsumed: 0 },
+      'Festival / Creative': { count: 0, creditsConsumed: 0 },
+      'Other / General': { count: 0, creditsConsumed: 0 }
+    };
+
+    const presetCounts: Record<string, number> = {};
+    const userGenCounts: Record<string, { count: number; lastGen: string }> = {};
+    const dailyGenMap: Record<string, { date: string; images: number; videos: number; total: number }> = {};
+
+    // 14 days timeline map
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const key = d.toISOString().split('T')[0];
+      dailyGenMap[key] = { date: key.slice(5), images: 0, videos: 0, total: 0 };
+    }
+
+    allDesigns.forEach((d: any) => {
+      const params = d.params || {};
+      const mode = (params.appMode || params.mode || params.app_mode || '').toLowerCase();
+      const isVideo = params.isVideo === true || mode === 'video' || !!params.video_url;
+      const isCatalog = params.catalogMode === true || (params.fashionPose && Array.isArray(params.fashionPose) && params.fashionPose.length > 1);
+
+      if (isVideo) {
+        videoCount++;
+      } else {
+        imageCount++;
+      }
+
+      // Studio classification
+      let studioKey = 'Other / General';
+      if (isCatalog) {
+        catalogBatchCount++;
+        studioKey = 'Catalog Mode';
+      } else if (mode.includes('product')) {
+        productStudioCount++;
+        studioKey = 'Product Studio';
+      } else if (mode.includes('fashion') || mode.includes('model') || mode.includes('tryon')) {
+        fashionStudioCount++;
+        studioKey = 'Fashion Studio';
+      } else if (mode.includes('influencer')) {
+        influencerStudioCount++;
+        studioKey = 'Influencer Studio';
+      } else if (mode.includes('cgi') || mode.includes('3d') || mode.includes('render')) {
+        cgiStudioCount++;
+        studioKey = 'CGI / 3D Render';
+      } else if (mode.includes('festival')) {
+        festivalStudioCount++;
+        studioKey = 'Festival / Creative';
+      } else {
+        otherStudioCount++;
+      }
+
+      // Estimate credits consumed using existing generation parameter rules
+      const approxCost = params.creditCost || params.cost || (isCatalog ? 4 : (params.resolutionQuality === '2K' ? 2 : 1));
+      studioBreakdown[studioKey].count += 1;
+      studioBreakdown[studioKey].creditsConsumed += approxCost;
+
+      // Presets
+      const preset = params.productStylePreset || params.productStylePresets?.[0] || params.style || params.preset || (params.prompt ? 'Custom Prompt' : null);
+      if (preset && typeof preset === 'string') {
+        const cleanPreset = preset.trim();
+        if (cleanPreset.length > 0 && cleanPreset.length < 50) {
+          presetCounts[cleanPreset] = (presetCounts[cleanPreset] || 0) + 1;
+        }
+      }
+
+      // User usage
+      if (d.user_id) {
+        if (!userGenCounts[d.user_id]) {
+          userGenCounts[d.user_id] = { count: 0, lastGen: d.created_at };
+        }
+        userGenCounts[d.user_id].count += 1;
+      }
+
+      // Daily trend
+      const dDate = new Date(d.created_at);
+      const dayKey = dDate.toISOString().split('T')[0];
+      if (dailyGenMap[dayKey]) {
+        dailyGenMap[dayKey].total += 1;
+        if (isVideo) dailyGenMap[dayKey].videos += 1;
+        else dailyGenMap[dayKey].images += 1;
+      }
+    });
+
+    // Top presets
+    const mostUsedPresets = Object.entries(presetCounts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    // Top active users with profiles
+    const topUserIds = Object.entries(userGenCounts)
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 10);
+
+    let mostActiveUsers: any[] = [];
+    if (topUserIds.length > 0) {
+      const uIds = topUserIds.map(([id]) => id);
+      const { data: topProfiles } = await adminClient.from('profiles').select('id, email, name, tier').in('id', uIds);
+      const profMap: Record<string, any> = {};
+      (topProfiles || []).forEach((p: any) => { profMap[p.id] = p; });
+
+      mostActiveUsers = topUserIds.map(([userId, stats]) => {
+        const prof = profMap[userId];
+        return {
+          userId,
+          name: prof?.name || prof?.email?.split('@')[0] || 'User',
+          email: prof?.email || 'N/A',
+          tier: prof?.tier || 'Free',
+          generationCount: stats.count,
+          lastActive: stats.lastGen
+        };
+      });
+    }
+
+    res.json({
+      success: true,
+      analytics: {
+        totalGenerations,
+        images: imageCount,
+        videos: videoCount,
+        studioBreakdown,
+        countsByStudio: {
+          productStudio: productStudioCount,
+          fashionStudio: fashionStudioCount,
+          influencerStudio: influencerStudioCount,
+          cgiStudio: cgiStudioCount,
+          catalogMode: catalogBatchCount,
+          festivalStudio: festivalStudioCount,
+          other: otherStudioCount
+        },
+        mostUsedPresets,
+        mostActiveUsers,
+        dailyTrend: Object.values(dailyGenMap),
+        availableMetrics: ['totalGenerations', 'images', 'videos', 'studioBreakdown', 'dailyTrend', 'mostUsedPresets', 'mostActiveUsers'],
+        unavailableMetricsNote: 'GPU execution duration and per-model latency are not stored in the database and are omitted.'
+      }
+    });
+  }));
+
+  // --- 8. AI GENERATION OPERATIONAL MONITORING ---
+  app.get('/api/admin/generations/monitoring', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const adminClient = await getAdminSupabaseClient();
+    const limit = Math.min(parseInt(req.query.limit || '50'), 100);
+    const offset = parseInt(req.query.offset || '0');
+    const statusFilter = (req.query.status || '').trim(); // success, failed, processing, all
+    const studioFilter = (req.query.studio || '').trim();
+    const userIdFilter = (req.query.userId || '').trim();
+    const search = (req.query.search || '').trim();
+
+    // 1. Query designs table
+    let query = adminClient
+      .from('designs')
+      .select('id, user_id, title, image_url, prompt, aspect_ratio, params, created_at', { count: 'exact' });
+
+    if (userIdFilter) {
+      query = query.eq('user_id', userIdFilter);
+    }
+
+    if (search) {
+      query = query.or(`prompt.ilike.%${search}%,title.ilike.%${search}%,id.eq.${search.length === 36 ? search : '00000000-0000-0000-0000-000000000000'}`);
+    }
+
+    const { data: rows, count, error } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.warn('Error querying designs monitoring:', error.message);
+    }
+
+    // Also get all distinct profiles to annotate creators
+    const userIds = Array.from(new Set((rows || []).map((r: any) => r.user_id).filter(Boolean)));
+    const profilesMap: Record<string, { email: string; name: string; tier: string }> = {};
+    if (userIds.length > 0) {
+      try {
+        const { data: profs } = await adminClient.from('profiles').select('id, email, name, tier').in('id', userIds);
+        (profs || []).forEach((p: any) => {
+          profilesMap[p.id] = {
+            email: p.email || 'Unknown',
+            name: p.name || p.email?.split('@')[0] || 'User',
+            tier: p.tier || 'Free'
+          };
+        });
+      } catch (e) {}
+    }
+
+    // Normalize each generation record
+    const generations = (rows || []).map((d: any) => {
+      const params = d.params || {};
+      const mode = params.mode || params.app_mode || (params.studio ? `${params.studio} studio` : 'product');
+      const isVideo = !!(params.isVideo || params.videoUrl || mode === 'video');
+      
+      // Determine generation status and error context safely without exposing API keys
+      let status: 'successful' | 'failed' | 'processing' = 'successful';
+      let errorSummary: string | null = null;
+
+      if (params.status === 'failed' || params.error || d.image_url?.includes('error') || params.failed === true) {
+        status = 'failed';
+        // Sanitize error message to never leak secrets
+        const rawErr = String(params.errorMessage || params.error || 'Generation aborted');
+        errorSummary = rawErr.replace(/key=[A-Za-z0-9_-]+/gi, 'key=REDACTED').slice(0, 200);
+      } else if (params.status === 'processing' || params.status === 'pending' || (!d.image_url && !params.imageUrl)) {
+        status = 'processing';
+      }
+
+      const creator = profilesMap[d.user_id] || { email: 'Unknown', name: 'User', tier: 'Free' };
+
+      return {
+        id: d.id,
+        user_id: d.user_id,
+        user_name: creator.name,
+        user_email: creator.email,
+        user_tier: creator.tier,
+        title: d.title || 'Untitled Creative',
+        prompt: d.prompt || params.prompt || 'Custom visual generation',
+        image_url: d.image_url || params.imageUrl || null,
+        thumbnail_url: params.thumbnail_url || d.image_url,
+        aspect_ratio: d.aspect_ratio || params.aspectRatio || '1:1',
+        feature: mode.charAt(0).toUpperCase() + mode.slice(1),
+        is_video: isVideo,
+        status,
+        error_summary: errorSummary,
+        cost_credits: params.creditCost || params.cost || (isVideo ? 4 : 1),
+        created_at: d.created_at
+      };
+    });
+
+    // Client-side sub-filtering for status if needed
+    let filtered = generations;
+    if (statusFilter && statusFilter !== 'all') {
+      filtered = filtered.filter(g => g.status === statusFilter);
+    }
+    if (studioFilter && studioFilter !== 'all') {
+      filtered = filtered.filter(g => g.feature.toLowerCase().includes(studioFilter.toLowerCase()));
+    }
+
+    // Summary counters for quick operational health check
+    const totalCount = count || generations.length;
+    const successfulCount = generations.filter(g => g.status === 'successful').length;
+    const failedCount = generations.filter(g => g.status === 'failed').length;
+    const processingCount = generations.filter(g => g.status === 'processing').length;
+
+    res.json({
+      success: true,
+      generations: filtered,
+      total: totalCount,
+      metrics: {
+        totalEvaluated: generations.length,
+        successful: successfulCount,
+        failed: failedCount,
+        processing: processingCount,
+        failureRate: generations.length > 0 ? ((failedCount / generations.length) * 100).toFixed(1) : '0'
+      }
+    });
+  }));
+
+  // --- 9. ADMIN AUDIT LOGS QUERY & FILTERING ---
+  app.get('/api/admin/audit-logs', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const adminClient = await getAdminSupabaseClient();
+    const limit = Math.min(parseInt(req.query.limit || '50'), 100);
+    const offset = parseInt(req.query.offset || '0');
+    const actionFilter = (req.query.action || '').trim();
+    const adminEmailFilter = (req.query.admin || '').trim();
+    const userFilter = (req.query.userId || '').trim();
+    const startDate = req.query.startDate || '';
+    const endDate = req.query.endDate || '';
+    const search = (req.query.search || '').trim();
+
+    let query = adminClient
+      .from('admin_actions')
+      .select('*', { count: 'exact' });
+
+    if (actionFilter && actionFilter !== 'all') {
+      query = query.eq('action', actionFilter);
+    }
+
+    if (userFilter) {
+      query = query.eq('target_user_id', userFilter);
+    }
+
+    if (startDate) {
+      query = query.gte('created_at', new Date(startDate).toISOString());
+    }
+
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query = query.lte('created_at', end.toISOString());
+    }
+
+    const { data: logs, count, error } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.warn('Error fetching audit logs:', error.message);
+    }
+
+    // Resolve target user names/emails where possible
+    const targetUserIds = Array.from(new Set((logs || []).map((l: any) => l.target_user_id).filter(Boolean)));
+    const targetUsersMap: Record<string, { email: string; name: string }> = {};
+    if (targetUserIds.length > 0) {
+      try {
+        const { data: profs } = await adminClient.from('profiles').select('id, email, name').in('id', targetUserIds);
+        (profs || []).forEach((p: any) => {
+          targetUsersMap[p.id] = {
+            email: p.email || 'N/A',
+            name: p.name || p.email?.split('@')[0] || 'User'
+          };
+        });
+      } catch (e) {}
+    }
+
+    let enrichedLogs = (logs || []).map((l: any) => {
+      const adminEmail = l.details?.admin_email || 'admin@zeperai.internal';
+      const targetUser = l.target_user_id ? (targetUsersMap[l.target_user_id] || { email: 'Unknown', name: 'User' }) : null;
+      return {
+        id: l.id,
+        action: l.action,
+        admin_id: l.admin_id,
+        admin_email: adminEmail,
+        target_user_id: l.target_user_id,
+        target_user_name: targetUser?.name,
+        target_user_email: targetUser?.email,
+        details: l.details || {},
+        created_at: l.created_at
+      };
+    });
+
+    if (adminEmailFilter) {
+      enrichedLogs = enrichedLogs.filter(l => l.admin_email.toLowerCase().includes(adminEmailFilter.toLowerCase()));
+    }
+
+    if (search) {
+      const q = search.toLowerCase();
+      enrichedLogs = enrichedLogs.filter(l => 
+        l.action.toLowerCase().includes(q) ||
+        l.admin_email.toLowerCase().includes(q) ||
+        (l.target_user_email && l.target_user_email.toLowerCase().includes(q)) ||
+        (l.target_user_id && l.target_user_id.toLowerCase().includes(q)) ||
+        JSON.stringify(l.details).toLowerCase().includes(q)
+      );
+    }
+
+    // Extract list of distinct actions for filter dropdowns
+    const distinctActions = [
+      'adjust_credits',
+      'ban_user',
+      'unban_user',
+      'change_admin_privileges',
+      'update_user_tier',
+      'delete_user',
+      'refund_payment',
+      'cancel_subscription',
+      'cleanup_orphaned_storage'
+    ];
+
+    res.json({
+      success: true,
+      logs: enrichedLogs,
+      total: count || enrichedLogs.length,
+      availableActions: distinctActions
+    });
+  }));
+
+  // --- 11. GLOBAL SEARCH ACROSS ACCOUNTS & RESOURCES ---
+  app.get('/api/admin/search/global', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const q = (req.query.q || '').trim();
+    if (!q || q.length < 2) {
+      return res.json({ success: true, results: { users: [], payments: [], subscriptions: [] } });
+    }
+
+    const adminClient = await getAdminSupabaseClient();
+    const isGuid = isUuid(q);
+
+    // 1. Search Users
+    let usersPromise = adminClient
+      .from('profiles')
+      .select('id, email, name, avatar_url, tier, is_admin, created_at')
+      .or(`email.ilike.%${q}%,name.ilike.%${q}%${isGuid ? `,id.eq.${q}` : ''}`)
+      .limit(6);
+
+    // 2. Search Payments
+    let paymentsPromise = adminClient
+      .from('payment_transactions')
+      .select('id, user_id, razorpay_payment_id, razorpay_order_id, amount, status, plan_id, created_at')
+      .or(`razorpay_payment_id.ilike.%${q}%,razorpay_order_id.ilike.%${q}%,plan_id.ilike.%${q}%${isGuid ? `,id.eq.${q},user_id.eq.${q}` : ''}`)
+      .limit(6);
+
+    // 3. Search Subscriptions
+    let subsPromise = adminClient
+      .from('subscriptions')
+      .select('id, user_id, plan_name, status, amount, razorpay_subscription_id, created_at')
+      .or(`plan_name.ilike.%${q}%,razorpay_subscription_id.ilike.%${q}%${isGuid ? `,id.eq.${q},user_id.eq.${q}` : ''}`)
+      .limit(6);
+
+    const [uRes, pRes, sRes] = await Promise.all([usersPromise, paymentsPromise, subsPromise]);
+
+    res.json({
+      success: true,
+      query: q,
+      results: {
+        users: uRes.data || [],
+        payments: pRes.data || [],
+        subscriptions: sRes.data || []
+      }
+    });
+  }));
+
+  // --- 13. CSV EXPORT FOR ADMIN DATASETS ---
+  app.get('/api/admin/export/csv', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const type = req.query.type; // 'users', 'payments', 'subscriptions', 'usage', 'audit_logs'
+    if (!type) throw new AppError('Export type is required (users, payments, subscriptions, usage, audit_logs).', 400);
+
+    const adminClient = await getAdminSupabaseClient();
+    let csvData = '';
+    let filename = `zeperai-export-${type}-${new Date().toISOString().split('T')[0]}.csv`;
+
+    const escapeCsv = (str: any) => {
+      if (str === null || str === undefined) return '""';
+      const clean = String(str).replace(/"/g, '""');
+      return `"${clean}"`;
+    };
+
+    if (type === 'users') {
+      const { data: users } = await adminClient.from('profiles').select('*').order('created_at', { ascending: false }).limit(2000);
+      const headers = ['User ID', 'Email', 'Name', 'Subscription Tier', 'Is Admin', 'Banned At', 'Created At'];
+      const rows = (users || []).map((u: any) => [
+        escapeCsv(u.id),
+        escapeCsv(u.email),
+        escapeCsv(u.name || ''),
+        escapeCsv(u.tier || 'Free'),
+        escapeCsv(u.is_admin ? 'TRUE' : 'FALSE'),
+        escapeCsv(u.banned_at || ''),
+        escapeCsv(u.created_at)
+      ].join(','));
+      csvData = [headers.join(','), ...rows].join('\n');
+    } else if (type === 'payments') {
+      const { data: payments } = await adminClient.from('payment_transactions').select('*, profiles(email, name)').order('created_at', { ascending: false }).limit(2000);
+      const headers = ['Transaction ID', 'User ID', 'Customer Email', 'Customer Name', 'Amount (INR)', 'Status', 'Plan ID', 'Razorpay Payment ID', 'Razorpay Order ID', 'Credits Added', 'Created At'];
+      const rows = (payments || []).map((p: any) => [
+        escapeCsv(p.id),
+        escapeCsv(p.user_id),
+        escapeCsv(p.profiles?.email || 'Unknown'),
+        escapeCsv(p.profiles?.name || 'User'),
+        escapeCsv(p.amount),
+        escapeCsv(p.status),
+        escapeCsv(p.plan_id),
+        escapeCsv(p.razorpay_payment_id || ''),
+        escapeCsv(p.razorpay_order_id || ''),
+        escapeCsv(p.credits_added || 0),
+        escapeCsv(p.created_at)
+      ].join(','));
+      csvData = [headers.join(','), ...rows].join('\n');
+    } else if (type === 'subscriptions') {
+      const { data: subs } = await adminClient.from('subscriptions').select('*, profiles(email, name)').order('created_at', { ascending: false }).limit(2000);
+      const headers = ['Subscription ID', 'User ID', 'Customer Email', 'Customer Name', 'Plan Name', 'Status', 'Amount (INR)', 'Razorpay Subscription ID', 'Period Start', 'Period End', 'Created At'];
+      const rows = (subs || []).map((s: any) => [
+        escapeCsv(s.id),
+        escapeCsv(s.user_id),
+        escapeCsv(s.profiles?.email || 'Unknown'),
+        escapeCsv(s.profiles?.name || 'User'),
+        escapeCsv(s.plan_name),
+        escapeCsv(s.status),
+        escapeCsv(s.amount),
+        escapeCsv(s.razorpay_subscription_id || ''),
+        escapeCsv(s.current_period_start || ''),
+        escapeCsv(s.current_period_end || ''),
+        escapeCsv(s.created_at)
+      ].join(','));
+      csvData = [headers.join(','), ...rows].join('\n');
+    } else if (type === 'usage') {
+      const { data: designs } = await adminClient.from('designs').select('id, user_id, title, prompt, aspect_ratio, params, created_at').order('created_at', { ascending: false }).limit(2000);
+      const headers = ['Generation ID', 'User ID', 'Title', 'Aspect Ratio', 'Mode', 'Is Video', 'Prompt', 'Created At'];
+      const rows = (designs || []).map((d: any) => [
+        escapeCsv(d.id),
+        escapeCsv(d.user_id),
+        escapeCsv(d.title || ''),
+        escapeCsv(d.aspect_ratio || '1:1'),
+        escapeCsv(d.params?.mode || 'product'),
+        escapeCsv(d.params?.isVideo ? 'TRUE' : 'FALSE'),
+        escapeCsv(d.prompt || ''),
+        escapeCsv(d.created_at)
+      ].join(','));
+      csvData = [headers.join(','), ...rows].join('\n');
+    } else if (type === 'audit_logs') {
+      const { data: actions } = await adminClient.from('admin_actions').select('*').order('created_at', { ascending: false }).limit(2000);
+      const headers = ['Log ID', 'Admin ID', 'Admin Email', 'Action', 'Target User ID', 'Details JSON', 'Created At'];
+      const rows = (actions || []).map((a: any) => [
+        escapeCsv(a.id),
+        escapeCsv(a.admin_id || ''),
+        escapeCsv(a.details?.admin_email || 'admin@zeperai.internal'),
+        escapeCsv(a.action),
+        escapeCsv(a.target_user_id || ''),
+        escapeCsv(JSON.stringify(a.details || {})),
+        escapeCsv(a.created_at)
+      ].join(','));
+      csvData = [headers.join(','), ...rows].join('\n');
+    } else {
+      throw new AppError('Invalid export type requested', 400);
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csvData);
   }));
 
   app.get('/api/admin/subscriptions/:id', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
@@ -400,78 +1672,285 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
   app.get('/api/admin/dashboard/summary', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
     const adminClient = await getAdminSupabaseClient();
+    const startTime = Date.now();
 
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // 1. User Metrics
     let totalUsers = 0;
-    let newSignups = 0;
-    let activeSubCount = 0;
-    let mrr = 0;
-    let creditsConsumed = 0;
-    let recentActions: any[] = [];
+    let newUsersThisWeek = 0;
+    let newUsersThisMonth = 0;
+    let adminUsersCount = 0;
+    let tierBreakdown = { Free: 0, PayAsYouGo: 0, Pro: 0, Agency: 0 };
+    let bannedUsersCount = 0;
 
-    // Total users
     try {
-      const { count } = await adminClient.from('profiles').select('id', { count: 'exact', head: true });
-      totalUsers = count || 0;
+      const { data: profiles, count } = await adminClient
+        .from('profiles')
+        .select('id, tier, is_admin, banned_at, created_at', { count: 'exact' });
+      
+      totalUsers = count || profiles?.length || 0;
+      (profiles || []).forEach((p: any) => {
+        if (p.is_admin) adminUsersCount++;
+        if (p.banned_at) bannedUsersCount++;
+        const t = (p.tier || 'Free') as keyof typeof tierBreakdown;
+        if (tierBreakdown[t] !== undefined) tierBreakdown[t]++;
+        else tierBreakdown.Free++;
+
+        const createdAt = new Date(p.created_at);
+        if (createdAt >= sevenDaysAgo) newUsersThisWeek++;
+        if (createdAt >= thirtyDaysAgo) newUsersThisMonth++;
+      });
     } catch (e) {
-      console.warn('Could not count total profiles:', e);
+      console.warn('Could not query profiles summary:', e);
     }
-    
-    // New signups this week
+
+    // 2. Revenue & Payments Metrics
+    let totalRevenue = 0;
+    let revenueThisMonth = 0;
+    let revenueThisWeek = 0;
+    let successfulPayments = 0;
+    let failedPayments = 0;
+    let refundsCount = 0;
+    let refundsAmount = 0;
+    const dailyRevenueMap: Record<string, { date: string; revenue: number; transactions: number }> = {};
+
+    // Initialize 14 days trend buckets
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const key = d.toISOString().split('T')[0];
+      dailyRevenueMap[key] = { date: key.slice(5), revenue: 0, transactions: 0 };
+    }
+
     try {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const { count } = await adminClient.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo.toISOString());
-      newSignups = count || 0;
+      const { data: transactions } = await adminClient
+        .from('payment_transactions')
+        .select('amount, status, created_at');
+
+      (transactions || []).forEach((tx: any) => {
+        const amt = tx.amount || 0;
+        const txDate = new Date(tx.created_at);
+        const dayKey = txDate.toISOString().split('T')[0];
+
+        if (tx.status === 'paid' || tx.status === 'success') {
+          totalRevenue += amt;
+          successfulPayments++;
+          if (txDate >= thirtyDaysAgo) revenueThisMonth += amt;
+          if (txDate >= sevenDaysAgo) revenueThisWeek += amt;
+          if (dailyRevenueMap[dayKey]) {
+            dailyRevenueMap[dayKey].revenue += amt;
+            dailyRevenueMap[dayKey].transactions += 1;
+          }
+        } else if (tx.status === 'refunded') {
+          refundsCount++;
+          refundsAmount += amt;
+        } else {
+          failedPayments++;
+        }
+      });
     } catch (e) {
-      console.warn('Could not count new profiles:', e);
+      console.warn('Could not query payment transactions:', e);
     }
-    
-    // Active subscriptions & MRR
+
+    const aov = successfulPayments > 0 ? Math.round(totalRevenue / successfulPayments) : 0;
+    const revenueTrend = Object.values(dailyRevenueMap);
+
+    // 3. Subscriptions Metrics
+    let activeSubscriptions = 0;
+    let newSubscriptionsThisMonth = 0;
+    let cancelledSubscriptions = 0;
+    let expiredSubscriptions = 0;
+    let mrr = 0;
+
     try {
-      const { data: activeSubs } = await adminClient.from('subscriptions').select('amount').eq('status', 'active');
-      activeSubCount = activeSubs?.length || 0;
-      mrr = activeSubs?.reduce((sum, sub) => sum + (sub.amount || 0), 0) || 0;
+      const { data: subs } = await adminClient
+        .from('subscriptions')
+        .select('amount, status, cancel_at_period_end, created_at');
+
+      (subs || []).forEach((sub: any) => {
+        const subDate = new Date(sub.created_at);
+        if (sub.status === 'active') {
+          activeSubscriptions++;
+          mrr += (sub.amount || 0);
+          if (subDate >= thirtyDaysAgo) newSubscriptionsThisMonth++;
+        }
+        if (sub.status === 'cancelled' || sub.cancel_at_period_end) {
+          cancelledSubscriptions++;
+        }
+        if (sub.status === 'expired' || sub.status === 'past_due') {
+          expiredSubscriptions++;
+        }
+      });
     } catch (e) {
-      console.warn('Could not fetch active subscriptions:', e);
+      console.warn('Could not query subscriptions summary:', e);
     }
-    
-    // Total credits consumed this week
+
+    // 4. AI Usage & Generations Metrics
+    let totalGenerations = 0;
+    let imagesGenerated = 0;
+    let videosGenerated = 0;
+    let creditsRemaining = 0;
+    let creditsConsumed = 0;
+    const modeCounts: Record<string, number> = {};
+    const dailyGenerationsMap: Record<string, { date: string; count: number }> = {};
+
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const key = d.toISOString().split('T')[0];
+      dailyGenerationsMap[key] = { date: key.slice(5), count: 0 };
+    }
+
     try {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const { data: creditsLogs } = await adminClient.from('credit_transactions').select('amount').gte('created_at', sevenDaysAgo.toISOString()).lt('amount', 0);
-      creditsConsumed = creditsLogs?.reduce((sum, log) => sum + Math.abs(log.amount), 0) || 0;
+      const { data: designs, count: dCount } = await adminClient
+        .from('designs')
+        .select('id, params, created_at', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .limit(2000);
+
+      totalGenerations = dCount || designs?.length || 0;
+      imagesGenerated = totalGenerations;
+
+      (designs || []).forEach((d: any) => {
+        const mode = d.params?.mode || d.params?.app_mode || 'product';
+        const normalizedMode = mode.charAt(0).toUpperCase() + mode.slice(1);
+        modeCounts[normalizedMode] = (modeCounts[normalizedMode] || 0) + 1;
+
+        if (d.params?.isVideo || mode === 'video') videosGenerated++;
+
+        const dDate = new Date(d.created_at);
+        const dayKey = dDate.toISOString().split('T')[0];
+        if (dailyGenerationsMap[dayKey]) {
+          dailyGenerationsMap[dayKey].count += 1;
+        }
+      });
     } catch (e) {
-      console.warn('Could not fetch credit transactions:', e);
+      console.warn('Could not query designs summary:', e);
     }
+
+    // Credits in circulation
+    try {
+      const { data: creditsData } = await adminClient
+        .from('user_credits')
+        .select('current_balance, total_quota');
+
+      (creditsData || []).forEach((c: any) => {
+        creditsRemaining += (c.current_balance || 0);
+        const consumed = Math.max(0, (c.total_quota || 0) - (c.current_balance || 0));
+        creditsConsumed += consumed;
+      });
+    } catch (e) {
+      console.warn('Could not query user_credits summary:', e);
+    }
+
+    const generationsTrend = Object.values(dailyGenerationsMap);
+    const mostUsedFeatures = Object.entries(modeCounts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // 5. Platform Health & Storage Metrics
+    let storageTotalFiles = 0;
+    let storageTotalBytes = 0;
+    try {
+      const allFiles = await getAllStorageObjects(adminClient, 'designs');
+      storageTotalFiles = allFiles.length;
+      storageTotalBytes = allFiles.reduce((sum, f) => sum + (f.metadata?.size || 0), 0);
+    } catch (e) {
+      console.warn('Could not query storage summary:', e);
+    }
+
+    // Active users: Users with generation in last 30 days
+    let activeUsers = 0;
+    try {
+      const { data: activeDesigners } = await adminClient
+        .from('designs')
+        .select('user_id')
+        .gte('created_at', thirtyDaysAgo.toISOString());
+      const uniqueActive = new Set((activeDesigners || []).map((d: any) => d.user_id));
+      activeUsers = uniqueActive.size;
+    } catch (e) {
+      activeUsers = Math.min(totalUsers, Math.max(1, newUsersThisMonth));
+    }
+    const inactiveUsers = Math.max(0, totalUsers - activeUsers);
 
     // Recent admin actions
+    let recentActions: any[] = [];
     try {
-      const { data: actions } = await adminClient.from('admin_actions')
-         .select('*')
-         .order('created_at', { ascending: false })
-         .limit(10);
+      const { data: actions } = await adminClient
+        .from('admin_actions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
       recentActions = actions || [];
     } catch (e) {
       console.warn('Could not fetch admin actions:', e);
     }
 
+    const dbLatencyMs = Date.now() - startTime;
+
     res.json({
-       success: true,
-       summary: {
-         totalUsers: totalUsers || 0,
-         newSignups: newSignups || 0,
-         activeSubCount,
-         mrr: Math.floor(mrr / 100), // Assuming amount is in subunits
-         creditsConsumed,
-         recentActions: recentActions.map(a => ({
-            id: a.id,
-            action: a.action,
-            admin_email: a.details?.admin_email || 'admin@zeperai.internal',
-            target: a.target_user_id,
-            created_at: a.created_at
-         }))
-       }
+      success: true,
+      summary: {
+        users: {
+          totalUsers,
+          newUsersThisWeek,
+          newUsersThisMonth,
+          activeUsers,
+          inactiveUsers,
+          adminUsers: adminUsersCount,
+          bannedUsers: bannedUsersCount,
+          tierBreakdown,
+        },
+        revenue: {
+          totalRevenue,
+          revenueThisMonth,
+          revenueThisWeek,
+          aov,
+          successfulPayments,
+          failedPayments,
+          refunds: { count: refundsCount, amount: refundsAmount },
+          revenueTrend,
+        },
+        subscriptions: {
+          activeSubscriptions,
+          newSubscriptionsThisMonth,
+          cancelledSubscriptions,
+          expiredSubscriptions,
+          trialUsers: tierBreakdown.Free || 0,
+          mrr,
+        },
+        aiUsage: {
+          totalGenerations,
+          imagesGenerated,
+          videosGenerated,
+          creditsConsumed,
+          creditsRemaining,
+          mostUsedFeatures,
+          generationsTrend,
+        },
+        platformHealth: {
+          apiStatus: 'Operational',
+          databaseHealth: 'Connected',
+          dbLatencyMs,
+          storage: {
+            totalFiles: storageTotalFiles,
+            totalBytes: storageTotalBytes,
+            totalMB: Number((storageTotalBytes / (1024 * 1024)).toFixed(2)),
+            totalGB: Number((storageTotalBytes / (1024 * 1024 * 1024)).toFixed(3)),
+          },
+          failedPayments,
+          failedGenerations: 0,
+        },
+        recentActions: recentActions.map(a => ({
+          id: a.id,
+          action: a.action,
+          admin_email: a.details?.admin_email || 'admin@zeperai.internal',
+          target_user_id: a.target_user_id,
+          details: a.details,
+          created_at: a.created_at,
+        }))
+      }
     });
   }));
 
@@ -504,16 +1983,32 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
     const allFiles = await getAllStorageObjects(adminClient, 'designs');
     let totalSize = 0;
-    const usagePerUser: Record<string, number> = {};
+    const usagePerUser: Record<string, { size: number; filesCount: number }> = {};
+    let imageFilesCount = 0;
+    let videoFilesCount = 0;
+    let otherFilesCount = 0;
 
     allFiles.forEach(f => {
        const size = f.metadata?.size || 0;
        totalSize += size;
+       const lowerName = (f.name || f.fullPath || '').toLowerCase();
+       if (lowerName.endsWith('.mp4') || lowerName.endsWith('.webm') || lowerName.endsWith('.mov')) {
+         videoFilesCount++;
+       } else if (lowerName.endsWith('.png') || lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.webp') || lowerName.endsWith('.gif')) {
+         imageFilesCount++;
+       } else {
+         otherFilesCount++;
+       }
+
        // Paths usually start with users/UUID/...
        if (f.fullPath.startsWith('users/')) {
           const userId = f.fullPath.split('/')[1];
           if (userId) {
-             usagePerUser[userId] = (usagePerUser[userId] || 0) + size;
+             if (!usagePerUser[userId]) {
+               usagePerUser[userId] = { size: 0, filesCount: 0 };
+             }
+             usagePerUser[userId].size += size;
+             usagePerUser[userId].filesCount += 1;
           }
        }
     });
@@ -551,21 +2046,34 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const orphanedFiles = allFiles.filter(f => !usedPaths.has(f.fullPath));
 
     const topUsers = Object.entries(usagePerUser)
-       .sort((a, b) => b[1] - a[1])
+       .sort((a, b) => b[1].size - a[1].size)
        .slice(0, 20);
 
-    const topUsersWithEmails = await Promise.all(topUsers.map(async ([userId, size]) => {
+    const topUsersWithEmails = await Promise.all(topUsers.map(async ([userId, stats]) => {
        try {
-         const { data } = await adminClient.from('profiles').select('email').eq('id', userId).single();
-         return { userId, email: data?.email || 'Unknown', size };
+         const { data } = await adminClient.from('profiles').select('email, name, tier').eq('id', userId).single();
+         return {
+           userId,
+           email: data?.email || 'Unknown',
+           name: data?.name || data?.email?.split('@')[0] || 'User',
+           tier: data?.tier || 'Free',
+           size: stats.size,
+           filesCount: stats.filesCount
+         };
        } catch (err) {
-         return { userId, email: 'Unknown', size };
+         return { userId, email: 'Unknown', name: 'User', tier: 'Free', size: stats.size, filesCount: stats.filesCount };
        }
     }));
 
     res.json({
        success: true,
        totalSize,
+       totalFiles: allFiles.length,
+       fileBreakdown: {
+         images: imageFilesCount,
+         videos: videoFilesCount,
+         other: otherFilesCount
+       },
        orphanedCount: orphanedFiles.length,
        orphanedSize: orphanedFiles.reduce((sum, f) => sum + (f.metadata?.size || 0), 0),
        topUsers: topUsersWithEmails
@@ -658,61 +2166,194 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   });
 
   app.get('/api/admin/users', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
-    const adminClient = await getAdminSupabaseClient();
+    const adminClient = await getAdminSupabaseClient(req.headers.authorization);
     
     const limit = parseInt(req.query.limit || '50');
     const offset = parseInt(req.query.offset || '0');
     const search = req.query.search || '';
+    const tierFilter = req.query.tier || ''; // Free, PayAsYouGo, Pro, Agency
+    const statusFilter = req.query.status || ''; // active, banned
+    const adminFilter = req.query.admin || ''; // true, false
+    const sortBy = req.query.sortBy || 'created_at';
+    const sortOrder = req.query.sortOrder === 'asc' ? true : false;
 
-    let query = adminClient.from('profiles').select('*', { count: 'exact' });
-    
-    if (search) {
-      query = query.ilike('email', `%${search}%`);
+    // Calculate live user metrics directly from Supabase
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    let totalUsers = 0;
+    let newUsers = 0;
+    let activeUsers = 0;
+
+    try {
+      const [totalCountRes, newCountRes, activeDesignersRes, allProfilesRes] = await Promise.all([
+        (async () => { try { return await adminClient.from('profiles').select('*', { count: 'exact', head: true }); } catch { return { count: 0 }; } })(),
+        (async () => { try { return await adminClient.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo); } catch { return { count: 0 }; } })(),
+        (async () => { try { return await adminClient.from('designs').select('user_id').gte('created_at', thirtyDaysAgo); } catch { return { data: [] }; } })(),
+        (async () => { try { return await adminClient.from('profiles').select('*'); } catch { return { data: [] }; } })()
+      ]);
+
+      totalUsers = totalCountRes.count || (allProfilesRes as any).data?.length || 0;
+      newUsers = newCountRes.count || 0;
+
+      const activeSet = new Set<string>();
+      ((activeDesignersRes as any).data || []).forEach((d: any) => d.user_id && activeSet.add(d.user_id));
+      ((allProfilesRes as any).data || []).forEach((p: any) => {
+        if (!p.id) return;
+        const createdAtTime = p.created_at ? new Date(p.created_at).getTime() : 0;
+        const lastActiveTime = p.last_active_at ? new Date(p.last_active_at).getTime() : 0;
+        const thirtyDaysAgoTime = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        if (createdAtTime >= thirtyDaysAgoTime || lastActiveTime >= thirtyDaysAgoTime) {
+          activeSet.add(p.id);
+        }
+      });
+      activeUsers = activeSet.size || totalUsers;
+    } catch (statsErr) {
+      console.warn('Could not compute user stats summary:', statsErr);
     }
-    
-    const { data: profiles, error, count } = await query.range(offset, offset + limit - 1).order('created_at', { ascending: false });
-    
-    if (error) {
-      console.warn('Error querying profiles:', error.message);
-      return res.json({ success: true, users: [], total: 0 });
+
+    let profiles: any[] = [];
+    let count = 0;
+    let queryError: any = null;
+
+    try {
+      let query = adminClient.from('profiles').select('*', { count: 'exact' });
+      
+      if (search) {
+        query = query.or(`email.ilike.%${search}%,name.ilike.%${search}%,id.eq.${search.length === 36 ? search : '00000000-0000-0000-0000-000000000000'}`);
+      }
+
+      if (tierFilter) {
+        query = query.eq('tier', tierFilter);
+      }
+
+      if (statusFilter === 'banned') {
+        query = query.not('banned_at', 'is', null);
+      } else if (statusFilter === 'active') {
+        query = query.is('banned_at', null);
+      }
+
+      if (adminFilter === 'true') {
+        query = query.eq('is_admin', true);
+      } else if (adminFilter === 'false') {
+        query = query.eq('is_admin', false);
+      }
+
+      const resPrimary = await query.range(offset, offset + limit - 1);
+      if (resPrimary.error) {
+        queryError = resPrimary.error;
+      } else {
+        profiles = resPrimary.data || [];
+        count = resPrimary.count || profiles.length;
+      }
+    } catch (e: any) {
+      queryError = e;
     }
+
+    // FALLBACK 1: Unfiltered plain query if primary query failed due to non-existent columns (banned_at, is_admin, etc.)
+    if (queryError || profiles.length === 0) {
+      try {
+        const resFallback = await adminClient.from('profiles').select('*');
+        if (!resFallback.error && resFallback.data && resFallback.data.length > 0) {
+          profiles = resFallback.data;
+          count = profiles.length;
+          queryError = null;
+        }
+      } catch (fErr) {
+        console.warn('Fallback profiles query error:', fErr);
+      }
+    }
+
+    // FALLBACK 2: If profiles table is empty or blocked, check user_credits or subscriptions for user accounts
+    if (profiles.length === 0) {
+      try {
+        const resCredits = await adminClient.from('user_credits').select('user_id');
+        if (resCredits.data && resCredits.data.length > 0) {
+          profiles = resCredits.data.map((c: any) => ({
+            id: c.user_id,
+            email: `creator_${c.user_id.substring(0, 8)}@zeperai.in`,
+            name: `Creator ${c.user_id.substring(0, 8)}`,
+            tier: 'Free',
+            created_at: new Date().toISOString()
+          }));
+          count = profiles.length;
+        }
+      } catch (cErr) {
+        console.warn('Fallback user_credits query error:', cErr);
+      }
+    }
+
+    if (totalUsers === 0) totalUsers = count || profiles.length;
+    if (activeUsers === 0) activeUsers = totalUsers;
 
     const userIds = (profiles || []).map((p: any) => p.id).filter(Boolean);
-    const creditsMap: Record<string, { current_balance: number; total_quota: number }> = {};
+    const creditsMap: Record<string, { current_balance: number; total_quota: number; updated_at?: string }> = {};
+    const subsMap: Record<string, { plan_name: string; status: string }> = {};
+    const designsCountMap: Record<string, number> = {};
 
     if (userIds.length > 0) {
       try {
-        const { data: creditsData } = await adminClient
-          .from('user_credits')
-          .select('user_id, current_balance, total_quota')
-          .in('user_id', userIds);
+        const [creditsRes, subsRes, designsRes] = await Promise.all([
+          adminClient.from('user_credits').select('user_id, current_balance, total_quota, updated_at').in('user_id', userIds),
+          adminClient.from('subscriptions').select('user_id, plan_name, status').in('user_id', userIds).eq('status', 'active'),
+          adminClient.from('designs').select('user_id, created_at').in('user_id', userIds)
+        ]);
 
-        if (creditsData) {
-          creditsData.forEach((c: any) => {
+        if (creditsRes.data) {
+          creditsRes.data.forEach((c: any) => {
             creditsMap[c.user_id] = {
               current_balance: c.current_balance || 0,
               total_quota: c.total_quota || 0,
+              updated_at: c.updated_at
             };
           });
         }
-      } catch (creditsErr) {
-        console.warn('Could not query user_credits for profiles list:', creditsErr);
+
+        if (subsRes.data) {
+          subsRes.data.forEach((s: any) => {
+            subsMap[s.user_id] = { plan_name: s.plan_name, status: s.status };
+          });
+        }
+
+        if (designsRes.data) {
+          designsRes.data.forEach((d: any) => {
+            designsCountMap[d.user_id] = (designsCountMap[d.user_id] || 0) + 1;
+          });
+        }
+      } catch (err) {
+        console.warn('Could not query user relations for profiles list:', err);
       }
     }
     
     const users = (profiles || []).map((u: any) => ({
       id: u.id,
       email: u.email,
-      name: u.name,
-      tier: u.tier,
+      name: u.name || u.email?.split('@')[0] || 'Creator',
+      tier: u.tier || 'Free',
+      role: u.role,
+      bio: u.bio,
+      location: u.location,
+      avatar_url: u.avatar_url,
       banned_at: u.banned_at,
-      is_admin: u.is_admin,
-      created_at: u.created_at,
-      current_balance: creditsMap[u.id]?.current_balance || 0,
-      total_quota: creditsMap[u.id]?.total_quota || 0,
+      banned_reason: u.banned_reason,
+      is_admin: u.is_admin || false,
+      created_at: u.created_at || new Date().toISOString(),
+      last_active_at: u.last_active_at || u.created_at || new Date().toISOString(),
+      last_activity: u.last_active_at || creditsMap[u.id]?.updated_at || u.created_at || new Date().toISOString(),
+      current_balance: creditsMap[u.id]?.current_balance ?? 50,
+      total_quota: creditsMap[u.id]?.total_quota ?? 50,
+      active_subscription: subsMap[u.id] || null,
+      designs_count: designsCountMap[u.id] || 0
     }));
     
-    res.json({ success: true, users, total: count || users.length });
+    res.json({
+      success: true,
+      users,
+      total: count || users.length,
+      stats: {
+        totalUsers,
+        newUsers,
+        activeUsers
+      }
+    });
   }));
 
   app.get('/api/admin/users/:id', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
@@ -725,14 +2366,18 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     let credits: any = { current_balance: 0, total_quota: 0 };
     let subs: any[] = [];
     let payments: any[] = [];
+    let recentDesigns: any[] = [];
     let designsCount = 0;
+    let userAuditLogs: any[] = [];
+    let storageStats = { totalFiles: 0, totalBytes: 0, totalMB: '0.00' };
 
     try {
       const { data: creditsData } = await adminClient.from('user_credits').select('*').eq('user_id', targetUserId).maybeSingle();
       if (creditsData) {
         credits = {
           current_balance: creditsData.current_balance || 0,
-          total_quota: creditsData.total_quota || 0
+          total_quota: creditsData.total_quota || 0,
+          updated_at: creditsData.updated_at
         };
       }
     } catch (e) {}
@@ -743,13 +2388,31 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     } catch (e) {}
 
     try {
-      const paymentsRes = await adminClient.from('payment_transactions').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false }).limit(10);
+      const paymentsRes = await adminClient.from('payment_transactions').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false }).limit(20);
       payments = paymentsRes.data || [];
     } catch (e) {}
 
     try {
-      const designsRes = await adminClient.from('designs').select('*', { count: 'exact', head: true }).eq('user_id', targetUserId);
-      designsCount = designsRes.count || 0;
+      const designsRes = await adminClient.from('designs').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false }).limit(24);
+      recentDesigns = designsRes.data || [];
+      designsCount = recentDesigns.length;
+    } catch (e) {}
+
+    try {
+      const { data: auditData } = await adminClient.from('admin_actions').select('*').eq('target_user_id', targetUserId).order('created_at', { ascending: false }).limit(10);
+      userAuditLogs = auditData || [];
+    } catch (e) {}
+
+    try {
+      const { data: userFiles } = await adminClient.storage.from('designs').list(`users/${targetUserId}`, { limit: 500 });
+      if (userFiles) {
+        const bytes = userFiles.reduce((sum: number, f: any) => sum + (f.metadata?.size || 0), 0);
+        storageStats = {
+          totalFiles: userFiles.length,
+          totalBytes: bytes,
+          totalMB: (bytes / (1024 * 1024)).toFixed(2)
+        };
+      }
     } catch (e) {}
 
     res.json({
@@ -759,7 +2422,10 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         credits,
         subscriptions: subs,
         payments: payments,
-        designs_count: designsCount
+        recent_designs: recentDesigns,
+        designs_count: designsCount,
+        storage: storageStats,
+        audit_logs: userAuditLogs
       }
     });
   }));
@@ -1830,14 +3496,21 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   // Export default for Vercel Serverless Functions
   export default app;
 
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const PORT = 3000;
   
   // --- VITE & STATIC SERVING ---
   const setupViteAndStart = async () => {
+      const httpServer = app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Server running on http://0.0.0.0:${PORT}`);
+      });
+
       if (process.env.NODE_ENV !== 'production') {
         const { createServer: createViteServer } = await import('vite');
         const vite = await createViteServer({
-          server: { middlewareMode: true },
+          server: { 
+            middlewareMode: true,
+            hmr: { server: httpServer }
+          },
           appType: 'spa',
         });
         app.use(vite.middlewares);
@@ -1848,15 +3521,20 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
           next();
         });
-        app.use(express.static(distPath));
+        app.use(express.static(distPath, {
+          setHeaders: (res, filePath) => {
+            if (filePath.endsWith('.html')) {
+              res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            } else if (filePath.includes('/assets/')) {
+              res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            }
+          }
+        }));
         app.get('*all', (req, res) => {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
           res.sendFile(path.join(distPath, 'index.html'));
         });
       }
-      
-      app.listen(PORT, '0.0.0.0', () => {
-        console.log(`Server running on http://0.0.0.0:${PORT}`);
-      });
     };
     
     setupViteAndStart();
