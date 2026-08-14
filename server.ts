@@ -1287,17 +1287,19 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     // 1. Query designs table
     let query = adminClient
       .from('designs')
-      .select('id, user_id, title, image_url, prompt, aspect_ratio, params, created_at', { count: 'exact' });
+      .select('id, user_id, image_url, caption, hashtags, aspect_ratio, params, created_at', { count: 'exact' });
 
     if (userIdFilter) {
       query = query.eq('user_id', userIdFilter);
     }
 
-    if (search) {
-      query = query.or(`prompt.ilike.%${search}%,title.ilike.%${search}%,id.eq.${search.length === 36 ? search : '00000000-0000-0000-0000-000000000000'}`);
+    if (search && isUuid(search)) {
+      query = query.or(`caption.ilike.%${search}%,id.eq.${search}`);
+    } else if (search) {
+      query = query.ilike('caption', `%${search}%`);
     }
 
-    const hasPostFilter = !!((statusFilter && statusFilter !== 'all') || (studioFilter && studioFilter !== 'all'));
+    const hasPostFilter = !!(search || (statusFilter && statusFilter !== 'all') || (studioFilter && studioFilter !== 'all'));
     let rows: any[] = [];
     let dbCount = 0;
 
@@ -1335,8 +1337,9 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     // Normalize each generation record
     const generations = (rows || []).map((d: any) => {
       const params = d.params || {};
-      const mode = params.mode || params.app_mode || (params.studio ? `${params.studio} studio` : 'product');
-      const isVideo = !!(params.isVideo || params.videoUrl || mode === 'video');
+      const rawMode = params.appMode || params.mode || params.app_mode || (params.studio ? `${params.studio} studio` : 'Product');
+      const modeStr = String(rawMode);
+      const isVideo = !!(params.isVideo || params.videoUrl || modeStr.toLowerCase() === 'video');
       
       // Determine generation status and error context safely without exposing API keys
       let status: 'successful' | 'failed' | 'processing' = 'successful';
@@ -1352,6 +1355,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       }
 
       const creator = profilesMap[d.user_id] || { email: 'Unknown', name: 'User', tier: 'Free' };
+      const promptText = params.productDescription || params.prompt || d.caption || 'Custom visual generation';
+      const titleText = d.caption ? (d.caption.length > 50 ? `${d.caption.slice(0, 47)}...` : d.caption) : (params.productDescription ? (params.productDescription.length > 50 ? `${params.productDescription.slice(0, 47)}...` : params.productDescription) : 'Untitled Creative');
 
       return {
         id: d.id,
@@ -1359,12 +1364,12 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         user_name: creator.name,
         user_email: creator.email,
         user_tier: creator.tier,
-        title: d.title || 'Untitled Creative',
-        prompt: d.prompt || params.prompt || 'Custom visual generation',
+        title: titleText,
+        prompt: promptText,
         image_url: d.image_url || params.imageUrl || null,
         thumbnail_url: params.thumbnail_url || d.image_url,
         aspect_ratio: d.aspect_ratio || params.aspectRatio || '1:1',
-        feature: mode.charAt(0).toUpperCase() + mode.slice(1),
+        feature: modeStr.charAt(0).toUpperCase() + modeStr.slice(1),
         is_video: isVideo,
         status,
         error_summary: errorSummary,
@@ -1373,13 +1378,24 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       };
     });
 
-    // Client-side sub-filtering for status if needed
+    // Client-side sub-filtering for status and search if needed
     let filtered = generations;
     if (statusFilter && statusFilter !== 'all') {
       filtered = filtered.filter(g => g.status === statusFilter);
     }
     if (studioFilter && studioFilter !== 'all') {
       filtered = filtered.filter(g => g.feature.toLowerCase().includes(studioFilter.toLowerCase()));
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter(g =>
+        g.prompt?.toLowerCase().includes(q) ||
+        g.title?.toLowerCase().includes(q) ||
+        g.feature?.toLowerCase().includes(q) ||
+        g.user_name?.toLowerCase().includes(q) ||
+        g.user_email?.toLowerCase().includes(q) ||
+        g.id?.toLowerCase().includes(q)
+      );
     }
 
     const totalCount = hasPostFilter ? filtered.length : dbCount;
@@ -1638,18 +1654,25 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       ].join(','));
       csvData = [headers.join(','), ...rows].join('\n');
     } else if (type === 'usage') {
-      const { data: designs } = await adminClient.from('designs').select('id, user_id, title, prompt, aspect_ratio, params, created_at').order('created_at', { ascending: false }).limit(2000);
+      const { data: designs } = await adminClient.from('designs').select('id, user_id, image_url, caption, hashtags, aspect_ratio, params, created_at').order('created_at', { ascending: false }).limit(2000);
       const headers = ['Generation ID', 'User ID', 'Title', 'Aspect Ratio', 'Mode', 'Is Video', 'Prompt', 'Created At'];
-      const rows = (designs || []).map((d: any) => [
-        escapeCsv(d.id),
-        escapeCsv(d.user_id),
-        escapeCsv(d.title || ''),
-        escapeCsv(d.aspect_ratio || '1:1'),
-        escapeCsv(d.params?.mode || 'product'),
-        escapeCsv(d.params?.isVideo ? 'TRUE' : 'FALSE'),
-        escapeCsv(d.prompt || ''),
-        escapeCsv(d.created_at)
-      ].join(','));
+      const rows = (designs || []).map((d: any) => {
+        const rawMode = d.params?.appMode || d.params?.mode || d.params?.app_mode || 'Product';
+        const modeStr = String(rawMode);
+        const normalizedMode = modeStr.charAt(0).toUpperCase() + modeStr.slice(1);
+        const promptDisplay = d.params?.productDescription || d.params?.prompt || d.caption || 'Custom visual generation';
+        const titleDisplay = d.caption || d.params?.productDescription || 'Untitled Creative';
+        return [
+          escapeCsv(d.id),
+          escapeCsv(d.user_id),
+          escapeCsv(titleDisplay),
+          escapeCsv(d.aspect_ratio || d.params?.aspectRatio || '1:1'),
+          escapeCsv(normalizedMode),
+          escapeCsv(d.params?.isVideo || modeStr.toLowerCase() === 'video' ? 'TRUE' : 'FALSE'),
+          escapeCsv(promptDisplay),
+          escapeCsv(d.created_at)
+        ].join(',');
+      });
       csvData = [headers.join(','), ...rows].join('\n');
     } else if (type === 'audit_logs') {
       const { data: actions } = await adminClient.from('admin_actions').select('*').order('created_at', { ascending: false }).limit(2000);
@@ -1959,11 +1982,12 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       imagesGenerated = totalGenerations;
 
       (designs || []).forEach((d: any) => {
-        const mode = d.params?.mode || d.params?.app_mode || 'product';
-        const normalizedMode = mode.charAt(0).toUpperCase() + mode.slice(1);
+        const rawMode = d.params?.appMode || d.params?.mode || d.params?.app_mode || 'Product';
+        const modeStr = String(rawMode);
+        const normalizedMode = modeStr.charAt(0).toUpperCase() + modeStr.slice(1);
         modeCounts[normalizedMode] = (modeCounts[normalizedMode] || 0) + 1;
 
-        if (d.params?.isVideo || mode === 'video') videosGenerated++;
+        if (d.params?.isVideo || modeStr.toLowerCase() === 'video') videosGenerated++;
 
         const dDate = new Date(d.created_at);
         const dayKey = dDate.toISOString().split('T')[0];
@@ -3044,6 +3068,151 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
   }));
 
+  // Shared payment fulfillment helper for verify & webhook with idempotency check
+  const fulfillSuccessfulPayment = async ({
+    userId,
+    razorpayPaymentId,
+    razorpayOrderId,
+    amountInRupees,
+    planId
+  }: {
+    userId: string;
+    razorpayPaymentId: string;
+    razorpayOrderId?: string;
+    amountInRupees: number;
+    planId?: string;
+  }) => {
+    if (!userId || userId === 'guest') {
+      return { credited: false, creditsAdded: 0, reason: 'invalid_user' };
+    }
+
+    const adminClient = await getAdminSupabaseClient();
+
+    // 1. Idempotency check: prevent duplicate crediting if verify and webhook both fire
+    if (razorpayPaymentId) {
+      try {
+        const { data: existingTx } = await adminClient
+          .from('payment_transactions')
+          .select('id, credits_added')
+          .eq('razorpay_payment_id', razorpayPaymentId)
+          .limit(1);
+
+        if (existingTx && existingTx.length > 0) {
+          console.log(`[Payment Idempotency] Payment ${razorpayPaymentId} already processed. Skipping duplicate crediting.`);
+          return { credited: false, alreadyProcessed: true, creditsAdded: existingTx[0].credits_added || 0 };
+        }
+      } catch (checkErr) {
+        console.warn('[Payment Idempotency] Check warning:', checkErr);
+      }
+    }
+
+    // 2. Calculate tier & credits using unified tier logic
+    let creditsToAdd = 100;
+    let planName = 'Pro Plan';
+    let userTier = 'Pro';
+    let resolvedPlanId = planId || 'pro';
+    const numAmount = Number(amountInRupees) || 0;
+
+    if (resolvedPlanId === 'pro') {
+      creditsToAdd = 600;
+      planName = 'Pro Subscription (600 Credits / mo)';
+      userTier = 'Pro';
+    } else if (resolvedPlanId === 'payg') {
+      creditsToAdd = 250;
+      planName = 'Pay As You Go (250 Credits)';
+      userTier = 'PayAsYouGo';
+    } else if (numAmount >= 500) {
+      creditsToAdd = 600;
+      planName = 'Pro Subscription (600 Credits / mo)';
+      userTier = 'Pro';
+      resolvedPlanId = 'pro';
+    } else if (numAmount > 0) {
+      creditsToAdd = numAmount;
+      planName = `Pay As You Go (${numAmount} Credits)`;
+      userTier = 'PayAsYouGo';
+      resolvedPlanId = 'payg';
+    }
+
+    try {
+      // 3. Update user_credits balance
+      const { data: current } = await adminClient
+        .from('user_credits')
+        .select('current_balance, total_quota')
+        .eq('user_id', userId)
+        .single();
+
+      if (current) {
+        const newCurrent = (current.current_balance || 0) + creditsToAdd;
+        const newTotal = (current.total_quota || 0) + creditsToAdd;
+        
+        await adminClient
+          .from('user_credits')
+          .update({ 
+            current_balance: newCurrent, 
+            total_quota: newTotal, 
+            updated_at: new Date().toISOString() 
+          })
+          .eq('user_id', userId);
+      } else {
+        await adminClient
+          .from('user_credits')
+          .insert({
+            user_id: userId,
+            current_balance: creditsToAdd,
+            total_quota: creditsToAdd,
+            updated_at: new Date().toISOString()
+          });
+      }
+
+      // 4. Record payment transaction (status: 'paid')
+      await adminClient
+        .from('payment_transactions')
+        .insert({
+          user_id: userId,
+          razorpay_order_id: razorpayOrderId || null,
+          razorpay_payment_id: razorpayPaymentId,
+          plan_id: resolvedPlanId,
+          amount: numAmount || (resolvedPlanId === 'pro' ? 599 : 250),
+          currency: 'INR',
+          credits_added: creditsToAdd,
+          status: 'paid',
+          created_at: new Date().toISOString()
+        });
+
+      // 5. Upsert active subscription record
+      await adminClient
+        .from('subscriptions')
+        .insert({
+          user_id: userId,
+          plan_id: resolvedPlanId,
+          plan_name: planName,
+          status: 'active',
+          amount: numAmount || (resolvedPlanId === 'pro' ? 599 : 250),
+          currency: 'INR',
+          credits_allocated: creditsToAdd,
+          razorpay_order_id: razorpayOrderId || null,
+          razorpay_payment_id: razorpayPaymentId,
+          current_period_start: new Date().toISOString(),
+          current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      // 6. Update profile tier
+      await adminClient
+        .from('profiles')
+        .update({
+          tier: userTier
+        })
+        .eq('id', userId);
+
+      return { credited: true, creditsAdded: creditsToAdd, planName, userTier };
+    } catch (dbErr) {
+      console.error('[fulfillSuccessfulPayment] Error writing subscription/credits to Supabase:', dbErr);
+      return { credited: false, error: dbErr, creditsAdded: creditsToAdd };
+    }
+  };
+
   app.post(['/api/razorpay/verify', '/api/verify-payment', '/razorpay/verify', '/verify-payment'], requireAuth, asyncHandler(async (req: any, res: any) => {
     const { 
       razorpay_order_id, 
@@ -3074,114 +3243,22 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
     console.log(`[Production] Verified Razorpay Payment: ${razorpay_payment_id} for Order: ${razorpay_order_id}`);
 
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    let creditsToAdd = 100;
-    let planName = 'Pro Plan';
-    let userTier = 'Pro';
     const numAmount = Number(amount) || 0;
+    const fulfillment = await fulfillSuccessfulPayment({
+      userId: effectiveUserId,
+      razorpayPaymentId: razorpay_payment_id,
+      razorpayOrderId: razorpay_order_id,
+      amountInRupees: numAmount,
+      planId: planId
+    });
 
-    if (planId === 'pro') {
-      creditsToAdd = 600;
-      planName = 'Pro Subscription (600 Credits / mo)';
-      userTier = 'Pro';
-    } else if (planId === 'payg') {
-      creditsToAdd = 250;
-      planName = 'Pay As You Go (250 Credits)';
-      userTier = 'PayAsYouGo';
-    } else if (numAmount >= 500) {
-      creditsToAdd = 600;
-      planName = 'Pro Subscription (600 Credits / mo)';
-      userTier = 'Pro';
-    } else if (numAmount > 0) {
-      creditsToAdd = numAmount;
-      planName = `Pay As You Go (${numAmount} Credits)`;
-      userTier = 'PayAsYouGo';
-    }
-
-    if (effectiveUserId && effectiveUserId !== 'guest') {
-      try {
-        const adminClient = await getAdminSupabaseClient();
-        
-        // 1. Update user_credits balance
-        const { data: current } = await adminClient
-          .from('user_credits')
-          .select('current_balance, total_quota')
-          .eq('user_id', effectiveUserId)
-          .single();
-
-        if (current) {
-          const newCurrent = (current.current_balance || 0) + creditsToAdd;
-          const newTotal = (current.total_quota || 0) + creditsToAdd;
-          
-          await adminClient
-            .from('user_credits')
-            .update({ 
-              current_balance: newCurrent, 
-              total_quota: newTotal, 
-              updated_at: new Date().toISOString() 
-            })
-            .eq('user_id', effectiveUserId);
-        } else {
-          await adminClient
-            .from('user_credits')
-            .insert({
-              user_id: effectiveUserId,
-              current_balance: creditsToAdd,
-              total_quota: creditsToAdd,
-              updated_at: new Date().toISOString()
-            });
-        }
-
-        // 2. Record payment transaction
-        await adminClient
-          .from('payment_transactions')
-          .insert({
-            user_id: effectiveUserId,
-            razorpay_order_id: razorpay_order_id,
-            razorpay_payment_id: razorpay_payment_id,
-            plan_id: planId || 'pro',
-            amount: numAmount || (planId === 'pro' ? 599 : 250),
-            currency: 'INR',
-            credits_added: creditsToAdd,
-            status: 'paid',
-            created_at: new Date().toISOString()
-          });
-
-        // 3. Upsert active subscription record
-        await adminClient
-          .from('subscriptions')
-          .insert({
-            user_id: effectiveUserId,
-            plan_id: planId || 'pro',
-            plan_name: planName,
-            status: 'active',
-            amount: numAmount || (planId === 'pro' ? 599 : 250),
-            currency: 'INR',
-            credits_allocated: creditsToAdd,
-            razorpay_order_id: razorpay_order_id,
-            razorpay_payment_id: razorpay_payment_id,
-            current_period_start: new Date().toISOString(),
-            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-
-        // 4. Update profile tier
-        await adminClient
-          .from('profiles')
-          .update({
-            tier: userTier
-          })
-          .eq('id', effectiveUserId);
-
-      } catch (dbErr) {
-        console.error('[API: verify] Error writing subscription/credits to Supabase:', dbErr);
-      }
-    }
-
-    return res.json({ success: true, status: 'ok', verified: true, creditsAdded: creditsToAdd });
+    return res.json({ 
+      success: true, 
+      status: 'ok', 
+      verified: true, 
+      creditsAdded: fulfillment.creditsAdded || 0,
+      alreadyProcessed: (fulfillment as any).alreadyProcessed || false
+    });
   }));
 
   app.post('/api/razorpay/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -3205,35 +3282,23 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       console.log('Razorpay Webhook Event:', event.event);
 
       if (event.event === 'payment.captured') {
-        const payment = event.payload.payment.entity;
-        const userId = payment.notes?.userId;
-        
-        if (userId && userId !== 'guest') {
-          try {
-            const adminClient = await getAdminSupabaseClient();
-            
-            // Basic webhook credit logic
-            console.log(`Payment captured via webhook for user: ${userId}`);
-            const { data: current, error: fetchErr } = await adminClient
-              .from('user_credits')
-              .select('current_balance, total_quota')
-              .eq('user_id', userId)
-              .single();
+        const payment = event.payload?.payment?.entity;
+        if (payment) {
+          const userId = payment.notes?.userId || payment.notes?.user_id;
+          const planId = payment.notes?.planId || payment.notes?.plan_id;
+          const amountInRupees = (payment.amount || 0) / 100; // Razorpay payload amount is in paise
+          const razorpayPaymentId = payment.id;
+          const razorpayOrderId = payment.order_id;
 
-            if (current) {
-              const newCurrent = (current.current_balance || 0) + 100;
-              const newTotal = (current.total_quota || 0) + 100;
-              await adminClient
-                .from('user_credits')
-                .update({ current_balance: newCurrent, total_quota: newTotal, updated_at: new Date().toISOString() })
-                .eq('user_id', userId);
-            } else {
-              await adminClient
-                .from('user_credits')
-                .insert({ user_id: userId, current_balance: 100, total_quota: 100, updated_at: new Date().toISOString() });
-            }
-          } catch (dbErr) {
-            console.error('Webhook database error:', dbErr);
+          if (userId && userId !== 'guest') {
+            console.log(`Payment captured via webhook for user: ${userId}, payment: ${razorpayPaymentId}, amount: ₹${amountInRupees}`);
+            await fulfillSuccessfulPayment({
+              userId,
+              razorpayPaymentId,
+              razorpayOrderId,
+              amountInRupees,
+              planId
+            });
           }
         }
       }
