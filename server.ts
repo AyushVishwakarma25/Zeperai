@@ -219,7 +219,8 @@ const isUuid = (str?: string) => {
 };
 
 const requireAuth = async (req: any, res: any, next: any) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
+  const rawToken = req.headers.authorization || (req.query?.token as string) || '';
+  const token = rawToken.replace(/^Bearer\s+/i, '').trim();
   if (!token) return res.status(401).json({ error: 'Not authenticated. Please log in to continue.' });
 
   // 1. Check for dedicated decoupled admin token
@@ -451,13 +452,29 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const validSortCols = ['created_at', 'current_period_end', 'current_period_start', 'amount', 'status'];
     const orderCol = validSortCols.includes(sortBy) ? sortBy : 'created_at';
     
-    const { data, error, count } = await query
-      .range(offset, offset + limit - 1)
-      .order(orderCol, { ascending: sortOrder });
-    
-    if (error) {
-      console.warn('Error querying subscriptions:', error.message);
-      return res.json({ success: true, subscriptions: [], total: 0 });
+    const hasPostFilter = !!paymentStatusFilter;
+    let data: any[] = [];
+    let dbCount = 0;
+
+    if (hasPostFilter) {
+      const { data: allSubs, error } = await query
+        .order(orderCol, { ascending: sortOrder })
+        .limit(2000);
+      if (error) {
+        console.warn('Error querying subscriptions:', error.message);
+        return res.json({ success: true, subscriptions: [], total: 0 });
+      }
+      data = allSubs || [];
+    } else {
+      const { data: pageSubs, count, error } = await query
+        .order(orderCol, { ascending: sortOrder })
+        .range(offset, offset + limit - 1);
+      if (error) {
+        console.warn('Error querying subscriptions:', error.message);
+        return res.json({ success: true, subscriptions: [], total: 0 });
+      }
+      data = pageSubs || [];
+      dbCount = count || data.length;
     }
 
     // Fetch related payment transactions for payment status correlation
@@ -511,7 +528,10 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       subscriptions = subscriptions.filter((s: any) => s.payment_status?.toLowerCase() === paymentStatusFilter.toLowerCase());
     }
     
-    res.json({ success: true, subscriptions, total: count || subscriptions.length });
+    const totalCount = hasPostFilter ? subscriptions.length : dbCount;
+    const paginatedSubscriptions = hasPostFilter ? subscriptions.slice(offset, offset + limit) : subscriptions;
+
+    res.json({ success: true, subscriptions: paginatedSubscriptions, total: totalCount });
   }));
 
   // --- ADMIN PAYMENTS & REVENUE ROUTES ---
@@ -1277,12 +1297,23 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       query = query.or(`prompt.ilike.%${search}%,title.ilike.%${search}%,id.eq.${search.length === 36 ? search : '00000000-0000-0000-0000-000000000000'}`);
     }
 
-    const { data: rows, count, error } = await query
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    const hasPostFilter = !!((statusFilter && statusFilter !== 'all') || (studioFilter && studioFilter !== 'all'));
+    let rows: any[] = [];
+    let dbCount = 0;
 
-    if (error) {
-      console.warn('Error querying designs monitoring:', error.message);
+    if (hasPostFilter) {
+      const { data, error } = await query
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (error) console.warn('Error querying designs monitoring:', error.message);
+      rows = data || [];
+    } else {
+      const { data, count, error } = await query
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+      if (error) console.warn('Error querying designs monitoring:', error.message);
+      rows = data || [];
+      dbCount = count || rows.length;
     }
 
     // Also get all distinct profiles to annotate creators
@@ -1351,15 +1382,17 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       filtered = filtered.filter(g => g.feature.toLowerCase().includes(studioFilter.toLowerCase()));
     }
 
+    const totalCount = hasPostFilter ? filtered.length : dbCount;
+    const paginatedGenerations = hasPostFilter ? filtered.slice(offset, offset + limit) : filtered;
+
     // Summary counters for quick operational health check
-    const totalCount = count || generations.length;
     const successfulCount = generations.filter(g => g.status === 'successful').length;
     const failedCount = generations.filter(g => g.status === 'failed').length;
     const processingCount = generations.filter(g => g.status === 'processing').length;
 
     res.json({
       success: true,
-      generations: filtered,
+      generations: paginatedGenerations,
       total: totalCount,
       metrics: {
         totalEvaluated: generations.length,
@@ -1405,12 +1438,27 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       query = query.lte('created_at', end.toISOString());
     }
 
-    const { data: logs, count, error } = await query
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    const hasPostFilter = !!(adminEmailFilter || search);
+    let logs: any[] = [];
+    let dbCount = 0;
 
-    if (error) {
-      console.warn('Error fetching audit logs:', error.message);
+    if (hasPostFilter) {
+      const { data, error } = await query
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (error) {
+        console.warn('Error fetching audit logs:', error.message);
+      }
+      logs = data || [];
+    } else {
+      const { data, count: countVal, error } = await query
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+      if (error) {
+        console.warn('Error fetching audit logs:', error.message);
+      }
+      logs = data || [];
+      dbCount = countVal || logs.length;
     }
 
     // Resolve target user names/emails where possible
@@ -1459,6 +1507,9 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       );
     }
 
+    const totalLogsCount = hasPostFilter ? enrichedLogs.length : dbCount;
+    const paginatedLogs = hasPostFilter ? enrichedLogs.slice(offset, offset + limit) : enrichedLogs;
+
     // Extract list of distinct actions for filter dropdowns
     const distinctActions = [
       'adjust_credits',
@@ -1474,8 +1525,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
     res.json({
       success: true,
-      logs: enrichedLogs,
-      total: count || enrichedLogs.length,
+      logs: paginatedLogs,
+      total: totalLogsCount,
       availableActions: distinctActions
     });
   }));
@@ -2270,7 +2321,10 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const statusFilter = req.query.status || ''; // active, banned
     const adminFilter = req.query.admin || ''; // true, false
     const sortBy = req.query.sortBy || 'created_at';
-    const sortOrder = req.query.sortOrder === 'asc' ? true : false;
+    const sortOrder = req.query.sortOrder === 'asc';
+
+    const validSortCols = ['created_at', 'name', 'email', 'tier', 'role', 'last_active_at', 'id'];
+    const orderCol = validSortCols.includes(sortBy) ? sortBy : 'created_at';
 
     // Calculate live user metrics directly from Supabase
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -2332,19 +2386,21 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         query = query.eq('is_admin', false);
       }
 
+      query = query.order(orderCol, { ascending: sortOrder });
+
       const resPrimary = await query.range(offset, offset + limit - 1);
       if (resPrimary.error) {
         queryError = resPrimary.error;
       } else {
         profiles = resPrimary.data || [];
-        count = resPrimary.count || profiles.length;
+        count = (resPrimary.count !== null && resPrimary.count !== undefined) ? resPrimary.count : profiles.length;
       }
     } catch (e: any) {
       queryError = e;
     }
 
-    // FALLBACK 1: Unfiltered plain query if primary query failed due to non-existent columns (banned_at, is_admin, etc.)
-    if (queryError || profiles.length === 0) {
+    // FALLBACK 1: Unfiltered plain query ONLY if primary query encountered a database error
+    if (queryError) {
       try {
         const resFallback = await adminClient.from('profiles').select('*');
         if (!resFallback.error && resFallback.data && resFallback.data.length > 0) {
@@ -2357,8 +2413,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       }
     }
 
-    // FALLBACK 2: If profiles table is empty or blocked, check user_credits or subscriptions for user accounts
-    if (profiles.length === 0) {
+    // FALLBACK 2: If there was a database error and profiles still empty, check user_credits
+    if (queryError && profiles.length === 0) {
       try {
         const resCredits = await adminClient.from('user_credits').select('user_id');
         if (resCredits.data && resCredits.data.length > 0) {
@@ -2488,10 +2544,19 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     } catch (e) {}
 
     try {
-      const designsRes = await adminClient.from('designs').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false }).limit(24);
+      const [countRes, designsRes] = await Promise.all([
+        adminClient.from('designs').select('id', { count: 'exact', head: true }).eq('user_id', targetUserId),
+        adminClient.from('designs').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false }).limit(24)
+      ]);
+      designsCount = (countRes.count !== null && countRes.count !== undefined) ? countRes.count : (designsRes.data ? designsRes.data.length : 0);
       recentDesigns = designsRes.data || [];
-      designsCount = recentDesigns.length;
-    } catch (e) {}
+    } catch (e) {
+      try {
+        const designsRes = await adminClient.from('designs').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false }).limit(24);
+        recentDesigns = designsRes.data || [];
+        designsCount = recentDesigns.length;
+      } catch (innerE) {}
+    }
 
     try {
       const { data: auditData } = await adminClient.from('admin_actions').select('*').eq('target_user_id', targetUserId).order('created_at', { ascending: false }).limit(10);
