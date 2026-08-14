@@ -792,7 +792,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       .eq('id', transactionId);
 
     if (updateErr) {
-      console.warn('Failed to update payment_transactions refund status:', updateErr.message);
+      console.error('Failed to update payment_transactions refund status:', updateErr.message);
+      throw new AppError(`Gateway refund processed successfully (${refundId}), but database record update failed: ${updateErr.message}`, 500);
     }
 
     // 4. Optionally reverse credits allocated
@@ -3068,7 +3069,10 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
   }));
 
-  // Shared payment fulfillment helper for verify & webhook with idempotency check
+  // In-flight payment lock map to prevent near-simultaneous concurrency on the same instance
+  const inFlightPayments = new Set<string>();
+
+  // Shared payment fulfillment helper for verify & webhook with bulletproof idempotency & atomic gating
   const fulfillSuccessfulPayment = async ({
     userId,
     razorpayPaymentId,
@@ -3086,55 +3090,88 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       return { credited: false, creditsAdded: 0, reason: 'invalid_user' };
     }
 
+    // 1. In-flight memory lock
+    if (razorpayPaymentId && inFlightPayments.has(razorpayPaymentId)) {
+      console.log(`[Payment Idempotency] Payment ${razorpayPaymentId} is already in-flight. Skipping parallel processing.`);
+      return { credited: false, alreadyProcessed: true, creditsAdded: 0 };
+    }
+    if (razorpayPaymentId) inFlightPayments.add(razorpayPaymentId);
+
     const adminClient = await getAdminSupabaseClient();
 
-    // 1. Idempotency check: prevent duplicate crediting if verify and webhook both fire
-    if (razorpayPaymentId) {
-      try {
-        const { data: existingTx } = await adminClient
-          .from('payment_transactions')
-          .select('id, credits_added')
-          .eq('razorpay_payment_id', razorpayPaymentId)
-          .limit(1);
-
-        if (existingTx && existingTx.length > 0) {
-          console.log(`[Payment Idempotency] Payment ${razorpayPaymentId} already processed. Skipping duplicate crediting.`);
-          return { credited: false, alreadyProcessed: true, creditsAdded: existingTx[0].credits_added || 0 };
-        }
-      } catch (checkErr) {
-        console.warn('[Payment Idempotency] Check warning:', checkErr);
-      }
-    }
-
-    // 2. Calculate tier & credits using unified tier logic
-    let creditsToAdd = 100;
-    let planName = 'Pro Plan';
-    let userTier = 'Pro';
-    let resolvedPlanId = planId || 'pro';
-    const numAmount = Number(amountInRupees) || 0;
-
-    if (resolvedPlanId === 'pro') {
-      creditsToAdd = 600;
-      planName = 'Pro Subscription (600 Credits / mo)';
-      userTier = 'Pro';
-    } else if (resolvedPlanId === 'payg') {
-      creditsToAdd = 250;
-      planName = 'Pay As You Go (250 Credits)';
-      userTier = 'PayAsYouGo';
-    } else if (numAmount >= 500) {
-      creditsToAdd = 600;
-      planName = 'Pro Subscription (600 Credits / mo)';
-      userTier = 'Pro';
-      resolvedPlanId = 'pro';
-    } else if (numAmount > 0) {
-      creditsToAdd = numAmount;
-      planName = `Pay As You Go (${numAmount} Credits)`;
-      userTier = 'PayAsYouGo';
-      resolvedPlanId = 'payg';
-    }
-
     try {
-      // 3. Update user_credits balance
+      // 2. Pre-check: prevent duplicate crediting if already recorded
+      if (razorpayPaymentId) {
+        try {
+          const { data: existingTx } = await adminClient
+            .from('payment_transactions')
+            .select('id, credits_added')
+            .eq('razorpay_payment_id', razorpayPaymentId)
+            .limit(1);
+
+          if (existingTx && existingTx.length > 0) {
+            console.log(`[Payment Idempotency] Payment ${razorpayPaymentId} already recorded in payment_transactions. Skipping duplicate crediting.`);
+            return { credited: false, alreadyProcessed: true, creditsAdded: existingTx[0].credits_added || 0 };
+          }
+        } catch (checkErr) {
+          console.warn('[Payment Idempotency] Check warning:', checkErr);
+        }
+      }
+
+      // 3. Calculate tier & credits using unified tier logic
+      let creditsToAdd = 100;
+      let planName = 'Pro Plan';
+      let userTier = 'Pro';
+      let resolvedPlanId = planId || 'pro';
+      const numAmount = Number(amountInRupees) || 0;
+
+      if (resolvedPlanId === 'pro') {
+        creditsToAdd = 600;
+        planName = 'Pro Subscription (600 Credits / mo)';
+        userTier = 'Pro';
+      } else if (resolvedPlanId === 'payg') {
+        creditsToAdd = 250;
+        planName = 'Pay As You Go (250 Credits)';
+        userTier = 'PayAsYouGo';
+      } else if (numAmount >= 500) {
+        creditsToAdd = 600;
+        planName = 'Pro Subscription (600 Credits / mo)';
+        userTier = 'Pro';
+        resolvedPlanId = 'pro';
+      } else if (numAmount > 0) {
+        creditsToAdd = numAmount;
+        planName = `Pay As You Go (${numAmount} Credits)`;
+        userTier = 'PayAsYouGo';
+        resolvedPlanId = 'payg';
+      }
+
+      // 4. ATOMIC GATE: Insert into payment_transactions FIRST before adding any credits.
+      // If the unique constraint on razorpay_payment_id blocks it, we abort immediately.
+      const { error: txInsertErr } = await adminClient
+        .from('payment_transactions')
+        .insert({
+          user_id: userId,
+          razorpay_order_id: razorpayOrderId || null,
+          razorpay_payment_id: razorpayPaymentId,
+          plan_id: resolvedPlanId,
+          amount: numAmount || (resolvedPlanId === 'pro' ? 599 : 250),
+          currency: 'INR',
+          credits_added: creditsToAdd,
+          status: 'paid',
+          created_at: new Date().toISOString()
+        });
+
+      if (txInsertErr) {
+        // Code 23505 is PostgreSQL unique_violation
+        if (txInsertErr.code === '23505' || txInsertErr.message?.includes('duplicate key') || txInsertErr.message?.includes('unique constraint')) {
+          console.log(`[Payment Idempotency] Unique constraint blocked duplicate insert for ${razorpayPaymentId}. Aborting credit increment.`);
+          return { credited: false, alreadyProcessed: true, creditsAdded: creditsToAdd };
+        }
+        console.error('[fulfillSuccessfulPayment] Error inserting payment_transaction:', txInsertErr.message);
+        return { credited: false, error: txInsertErr, creditsAdded: 0 };
+      }
+
+      // 5. Only after payment_transactions insert succeeds do we update user_credits
       const { data: current } = await adminClient
         .from('user_credits')
         .select('current_balance, total_quota')
@@ -3164,22 +3201,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           });
       }
 
-      // 4. Record payment transaction (status: 'paid')
-      await adminClient
-        .from('payment_transactions')
-        .insert({
-          user_id: userId,
-          razorpay_order_id: razorpayOrderId || null,
-          razorpay_payment_id: razorpayPaymentId,
-          plan_id: resolvedPlanId,
-          amount: numAmount || (resolvedPlanId === 'pro' ? 599 : 250),
-          currency: 'INR',
-          credits_added: creditsToAdd,
-          status: 'paid',
-          created_at: new Date().toISOString()
-        });
-
-      // 5. Upsert active subscription record
+      // 6. Upsert active subscription record
       await adminClient
         .from('subscriptions')
         .insert({
@@ -3198,7 +3220,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           updated_at: new Date().toISOString()
         });
 
-      // 6. Update profile tier
+      // 7. Update profile tier
       await adminClient
         .from('profiles')
         .update({
@@ -3207,9 +3229,11 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         .eq('id', userId);
 
       return { credited: true, creditsAdded: creditsToAdd, planName, userTier };
-    } catch (dbErr) {
-      console.error('[fulfillSuccessfulPayment] Error writing subscription/credits to Supabase:', dbErr);
-      return { credited: false, error: dbErr, creditsAdded: creditsToAdd };
+    } catch (dbErr: any) {
+      console.error('[fulfillSuccessfulPayment] Unexpected error during payment fulfillment:', dbErr);
+      return { credited: false, error: dbErr, creditsAdded: 0 };
+    } finally {
+      if (razorpayPaymentId) inFlightPayments.delete(razorpayPaymentId);
     }
   };
 

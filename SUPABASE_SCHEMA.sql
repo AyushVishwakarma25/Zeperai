@@ -58,6 +58,11 @@ create table if not exists public.payment_transactions (
   currency text default 'INR',
   credits_added integer not null default 0,
   status text not null default 'paid',
+  refund_id text,
+  refund_amount integer,
+  refund_reason text,
+  refunded_at timestamp with time zone,
+  updated_at timestamp with time zone default timezone('utc'::text, now()),
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
