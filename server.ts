@@ -101,6 +101,10 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       connectSrc: [
         "'self'",
+        "https:",
+        "wss:",
+        "data:",
+        "blob:",
         "https://*.razorpay.com",
         "https://api.razorpay.com",
         "https://lumberjack.razorpay.com",
@@ -112,6 +116,10 @@ app.use(helmet({
         "https://*.supabase.co",
         "wss://*.supabase.co",
         "https://generativelanguage.googleapis.com",
+        "https://*.googleapis.com",
+        "https://*.google.com",
+        "https://*.googleusercontent.com",
+        "https://api.dicebear.com",
         "https://*.run.app"
       ],
       scriptSrc: [
@@ -151,10 +159,20 @@ app.use(helmet({
 }));
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.run.app') || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.run.app') ||
+      origin.endsWith('.googleusercontent.com') ||
+      origin.includes('google') ||
+      origin.includes('ai.studio') ||
+      origin.includes('localhost') ||
+      origin.includes('127.0.0.1') ||
+      process.env.NODE_ENV !== 'production'
+    ) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, true);
     }
   },
   credentials: true
