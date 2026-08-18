@@ -23,8 +23,8 @@ create table if not exists public.profiles (
 -- 2. USER CREDITS TABLE
 create table if not exists public.user_credits (
   user_id uuid references public.profiles(id) on delete cascade not null primary key,
-  current_balance integer default 50,
-  total_quota integer default 50,
+  current_balance numeric(10,2) default 10,
+  total_quota numeric(10,2) default 10,
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );
 
@@ -65,6 +65,24 @@ create table if not exists public.payment_transactions (
   updated_at timestamp with time zone default timezone('utc'::text, now()),
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- 4b. CREDIT TRANSACTIONS TABLE (Complete Immutable Credit Ledger)
+create table if not exists public.credit_transactions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  transaction_type text not null, -- 'subscription_grant', 'credit_purchase', 'generation', 'generation_refund', 'catalog_discount', 'admin_adjustment', 'promotional_credit', 'expiration'
+  amount numeric(10,2) not null,
+  balance_before numeric(10,2) not null,
+  balance_after numeric(10,2) not null,
+  reference_type text, -- 'payment', 'subscription', 'generation', 'catalog_batch', 'refund', 'admin_adjustment', 'expiration'
+  reference_id text,
+  model text,
+  resolution text,
+  studio text,
+  metadata jsonb default '{}'::jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
 
 -- 5. DESIGNS TABLE
 create table if not exists public.designs (
@@ -140,7 +158,9 @@ alter table public.profiles enable row level security;
 alter table public.user_credits enable row level security;
 alter table public.subscriptions enable row level security;
 alter table public.payment_transactions enable row level security;
+alter table public.credit_transactions enable row level security;
 alter table public.designs enable row level security;
+
 alter table public.brand_kits enable row level security;
 alter table public.saved_models enable row level security;
 alter table public.feedback enable row level security;
@@ -170,6 +190,11 @@ create policy "Users can view own subscriptions" on public.subscriptions for sel
 -- Payment Transactions
 drop policy if exists "Users can view own transactions" on public.payment_transactions;
 create policy "Users can view own transactions" on public.payment_transactions for select using (auth.uid() = user_id);
+
+-- Credit Transactions (Ledger)
+drop policy if exists "Users can view own credit ledger" on public.credit_transactions;
+create policy "Users can view own credit ledger" on public.credit_transactions for select using (auth.uid() = user_id);
+
 
 -- Designs
 drop policy if exists "Users can view own designs" on public.designs;
@@ -230,11 +255,11 @@ begin
   on conflict (id) do nothing;
   
   insert into public.user_credits (user_id, current_balance, total_quota)
-  values (new.id, 50, 50)
+  values (new.id, 10, 10)
   on conflict (user_id) do nothing;
 
   insert into public.subscriptions (user_id, plan_id, plan_name, status, amount, credits_allocated)
-  values (new.id, 'free', 'Free Trial', 'active', 0, 50);
+  values (new.id, 'free', 'Free Trial', 'active', 0, 10);
   
   return new;
 end;
@@ -254,6 +279,10 @@ create index if not exists idx_subscriptions_created_at on public.subscriptions(
 create index if not exists idx_payment_transactions_user_id on public.payment_transactions(user_id);
 create index if not exists idx_payment_transactions_status on public.payment_transactions(status);
 create index if not exists idx_payment_transactions_created_at on public.payment_transactions(created_at desc);
+create index if not exists idx_credit_transactions_user_id on public.credit_transactions(user_id);
+create index if not exists idx_credit_transactions_type on public.credit_transactions(transaction_type);
+create index if not exists idx_credit_transactions_created_at on public.credit_transactions(created_at desc);
+
 create index if not exists idx_designs_user_id on public.designs(user_id);
 create index if not exists idx_designs_created_at on public.designs(created_at desc);
 create index if not exists idx_profiles_tier on public.profiles(tier);

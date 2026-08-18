@@ -106,14 +106,19 @@ const AppInternal: React.FC = () => {
   const handleCheckCredits = useCallback((cost: number) => {
       const success = appData.checkAndDeductCredits(cost, false);
       if (!success) {
-          const message = appData.credits <= 0 
-            ? "You've used all your free credits. Upgrade to keep creating stunning ads!" 
-            : `Insufficient credits! Required: ${cost}. You have ${appData.credits}.`;
+          const isPaid = userTier === 'PayAsYouGo' || (user?.tier && user.tier !== 'Free');
+          const message = isPaid
+            ? `You're out of credits! Required: ${cost}, available: ${appData.credits}. Buy a credit pack or upgrade.`
+            : "You've reached your free trial limit. Start Pro to unlock 120 monthly credits & all studios!";
           setToast({ message, type: 'error' });
-          modals.openPricing();
+          modals.openPricing({
+              context: 'out_of_credits',
+              tab: isPaid ? 'topup' : 'subscription'
+          });
       }
       return success;
-  }, [appData, modals]);
+  }, [appData, modals, userTier, user]);
+
 
   const handleRefundCredits = useCallback((amount: number) => {
       appData.refundCredits(amount, false);
@@ -544,6 +549,7 @@ const AppInternal: React.FC = () => {
                     savedModels={appData.savedModels}
                     onReset={creative.handleResetParams}
                     brandKit={appData.brandKit}
+                    currentCredits={appData.credits}
                 />
             )}
             
@@ -576,7 +582,9 @@ const AppInternal: React.FC = () => {
                 onCloseFeedback={modals.closeFeedback}
 
                 isPricingModalOpen={modals.isPricingOpen}
+                pricingOptions={modals.pricingOptions}
                 onClosePricing={modals.closePricing}
+
 
                 isSupportModalOpen={modals.isSupportOpen}
                 onCloseSupport={modals.closeSupport}
