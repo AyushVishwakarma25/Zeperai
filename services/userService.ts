@@ -52,41 +52,47 @@ export const userService = {
 
     let uid = userId;
     if (!uid) {
+      try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return null;
         uid = user.id;
-    }
-
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', uid)
-        .single();
-    
-    if (error) {
-        // If the table doesn't exist or row is missing, just return null (fallback will handle it)
-        // 42P01: relation does not exist
-        // 404: resource not found (table)
-        // PGRST116: no rows returned (user exists in auth but not profiles table yet)
-        if (error.code !== '42P01' && error.code !== '404' && error.code !== 'PGRST116' && (error as any).status !== 404) {
-             console.warn('Failed to load user profile from DB:', error.message || error);
-        }
+      } catch (e) {
         return null;
+      }
     }
 
-    const isProAdmin = data.email === 'reachtoayush25@gmail.com' || data.email === 'sharma25ayush@gmail.com' || data.id === 'f58676e8-e373-4c97-803b-57451272154c';
+    try {
+      const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', uid)
+          .single();
+      
+      if (error) {
+          // If the table doesn't exist or row is missing, just return null (fallback will handle it)
+          if (error.code !== '42P01' && error.code !== '404' && error.code !== 'PGRST116' && (error as any).status !== 404) {
+               console.warn('Failed to load user profile from DB:', error.message || error);
+          }
+          return null;
+      }
 
-    return {
-        id: data.id,
-        name: data.name,
-        email: data.email,
-        role: data.role || 'Creator',
-        bio: data.bio || '',
-        location: data.location || '',
-        avatarUrl: data.avatar_url || '',
-        tier: isProAdmin ? 'Pro' : ((data.tier as any) || 'Free'),
-        isAdmin: !!data.is_admin
-    };
+      const isProAdmin = data.email === 'reachtoayush25@gmail.com' || data.email === 'sharma25ayush@gmail.com' || data.id === 'f58676e8-e373-4c97-803b-57451272154c';
+
+      return {
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          role: data.role || 'Creator',
+          bio: data.bio || '',
+          location: data.location || '',
+          avatarUrl: data.avatar_url || '',
+          tier: isProAdmin ? 'Pro' : ((data.tier as any) || 'Free'),
+          isAdmin: !!data.is_admin
+      };
+    } catch (dbErr) {
+      console.warn('Profile fetch exception:', dbErr);
+      return null;
+    }
   },
 
   // Update User Profile
@@ -149,27 +155,30 @@ export const userService = {
 
   // Fetch Credit Balance
   async getCredits(): Promise<CreditBalance> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { current: 0, total: 0 };
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { current: 0, total: 0 };
 
-    const { data, error } = await supabase
-        .from('user_credits')
-        .select('current_balance, total_quota')
-        .eq('user_id', user.id)
-        .single();
+      const { data, error } = await supabase
+          .from('user_credits')
+          .select('current_balance, total_quota')
+          .eq('user_id', user.id)
+          .single();
 
-    if (error) {
-        // Silently fail if table missing
-        if (error.code !== '42P01' && error.code !== '404' && (error as any).status !== 404) {
-             console.warn('Failed to load credits:', error.message || error);
-        }
-        return { current: 0, total: 0 };
+      if (error) {
+          if (error.code !== '42P01' && error.code !== '404' && (error as any).status !== 404) {
+               console.warn('Failed to load credits:', error.message || error);
+          }
+          return { current: 0, total: 0 };
+      }
+
+      return {
+          current: data.current_balance,
+          total: data.total_quota
+      };
+    } catch (e) {
+      return { current: 0, total: 0 };
     }
-
-    return {
-        current: data.current_balance,
-        total: data.total_quota
-    };
   },
 
   // Deduct Credits
@@ -214,24 +223,26 @@ export const userService = {
 
   // --- Saved Model Management ---
   async getSavedModels(): Promise<SavedModel[]> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
 
-    const { data, error } = await supabase
-      .from('saved_models')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      // 42P01: relation does not exist (table missing)
-      // 404: resource not found
-      if (error.code !== '42P01' && error.code !== '404' && (error as any).status !== 404) {
-          console.warn("Could not fetch saved models:", error.message);
+      const { data, error } = await supabase
+        .from('saved_models')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        if (error.code !== '42P01' && error.code !== '404' && (error as any).status !== 404) {
+            console.warn("Could not fetch saved models:", error.message);
+        }
+        return [];
       }
+      return data || [];
+    } catch (e) {
       return [];
     }
-    return data;
   },
 
   async saveModel(name: string, imageUrl: string, currentModels: SavedModel[]): Promise<SavedModel[]> {

@@ -7,25 +7,29 @@ export const analysisService = {
    * Fetches the most recent analysis report for the current user.
    */
   async getLatestReport(): Promise<ShopifyAnalysisResult | null> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
 
-    const { data, error } = await supabase
-      .from('analysis_reports')
-      .select('report_data')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+      const { data, error } = await supabase
+        .from('analysis_reports')
+        .select('report_data')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
 
-    if (error || !data) {
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found, which is fine
-        console.warn("Failed to load latest analysis report:", error.message);
+      if (error || !data) {
+        if (error && error.code !== 'PGRST116') {
+          console.warn("Failed to load latest analysis report:", error.message);
+        }
+        return null;
       }
+
+      return data.report_data as ShopifyAnalysisResult;
+    } catch (e) {
       return null;
     }
-
-    return data.report_data as ShopifyAnalysisResult;
   },
 
   /**

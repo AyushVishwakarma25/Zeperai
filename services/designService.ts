@@ -6,54 +6,63 @@ import { createThumbnail } from '../utils/images';
 
 export const designService = {
   async getSavedDesigns(page: number = 0, limit: number = 20): Promise<GeneratedImage[]> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
 
-    const { data, error } = await supabase
-        .from('designs')
-        .select('id, image_url, caption, hashtags, aspect_ratio, created_at, thumbnail_url:params->>thumbnail_url') 
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .range(page * limit, (page + 1) * limit - 1);
+      const { data, error } = await supabase
+          .from('designs')
+          .select('id, image_url, caption, hashtags, aspect_ratio, created_at, thumbnail_url:params->>thumbnail_url') 
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .range(page * limit, (page + 1) * limit - 1);
 
-    if (error) {
-        if (error.code === '42P01' || error.code === '404' || (error as any).status === 404) {
-            return [];
-        }
-        throw error;
+      if (error || !data) {
+          if (error && error.code !== '42P01' && error.code !== '404' && (error as any).status !== 404) {
+              console.warn('Saved designs query error:', error.message || error);
+          }
+          return [];
+      }
+
+      return data.map((row: any) => ({
+          id: row.id,
+          imageUrl: row.image_url,
+          thumbnailUrl: row.thumbnail_url || row.image_url,
+          caption: row.caption || '',
+          hashtags: row.hashtags || '',
+          aspectRatio: row.aspect_ratio,
+          params: {} as any,
+          timestamp: new Date(row.created_at).getTime(),
+      }));
+    } catch (e) {
+      console.warn("Designs fetch exception:", e);
+      return [];
     }
-
-    return data.map((row: any) => ({
-        id: row.id,
-        imageUrl: row.image_url,
-        thumbnailUrl: row.thumbnail_url || row.image_url,
-        caption: row.caption || '',
-        hashtags: row.hashtags || '',
-        aspectRatio: row.aspect_ratio,
-        params: {} as any,
-        timestamp: new Date(row.created_at).getTime(),
-    }));
   },
 
   async getDesignDetails(designId: string): Promise<GeneratedImage | null> {
-    const { data, error } = await supabase
-        .from('designs')
-        .select('*')
-        .eq('id', designId)
-        .single();
-    
-    if (error || !data) return null;
+    try {
+      const { data, error } = await supabase
+          .from('designs')
+          .select('*')
+          .eq('id', designId)
+          .single();
+      
+      if (error || !data) return null;
 
-    return {
-        id: data.id,
-        imageUrl: data.image_url,
-        thumbnailUrl: data.params?.thumbnail_url || data.image_url,
-        caption: data.caption,
-        hashtags: data.hashtags,
-        aspectRatio: data.aspect_ratio,
-        params: data.params || {},
-        timestamp: new Date(data.created_at).getTime(),
-    };
+      return {
+          id: data.id,
+          imageUrl: data.image_url,
+          thumbnailUrl: data.params?.thumbnail_url || data.image_url,
+          caption: data.caption,
+          hashtags: data.hashtags,
+          aspectRatio: data.aspect_ratio,
+          params: data.params || {},
+          timestamp: new Date(data.created_at).getTime(),
+      };
+    } catch (e) {
+      return null;
+    }
   },
 
   /**

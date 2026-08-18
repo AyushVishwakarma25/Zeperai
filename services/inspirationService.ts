@@ -13,31 +13,35 @@ export const inspirationService = {
    * Fetch all inspirations (Static curated list + Community submissions)
    */
   async getInspirations(): Promise<InspirationItem[]> {
-    const { data, error } = await supabase
-      .from(TABLE_NAME)
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      const isSchemaError = error.code === '42P01' || error.code === '404' || error.message.includes('schema cache');
-      if (!isSchemaError) {
-          console.warn("Failed to fetch community inspirations:", error.message);
+      if (error || !data) {
+        const isSchemaError = error?.code === '42P01' || error?.code === '404' || error?.message?.includes('schema cache');
+        if (!isSchemaError && error) {
+            console.warn("Failed to fetch community inspirations:", error.message);
+        }
+        return INSPIRATION_GALLERY; 
       }
-      return INSPIRATION_GALLERY; 
+
+      const communityItems: InspirationItem[] = data.map((row: any) => ({
+        id: row.id,
+        imageUrl: row.image_url,
+        title: row.title || 'Community Design',
+        category: row.category || 'Community',
+        appMode: (row.app_mode as AppMode) || AppMode.Product,
+        isRemixable: true,
+        badge: 'Community',
+        remixParams: row.remix_params || {}
+      }));
+
+      return [...communityItems, ...INSPIRATION_GALLERY];
+    } catch (e) {
+      return INSPIRATION_GALLERY;
     }
-
-    const communityItems: InspirationItem[] = data.map((row: any) => ({
-      id: row.id,
-      imageUrl: row.image_url,
-      title: row.title || 'Community Design',
-      category: row.category || 'Community',
-      appMode: (row.app_mode as AppMode) || AppMode.Product,
-      isRemixable: true,
-      badge: 'Community',
-      remixParams: row.remix_params || {}
-    }));
-
-    return [...communityItems, ...INSPIRATION_GALLERY];
   },
 
   /**
