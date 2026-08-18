@@ -12,6 +12,21 @@
           VITE_SUPABASE_ANON_KEY: 'sb_publishable_6JMJwxQ-176l71T_ULVl2A_82Z0u_rb'
         }
       };
+
+      // Suppress unhandled network rejections in preview sandbox
+      window.addEventListener('unhandledrejection', function (event) {
+        if (event && event.reason && (
+          event.reason.name === 'AbortError' ||
+          (typeof event.reason.message === 'string' && (
+            event.reason.message.includes('Failed to fetch') ||
+            event.reason.message.includes('NetworkError') ||
+            event.reason.message.includes('Refresh Token')
+          ))
+        )) {
+          event.preventDefault();
+          console.warn('Suppressed non-critical background network notice:', event.reason);
+        }
+      });
     </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />

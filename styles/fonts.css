@@ -1,14 +1,7 @@
 
 @font-face {
   font-family: 'Batangas';
-  /* 
-    IMPORTANT: 
-    Please create a new folder path '/assets/fonts/' in your project root.
-    Upload your font files (e.g., Batangas.woff2, Batangas.woff) into that folder.
-    The application will automatically pick them up from there.
-  */
-  src: url('/assets/fonts/Batangas.woff2') format('woff2'),
-       url('/assets/fonts/Batangas.woff') format('woff');
+  src: local('Poppins Bold'), local('Poppins'), local('Inter');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
