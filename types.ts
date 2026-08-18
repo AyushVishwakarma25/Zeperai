@@ -16,9 +16,17 @@ export enum ResolutionQuality {
   TwoK = '2K',
 }
 
+export enum GenerationQuality {
+  Standard = 'Standard',
+  Pro = 'Pro',
+}
+
 export enum ImageModel {
-  NanoBanana = 'Nano Banana',
+  NanoBanana2Lite = 'Nano Banana 2 Lite',
+  NanoBanana2 = 'Nano Banana 2',
   NanoBananaPro = 'Nano Banana Pro',
+  // Backward-compatibility aliases
+  NanoBanana = 'Nano Banana 2',
 }
 
 export enum ProductCategory {
@@ -192,6 +200,7 @@ export interface ElementTransform {
 export interface GenerateImageParams {
   appMode: AppMode;
   imageModel?: ImageModel;
+  quality?: GenerationQuality | 'Standard' | 'Pro';
   productDescription: string;
   aspectRatios: AspectRatio[];
   outputFormat: OutputFormat;

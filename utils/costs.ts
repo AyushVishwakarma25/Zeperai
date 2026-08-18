@@ -1,25 +1,25 @@
 
 import { AppMode, ResolutionQuality, GenerateImageParams, ImageModel } from '../types';
 import { CATALOG_BUNDLE_DISCOUNT } from '../constants';
+import { resolveModelForGeneration } from '../src/config/modelConfig';
 
 /**
  * Calculates the total credit cost for a generation request.
  * 
  * Formula: 
- * (Base Variations) * (Number of Aspect Ratios) * (Model Multiplier)
+ * (Base Variations) * (Number of Aspect Ratios) * (Model Multiplier) * (Quality Multiplier)
  */
 export const calculateGenerationCost = (params: GenerateImageParams, userTier: string): number => {
     // 1. Get Multipliers
     // Default to 1 ratio if array is empty/undefined to prevent 0 cost
     const numRatios = (params.aspectRatios && params.aspectRatios.length > 0) ? params.aspectRatios.length : 1;
     
-    // Model Multipliers:
-    // Nano Banana: 1x (Standard model)
-    // Nano Banana Pro: 2x (Pro model)
-    let modelMultiplier = 1;
-    if (params.imageModel === ImageModel.NanoBananaPro) {
-        modelMultiplier = 2;
-    }
+    // Model Multipliers from Central Model Configuration:
+    // Free -> Nano Banana 2 Lite (1x)
+    // Paid Standard -> Nano Banana 2 (1x)
+    // Paid Pro -> Nano Banana Pro (2x)
+    const resolvedModel = resolveModelForGeneration(userTier, params.quality, params.appMode);
+    const modelMultiplier = resolvedModel.credits;
 
     // Quality Multiplier: 2K quality adds +1 credit per image
     let qualityMultiplier = params.resolutionQuality === ResolutionQuality.TwoK ? 1.5 : 1;

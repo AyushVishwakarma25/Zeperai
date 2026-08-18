@@ -69,7 +69,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Synchronized total quota calculation
-  const totalCredits = userTier === 'Agency' ? 1000 : userTier === 'Standard' || userTier === 'Pro' ? 300 : userTier === 'PayAsYouGo' ? 120 : 50;
+  const totalCredits = userTier === 'Agency' ? 1000 : userTier === 'Standard' || userTier === 'Pro' ? 300 : userTier === 'PayAsYouGo' ? 120 : 10;
   const creditsUsed = Math.max(0, totalCredits - credits);
   // Total Generations counter synced with credits used or actual activity logs
   const totalGenerations = Math.max(creditsUsed, recentActivity.length);

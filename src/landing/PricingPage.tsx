@@ -35,9 +35,9 @@ const PLANS: Plan[] = [
     tagline: 'Perfect for exploring our studio capabilities.',
     price: '₹0',
     cadence: '/ 7 days',
-    creditsLabel: '50 Credits',
+    creditsLabel: '10 Credits',
     features: [
-      { text: '50 free credits for 7 days' },
+      { text: '10 free credits for 7 days' },
       { text: 'Exclusive access to Product Studio' },
       { text: 'Community support' },
       { text: 'Other studios locked for free tier', muted: true },
@@ -108,20 +108,28 @@ interface ImageModel {
 
 const IMAGE_MODELS: ImageModel[] = [
   {
-    id: 'nano-banana',
-    name: 'Nano Banana',
-    apiModel: 'Gemini 3.1 Flash Image',
+    id: 'nano-banana-2-lite',
+    name: 'Nano Banana 2 Lite',
+    apiModel: 'Cheapest & Fastest • Default for Free Accounts',
     credits: 1,
-    badge: 'Standard',
-    description: 'Fast, high-quality studio generation for everyday marketing and ad creatives.',
+    badge: 'Fast & Free',
+    description: 'Cheapest and fastest generation for simple backgrounds, basic variations, quick drafts, and high-volume iterations.',
+  },
+  {
+    id: 'nano-banana-2',
+    name: 'Nano Banana 2',
+    apiModel: 'Balanced Quality & Speed • Standard for Paid Accounts',
+    credits: 1,
+    badge: 'Standard Quality',
+    description: 'Balanced studio quality, speed, and cost. General-purpose workhorse for product photography, lifestyle scenes, and ads.',
   },
   {
     id: 'nano-banana-pro',
     name: 'Nano Banana Pro',
-    apiModel: 'Gemini 3 Pro Image',
+    apiModel: 'Flagship Photorealism • Pro for Paid Accounts',
     credits: 2,
     badge: 'Pro Flagship',
-    description: 'Flagship model for hyper-realistic lighting, intricate textures, and text perfection.',
+    description: 'Highest-quality flagship AI for complex compositions, high-end advertising, intricate textures, and text precision.',
   },
 ];
 

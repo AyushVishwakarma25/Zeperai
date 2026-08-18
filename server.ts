@@ -380,6 +380,17 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       } else {
         profile = initialProfile;
       }
+
+      // Ensure user_credits record exists with proper initial tier allocation (10 credits for Free Trial)
+      const defaultInitialCredits = isProAdmin ? 300 : 10;
+      await adminClient
+        .from('user_credits')
+        .upsert({
+          user_id: userId,
+          current_balance: defaultInitialCredits,
+          total_quota: defaultInitialCredits,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id', ignoreDuplicates: true });
     }
 
     const isProAdmin = profile.email === 'reachtoayush25@gmail.com' || profile.email === 'sharma25ayush@gmail.com' || profile.id === 'f58676e8-e373-4c97-803b-57451272154c' || !!profile.is_admin;
@@ -2532,8 +2543,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       created_at: u.created_at || new Date().toISOString(),
       last_active_at: u.last_active_at || u.created_at || new Date().toISOString(),
       last_activity: u.last_active_at || creditsMap[u.id]?.updated_at || u.created_at || new Date().toISOString(),
-      current_balance: creditsMap[u.id]?.current_balance ?? 50,
-      total_quota: creditsMap[u.id]?.total_quota ?? 50,
+      current_balance: creditsMap[u.id]?.current_balance ?? 10,
+      total_quota: creditsMap[u.id]?.total_quota ?? 10,
       active_subscription: subsMap[u.id] || null,
       designs_count: designsCountMap[u.id] || 0
     }));
@@ -3091,7 +3102,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         subscription_id: subscriptionId,
         status: 'active',
         next_billing_date: '7 days trial period',
-        plan_name: 'Free Starter Plan (50 Credits)',
+        plan_name: 'Free Starter Plan (10 Credits)',
         amount: '₹0 / 7 days'
       });
     }
@@ -3099,7 +3110,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
   // Server-authoritative pricing catalog
   const SERVER_PRICING_CATALOG: Record<string, { name: string; price: number; credits: number; tier: string }> = {
-    free: { name: 'Free Trial', price: 0, credits: 50, tier: 'Free' },
+    free: { name: 'Free Trial', price: 0, credits: 10, tier: 'Free' },
     payg: { name: 'Pay As You Go', price: 999, credits: 120, tier: 'PayAsYouGo' },
     'pay-as-you-go': { name: 'Pay As You Go', price: 999, credits: 120, tier: 'PayAsYouGo' },
     pro: { name: 'Pro Subscription', price: 1999, credits: 300, tier: 'Pro' },
@@ -3394,13 +3405,9 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
   app.post(['/api/gemini/generate', '/gemini/generate'], requireAuth, aiLimiter, asyncHandler(async (req: any, res: any) => {
     const geminiKey = process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.VITE_GeminiAPI;
-    const openaiKey = process.env.OPENAI_API_KEY;
     
-    if (!geminiKey && (!req.body?.model || !req.body.model.toLowerCase().includes('dall-e'))) {
+    if (!geminiKey) {
        throw new AppError("Gemini API Key is not configured on the server.", 500, "AI service configuration is incomplete.");
-    }
-    if (!openaiKey && req.body?.model && req.body.model.toLowerCase().includes('dall-e')) {
-       throw new AppError("OpenAI API Key is not configured on the server.", 500, "DALL-E service configuration is incomplete.");
     }
 
     const { model, contents, config } = req.body;

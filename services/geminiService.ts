@@ -9,7 +9,8 @@ import { getAI } from '../config/ai';
 import { supabase } from './supabaseClient';
 import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS, UGC_STYLE_OPTIONS, AD_STYLE_PRESETS, FASHION_POSE_OPTIONS, FASHION_POSE_TEMPLATES, FASHION_MODEL_LOCKS, FESTIVAL_PRESETS, AD_TEMPLATES } from '../constants';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis, ABTestSuggestion } from '../types';
-import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, FashionGender, RegionalStyle, ProductCategory, ResolutionQuality, AdLayout, ImageModel } from '../types';
+import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, FashionGender, RegionalStyle, ProductCategory, ResolutionQuality, GenerationQuality, AdLayout, ImageModel } from '../types';
+import { resolveModelForGeneration } from '../src/config/modelConfig';
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -515,11 +516,9 @@ async function generateSingleImage(params: GenerateImageParams, aspectRatio: Asp
     else if (aspectRatio === AspectRatio.Landscape) aspectRatioConfig = "16:9";
     else if (aspectRatio === AspectRatio.PortraitPost || aspectRatio === AspectRatio.FashionShopify) aspectRatioConfig = "3:4";
     
-    // Determine the target Google GenAI model
-    let modelName = 'gemini-3.1-flash-image'; // Nano Banana standard model
-    if (params.imageModel === ImageModel.NanoBananaPro) {
-        modelName = 'gemini-3-pro-image'; // Nano Banana Pro high quality model
-    }
+    // Determine the target Google GenAI model using central model architecture
+    const resolvedModel = resolveModelForGeneration(userTier, params.quality, params.appMode);
+    const modelName = resolvedModel.apiModel;
 
     // Determine target size for supported models
     let imageSize: "512px" | "1K" | "2K" | "4K" = "1K";
@@ -534,7 +533,7 @@ async function generateSingleImage(params: GenerateImageParams, aspectRatio: Asp
             config: { 
                 imageConfig: { 
                     aspectRatio: aspectRatioConfig,
-                    ...(modelName !== 'gemini-2.5-flash-image' && modelName !== 'dall-e-3' ? { imageSize } : {})
+                    imageSize
                 }
             },
         });

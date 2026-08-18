@@ -607,6 +607,9 @@ const AppInternal: React.FC = () => {
       <Route path="/admin-login" element={<AdminLoginPage />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route path="/admin-portal" element={<AdminDashboard />} />
+      <Route path="/admin/portal" element={<AdminDashboard />} />
+      <Route path="/admin/dashboard" element={<AdminDashboard />} />
+      <Route path="/admin-dashboard" element={<AdminDashboard />} />
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

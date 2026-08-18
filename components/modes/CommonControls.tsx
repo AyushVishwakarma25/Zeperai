@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import type { GenerateImageParams, AspectRatio } from '../../types';
-import { AppMode, ResolutionQuality, ImageModel } from '../../types';
+import { AppMode, ResolutionQuality, GenerationQuality, ImageModel } from '../../types';
 import { ASPECT_RATIO_OPTIONS, OUTPUT_FORMAT_OPTIONS, RESOLUTION_QUALITY_OPTIONS } from '../../constants';
 import { Select } from '../ui/Select';
 import { Icon } from '../ui/Icon';
@@ -120,70 +120,79 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
                 </div>
             </div>
 
-            {/* AI Generation Model Selection - Simplified to Nano Banana & Nano Banana Pro */}
-            <div className="mt-8 pt-8 border-t border-slate-100">
-                <div className="flex items-center justify-between mb-3">
-                    <SectionTitle title="AI Generation Model" className="m-0" />
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold uppercase tracking-wider">
-                        2 Options
-                    </span>
-                </div>
-                
-                {/* 2-Option selector buttons */}
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                    <button
-                        type="button"
-                        onClick={() => handleParamChange('imageModel', ImageModel.NanoBanana)}
-                        className={`p-3 rounded-xl border-2 text-left transition-all ${
-                            (params.imageModel || ImageModel.NanoBanana) === ImageModel.NanoBanana
-                                ? 'border-primary bg-primary/5 shadow-xs'
-                                : 'border-slate-200 bg-white hover:border-slate-300'
-                        }`}
-                    >
-                        <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-slate-800">Nano Banana</span>
-                            <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded-md font-bold">Standard (1x)</span>
-                        </div>
-                        <p className="text-[10px] text-slate-500 leading-tight">Fast, studio-quality output for general creatives & ads.</p>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => handleParamChange('imageModel', ImageModel.NanoBananaPro)}
-                        className={`p-3 rounded-xl border-2 text-left transition-all ${
-                            params.imageModel === ImageModel.NanoBananaPro
-                                ? 'border-primary bg-primary/5 shadow-xs'
-                                : 'border-slate-200 bg-white hover:border-slate-300'
-                        }`}
-                    >
-                        <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                                Nano Banana Pro
-                            </span>
-                            <span className="text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-md font-bold">Pro (2x)</span>
-                        </div>
-                        <p className="text-[10px] text-slate-500 leading-tight">Flagship photorealism, detailed lighting & text perfection.</p>
-                    </button>
-                </div>
-
-                <button
-                    onClick={() => setShowPricingTable(!showPricingTable)}
-                    className="mt-1 w-full py-2 px-3 bg-slate-100 hover:bg-slate-200/80 text-slate-700 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all border border-slate-200/70"
-                >
-                    <Icon name="sparkles" className="w-3.5 h-3.5 text-primary" />
-                    <span>{showPricingTable ? 'Hide Credit Rates' : 'View Credit Rates'}</span>
-                </button>
-
-                {showPricingTable && (
-                    <div className="mt-4">
-                        <FeaturePricingTable
-                            onOpenPricingModal={onOpenPricingModal}
-                            onClose={() => setShowPricingTable(false)}
-                            compact
-                        />
+            {/* Quality Selection - Available for Paid Accounts Only */}
+            {userTier !== 'Free' && (
+                <div className="mt-8 pt-8 border-t border-slate-100">
+                    <div className="flex items-center justify-between mb-3">
+                        <SectionTitle title="Quality" className="m-0" />
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold uppercase tracking-wider">
+                            Studio Tier
+                        </span>
                     </div>
-                )}
-            </div>
+                    
+                    {/* Quality Selector (Standard vs Pro) */}
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                handleParamChange('quality', GenerationQuality.Standard);
+                                handleParamChange('imageModel', ImageModel.NanoBanana2);
+                            }}
+                            className={`p-3.5 rounded-xl border-2 text-left transition-all ${
+                                (params.quality || GenerationQuality.Standard) === GenerationQuality.Standard
+                                    ? 'border-primary bg-primary/5 shadow-xs'
+                                    : 'border-slate-200 bg-white hover:border-slate-300'
+                            }`}
+                        >
+                            <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-bold text-slate-800">Standard</span>
+                                <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded-md font-bold">1 Credit</span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 leading-tight">Balanced studio quality for e-commerce, lifestyle & social ad creatives.</p>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                handleParamChange('quality', GenerationQuality.Pro);
+                                handleParamChange('imageModel', ImageModel.NanoBananaPro);
+                            }}
+                            className={`p-3.5 rounded-xl border-2 text-left transition-all ${
+                                params.quality === GenerationQuality.Pro
+                                    ? 'border-primary bg-primary/5 shadow-xs'
+                                    : 'border-slate-200 bg-white hover:border-slate-300'
+                            }`}
+                        >
+                            <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                                    Pro
+                                </span>
+                                <span className="text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-md font-bold">2 Credits</span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 leading-tight">Flagship photorealism, detailed packaging, intricate lighting & text precision.</p>
+                        </button>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => setShowPricingTable(!showPricingTable)}
+                        className="mt-1 w-full py-2 px-3 bg-slate-100 hover:bg-slate-200/80 text-slate-700 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all border border-slate-200/70"
+                    >
+                        <Icon name="sparkles" className="w-3.5 h-3.5 text-primary" />
+                        <span>{showPricingTable ? 'Hide Credit Rates' : 'View Credit Rates'}</span>
+                    </button>
+
+                    {showPricingTable && (
+                        <div className="mt-4">
+                            <FeaturePricingTable
+                                onOpenPricingModal={onOpenPricingModal}
+                                onClose={() => setShowPricingTable(false)}
+                                compact
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

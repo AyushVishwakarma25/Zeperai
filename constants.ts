@@ -1,12 +1,13 @@
 
-import { AspectRatio, ModelGender, StylePreset, SkinTone, ClothingType, AppMode, OutputFormat, AdLayout, ResolutionQuality, ProductCategory, MarketplacePreset, CaptionTone, FashionGender, FashionShootType, ModelPersona, ProProductStyleCategory, GenerateImageParams, OutfitChoice, ImageModel } from './types';
+import { AspectRatio, ModelGender, StylePreset, SkinTone, ClothingType, AppMode, OutputFormat, AdLayout, ResolutionQuality, GenerationQuality, ProductCategory, MarketplacePreset, CaptionTone, FashionGender, FashionShootType, ModelPersona, ProProductStyleCategory, GenerateImageParams, OutfitChoice, ImageModel } from './types';
 
 export const AI_SUGGESTED = 'AI Suggested';
-export const FREE_TRIAL_LIMIT = 50;
+export const FREE_TRIAL_LIMIT = 10;
 
 export const INITIAL_GENERATE_PARAMS: GenerateImageParams = {
   appMode: AppMode.Influencer,
-  imageModel: ImageModel.NanoBanana,
+  imageModel: ImageModel.NanoBanana2,
+  quality: GenerationQuality.Standard,
   productDescription: '',
   aspectRatios: [AspectRatio.PortraitPost],
   outputFormat: OutputFormat.JPG,

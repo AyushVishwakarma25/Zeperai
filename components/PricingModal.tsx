@@ -30,16 +30,16 @@ const pricingPlans: PricingPlan[] = [
     id: 'free',
     priceId: 'free',
     name: 'Free Trial',
-    tagline: 'Perfect for exploring our studio capabilities.',
+    tagline: 'Explore studio capabilities.',
     price: '₹0',
     rawAmount: 0,
     period: '7 days',
-    credits: '50 Credits',
+    credits: '10 Credits',
     features: [
-      { text: '50 free credits for 7 days' },
-      { text: 'Exclusive access to Product Studio' },
+      { text: '10 free credits for 7 days' },
+      { text: 'Access to Product Studio' },
       { text: 'Community support' },
-      { text: 'Other studios locked for free tier', muted: true },
+      { text: 'Pro studios locked', muted: true },
     ],
     highlight: false,
     disabled: true,
@@ -49,7 +49,7 @@ const pricingPlans: PricingPlan[] = [
     id: 'payg',
     priceId: 'payg',
     name: 'Pay As You Go',
-    tagline: 'Buy credits as you need them. Nothing expires.',
+    tagline: 'Buy as needed. Never expires.',
     price: '₹999',
     rawAmount: 999,
     period: 'pack',
@@ -57,7 +57,7 @@ const pricingPlans: PricingPlan[] = [
     features: [
       { text: '120 credits top-up pack' },
       { text: 'Credits never expire' },
-      { text: 'All Studios & models unlocked' },
+      { text: 'All Studios unlocked' },
       { text: 'Commercial usage rights' },
     ],
     highlight: false,
@@ -67,7 +67,7 @@ const pricingPlans: PricingPlan[] = [
     id: 'pro',
     priceId: 'pro',
     name: 'Pro Subscription',
-    tagline: 'All premium studios and features fully unlocked.',
+    tagline: 'All premium studios unlocked.',
     price: '₹1,999',
     rawAmount: 1999,
     period: 'month',
@@ -75,8 +75,8 @@ const pricingPlans: PricingPlan[] = [
     features: [
       { text: '300 credits recurrent monthly' },
       { text: 'All Studios & models unlocked' },
-      { text: 'Priority Generation Speed' },
-      { text: 'Commercial Usage Rights' },
+      { text: 'Priority generation speed' },
+      { text: 'Commercial usage rights' },
     ],
     highlight: true,
     badge: 'Most Popular',
@@ -86,7 +86,7 @@ const pricingPlans: PricingPlan[] = [
     id: 'agency',
     priceId: 'agency',
     name: 'Agency Plan',
-    tagline: 'High volume generation for agencies and teams.',
+    tagline: 'High volume for agencies & teams.',
     price: '₹4,999',
     rawAmount: 4999,
     period: 'month',
@@ -112,58 +112,31 @@ interface ImageModelInfo {
 
 const IMAGE_MODELS: ImageModelInfo[] = [
   {
-    name: 'Nano Banana',
-    apiModel: 'Gemini 3.1 Flash Image',
+    name: 'Nano Banana 2 Lite',
+    apiModel: 'Cheapest & Fastest • Default for Free Accounts',
     credits: 1,
-    badge: 'Standard',
-    description: 'Fast, studio-quality generation for everyday marketing and ad creatives.',
+    badge: 'Fast & Free',
+    description: 'Cheapest and fastest generation for simple backgrounds, basic variations, quick drafts, and high-volume iterations.',
+  },
+  {
+    name: 'Nano Banana 2',
+    apiModel: 'Balanced Quality & Speed • Standard for Paid Accounts',
+    credits: 1,
+    badge: 'Standard Quality',
+    description: 'Balanced studio quality, speed, and cost. General-purpose workhorse for product photography, lifestyle scenes, and ads.',
   },
   {
     name: 'Nano Banana Pro',
-    apiModel: 'Gemini 3 Pro Image',
+    apiModel: 'Flagship Photorealism • Pro for Paid Accounts',
     credits: 2,
     badge: 'Pro Flagship',
-    description: 'Flagship model for hyper-realistic lighting, intricate textures, and text perfection.',
+    description: 'Highest-quality flagship AI for complex compositions, high-end advertising, intricate textures, and text precision.',
   },
 ];
 
-const ModelCreditPicker = () => (
-  <div className="mt-8 bg-slate-50 border border-slate-200/80 rounded-2xl p-5 sm:p-6 text-xs text-slate-600">
-    <div className="text-center mb-5">
-      <h4 className="text-base sm:text-lg font-black text-slate-900 mb-1">
-        Pick your AI model per image (6 Options Offered)
-      </h4>
-      <p className="text-xs text-slate-500 max-w-xl mx-auto">
-        Choose from 6 flagship AI models across Google, OpenAI, and Banana Vision. Spend fewer credits on drafts, choose Pro models for production assets.
-      </p>
-    </div>
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
-      {IMAGE_MODELS.map((model) => (
-        <div key={model.name} className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between hover:border-[#4452FB]/40 transition-all shadow-xs">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#4452FB] bg-[#4452FB]/10 px-2.5 py-0.5 rounded-full">
-                {model.badge}
-              </span>
-              <span className="text-xs font-black text-slate-900">
-                {model.credits} {model.credits === 1 ? 'Credit' : 'Credits'}
-              </span>
-            </div>
-            <div className="font-bold text-slate-900 text-sm mb-0.5">{model.name}</div>
-            <div className="text-xs text-slate-400 font-semibold mb-2">{model.apiModel}</div>
-            <p className="text-xs text-slate-600 leading-relaxed">{model.description}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-    <div className="mt-4 text-[11px] text-slate-400 text-center italic">
-      * Credits are billed per output image. Multi-pose and bulk generations charge one credit set per image, not per click.
-    </div>
-  </div>
-);
-
 const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
   const isOnline = useNetworkStatus();
+  const [modalTab, setModalTab] = useState<'plans' | 'models'>('plans');
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -215,149 +188,235 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-6 animate-fade-in-scale-up" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in-scale-up" onClick={onClose}>
       <div 
-        className="bg-white w-full max-w-6xl rounded-3xl shadow-2xl flex flex-col overflow-hidden relative max-h-[92vh]"
+        className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl flex flex-col overflow-hidden relative max-h-[96vh]"
         onClick={e => e.stopPropagation()}
       >
-        <button onClick={onClose} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors z-20">
-          <Icon name="close" className="w-5 h-5"/>
+        {/* Close Button */}
+        <button 
+          onClick={onClose} 
+          className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors z-20"
+          aria-label="Close modal"
+        >
+          <Icon name="close" className="w-4 h-4"/>
         </button>
         
-        <main className="p-6 sm:p-10 overflow-y-auto">
-          <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-12">
-            <span className="inline-block bg-[#4452FB]/10 text-[#4452FB] text-xs font-bold px-3 py-1 rounded-full mb-2 uppercase tracking-wider">
-              Simple, Transparent Pricing
-            </span>
-            <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight mb-2">
-              Choose your Growth Plan
-            </h2>
-            <p className="text-sm sm:text-base text-slate-600">
-              Choose the plan that fits your brand's growth. No hidden fees.
-            </p>
+        {/* Modal Main Content Container */}
+        <main className="p-3.5 sm:p-5 flex flex-col justify-between overflow-y-auto">
+          
+          {/* Header & Tab Selector */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3 pb-2 border-b border-slate-100">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="bg-[#4452FB]/10 text-[#4452FB] text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  Transparent Pricing
+                </span>
+                <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                  Choose your Growth Plan
+                </h2>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Scale your ecommerce visual production with instant credits and unlocked AI studios.
+              </p>
+            </div>
+
+            {/* View Switcher Tabs */}
+            <div className="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 self-start sm:self-auto shrink-0">
+              <button
+                onClick={() => setModalTab('plans')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                  modalTab === 'plans'
+                    ? 'bg-white text-[#4452FB] shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Plans & Pricing
+              </button>
+              <button
+                onClick={() => setModalTab('models')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1 ${
+                  modalTab === 'models'
+                    ? 'bg-white text-[#4452FB] shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>AI Model Rates</span>
+                <span className="text-[9px] px-1 py-0.2 bg-[#4452FB]/10 text-[#4452FB] rounded-full font-extrabold">6</span>
+              </button>
+            </div>
           </div>
 
+          {/* Network and Error/Success Alerts */}
           {!isOnline && (
-              <div className="mb-6 bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-xs text-center font-medium">
+              <div className="mb-2 bg-red-100 border border-red-200 text-red-700 px-3 py-1.5 rounded-xl text-xs text-center font-medium">
                   You are currently offline. Payment features are unavailable.
               </div>
           )}
 
           {errorMessage && (
-              <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-xs flex flex-col gap-1 shadow-xs max-w-2xl mx-auto">
-                  <div className="flex items-center gap-2 font-bold">
-                      <Icon name="info" className="w-4 h-4 text-red-600 shrink-0" />
-                      Checkout Issue Detected
-                  </div>
-                  <p className="text-slate-600 leading-relaxed text-xs">
-                      {errorMessage}
-                  </p>
+              <div className="mb-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-xs flex items-center gap-2 shadow-xs">
+                  <Icon name="info" className="w-4 h-4 text-red-600 shrink-0" />
+                  <span className="text-slate-700 text-xs">{errorMessage}</span>
               </div>
           )}
 
           {successMessage && (
-              <div className="mb-6 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl text-xs font-semibold flex items-center gap-2.5 shadow-xs max-w-2xl mx-auto animate-pulse">
-                  <Icon name="check-circle" className="w-4.5 h-4.5 text-green-600 shrink-0" />
-                  {successMessage}
+              <div className="mb-2 bg-green-50 border border-green-200 text-green-800 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs">
+                  <Icon name="check-circle" className="w-4 h-4 text-green-600 shrink-0" />
+                  <span>{successMessage}</span>
               </div>
           )}
 
-          {/* Cards styled identically to the landing page */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto items-stretch mb-8 pt-4">
-            {pricingPlans.map((plan) => (
-              <div
-                key={plan.id}
-                className={
-                  plan.highlight
-                    ? 'bg-[#4452FB] border border-[#4452FB] rounded-3xl p-6 sm:p-7 shadow-2xl relative flex flex-col'
-                    : 'bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-sm hover:shadow-md transition-all flex flex-col group hover:border-[#4452FB]/30'
-                }
-              >
-                {plan.badge && (
-                  <div className="absolute -top-3.5 left-1/2 transform -translate-x-1/2 bg-white text-[#4452FB] px-4 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider shadow-xl whitespace-nowrap">
-                    {plan.badge}
-                  </div>
-                )}
+          {/* TAB 1: Plans View */}
+          {modalTab === 'plans' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
+              {pricingPlans.map((plan) => {
+                const isPro = plan.highlight;
+                return (
+                  <div
+                    key={plan.id}
+                    className={
+                      isPro
+                        ? 'bg-[#4452FB] border border-[#4452FB] rounded-2xl p-3.5 sm:p-4 shadow-xl relative flex flex-col justify-between text-white'
+                        : 'bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-4 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between hover:border-[#4452FB]/30'
+                    }
+                  >
+                    <div>
+                      {plan.badge && (
+                        <div className="absolute -top-2.5 right-3 bg-white text-[#4452FB] px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-xs">
+                          {plan.badge}
+                        </div>
+                      )}
 
-                <h3 className={`text-xl font-bold mb-1 ${plan.highlight ? 'text-white' : 'text-slate-900'}`}>
-                  {plan.name}
-                </h3>
-                <p className={`mb-4 text-xs ${plan.highlight ? 'text-blue-100 opacity-90' : 'text-slate-500'}`}>
-                  {plan.tagline}
-                </p>
+                      <div className="flex items-baseline justify-between mb-0.5">
+                        <h3 className={`text-sm font-bold ${isPro ? 'text-white' : 'text-slate-900'}`}>
+                          {plan.name}
+                        </h3>
+                      </div>
+                      <p className={`text-[10px] line-clamp-1 mb-2 ${isPro ? 'text-blue-100/90' : 'text-slate-400'}`}>
+                        {plan.tagline}
+                      </p>
 
-                <div className="mb-6">
-                  <span className={`text-4xl sm:text-5xl font-black ${plan.highlight ? 'text-white' : 'text-slate-900'}`}>
-                    {plan.price}
-                  </span>
-                  <span className={`text-xs sm:text-sm ml-1 ${plan.highlight ? 'text-blue-100' : 'text-slate-500'}`}>
-                    / {plan.period}
-                  </span>
-                </div>
+                      <div className="mb-2 flex items-baseline gap-1">
+                        <span className={`text-2xl sm:text-3xl font-black font-mono ${isPro ? 'text-white' : 'text-slate-900'}`}>
+                          {plan.price}
+                        </span>
+                        <span className={`text-[10px] font-semibold ${isPro ? 'text-blue-100' : 'text-slate-400'}`}>
+                          / {plan.period}
+                        </span>
+                      </div>
 
-                <div
-                  className={
-                    plan.highlight
-                      ? 'bg-white/10 backdrop-blur-md rounded-xl p-3 mb-6 text-center border border-white/20 flex items-center justify-center gap-2'
-                      : 'bg-slate-50 rounded-xl p-3 mb-6 text-center border border-slate-100 flex items-center justify-center gap-2'
-                  }
-                >
-                  <Icon
-                    name={plan.highlight ? 'sparkles' : 'stack'}
-                    className={`w-4 h-4 shrink-0 ${plan.highlight ? 'text-white' : 'text-[#4452FB]'}`}
-                  />
-                  <span className={`font-bold text-xs sm:text-sm ${plan.highlight ? 'text-white' : 'text-slate-700'}`}>
-                    {plan.credits}
-                  </span>
-                </div>
-
-                <ul className="space-y-3 mb-8 flex-1">
-                  {plan.features.map((feature, idx) => (
-                    <li
-                      key={idx}
-                      className={`flex items-start gap-2.5 ${feature.muted ? 'opacity-60' : ''}`}
-                    >
-                      <Icon
-                        name={feature.muted ? 'info' : 'check'}
-                        className={`w-4 h-4 shrink-0 mt-0.5 ${
-                          feature.muted ? 'text-slate-400' : plan.highlight ? 'text-white' : 'text-green-500'
-                        }`}
-                      />
-                      <span
+                      {/* Credits Pill */}
+                      <div
                         className={
-                          feature.muted
-                            ? 'text-xs italic text-slate-400'
-                            : plan.highlight
-                            ? 'text-white text-xs sm:text-sm font-medium'
-                            : 'text-slate-700 text-xs sm:text-sm'
+                          isPro
+                            ? 'bg-white/15 backdrop-blur-xs rounded-xl py-1.5 px-2.5 mb-2.5 text-center border border-white/20 flex items-center justify-center gap-1.5'
+                            : 'bg-slate-50 rounded-xl py-1.5 px-2.5 mb-2.5 text-center border border-slate-100 flex items-center justify-center gap-1.5'
                         }
                       >
-                        {feature.text}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                        <Icon
+                          name={isPro ? 'sparkles' : 'stack'}
+                          className={`w-3.5 h-3.5 shrink-0 ${isPro ? 'text-white' : 'text-[#4452FB]'}`}
+                        />
+                        <span className={`font-bold text-xs ${isPro ? 'text-white' : 'text-slate-800'}`}>
+                          {plan.credits}
+                        </span>
+                      </div>
 
-                <button
-                  onClick={() => handleCheckout(plan)}
-                  disabled={plan.disabled || (!isOnline && plan.id !== 'free') || loadingPriceId !== null}
-                  className={
-                    plan.highlight
-                      ? 'w-full py-3.5 px-4 bg-white text-[#4452FB] hover:bg-blue-50 font-black rounded-xl transition-all shadow-xl text-xs sm:text-sm flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed'
-                      : 'w-full py-3.5 px-4 bg-slate-900 text-white hover:bg-slate-800 font-bold rounded-xl transition-all shadow-lg shadow-slate-200 text-xs sm:text-sm flex items-center justify-center gap-2 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed'
-                  }
-                >
-                  {loadingPriceId === plan.priceId ? (
-                    <Spinner />
-                  ) : (
-                    plan.buttonText
-                  )}
-                </button>
+                      {/* Feature Bullet List */}
+                      <ul className="space-y-1.5 mb-3">
+                        {plan.features.map((feature, idx) => (
+                          <li
+                            key={idx}
+                            className={`flex items-center gap-1.5 ${feature.muted ? 'opacity-50' : ''}`}
+                          >
+                            <Icon
+                              name={feature.muted ? 'info' : 'check'}
+                              className={`w-3 h-3 shrink-0 ${
+                                feature.muted ? 'text-slate-400' : isPro ? 'text-white' : 'text-emerald-500'
+                              }`}
+                            />
+                            <span
+                              className={
+                                feature.muted
+                                  ? 'text-[10.5px] italic text-slate-400 line-clamp-1'
+                                  : isPro
+                                  ? 'text-white text-[10.5px] font-medium line-clamp-1'
+                                  : 'text-slate-600 text-[10.5px] line-clamp-1'
+                              }
+                            >
+                              {feature.text}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="pt-2 border-t border-slate-100/20">
+                      <button
+                        onClick={() => handleCheckout(plan)}
+                        disabled={plan.disabled || (!isOnline && plan.id !== 'free') || loadingPriceId !== null}
+                        className={
+                          isPro
+                            ? 'w-full py-2 px-3 bg-white text-[#4452FB] hover:bg-blue-50 font-bold rounded-xl transition-all shadow-sm text-xs flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed'
+                            : plan.disabled
+                            ? 'w-full py-2 px-3 bg-slate-100 text-slate-400 font-semibold rounded-xl text-xs cursor-default flex items-center justify-center'
+                            : 'w-full py-2 px-3 bg-slate-900 text-white hover:bg-slate-800 font-bold rounded-xl transition-all shadow-xs text-xs flex items-center justify-center gap-1.5 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed'
+                        }
+                      >
+                        {loadingPriceId === plan.priceId ? (
+                          <Spinner />
+                        ) : (
+                          plan.buttonText
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* TAB 2: AI Model Rates View */}
+          {modalTab === 'models' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {IMAGE_MODELS.map((model) => (
+                  <div key={model.name} className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex flex-col justify-between hover:border-[#4452FB]/40 transition-all">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-[#4452FB] bg-[#4452FB]/10 px-2 py-0.5 rounded-md">
+                          {model.badge}
+                        </span>
+                        <span className="text-xs font-black text-slate-900 font-mono">
+                          {model.credits} {model.credits === 1 ? 'Credit' : 'Credits'}
+                        </span>
+                      </div>
+                      <div className="font-bold text-slate-900 text-xs mb-0.5">{model.name}</div>
+                      <div className="text-[10px] text-slate-400 font-medium mb-1.5">{model.apiModel}</div>
+                      <p className="text-[10.5px] text-slate-600 leading-snug">{model.description}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+              <div className="text-[10px] text-slate-400 text-center italic pt-1">
+                * Credits are billed per generated image. Multi-pose and batch variations bill according to selected model tier.
+              </div>
+            </div>
+          )}
 
-          <ModelCreditPicker />
+          {/* Modal Footer Micro-note */}
+          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+            <span className="flex items-center gap-1">
+              <Icon name="shield-check" className="w-3 h-3 text-emerald-500" />
+              Secure 256-bit Razorpay Checkout • Instant Credit Allocation
+            </span>
+            <span className="hidden sm:inline">
+              GST invoices with input tax credit auto-generated in account
+            </span>
+          </div>
 
         </main>
       </div>
@@ -366,3 +425,4 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
 };
 
 export default PricingModal;
+

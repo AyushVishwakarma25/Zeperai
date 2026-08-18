@@ -11,22 +11,31 @@ interface FeaturePricingTableProps {
 
 export const ALL_IMAGE_MODELS = [
   {
-    value: ImageModel.NanoBanana,
-    name: 'Nano Banana',
-    apiModel: 'Gemini 3.1 Flash Image',
+    value: ImageModel.NanoBanana2Lite,
+    name: 'Nano Banana 2 Lite',
+    apiModel: 'Cheapest & Fastest • Default for Free Accounts',
     credits: 1,
-    badge: 'Standard',
+    badge: 'Fast & Free',
+    badgeColor: 'bg-blue-100 text-blue-800',
+    description: 'Cheapest and fastest generation for simple backgrounds, basic variations, quick drafts, and high-volume iterations.',
+  },
+  {
+    value: ImageModel.NanoBanana2,
+    name: 'Nano Banana 2',
+    apiModel: 'Balanced Quality & Speed • Standard for Paid Accounts',
+    credits: 1,
+    badge: 'Standard Quality',
     badgeColor: 'bg-emerald-100 text-emerald-800',
-    description: 'Fast, high quality studio generation. Ideal for general creative work, social posts, and product shoots.',
+    description: 'Balanced studio quality, speed, and cost. General-purpose workhorse for product photography, lifestyle scenes, and ads.',
   },
   {
     value: ImageModel.NanoBananaPro,
     name: 'Nano Banana Pro',
-    apiModel: 'Gemini 3 Pro Image',
+    apiModel: 'Flagship Photorealism • Pro for Paid Accounts',
     credits: 2,
     badge: 'Pro Flagship',
     badgeColor: 'bg-amber-100 text-amber-800',
-    description: 'Flagship model for hyper-realistic lighting, intricate textures, prompt adherence, and ultra-high details.',
+    description: 'Highest-quality flagship AI for complex compositions, high-end advertising, intricate textures, and text precision.',
   },
 ];
 
@@ -78,9 +87,9 @@ export const PLAN_PRICING_CATALOG = [
     id: 'free',
     name: 'Free Trial',
     price: '₹0',
-    credits: '50 Credits',
+    credits: '10 Credits',
     period: '7 Days',
-    description: 'Trial package for exploring basic studio features.',
+    description: 'Trial package for exploring basic studio features with 10 free credits.',
   },
   {
     id: 'payg',
