@@ -161,7 +161,11 @@ export const authService = {
    * Sign Out
    */
   async signOut(): Promise<void> {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn("SignOut exception:", e);
+    }
   },
 
   /**
@@ -169,16 +173,21 @@ export const authService = {
    */
   subscribe(callback: (event: string, session: AuthSession | null) => void): { unsubscribe: () => void } {
     const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (session) {
-            const userProfile = await mapUserToProfile(session.user);
-            const authSession: AuthSession = {
-                user: userProfile,
-                token: session.access_token,
-                expiresAt: (session.expires_at || 0) * 1000
-            };
-            callback(event, authSession);
-        } else {
-            callback(event, null);
+        try {
+          if (session) {
+              const userProfile = await mapUserToProfile(session.user);
+              const authSession: AuthSession = {
+                  user: userProfile,
+                  token: session.access_token,
+                  expiresAt: (session.expires_at || 0) * 1000
+              };
+              callback(event, authSession);
+          } else {
+              callback(event, null);
+          }
+        } catch (e) {
+          console.warn("Auth state change callback error:", e);
+          callback(event, null);
         }
     });
     
