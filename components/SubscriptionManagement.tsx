@@ -50,16 +50,16 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
           let nextBilling = 'No recurring billing';
 
           if (normalizedTier === 'PayAsYouGo') {
-            planName = 'Pay As You Go';
-            amountStr = 'Top Up per credit pack';
+            planName = 'Pay As You Go (120 Credits)';
+            amountStr = '₹999 / pack';
             nextBilling = 'Non-recurring / Pay as you go';
           } else if (normalizedTier === 'Standard' || normalizedTier === 'Pro') {
-            planName = 'Pro Creator Subscription (600 Credits/mo)';
-            amountStr = '₹599 / month';
+            planName = 'Pro Subscription (300 Credits/mo)';
+            amountStr = '₹1,999 / month';
             nextBilling = nextMonth;
           } else if (normalizedTier === 'Agency') {
-            planName = 'Agency Scale Subscription (2000 Credits/mo)';
-            amountStr = '₹1,999 / month';
+            planName = 'Agency Plan (1,000 Credits/mo)';
+            amountStr = '₹4,999 / month';
             nextBilling = nextMonth;
           }
 

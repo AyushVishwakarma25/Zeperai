@@ -3036,15 +3036,25 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       day: 'numeric'
     });
 
-    if (currentTier === 'Pro') {
+    if (currentTier === 'Agency') {
       return res.json({
         success: true,
         key_id: keyId,
         subscription_id: subscriptionId,
         status: 'active',
         next_billing_date: formattedBillingDate,
-        plan_name: 'Pro Creator Subscription (600 Credits/mo)',
-        amount: '₹599/mo'
+        plan_name: 'Agency Plan (1,000 Credits/mo)',
+        amount: '₹4,999/mo'
+      });
+    } else if (currentTier === 'Pro') {
+      return res.json({
+        success: true,
+        key_id: keyId,
+        subscription_id: subscriptionId,
+        status: 'active',
+        next_billing_date: formattedBillingDate,
+        plan_name: 'Pro Subscription (300 Credits/mo)',
+        amount: '₹1,999/mo'
       });
     } else if (currentTier === 'PayAsYouGo') {
       return res.json({
@@ -3053,8 +3063,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         subscription_id: subscriptionId,
         status: 'active',
         next_billing_date: 'Non-recurring / Pay as you go',
-        plan_name: 'Pay As You Go',
-        amount: 'Top Up per credit pack'
+        plan_name: 'Pay As You Go (120 Credits)',
+        amount: '₹999 / pack'
       });
     } else {
       return res.json({
@@ -3062,12 +3072,21 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         key_id: keyId,
         subscription_id: subscriptionId,
         status: 'active',
-        next_billing_date: 'No recurring billing',
-        plan_name: 'Free Starter Plan',
-        amount: '₹0 / forever'
+        next_billing_date: '7 days trial period',
+        plan_name: 'Free Starter Plan (50 Credits)',
+        amount: '₹0 / 7 days'
       });
     }
   }));
+
+  // Server-authoritative pricing catalog
+  const SERVER_PRICING_CATALOG: Record<string, { name: string; price: number; credits: number; tier: string }> = {
+    free: { name: 'Free Trial', price: 0, credits: 50, tier: 'Free' },
+    payg: { name: 'Pay As You Go', price: 999, credits: 120, tier: 'PayAsYouGo' },
+    'pay-as-you-go': { name: 'Pay As You Go', price: 999, credits: 120, tier: 'PayAsYouGo' },
+    pro: { name: 'Pro Subscription', price: 1999, credits: 300, tier: 'Pro' },
+    agency: { name: 'Agency Plan', price: 4999, credits: 1000, tier: 'Agency' },
+  };
 
   // In-flight payment lock map to prevent near-simultaneous concurrency on the same instance
   const inFlightPayments = new Set<string>();
@@ -3118,32 +3137,41 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         }
       }
 
-      // 3. Calculate tier & credits using unified tier logic
-      let creditsToAdd = 100;
-      let planName = 'Pro Plan';
+      // 3. Calculate tier & credits using server-authoritative pricing catalog
+      let resolvedPlanId = (planId || 'pro').toLowerCase();
+      let creditsToAdd = 300;
+      let planName = 'Pro Subscription (300 Credits / mo)';
       let userTier = 'Pro';
-      let resolvedPlanId = planId || 'pro';
       const numAmount = Number(amountInRupees) || 0;
 
-      if (resolvedPlanId === 'pro') {
-        creditsToAdd = 600;
-        planName = 'Pro Subscription (600 Credits / mo)';
-        userTier = 'Pro';
-      } else if (resolvedPlanId === 'payg') {
-        creditsToAdd = 250;
-        planName = 'Pay As You Go (250 Credits)';
-        userTier = 'PayAsYouGo';
-      } else if (numAmount >= 500) {
-        creditsToAdd = 600;
-        planName = 'Pro Subscription (600 Credits / mo)';
+      if (SERVER_PRICING_CATALOG[resolvedPlanId]) {
+        const catalogItem = SERVER_PRICING_CATALOG[resolvedPlanId];
+        creditsToAdd = catalogItem.credits;
+        planName = `${catalogItem.name} (${catalogItem.credits} Credits${catalogItem.tier === 'Pro' || catalogItem.tier === 'Agency' ? ' / mo' : ''})`;
+        userTier = catalogItem.tier;
+      } else if (numAmount >= 4999) {
+        creditsToAdd = 1000;
+        planName = 'Agency Plan (1,000 Credits / mo)';
+        userTier = 'Agency';
+        resolvedPlanId = 'agency';
+      } else if (numAmount >= 1999) {
+        creditsToAdd = 300;
+        planName = 'Pro Subscription (300 Credits / mo)';
         userTier = 'Pro';
         resolvedPlanId = 'pro';
+      } else if (numAmount >= 999) {
+        creditsToAdd = 120;
+        planName = 'Pay As You Go (120 Credits)';
+        userTier = 'PayAsYouGo';
+        resolvedPlanId = 'payg';
       } else if (numAmount > 0) {
-        creditsToAdd = numAmount;
-        planName = `Pay As You Go (${numAmount} Credits)`;
+        creditsToAdd = Math.max(1, Math.round(numAmount * (120 / 999)));
+        planName = `Custom Credit Pack (${creditsToAdd} Credits)`;
         userTier = 'PayAsYouGo';
         resolvedPlanId = 'payg';
       }
+
+      const effectivePlanAmount = SERVER_PRICING_CATALOG[resolvedPlanId]?.price || numAmount || (resolvedPlanId === 'agency' ? 4999 : resolvedPlanId === 'pro' ? 1999 : 999);
 
       // 4. ATOMIC GATE: Insert into payment_transactions FIRST before adding any credits.
       // If the unique constraint on razorpay_payment_id blocks it, we abort immediately.
@@ -3154,7 +3182,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           razorpay_order_id: razorpayOrderId || null,
           razorpay_payment_id: razorpayPaymentId,
           plan_id: resolvedPlanId,
-          amount: numAmount || (resolvedPlanId === 'pro' ? 599 : 250),
+          amount: effectivePlanAmount,
           currency: 'INR',
           credits_added: creditsToAdd,
           status: 'paid',
@@ -3209,7 +3237,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           plan_id: resolvedPlanId,
           plan_name: planName,
           status: 'active',
-          amount: numAmount || (resolvedPlanId === 'pro' ? 599 : 250),
+          amount: effectivePlanAmount,
           currency: 'INR',
           credits_allocated: creditsToAdd,
           razorpay_order_id: razorpayOrderId || null,

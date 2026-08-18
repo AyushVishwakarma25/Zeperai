@@ -32,7 +32,7 @@ const pricingPlans: PricingPlan[] = [
     id: 'free',
     priceId: 'free',
     name: 'Free Trial',
-    tagline: 'Perfect for exploring our AI capabilities.',
+    tagline: 'Perfect for exploring our studio capabilities.',
     price: '₹0',
     rawAmount: 0,
     period: '7 days',
@@ -41,7 +41,7 @@ const pricingPlans: PricingPlan[] = [
       { text: '50 free credits for 7 days' },
       { text: 'Exclusive access to Product Studio' },
       { text: 'Community support' },
-      { text: 'Other studios are locked for free tier', muted: true },
+      { text: 'Other studios locked for free tier', muted: true },
     ],
     highlight: false,
     buttonVariant: 'secondary',
@@ -53,39 +53,58 @@ const pricingPlans: PricingPlan[] = [
     priceId: 'payg',
     name: 'Pay As You Go',
     tagline: 'Buy credits as you need them. Nothing expires.',
-    price: '₹1',
-    rawAmount: 250,
-    period: 'credit',
-    credits: 'Buy Any Amount',
+    price: '₹999',
+    rawAmount: 999,
+    period: 'pack',
+    credits: '120 Credits',
     features: [
-      { text: 'No subscription, no commitment' },
+      { text: '120 credits top-up pack' },
       { text: 'Credits never expire' },
-      { text: 'All Studios & all 3 models unlocked' },
+      { text: 'All Studios & models unlocked' },
       { text: 'Commercial usage rights' },
     ],
     highlight: false,
     buttonVariant: 'secondary',
-    buttonText: 'Buy 250 Credits (₹250)'
+    buttonText: 'Buy 120 Credits (₹999)'
   },
   {
     id: 'pro',
     priceId: 'pro',
-    name: 'Pro',
+    name: 'Pro Subscription',
     tagline: 'All premium studios and features fully unlocked.',
-    price: '₹599',
-    rawAmount: 599,
+    price: '₹1,999',
+    rawAmount: 1999,
     period: 'month',
-    credits: '600 Credits / mo',
+    credits: '300 Credits / mo',
     features: [
-      { text: '600 credits recurrent monthly' },
-      { text: 'All Studios & all 3 models unlocked' },
-      { text: 'Priority Generation Speed & Resolution' },
+      { text: '300 credits recurrent monthly' },
+      { text: 'All Studios & models unlocked' },
+      { text: 'Priority Processing Speed' },
       { text: 'Commercial Usage Rights' },
     ],
     highlight: true,
     badge: 'Most Popular',
     buttonVariant: 'primary',
-    buttonText: 'Subscribe ₹599'
+    buttonText: 'Subscribe ₹1,999'
+  },
+  {
+    id: 'agency',
+    priceId: 'agency',
+    name: 'Agency Plan',
+    tagline: 'High volume generation for agencies and teams.',
+    price: '₹4,999',
+    rawAmount: 4999,
+    period: 'month',
+    credits: '1,000 Credits / mo',
+    features: [
+      { text: '1,000 credits recurrent monthly' },
+      { text: 'All Studios & models unlocked' },
+      { text: 'Multi-seat team rights' },
+      { text: 'Dedicated priority support' },
+    ],
+    highlight: false,
+    buttonVariant: 'secondary',
+    buttonText: 'Subscribe ₹4,999'
   }
 ];
 
@@ -102,14 +121,14 @@ const IMAGE_MODELS: ImageModelInfo[] = [
     name: 'Nano Banana',
     apiModel: 'Gemini 3.1 Flash Image',
     credits: 1,
-    badge: 'Standard 🍌',
+    badge: 'Standard',
     description: 'Fast, studio-quality generation for everyday marketing and ad creatives.',
   },
   {
     name: 'Nano Banana Pro',
     apiModel: 'Gemini 3 Pro Image',
     credits: 2,
-    badge: 'Pro Flagship 🍌',
+    badge: 'Pro Flagship',
     description: 'Flagship model for hyper-realistic lighting, intricate textures, and text perfection.',
   },
 ];
@@ -248,7 +267,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
               </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 items-stretch mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch mb-4">
             {pricingPlans.map((plan) => (
               <div 
                 key={plan.id} 
@@ -275,7 +294,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
                 <p className="text-[10px] text-slate-500 mb-2.5 leading-snug">{plan.tagline}</p>
 
                 <div className="bg-slate-100/80 rounded-lg py-1 px-2.5 mb-2.5 text-center border border-slate-200/60 flex items-center justify-center gap-1.5">
-                  <Icon name={plan.highlight ? "sparkles" : "stack"} className="w-3.5 h-3.5 text-primary shrink-0" />
+                  <Icon name="stack" className="w-3.5 h-3.5 text-primary shrink-0" />
                   <span className="text-[11px] font-extrabold text-slate-800">{plan.credits}</span>
                 </div>
 

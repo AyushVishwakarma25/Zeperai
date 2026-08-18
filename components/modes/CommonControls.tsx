@@ -158,7 +158,7 @@ export const CommonControls: React.FC<CommonControlsProps> = ({
                     >
                         <div className="flex items-center justify-between mb-1">
                             <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                                Nano Banana Pro 🍌
+                                Nano Banana Pro
                             </span>
                             <span className="text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-md font-bold">Pro (2x)</span>
                         </div>

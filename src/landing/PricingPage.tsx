@@ -32,7 +32,7 @@ const PLANS: Plan[] = [
   {
     id: 'free',
     name: 'Free Trial',
-    tagline: 'Perfect for exploring our AI capabilities.',
+    tagline: 'Perfect for exploring our studio capabilities.',
     price: '₹0',
     cadence: '/ 7 days',
     creditsLabel: '50 Credits',
@@ -40,7 +40,7 @@ const PLANS: Plan[] = [
       { text: '50 free credits for 7 days' },
       { text: 'Exclusive access to Product Studio' },
       { text: 'Community support' },
-      { text: 'Other studios are locked for free tier', muted: true },
+      { text: 'Other studios locked for free tier', muted: true },
     ],
     cta: 'Try for Free',
   },
@@ -48,27 +48,27 @@ const PLANS: Plan[] = [
     id: 'payg',
     name: 'Pay As You Go',
     tagline: 'Buy credits as you need them. Nothing expires.',
-    price: '₹1',
-    cadence: '/ credit',
-    creditsLabel: 'Buy Any Amount',
+    price: '₹999',
+    cadence: '/ pack',
+    creditsLabel: '120 Credits',
     features: [
-      { text: 'No subscription, no commitment' },
+      { text: '120 credits top-up pack' },
       { text: 'Credits never expire' },
-      { text: 'All Studios & all 3 models unlocked' },
+      { text: 'All Studios & models unlocked' },
       { text: 'Commercial usage rights' },
     ],
-    cta: 'Buy Credits',
+    cta: 'Buy 120 Credits',
   },
   {
     id: 'pro',
-    name: 'Pro',
+    name: 'Pro Subscription',
     tagline: 'All premium studios and features fully unlocked.',
-    price: '₹599',
+    price: '₹1,999',
     cadence: '/ month',
-    creditsLabel: '600 Credits / mo',
+    creditsLabel: '300 Credits / mo',
     features: [
-      { text: '600 credits recurrent monthly' },
-      { text: 'All Studios & all 3 models unlocked' },
+      { text: '300 credits recurrent monthly' },
+      { text: 'All Studios & models unlocked' },
       { text: 'Priority Generation Speed & Resolution' },
       { text: 'Commercial Usage Rights' },
     ],
@@ -76,11 +76,25 @@ const PLANS: Plan[] = [
     highlight: true,
     badge: 'Most Popular',
   },
+  {
+    id: 'agency',
+    name: 'Agency Plan',
+    tagline: 'High volume generation for agencies and enterprise teams.',
+    price: '₹4,999',
+    cadence: '/ month',
+    creditsLabel: '1,000 Credits / mo',
+    features: [
+      { text: '1,000 credits recurrent monthly' },
+      { text: 'All Studios & models unlocked' },
+      { text: 'Multi-seat team rights' },
+      { text: 'Dedicated priority support' },
+    ],
+    cta: 'Get Agency Plan',
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────
-// Models: exactly 3 choices, mapped to real Gemini API image models
-// so cost per generation is predictable at every tier.
+// Models: choices mapped to real Gemini API image models
 // ─────────────────────────────────────────────────────────────
 
 interface ImageModel {
@@ -98,7 +112,7 @@ const IMAGE_MODELS: ImageModel[] = [
     name: 'Nano Banana',
     apiModel: 'Gemini 3.1 Flash Image',
     credits: 1,
-    badge: 'Standard 🍌',
+    badge: 'Standard',
     description: 'Fast, high-quality studio generation for everyday marketing and ad creatives.',
   },
   {
@@ -106,7 +120,7 @@ const IMAGE_MODELS: ImageModel[] = [
     name: 'Nano Banana Pro',
     apiModel: 'Gemini 3 Pro Image',
     credits: 2,
-    badge: 'Pro Flagship 🍌',
+    badge: 'Pro Flagship',
     description: 'Flagship model for hyper-realistic lighting, intricate textures, and text perfection.',
   },
 ];
@@ -128,8 +142,8 @@ export const PricingPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Three plans: Free / Pay As You Go / Pro */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
+        {/* Four plans: Free / Pay As You Go / Pro / Agency */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto items-stretch">
           {PLANS.map((plan) => (
             <div
               key={plan.id}

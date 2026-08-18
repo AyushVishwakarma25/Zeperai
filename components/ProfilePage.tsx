@@ -69,7 +69,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Synchronized total quota calculation
-  const totalCredits = userTier === 'Agency' ? 2000 : userTier === 'Standard' || userTier === 'Pro' ? 600 : userTier === 'PayAsYouGo' ? 100 : 80;
+  const totalCredits = userTier === 'Agency' ? 1000 : userTier === 'Standard' || userTier === 'Pro' ? 300 : userTier === 'PayAsYouGo' ? 120 : 50;
   const creditsUsed = Math.max(0, totalCredits - credits);
   // Total Generations counter synced with credits used or actual activity logs
   const totalGenerations = Math.max(creditsUsed, recentActivity.length);
@@ -80,11 +80,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       id: 'inv_101',
       invoiceNumber: 'ZPR-2026-0801',
       date: 'Aug 1, 2026',
-      description: userTier === 'Agency' ? 'Agency Scale Plan - 2000 Credits' : 'Pro Creator Subscription - 600 Credits',
-      amount: userTier === 'Agency' ? 1999 : 599,
-      taxableValue: userTier === 'Agency' ? 1694.07 : 507.63,
-      cgst: userTier === 'Agency' ? 152.47 : 45.68,
-      sgst: userTier === 'Agency' ? 152.47 : 45.68,
+      description: userTier === 'Agency' ? 'Agency Plan - 1,000 Credits' : 'Pro Subscription - 300 Credits',
+      amount: userTier === 'Agency' ? 4999 : 1999,
+      taxableValue: userTier === 'Agency' ? 4236.44 : 1694.07,
+      cgst: userTier === 'Agency' ? 381.28 : 152.47,
+      sgst: userTier === 'Agency' ? 381.28 : 152.47,
       gstin: '27AAACZ1234F1Z9',
       status: 'Paid'
     },
@@ -92,11 +92,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       id: 'inv_100',
       invoiceNumber: 'ZPR-2026-0701',
       date: 'Jul 1, 2026',
-      description: 'Credit Top-Up Pack (100 Credits)',
-      amount: 299,
-      taxableValue: 253.39,
-      cgst: 22.80,
-      sgst: 22.80,
+      description: 'Credit Top-Up Pack (120 Credits)',
+      amount: 999,
+      taxableValue: 846.61,
+      cgst: 76.19,
+      sgst: 76.19,
       gstin: '27AAACZ1234F1Z9',
       status: 'Paid'
     }

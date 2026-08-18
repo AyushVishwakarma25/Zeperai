@@ -15,7 +15,7 @@ export const ALL_IMAGE_MODELS = [
     name: 'Nano Banana',
     apiModel: 'Gemini 3.1 Flash Image',
     credits: 1,
-    badge: 'Standard 🍌',
+    badge: 'Standard',
     badgeColor: 'bg-emerald-100 text-emerald-800',
     description: 'Fast, high quality studio generation. Ideal for general creative work, social posts, and product shoots.',
   },
@@ -24,7 +24,7 @@ export const ALL_IMAGE_MODELS = [
     name: 'Nano Banana Pro',
     apiModel: 'Gemini 3 Pro Image',
     credits: 2,
-    badge: 'Pro Flagship 🍌',
+    badge: 'Pro Flagship',
     badgeColor: 'bg-amber-100 text-amber-800',
     description: 'Flagship model for hyper-realistic lighting, intricate textures, prompt adherence, and ultra-high details.',
   },
@@ -73,27 +73,62 @@ export const FEATURE_CREDIT_RATES = [
   },
 ];
 
+export const PLAN_PRICING_CATALOG = [
+  {
+    id: 'free',
+    name: 'Free Trial',
+    price: '₹0',
+    credits: '50 Credits',
+    period: '7 Days',
+    description: 'Trial package for exploring basic studio features.',
+  },
+  {
+    id: 'payg',
+    name: 'Pay As You Go',
+    price: '₹999',
+    credits: '120 Credits',
+    period: 'One-time',
+    description: 'Flexible credit top-up pack. Credits never expire.',
+  },
+  {
+    id: 'pro',
+    name: 'Pro Subscription',
+    price: '₹1,999',
+    credits: '300 Credits / mo',
+    period: 'Monthly',
+    description: 'Full studio access with priority processing speed.',
+  },
+  {
+    id: 'agency',
+    name: 'Agency Plan',
+    price: '₹4,999',
+    credits: '1,000 Credits / mo',
+    period: 'Monthly',
+    description: 'High-volume production tier with dedicated support.',
+  },
+];
+
 export const FeaturePricingTable: React.FC<FeaturePricingTableProps> = ({
   onOpenPricingModal,
   onClose,
   compact = false,
 }) => {
-  const [activeTab, setActiveTab] = useState<'models' | 'features'>('models');
+  const [activeTab, setActiveTab] = useState<'models' | 'features' | 'plans'>('models');
 
   return (
     <div className={`bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden ${compact ? 'p-3' : 'p-4 sm:p-6'}`}>
       {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-[#4452FB]/10 text-[#4452FB] flex items-center justify-center font-bold">
-            <Icon name="sparkles" className="w-4 h-4" />
+          <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+            <Icon name="layers" className="w-4 h-4" />
           </div>
           <div>
             <h3 className="text-base font-extrabold text-slate-900 leading-tight">
-              Feature & Model Pricing Table
+              Pricing & Credit Allocation
             </h3>
             <p className="text-xs text-slate-500">
-              Transparent credit rates across all AI models and studio tools
+              Transparent rate structure across all models, studio tools, and subscription plans
             </p>
           </div>
         </div>
@@ -128,7 +163,7 @@ export const FeaturePricingTable: React.FC<FeaturePricingTableProps> = ({
               : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          AI Generation Models (6 Offered)
+          AI Generation Models
         </button>
         <button
           onClick={() => setActiveTab('features')}
@@ -138,25 +173,35 @@ export const FeaturePricingTable: React.FC<FeaturePricingTableProps> = ({
               : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          Studio Features & Rates
+          Studio Features
+        </button>
+        <button
+          onClick={() => setActiveTab('plans')}
+          className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+            activeTab === 'plans'
+              ? 'bg-white text-slate-900 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          Credit Packs & Plans
         </button>
       </div>
 
       {/* Tab 1: AI Models */}
       {activeTab === 'models' && (
         <div className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {ALL_IMAGE_MODELS.map((model) => (
               <div
                 key={model.value}
-                className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between hover:border-[#4452FB]/30 hover:bg-slate-50 transition-all"
+                className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between hover:border-primary/30 hover:bg-slate-50 transition-all"
               >
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded ${model.badgeColor}`}>
                       {model.badge}
                     </span>
-                    <span className="text-xs font-black text-[#4452FB] bg-white px-2 py-0.5 rounded border border-slate-200 shadow-xs">
+                    <span className="text-xs font-black text-primary bg-white px-2 py-0.5 rounded border border-slate-200 shadow-xs">
                       {model.credits} {model.credits === 1 ? 'Credit' : 'Credits'}
                     </span>
                   </div>
@@ -183,12 +228,49 @@ export const FeaturePricingTable: React.FC<FeaturePricingTableProps> = ({
                   <h4 className="text-xs font-bold text-slate-800">{item.feature}</h4>
                   <p className="text-[11px] text-slate-500">{item.details}</p>
                 </div>
-                <span className="text-xs font-extrabold text-[#4452FB] bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 shrink-0 self-start sm:self-center">
+                <span className="text-xs font-extrabold text-primary bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 shrink-0 self-start sm:self-center">
                   {item.cost}
                 </span>
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Tab 3: Plans Summary */}
+      {activeTab === 'plans' && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {PLAN_PRICING_CATALOG.map((plan) => (
+              <div
+                key={plan.id}
+                className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col justify-between hover:border-primary/40 transition-all"
+              >
+                <div>
+                  <div className="flex items-baseline justify-between mb-1">
+                    <h4 className="text-xs font-bold text-slate-900">{plan.name}</h4>
+                    <span className="text-sm font-black text-slate-900 font-mono">{plan.price}</span>
+                  </div>
+                  <div className="text-[11px] font-bold text-primary mb-1">
+                    {plan.credits}
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-tight">
+                    {plan.description}
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-slate-200 text-[9px] uppercase font-semibold text-slate-400">
+                  Cadence: {plan.period}
+                </div>
+              </div>
+            ))}
+          </div>
+          {onOpenPricingModal && (
+            <div className="pt-2 text-center">
+              <Button variant="primary" onClick={onOpenPricingModal} className="!py-2 !px-4 text-xs font-bold">
+                Open Subscription Gateway
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
