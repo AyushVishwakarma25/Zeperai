@@ -239,38 +239,59 @@ export const FeaturePricingTable: React.FC<FeaturePricingTableProps> = ({
 
       {/* Tab 3: Plans Summary */}
       {activeTab === 'plans' && (
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {PLAN_PRICING_CATALOG.map((plan) => (
-              <div
-                key={plan.id}
-                className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col justify-between hover:border-primary/40 transition-all"
-              >
-                <div>
-                  <div className="flex items-baseline justify-between mb-1">
-                    <h4 className="text-xs font-bold text-slate-900">{plan.name}</h4>
-                    <span className="text-sm font-black text-slate-900 font-mono">{plan.price}</span>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+            {PLAN_PRICING_CATALOG.map((plan) => {
+              const isPro = plan.id === 'pro';
+              return (
+                <div
+                  key={plan.id}
+                  className={
+                    isPro
+                      ? 'bg-[#4452FB] border border-[#4452FB] rounded-2xl p-4 shadow-lg relative flex flex-col justify-between text-white'
+                      : 'bg-white border border-slate-200 rounded-2xl p-4 shadow-xs hover:border-[#4452FB]/30 transition-all flex flex-col justify-between'
+                  }
+                >
+                  <div>
+                    {isPro && (
+                      <div className="absolute -top-2.5 right-3 bg-white text-[#4452FB] text-[9px] font-extrabold px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wider">
+                        Most Popular
+                      </div>
+                    )}
+                    <div className="flex items-baseline justify-between mb-1">
+                      <h4 className={`text-sm font-bold ${isPro ? 'text-white' : 'text-slate-900'}`}>{plan.name}</h4>
+                      <span className={`text-base font-black ${isPro ? 'text-white' : 'text-slate-900'}`}>{plan.price}</span>
+                    </div>
+                    <div className={`text-xs font-bold mb-2 ${isPro ? 'text-blue-100' : 'text-[#4452FB]'}`}>
+                      {plan.credits}
+                    </div>
+                    <p className={`text-[11px] leading-snug mb-3 ${isPro ? 'text-blue-100/90' : 'text-slate-500'}`}>
+                      {plan.description}
+                    </p>
                   </div>
-                  <div className="text-[11px] font-bold text-primary mb-1">
-                    {plan.credits}
+
+                  <div className="mt-2 pt-2 border-t border-slate-100/20">
+                    {onOpenPricingModal ? (
+                      <button
+                        onClick={onOpenPricingModal}
+                        className={
+                          isPro
+                            ? 'w-full py-2 px-3 bg-white text-[#4452FB] hover:bg-blue-50 font-bold rounded-xl text-xs transition-all shadow-sm'
+                            : 'w-full py-2 px-3 bg-slate-900 text-white hover:bg-slate-800 font-bold rounded-xl text-xs transition-all shadow-xs'
+                        }
+                      >
+                        {plan.id === 'free' ? 'Current Plan' : `Get ${plan.name}`}
+                      </button>
+                    ) : (
+                      <div className={`text-[10px] uppercase font-semibold ${isPro ? 'text-blue-200' : 'text-slate-400'}`}>
+                        Cadence: {plan.period}
+                      </div>
+                    )}
                   </div>
-                  <p className="text-[10px] text-slate-500 leading-tight">
-                    {plan.description}
-                  </p>
                 </div>
-                <div className="mt-3 pt-2 border-t border-slate-200 text-[9px] uppercase font-semibold text-slate-400">
-                  Cadence: {plan.period}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-          {onOpenPricingModal && (
-            <div className="pt-2 text-center">
-              <Button variant="primary" onClick={onOpenPricingModal} className="!py-2 !px-4 text-xs font-bold">
-                Open Subscription Gateway
-              </Button>
-            </div>
-          )}
         </div>
       )}
     </div>

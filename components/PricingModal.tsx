@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Button } from './ui/Button';
 import { Icon } from './ui/Icon';
 import { Spinner } from './ui/Spinner';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
@@ -22,7 +21,6 @@ interface PricingPlan {
   features: { text: string; muted?: boolean }[];
   highlight: boolean;
   badge?: string;
-  buttonVariant: 'primary' | 'secondary';
   disabled?: boolean;
   buttonText: string;
 }
@@ -44,7 +42,6 @@ const pricingPlans: PricingPlan[] = [
       { text: 'Other studios locked for free tier', muted: true },
     ],
     highlight: false,
-    buttonVariant: 'secondary',
     disabled: true,
     buttonText: 'Current Plan'
   },
@@ -64,8 +61,7 @@ const pricingPlans: PricingPlan[] = [
       { text: 'Commercial usage rights' },
     ],
     highlight: false,
-    buttonVariant: 'secondary',
-    buttonText: 'Buy 120 Credits (₹999)'
+    buttonText: 'Buy 120 Credits'
   },
   {
     id: 'pro',
@@ -79,13 +75,12 @@ const pricingPlans: PricingPlan[] = [
     features: [
       { text: '300 credits recurrent monthly' },
       { text: 'All Studios & models unlocked' },
-      { text: 'Priority Processing Speed' },
+      { text: 'Priority Generation Speed' },
       { text: 'Commercial Usage Rights' },
     ],
     highlight: true,
     badge: 'Most Popular',
-    buttonVariant: 'primary',
-    buttonText: 'Subscribe ₹1,999'
+    buttonText: 'Subscribe Now'
   },
   {
     id: 'agency',
@@ -103,7 +98,6 @@ const pricingPlans: PricingPlan[] = [
       { text: 'Dedicated priority support' },
     ],
     highlight: false,
-    buttonVariant: 'secondary',
     buttonText: 'Subscribe ₹4,999'
   }
 ];
@@ -134,37 +128,38 @@ const IMAGE_MODELS: ImageModelInfo[] = [
 ];
 
 const ModelCreditPicker = () => (
-    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-4 text-xs text-slate-600 shadow-xs">
-        <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
-                <Icon name="info" className="w-4 h-4 text-primary shrink-0"/>
-                6 AI Model Options (Select per Generation)
-            </div>
-            <span className="text-[10px] text-slate-400 italic">Save credits on drafts, choose Pro models for production</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-            {IMAGE_MODELS.map((model) => (
-                <div key={model.name} className="bg-white border border-slate-200 rounded-lg p-2.5 flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-center justify-between mb-1">
-                            <span className="text-[9px] font-bold uppercase text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                                {model.badge}
-                            </span>
-                            <span className="text-xs font-black text-slate-900">
-                                {model.credits} {model.credits === 1 ? 'Credit' : 'Credits'}
-                            </span>
-                        </div>
-                        <div className="font-bold text-slate-900 text-xs">{model.name}</div>
-                        <div className="text-[10px] text-slate-400 font-semibold mb-1">{model.apiModel}</div>
-                        <p className="text-[10px] text-slate-500 leading-tight">{model.description}</p>
-                    </div>
-                </div>
-            ))}
-        </div>
-        <div className="mt-2 text-[10px] text-slate-400 text-center italic">
-            * Credits are billed per output image. Multi-pose and bulk generations charge one credit set per image.
-        </div>
+  <div className="mt-8 bg-slate-50 border border-slate-200/80 rounded-2xl p-5 sm:p-6 text-xs text-slate-600">
+    <div className="text-center mb-5">
+      <h4 className="text-base sm:text-lg font-black text-slate-900 mb-1">
+        Pick your AI model per image (6 Options Offered)
+      </h4>
+      <p className="text-xs text-slate-500 max-w-xl mx-auto">
+        Choose from 6 flagship AI models across Google, OpenAI, and Banana Vision. Spend fewer credits on drafts, choose Pro models for production assets.
+      </p>
     </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+      {IMAGE_MODELS.map((model) => (
+        <div key={model.name} className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between hover:border-[#4452FB]/40 transition-all shadow-xs">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#4452FB] bg-[#4452FB]/10 px-2.5 py-0.5 rounded-full">
+                {model.badge}
+              </span>
+              <span className="text-xs font-black text-slate-900">
+                {model.credits} {model.credits === 1 ? 'Credit' : 'Credits'}
+              </span>
+            </div>
+            <div className="font-bold text-slate-900 text-sm mb-0.5">{model.name}</div>
+            <div className="text-xs text-slate-400 font-semibold mb-2">{model.apiModel}</div>
+            <p className="text-xs text-slate-600 leading-relaxed">{model.description}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+    <div className="mt-4 text-[11px] text-slate-400 text-center italic">
+      * Credits are billed per output image. Multi-pose and bulk generations charge one credit set per image, not per click.
+    </div>
+  </div>
 );
 
 const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
@@ -220,104 +215,144 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 animate-fade-in-scale-up" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-6 animate-fade-in-scale-up" onClick={onClose}>
       <div 
-        className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col overflow-hidden relative max-h-[92vh]"
+        className="bg-white w-full max-w-6xl rounded-3xl shadow-2xl flex flex-col overflow-hidden relative max-h-[92vh]"
         onClick={e => e.stopPropagation()}
       >
-        <button onClick={onClose} className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors z-10">
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors z-20">
           <Icon name="close" className="w-5 h-5"/>
         </button>
         
-        <main className="p-4 sm:p-6 overflow-y-auto">
-          <div className="text-center mb-4 sm:mb-5">
-            <span className="inline-block bg-primary/10 text-primary text-[10px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 uppercase tracking-wider">
+        <main className="p-6 sm:p-10 overflow-y-auto">
+          <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-12">
+            <span className="inline-block bg-[#4452FB]/10 text-[#4452FB] text-xs font-bold px-3 py-1 rounded-full mb-2 uppercase tracking-wider">
               Simple, Transparent Pricing
             </span>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+            <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight mb-2">
               Choose your Growth Plan
             </h2>
-            <p className="text-xs text-slate-500 max-w-md mx-auto mt-0.5">
+            <p className="text-sm sm:text-base text-slate-600">
               Choose the plan that fits your brand's growth. No hidden fees.
             </p>
           </div>
 
           {!isOnline && (
-              <div className="mb-4 bg-red-100 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs text-center">
+              <div className="mb-6 bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-xs text-center font-medium">
                   You are currently offline. Payment features are unavailable.
               </div>
           )}
 
           {errorMessage && (
-              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-xs flex flex-col gap-1 shadow-xs max-w-2xl mx-auto">
+              <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-xs flex flex-col gap-1 shadow-xs max-w-2xl mx-auto">
                   <div className="flex items-center gap-2 font-bold">
                       <Icon name="info" className="w-4 h-4 text-red-600 shrink-0" />
                       Checkout Issue Detected
                   </div>
-                  <p className="text-slate-600 leading-relaxed text-[11px]">
+                  <p className="text-slate-600 leading-relaxed text-xs">
                       {errorMessage}
                   </p>
               </div>
           )}
 
           {successMessage && (
-              <div className="mb-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl text-xs font-semibold flex items-center gap-2.5 shadow-xs max-w-2xl mx-auto animate-pulse">
+              <div className="mb-6 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl text-xs font-semibold flex items-center gap-2.5 shadow-xs max-w-2xl mx-auto animate-pulse">
                   <Icon name="check-circle" className="w-4.5 h-4.5 text-green-600 shrink-0" />
                   {successMessage}
               </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch mb-4">
+          {/* Cards styled identically to the landing page */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto items-stretch mb-8 pt-4">
             {pricingPlans.map((plan) => (
-              <div 
-                key={plan.id} 
-                className={`relative bg-white p-4 rounded-xl border ${
-                  plan.highlight 
-                    ? 'border-primary/80 shadow-md ring-1 ring-primary/40 bg-gradient-to-b from-indigo-50/30 to-white' 
-                    : 'border-slate-200 hover:border-slate-300'
-                } flex flex-col transition-all duration-200`}
+              <div
+                key={plan.id}
+                className={
+                  plan.highlight
+                    ? 'bg-[#4452FB] border border-[#4452FB] rounded-3xl p-6 sm:p-7 shadow-2xl relative flex flex-col'
+                    : 'bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-sm hover:shadow-md transition-all flex flex-col group hover:border-[#4452FB]/30'
+                }
               >
                 {plan.badge && (
-                  <div className="absolute -top-2.5 right-3 bg-primary text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs uppercase tracking-widest whitespace-nowrap">
+                  <div className="absolute -top-3.5 left-1/2 transform -translate-x-1/2 bg-white text-[#4452FB] px-4 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider shadow-xl whitespace-nowrap">
                     {plan.badge}
                   </div>
                 )}
-                
-                <div className="flex items-baseline justify-between mb-1">
-                  <h3 className="text-sm font-bold text-slate-800">{plan.name}</h3>
-                  <div className="flex items-baseline">
-                    <span className="text-xl font-black text-slate-900 tracking-tight">{plan.price}</span>
-                    <span className="text-slate-400 font-medium text-[10px] ml-0.5">/ {plan.period}</span>
-                  </div>
+
+                <h3 className={`text-xl font-bold mb-1 ${plan.highlight ? 'text-white' : 'text-slate-900'}`}>
+                  {plan.name}
+                </h3>
+                <p className={`mb-4 text-xs ${plan.highlight ? 'text-blue-100 opacity-90' : 'text-slate-500'}`}>
+                  {plan.tagline}
+                </p>
+
+                <div className="mb-6">
+                  <span className={`text-4xl sm:text-5xl font-black ${plan.highlight ? 'text-white' : 'text-slate-900'}`}>
+                    {plan.price}
+                  </span>
+                  <span className={`text-xs sm:text-sm ml-1 ${plan.highlight ? 'text-blue-100' : 'text-slate-500'}`}>
+                    / {plan.period}
+                  </span>
                 </div>
 
-                <p className="text-[10px] text-slate-500 mb-2.5 leading-snug">{plan.tagline}</p>
-
-                <div className="bg-slate-100/80 rounded-lg py-1 px-2.5 mb-2.5 text-center border border-slate-200/60 flex items-center justify-center gap-1.5">
-                  <Icon name="stack" className="w-3.5 h-3.5 text-primary shrink-0" />
-                  <span className="text-[11px] font-extrabold text-slate-800">{plan.credits}</span>
+                <div
+                  className={
+                    plan.highlight
+                      ? 'bg-white/10 backdrop-blur-md rounded-xl p-3 mb-6 text-center border border-white/20 flex items-center justify-center gap-2'
+                      : 'bg-slate-50 rounded-xl p-3 mb-6 text-center border border-slate-100 flex items-center justify-center gap-2'
+                  }
+                >
+                  <Icon
+                    name={plan.highlight ? 'sparkles' : 'stack'}
+                    className={`w-4 h-4 shrink-0 ${plan.highlight ? 'text-white' : 'text-[#4452FB]'}`}
+                  />
+                  <span className={`font-bold text-xs sm:text-sm ${plan.highlight ? 'text-white' : 'text-slate-700'}`}>
+                    {plan.credits}
+                  </span>
                 </div>
 
-                <ul className="space-y-1 text-slate-600 mb-3 flex-grow">
-                  {plan.features.map((feature, index) => (
-                    <li key={index} className={`flex items-center text-[10px] ${feature.muted ? 'text-slate-400' : ''}`}>
-                      <Icon name={feature.muted ? "info" : "check-circle"} className={`w-3 h-3 mr-1.5 shrink-0 ${feature.muted ? 'text-slate-400' : plan.highlight ? 'text-primary' : 'text-green-500'}`} />
-                      <span className={feature.muted ? 'italic' : plan.highlight ? 'font-medium text-slate-700' : ''}>{feature.text}</span>
+                <ul className="space-y-3 mb-8 flex-1">
+                  {plan.features.map((feature, idx) => (
+                    <li
+                      key={idx}
+                      className={`flex items-start gap-2.5 ${feature.muted ? 'opacity-60' : ''}`}
+                    >
+                      <Icon
+                        name={feature.muted ? 'info' : 'check'}
+                        className={`w-4 h-4 shrink-0 mt-0.5 ${
+                          feature.muted ? 'text-slate-400' : plan.highlight ? 'text-white' : 'text-green-500'
+                        }`}
+                      />
+                      <span
+                        className={
+                          feature.muted
+                            ? 'text-xs italic text-slate-400'
+                            : plan.highlight
+                            ? 'text-white text-xs sm:text-sm font-medium'
+                            : 'text-slate-700 text-xs sm:text-sm'
+                        }
+                      >
+                        {feature.text}
+                      </span>
                     </li>
                   ))}
                 </ul>
-                
-                <div className="mt-auto">
-                  <Button 
-                    variant={plan.buttonVariant} 
-                    fullWidth 
-                    className={`!py-1.5 !text-[11px] font-bold uppercase tracking-wider ${plan.highlight ? 'shadow-xs hover:shadow-sm' : ''}`}
-                    onClick={() => handleCheckout(plan)}
-                    disabled={plan.disabled || (!isOnline && plan.id !== 'free') || loadingPriceId !== null}
-                  >
-                    {loadingPriceId === plan.priceId ? <Spinner /> : plan.buttonText}
-                  </Button>
-                </div>
+
+                <button
+                  onClick={() => handleCheckout(plan)}
+                  disabled={plan.disabled || (!isOnline && plan.id !== 'free') || loadingPriceId !== null}
+                  className={
+                    plan.highlight
+                      ? 'w-full py-3.5 px-4 bg-white text-[#4452FB] hover:bg-blue-50 font-black rounded-xl transition-all shadow-xl text-xs sm:text-sm flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed'
+                      : 'w-full py-3.5 px-4 bg-slate-900 text-white hover:bg-slate-800 font-bold rounded-xl transition-all shadow-lg shadow-slate-200 text-xs sm:text-sm flex items-center justify-center gap-2 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed'
+                  }
+                >
+                  {loadingPriceId === plan.priceId ? (
+                    <Spinner />
+                  ) : (
+                    plan.buttonText
+                  )}
+                </button>
               </div>
             ))}
           </div>

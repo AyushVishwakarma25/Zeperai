@@ -111,10 +111,7 @@ const AppInternal: React.FC = () => {
             ? `You're out of credits! Required: ${cost}, available: ${appData.credits}. Buy a credit pack or upgrade.`
             : "You've reached your free trial limit. Start Pro to unlock 120 monthly credits & all studios!";
           setToast({ message, type: 'error' });
-          modals.openPricing({
-              context: 'out_of_credits',
-              tab: isPaid ? 'topup' : 'subscription'
-          });
+          modals.openPricing();
       }
       return success;
   }, [appData, modals, userTier, user]);
@@ -549,7 +546,6 @@ const AppInternal: React.FC = () => {
                     savedModels={appData.savedModels}
                     onReset={creative.handleResetParams}
                     brandKit={appData.brandKit}
-                    currentCredits={appData.credits}
                 />
             )}
             
@@ -582,7 +578,6 @@ const AppInternal: React.FC = () => {
                 onCloseFeedback={modals.closeFeedback}
 
                 isPricingModalOpen={modals.isPricingOpen}
-                pricingOptions={modals.pricingOptions}
                 onClosePricing={modals.closePricing}
 
 
