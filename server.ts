@@ -91,6 +91,15 @@ const aiLimiter = rateLimit({
   message: { error: 'Generation quota reached. Please wait a few minutes before creating more visuals.' }
 });
 
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  validate: { trustProxy: false },
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many admin login attempts. Please try again after 15 minutes.' }
+});
+
 const allowedOrigins = ['https://www.zeperai.in', 'https://zeperai.in'];
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -314,44 +323,51 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
 // --- API ROUTES ---
 
-  // --- DEDICATED ADMIN LOGIN ROUTE (Ultra-robust for MadMan / 197325) ---
-  app.all(['/api/admin/login', '/admin/login', '/api/admin-login', '/admin-login'], (req, res) => {
+  // --- DEDICATED ADMIN LOGIN ROUTE ---
+  // Strict, constant-time, fail-closed credential check. No fallback usernames/passwords.
+  app.all(['/api/admin/login', '/admin/login', '/api/admin-login', '/admin-login'], adminLoginLimiter, (req, res) => {
+    // Fail closed: if admin credentials aren't configured on the server, refuse all logins
+    // rather than silently accepting a hardcoded default.
+    if (!process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD) {
+      console.error('[admin/login] ADMIN_USERNAME / ADMIN_PASSWORD are not configured in the environment.');
+      return res.status(500).json({ error: 'Admin login is not configured. Contact the site owner.' });
+    }
+
     const { username, password } = req.body || {};
-    
-    // Accept from body, query, or headers
-    const rawUser = String(username || req.query?.username || '').trim();
-    const rawPass = String(password || req.query?.password || '').trim();
+    const inputUser = String(username ?? req.query?.username ?? '').trim();
+    const inputPass = String(password ?? req.query?.password ?? '').trim();
 
-    const inputUser = rawUser || 'MadMan';
-    const inputPass = rawPass || '197325';
+    const configuredUser = ADMIN_USERNAME;
+    const configuredPass = ADMIN_PASSWORD;
 
-    const configuredUser = (ADMIN_USERNAME || 'MadMan').trim();
-    const configuredPass = (ADMIN_PASSWORD || '197325').trim();
+    // Constant-time comparison to avoid leaking match-length via timing.
+    const timingSafeStringEqual = (a: string, b: string) => {
+      const aBuf = Buffer.from(a);
+      const bBuf = Buffer.from(b);
+      // Hash both to a fixed length first so differing lengths don't short-circuit
+      // timingSafeEqual (which throws/behaves inconsistently on unequal-length buffers).
+      const aHash = crypto.createHash('sha256').update(aBuf).digest();
+      const bHash = crypto.createHash('sha256').update(bBuf).digest();
+      return crypto.timingSafeEqual(aHash, bHash) && a.length === b.length;
+    };
 
-    // Flexible credential check for admin portal access
-    const isUserValid = (
-      inputUser.toLowerCase() === configuredUser.toLowerCase() ||
-      inputUser.toLowerCase() === 'madman' ||
-      inputUser.toLowerCase() === 'admin'
-    );
+    const isValid =
+      inputUser.length > 0 &&
+      inputPass.length > 0 &&
+      timingSafeStringEqual(inputUser, configuredUser) &&
+      timingSafeStringEqual(inputPass, configuredPass);
 
-    const isPassValid = (
-      inputPass === configuredPass ||
-      inputPass === '197325' ||
-      (isUserValid && (inputPass === '197325' || inputPass.length > 0))
-    );
-
-    if (!isUserValid || !isPassValid) {
+    if (!isValid) {
       return res.status(401).json({ error: 'Invalid admin username or password.' });
     }
 
-    const token = generateAdminToken(inputUser || 'MadMan');
+    const token = generateAdminToken(inputUser);
     return res.json({
       success: true,
       token,
       user: {
-        username: inputUser || 'MadMan',
-        name: 'MadMan',
+        username: inputUser,
+        name: inputUser,
         email: 'admin@zeper.ai',
         role: 'admin',
         is_admin: true
