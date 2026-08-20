@@ -451,24 +451,35 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
   // --- USER PROFILE ROUTES (Service Role Protected) ---
   app.get('/api/user/profile', requireAuth, asyncHandler(async (req: any, res: any) => {
-    const adminClient = await getAdminSupabaseClient();
+    const authHeader = req.headers.authorization;
+    const adminClient = await getAdminSupabaseClient(authHeader);
     const userId = req.user.id;
     const userEmail = req.user.email || '';
 
-    // 1. Fetch profile from DB using service client (bypasses RLS recursion)
-    let { data: profile, error } = await adminClient
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const isProAdmin = userEmail === 'reachtoayush25@gmail.com' || userEmail === 'sharma25ayush@gmail.com' || userId === 'f58676e8-e373-4c97-803b-57451272154c' || !!req.user.is_admin;
 
-    // 2. If profile doesn't exist yet, automatically create it
+    let profile: any = null;
+    try {
+      // 1. Fetch profile from DB using service client (bypasses RLS recursion)
+      const { data, error } = await adminClient
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (!error && data) {
+        profile = data;
+      }
+    } catch (e) {
+      console.warn('Profile fetch warning in /api/user/profile:', e);
+    }
+
+    // 2. If profile doesn't exist yet, construct or upsert initial profile
     if (!profile) {
-      const isProAdmin = userEmail === 'reachtoayush25@gmail.com' || userEmail === 'sharma25ayush@gmail.com' || userId === 'f58676e8-e373-4c97-803b-57451272154c';
       const initialProfile = {
         id: userId,
         email: userEmail,
-        name: req.user.user_metadata?.full_name || req.user.name || userEmail.split('@')[0] || 'Creator',
+        name: req.user.user_metadata?.full_name || req.user.name || (userEmail ? userEmail.split('@')[0] : 'Creator'),
         role: 'Creator',
         bio: '',
         location: '',
@@ -477,42 +488,46 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         is_admin: isProAdmin
       };
 
-      const { data: newProfile, error: insertErr } = await adminClient
-        .from('profiles')
-        .upsert(initialProfile, { onConflict: 'id' })
-        .select()
-        .single();
+      try {
+        const { data: newProfile, error: insertErr } = await adminClient
+          .from('profiles')
+          .upsert(initialProfile, { onConflict: 'id' })
+          .select()
+          .maybeSingle();
 
-      if (!insertErr && newProfile) {
-        profile = newProfile;
-      } else {
+        if (!insertErr && newProfile) {
+          profile = newProfile;
+        } else {
+          profile = initialProfile;
+        }
+
+        // Ensure user_credits record exists with proper initial tier allocation (10 credits for Free Trial)
+        const defaultInitialCredits = isProAdmin ? 300 : 10;
+        await adminClient
+          .from('user_credits')
+          .upsert({
+            user_id: userId,
+            current_balance: defaultInitialCredits,
+            total_quota: defaultInitialCredits,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id', ignoreDuplicates: true });
+      } catch (_) {
         profile = initialProfile;
       }
-
-      // Ensure user_credits record exists with proper initial tier allocation (10 credits for Free Trial)
-      const defaultInitialCredits = isProAdmin ? 300 : 10;
-      await adminClient
-        .from('user_credits')
-        .upsert({
-          user_id: userId,
-          current_balance: defaultInitialCredits,
-          total_quota: defaultInitialCredits,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id', ignoreDuplicates: true });
     }
 
-    const isProAdmin = profile.email === 'reachtoayush25@gmail.com' || profile.email === 'sharma25ayush@gmail.com' || profile.id === 'f58676e8-e373-4c97-803b-57451272154c' || !!profile.is_admin;
+    const finalIsAdmin = isProAdmin || profile.email === 'reachtoayush25@gmail.com' || profile.email === 'sharma25ayush@gmail.com' || profile.id === 'f58676e8-e373-4c97-803b-57451272154c' || !!profile.is_admin;
 
     return res.json({
-      id: profile.id,
-      name: profile.name || userEmail.split('@')[0] || 'User',
+      id: profile.id || userId,
+      name: profile.name || (userEmail ? userEmail.split('@')[0] : 'User'),
       email: profile.email || userEmail,
       role: profile.role || 'Creator',
       bio: profile.bio || '',
       location: profile.location || '',
       avatarUrl: profile.avatar_url || '',
-      tier: isProAdmin ? 'Pro' : (profile.tier || 'Free'),
-      isAdmin: isProAdmin
+      tier: finalIsAdmin ? 'Pro' : (profile.tier || 'Free'),
+      isAdmin: finalIsAdmin
     });
   }));
 

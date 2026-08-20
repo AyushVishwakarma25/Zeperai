@@ -9,6 +9,10 @@
       "destination": "/api/admin/check"
     },
     {
+      "source": "/api/user/profile",
+      "destination": "/api/user/profile"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api"
     },
