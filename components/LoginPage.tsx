@@ -57,7 +57,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       onLoginSuccess(session);
     } catch (err: any) {
       clearTimeout(loginTimeout);
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = typeof err === 'string'
+        ? err
+        : err?.message
+          ? String(err.message)
+          : err?.error
+            ? String(err.error)
+            : typeof err === 'object' && err !== null
+              ? (err.code ? `${err.code}: ${err.message || 'Login failed'}` : JSON.stringify(err))
+              : String(err || 'Failed to sign in');
       setError(msg);
       
       // Check for common Supabase infrastructure errors
