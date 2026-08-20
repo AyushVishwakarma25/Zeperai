@@ -52,5 +52,7 @@
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@vercel/node": "^5.10.1"
+  }
 }

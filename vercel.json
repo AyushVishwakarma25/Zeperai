@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/api/admin/login",
+      "destination": "/api/admin/login"
+    },
+    {
+      "source": "/api/admin/check",
+      "destination": "/api/admin/check"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api"
     },
