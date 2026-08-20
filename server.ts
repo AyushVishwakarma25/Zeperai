@@ -324,15 +324,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 // --- API ROUTES ---
 
   // --- DEDICATED ADMIN LOGIN ROUTE ---
-  // Strict, constant-time, fail-closed credential check. No fallback usernames/passwords.
+  // Constant-time credential check using configured ADMIN_USERNAME / ADMIN_PASSWORD (defaults: MadMan / 197325)
   app.all(['/api/admin/login', '/admin/login', '/api/admin-login', '/admin-login'], adminLoginLimiter, (req, res) => {
-    // Fail closed: if admin credentials aren't configured on the server, refuse all logins
-    // rather than silently accepting a hardcoded default.
-    if (!process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD) {
-      console.error('[admin/login] ADMIN_USERNAME / ADMIN_PASSWORD are not configured in the environment.');
-      return res.status(500).json({ error: 'Admin login is not configured. Contact the site owner.' });
-    }
-
     const { username, password } = req.body || {};
     const inputUser = String(username ?? req.query?.username ?? '').trim();
     const inputPass = String(password ?? req.query?.password ?? '').trim();
@@ -354,7 +347,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const isValid =
       inputUser.length > 0 &&
       inputPass.length > 0 &&
-      timingSafeStringEqual(inputUser, configuredUser) &&
+      timingSafeStringEqual(inputUser.toLowerCase(), configuredUser.toLowerCase()) &&
       timingSafeStringEqual(inputPass, configuredPass);
 
     if (!isValid) {
