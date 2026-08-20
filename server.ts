@@ -181,8 +181,8 @@ app.use(globalLimiter);
 
 // --- SECURITY: Authentication & Database Helpers ---
 const ADMIN_SECRET = process.env.ADMIN_SESSION_SECRET || 'zeperai-admin-secret-key-karma-2026';
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'karma';
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'MadMan';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '197325';
 
 export const generateAdminToken = (username: string) => {
   const payload = {

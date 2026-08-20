@@ -32,6 +32,7 @@ import {
   Terminal
 } from 'lucide-react';
 import { getAdminAuthHeader, clearAdminAuthSession, getStoredAdminUser } from './adminAuthHelper';
+import { BrandLogo } from '../ui/BrandLogo';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Spinner';
@@ -211,26 +212,24 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="h-screen w-screen flex bg-[#F8FAFC] text-slate-800 font-sans overflow-hidden select-none">
+    <div className="h-screen w-screen flex bg-slate-50 text-slate-900 font-sans overflow-hidden select-none selection:bg-[#C8CEFE]">
       
       {/* 1. LEFT SIDEBAR */}
-      <aside className="w-60 h-full flex flex-col justify-between bg-white border-r border-slate-200/80 shrink-0 z-20">
+      <aside className="w-64 h-full flex flex-col justify-between bg-white border-r border-slate-200/80 shrink-0 z-20">
         <div className="flex flex-col h-full">
           
-          {/* Brand Logo Header (Inspired by reference logo banner) */}
-          <div className="p-6 pb-4">
+          {/* Brand Logo Header */}
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="bg-[#FFEB3B] text-slate-950 font-black tracking-wider px-2.5 py-1 rounded text-sm uppercase shadow-xs">
-                ZEPER
-              </div>
-              <span className="font-black text-slate-900 tracking-tight text-sm uppercase font-batangas">
-                STUDIO
-              </span>
+              <BrandLogo variant="full" color="primary" className="h-6 w-auto" />
             </div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider bg-[#4452FB]/10 text-[#4452FB] border border-[#4452FB]/20 px-2 py-0.5 rounded-full">
+              Admin
+            </span>
           </div>
 
           {/* Navigation Links */}
-          <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+          <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
             {navItems.map((item) => {
               const IconComp = item.icon;
               const isActive = activeTab === item.id;
@@ -243,16 +242,18 @@ export default function AdminDashboard() {
                   }}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all group ${
                     isActive
-                      ? 'bg-slate-100/90 text-slate-900 font-bold shadow-xs'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                      ? 'bg-[#4452FB] text-white font-bold shadow-md shadow-[#4452FB]/20'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <IconComp className={`w-4 h-4 transition-colors ${isActive ? 'text-slate-900' : 'text-slate-400 group-hover:text-slate-700'}`} />
+                    <IconComp className={`w-4 h-4 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'}`} />
                     <span>{item.label}</span>
                   </div>
                   {item.count !== undefined && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200/70 text-slate-700 font-mono">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}>
                       {item.count}
                     </span>
                   )}
@@ -262,20 +263,20 @@ export default function AdminDashboard() {
           </nav>
 
           {/* Bottom Sidebar Controls */}
-          <div className="p-3 border-t border-slate-200/80 space-y-1">
+          <div className="p-3 border-t border-slate-100 space-y-1 bg-slate-50/50">
             <button
               onClick={() => navigate('/')}
-              className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+              className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition-all border border-transparent hover:border-slate-200/60"
             >
               <ExternalLink className="w-4 h-4 text-slate-400" />
-              <span>Main App</span>
+              <span>User Application</span>
             </button>
             <button
               onClick={handleAdminLogout}
-              className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+              className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50/70 transition-all border border-transparent hover:border-rose-100"
             >
               <LogOut className="w-4 h-4 text-slate-400 group-hover:text-rose-600" />
-              <span>Log out</span>
+              <span>Sign out</span>
             </button>
           </div>
 
@@ -283,12 +284,12 @@ export default function AdminDashboard() {
       </aside>
 
       {/* 2. MAIN CANVAS CONTENT */}
-      <div className="flex-1 flex flex-col h-full min-w-0 overflow-y-auto bg-[#F8FAFC]">
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-y-auto bg-slate-50">
         
         {/* Top Header Bar */}
-        <header className="sticky top-0 z-10 bg-[#F8FAFC]/90 backdrop-blur-md px-8 py-5 flex items-center justify-between border-b border-slate-200/60">
+        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md px-8 py-4 flex items-center justify-between border-b border-slate-200/80">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-sans">
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight font-sans">
               {getPageTitle()}
             </h1>
           </div>
@@ -298,17 +299,17 @@ export default function AdminDashboard() {
             {/* Quick Search Shortcut Button */}
             <button
               onClick={() => setIsSearchOpen(true)}
-              className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200/80 rounded-xl text-xs text-slate-500 hover:text-slate-800 hover:border-slate-300 shadow-2xs transition-all"
+              className="hidden md:flex items-center gap-2 px-3.5 py-2 bg-slate-50 hover:bg-white border border-slate-200 rounded-xl text-xs text-slate-500 hover:text-slate-900 hover:border-[#4452FB]/30 shadow-2xs transition-all"
             >
               <Search className="w-3.5 h-3.5 text-slate-400" />
-              <span>Search</span>
-              <kbd className="bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded text-[10px] text-slate-500 font-mono">⌘K</kbd>
+              <span>Quick search...</span>
+              <kbd className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-[10px] text-slate-500 font-mono font-bold shadow-2xs">⌘K</kbd>
             </button>
 
             {/* Notification Bell */}
             <button
               onClick={() => setActiveTab('monitoring')}
-              className="p-2 rounded-xl bg-white border border-slate-200/80 text-slate-600 hover:text-slate-900 hover:border-slate-300 shadow-2xs relative transition-all"
+              className="p-2 rounded-xl bg-slate-50 hover:bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 shadow-2xs relative transition-all"
               title="System Alerts"
             >
               <Bell className="w-4 h-4" />
@@ -316,20 +317,20 @@ export default function AdminDashboard() {
             </button>
 
             {/* User Profile Pill */}
-            <div className="flex items-center gap-2.5 pl-2">
-              <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-xs overflow-hidden">
+            <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
+              <div className="w-8 h-8 rounded-full bg-[#4452FB] text-white flex items-center justify-center font-black text-xs shadow-sm shadow-[#4452FB]/20 overflow-hidden">
                 {adminUser?.avatar_url ? (
                   <img src={adminUser.avatar_url} className="w-full h-full object-cover" alt="" />
                 ) : (
-                  <span>{(adminUser?.name || adminUser?.username || 'A').charAt(0).toUpperCase()}</span>
+                  <span>{(adminUser?.name || adminUser?.username || 'M').charAt(0).toUpperCase()}</span>
                 )}
               </div>
               <div className="hidden sm:flex flex-col text-left">
                 <span className="text-xs font-bold text-slate-900 leading-tight">
-                  {adminUser?.name || 'Tom L'}
+                  {adminUser?.name || 'MadMan'}
                 </span>
-                <span className="text-[11px] text-slate-400 font-normal leading-tight">
-                  {adminUser?.email || 'tomL@gmail.com'}
+                <span className="text-[11px] text-slate-500 font-normal leading-tight">
+                  {adminUser?.email || 'admin@zeper.ai'}
                 </span>
               </div>
             </div>
@@ -347,27 +348,27 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 
                 {/* Total Users */}
-                <div className="bg-white rounded-2xl p-5 border border-slate-200/70 shadow-2xs flex items-start justify-between">
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-[#4452FB]/30 transition-all flex items-start justify-between">
                   <div className="space-y-2">
-                    <span className="text-xs font-semibold text-slate-500">Total users</span>
-                    <div className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Users</span>
+                    <div className="text-3xl font-black text-slate-900 tracking-tight">
                       {stats?.totalUsers ?? total}
                     </div>
                     <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-                      <span className="font-bold">Live Supabase DB</span>
+                      <span className="font-bold">Live Database</span>
                       <span className="text-slate-400 font-normal">registered accounts</span>
                     </div>
                   </div>
-                  <div className="p-2 bg-slate-100 text-slate-700 rounded-xl">
-                    <Users className="w-4 h-4" />
+                  <div className="p-3 bg-[#4452FB]/10 text-[#4452FB] rounded-2xl border border-[#4452FB]/20">
+                    <Users className="w-5 h-5" />
                   </div>
                 </div>
 
                 {/* New Users */}
-                <div className="bg-white rounded-2xl p-5 border border-slate-200/70 shadow-2xs flex items-start justify-between">
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-[#4452FB]/30 transition-all flex items-start justify-between">
                   <div className="space-y-2">
-                    <span className="text-xs font-semibold text-slate-500">New users</span>
-                    <div className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">New Users</span>
+                    <div className="text-3xl font-black text-slate-900 tracking-tight">
                       {stats?.newUsers ?? 0}
                     </div>
                     <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
@@ -375,16 +376,16 @@ export default function AdminDashboard() {
                       <span className="text-slate-400 font-normal">recent signups</span>
                     </div>
                   </div>
-                  <div className="p-2 bg-slate-100 text-slate-700 rounded-xl">
-                    <UserPlus className="w-4 h-4" />
+                  <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100">
+                    <UserPlus className="w-5 h-5" />
                   </div>
                 </div>
 
                 {/* Active Users */}
-                <div className="bg-white rounded-2xl p-5 border border-slate-200/70 shadow-2xs flex items-start justify-between">
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-[#4452FB]/30 transition-all flex items-start justify-between">
                   <div className="space-y-2">
-                    <span className="text-xs font-semibold text-slate-500">Active users</span>
-                    <div className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Active Users</span>
+                    <div className="text-3xl font-black text-slate-900 tracking-tight">
                       {stats?.activeUsers ?? 0}
                     </div>
                     <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
@@ -392,21 +393,21 @@ export default function AdminDashboard() {
                       <span className="text-slate-400 font-normal">tracked sessions</span>
                     </div>
                   </div>
-                  <div className="p-2 bg-slate-100 text-slate-700 rounded-xl">
-                    <Activity className="w-4 h-4" />
+                  <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl border border-purple-100">
+                    <Activity className="w-5 h-5" />
                   </div>
                 </div>
 
               </div>
 
               {/* Main User List Card Container (Matching reference card & table) */}
-              <div className="bg-white rounded-2xl border border-slate-200/70 shadow-2xs overflow-hidden">
+              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
                 
                 {/* User List Header Bar */}
-                <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100">
+                <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100">
                   <div className="flex items-center gap-2.5">
-                    <h2 className="text-base font-bold text-slate-900">User list</h2>
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                    <h2 className="text-lg font-black text-slate-900 tracking-tight">User Directory</h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#4452FB]/10 text-[#4452FB]">
                       {total} users
                     </span>
                   </div>
@@ -416,32 +417,32 @@ export default function AdminDashboard() {
                     
                     {/* Search for user */}
                     <div className="relative min-w-[240px]">
-                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
                         type="text"
-                        placeholder="Search for user"
+                        placeholder="Search users..."
                         value={search}
                         onChange={(e) => {
                           setSearch(e.target.value);
                           setPage(1);
                         }}
-                        className="w-full pl-9 pr-3 py-1.5 bg-slate-50/80 hover:bg-slate-100/60 focus:bg-white border border-slate-200/80 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/20 focus:border-slate-400 transition-all"
+                        className="w-full pl-10 pr-3.5 py-2 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200/80 rounded-2xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4452FB]/20 focus:border-[#4452FB] transition-all font-medium"
                       />
                     </div>
 
                     {/* Filters Toggle Button */}
                     <button
                       onClick={() => setShowFilters(!showFilters)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs font-semibold transition-all ${
+                      className={`flex items-center gap-1.5 px-3.5 py-2 border rounded-2xl text-xs font-bold transition-all ${
                         showFilters || tierFilter || statusFilter || adminFilter
-                          ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
-                          : 'bg-white text-slate-700 border-slate-200/80 hover:bg-slate-50'
+                          ? 'bg-[#4452FB] text-white border-[#4452FB] shadow-sm shadow-[#4452FB]/20'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
                       }`}
                     >
                       <SlidersHorizontal className="w-3.5 h-3.5" />
                       <span>Filters</span>
                       {(tierFilter || statusFilter || adminFilter) && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                       )}
                     </button>
 
@@ -450,9 +451,9 @@ export default function AdminDashboard() {
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value)}
-                        className="appearance-none pl-3 pr-8 py-1.5 bg-white border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none cursor-pointer shadow-2xs"
+                        className="appearance-none pl-3.5 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 hover:bg-slate-100 focus:outline-none cursor-pointer"
                       >
-                        <option value="created_at">Last 30 days</option>
+                        <option value="created_at">Latest First</option>
                         <option value="email">Sort by Email</option>
                         <option value="name">Sort by Name</option>
                       </select>
@@ -465,7 +466,7 @@ export default function AdminDashboard() {
                         const authHeader = await getAdminAuthHeader();
                         window.open(`/api/admin/export/csv?type=users&token=${encodeURIComponent(authHeader || '')}`, '_blank');
                       }}
-                      className="p-1.5 bg-white border border-slate-200/80 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors shadow-2xs"
+                      className="p-2 bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-2xl transition-all"
                       title="Export CSV"
                     >
                       <Download className="w-4 h-4" />
@@ -475,13 +476,13 @@ export default function AdminDashboard() {
 
                 {/* Collapsible Filter Row */}
                 {showFilters && (
-                  <div className="p-4 bg-slate-50/70 border-b border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs animate-in fade-in">
+                  <div className="p-4 bg-slate-50/80 border-b border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs animate-in fade-in">
                     <div>
-                      <label className="text-[11px] font-semibold text-slate-500 block mb-1">Tier</label>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Plan Tier</label>
                       <select
                         value={tierFilter}
                         onChange={(e) => { setTierFilter(e.target.value); setPage(1); }}
-                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#4452FB]/20 focus:border-[#4452FB]"
                       >
                         <option value="">All Tiers</option>
                         <option value="Free">Free</option>
@@ -490,11 +491,11 @@ export default function AdminDashboard() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-[11px] font-semibold text-slate-500 block mb-1">Status</label>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Status</label>
                       <select
                         value={statusFilter}
                         onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#4452FB]/20 focus:border-[#4452FB]"
                       >
                         <option value="">All Statuses</option>
                         <option value="active">Active Only</option>
@@ -502,11 +503,11 @@ export default function AdminDashboard() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-[11px] font-semibold text-slate-500 block mb-1">Role</label>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Role</label>
                       <select
                         value={adminFilter}
                         onChange={(e) => { setAdminFilter(e.target.value); setPage(1); }}
-                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#4452FB]/20 focus:border-[#4452FB]"
                       >
                         <option value="">All Roles</option>
                         <option value="true">Admins Only</option>
@@ -520,21 +521,21 @@ export default function AdminDashboard() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="border-b border-slate-100 text-slate-400 font-semibold text-[11px]">
-                        <th className="py-3.5 pl-5 pr-3 w-10">
+                      <tr className="border-b border-slate-100 bg-slate-50/50 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                        <th className="py-4 pl-6 pr-3 w-10">
                           <input
                             type="checkbox"
                             checked={users.length > 0 && selectedUserIds.size === users.length}
                             onChange={toggleSelectAll}
-                            className="rounded border-slate-300 text-slate-900 focus:ring-slate-400 cursor-pointer"
+                            className="rounded-md border-slate-300 text-[#4452FB] focus:ring-[#4452FB] cursor-pointer"
                           />
                         </th>
-                        <th className="py-3.5 px-3">User</th>
-                        <th className="py-3.5 px-3">Email address</th>
-                        <th className="py-3.5 px-3">Tier / Balance</th>
-                        <th className="py-3.5 px-3">Created date</th>
-                        <th className="py-3.5 px-3">User status</th>
-                        <th className="py-3.5 pr-5 pl-3 text-right">Actions</th>
+                        <th className="py-4 px-3">User</th>
+                        <th className="py-4 px-3">Email Address</th>
+                        <th className="py-4 px-3">Tier & Balance</th>
+                        <th className="py-4 px-3">Created Date</th>
+                        <th className="py-4 px-3">Status</th>
+                        <th className="py-4 pr-6 pl-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
@@ -616,7 +617,7 @@ CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR 
                                 <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                                   <button
                                     onClick={fetchUsers}
-                                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-xs"
+                                    className="px-4 py-2 bg-[#4452FB] hover:bg-[#3442EB] text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-[#4452FB]/20"
                                   >
                                     <RefreshCw className="w-3.5 h-3.5" />
                                     <span>Refresh User List</span>
@@ -625,7 +626,7 @@ CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR 
                                     href="https://supabase.com/dashboard/project/_/sql"
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 font-semibold border border-slate-200 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-2xs"
+                                    className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 font-bold border border-slate-200 rounded-xl text-xs flex items-center gap-1.5 transition-all"
                                   >
                                     <span>Open Supabase SQL Editor</span>
                                     <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
@@ -651,22 +652,22 @@ CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR 
                               className={`hover:bg-slate-50/80 transition-colors ${isSelected ? 'bg-slate-50/90' : ''}`}
                             >
                               {/* Checkbox */}
-                              <td className="py-3.5 pl-5 pr-3">
+                              <td className="py-4 pl-6 pr-3">
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
                                   onChange={() => toggleSelectUser(user.id)}
-                                  className="rounded border-slate-300 text-slate-900 focus:ring-slate-400 cursor-pointer"
+                                  className="rounded-md border-slate-300 text-[#4452FB] focus:ring-[#4452FB] cursor-pointer"
                                 />
                               </td>
 
                               {/* User (Avatar + Bold Name) */}
-                              <td className="py-3.5 px-3">
+                              <td className="py-4 px-3">
                                 <div className="flex items-center gap-3">
                                   {user.avatar_url ? (
                                     <img src={user.avatar_url} className="w-8 h-8 rounded-full object-cover border border-slate-200" alt="" />
                                   ) : (
-                                    <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-[11px]">
+                                    <div className="w-8 h-8 rounded-full bg-[#4452FB]/10 text-[#4452FB] border border-[#4452FB]/20 flex items-center justify-center font-black text-[11px]">
                                       {initials}
                                     </div>
                                   )}
@@ -677,36 +678,40 @@ CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR 
                               </td>
 
                               {/* Email Address */}
-                              <td className="py-3.5 px-3 text-slate-500 text-xs">
+                              <td className="py-4 px-3 text-slate-600 text-xs font-medium">
                                 {user.email}
                               </td>
 
                               {/* Tier / Balance */}
-                              <td className="py-3.5 px-3 text-slate-600">
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-slate-100 font-semibold text-slate-700">
+                              <td className="py-4 px-3 text-slate-600">
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                                  user.tier === 'Agency' ? 'bg-purple-100 text-purple-800' :
+                                  user.tier === 'Pro' ? 'bg-[#4452FB]/10 text-[#4452FB]' :
+                                  'bg-slate-100 text-slate-700'
+                                }`}>
                                   {user.tier || 'Free'} • {user.current_balance || 0} credits
                                 </span>
                               </td>
 
                               {/* Created Date */}
-                              <td className="py-3.5 px-3 text-slate-500 whitespace-nowrap">
+                              <td className="py-4 px-3 text-slate-500 whitespace-nowrap">
                                 {createdDate}
                               </td>
 
                               {/* User Status (Pills matching reference: Active / Warned / Blocked / Admin) */}
-                              <td className="py-3.5 px-3">
+                              <td className="py-4 px-3">
                                 {user.banned_at ? (
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-600">
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-100">
                                     <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
                                     Blocked
                                   </span>
                                 ) : user.is_admin ? (
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700">
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-100">
                                     <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span>
                                     Admin
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-600">
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                     Active
                                   </span>
@@ -714,10 +719,10 @@ CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR 
                               </td>
 
                               {/* Actions (...) */}
-                              <td className="py-3.5 pr-5 pl-3 text-right">
+                              <td className="py-4 pr-6 pl-3 text-right">
                                 <button
                                   onClick={() => setSelectedUserId(user.id)}
-                                  className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                                  className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all"
                                   title="Inspect & Manage"
                                 >
                                   <MoreHorizontal className="w-4 h-4" />
@@ -732,11 +737,11 @@ CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR 
                 </div>
 
                 {/* Pagination Footer (Matching < 1 2 3 ... 8 9 10 > in reference) */}
-                <div className="p-4 border-t border-slate-100 flex items-center justify-center gap-1 text-xs">
+                <div className="p-4 border-t border-slate-100 flex items-center justify-center gap-1.5 text-xs bg-slate-50/50">
                   <button
                     disabled={page <= 1}
                     onClick={() => setPage(p => Math.max(1, p - 1))}
-                    className="p-1.5 text-slate-400 hover:text-slate-800 disabled:opacity-30 disabled:hover:text-slate-400"
+                    className="p-2 text-slate-400 hover:text-slate-800 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -748,10 +753,10 @@ CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR 
                       <button
                         key={pageNum}
                         onClick={() => setPage(pageNum)}
-                        className={`w-7 h-7 rounded-lg text-xs font-semibold transition-all ${
+                        className={`w-8 h-8 rounded-xl text-xs font-bold transition-all ${
                           isActive
-                            ? 'bg-slate-100 text-slate-900 font-bold shadow-2xs'
-                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                            ? 'bg-[#4452FB] text-white shadow-sm shadow-[#4452FB]/20'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                         }`}
                       >
                         {pageNum}
@@ -764,8 +769,8 @@ CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR 
                       <span className="px-1 text-slate-400">...</span>
                       <button
                         onClick={() => setPage(totalPages)}
-                        className={`w-7 h-7 rounded-lg text-xs font-semibold ${
-                          page === totalPages ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-900'
+                        className={`w-8 h-8 rounded-xl text-xs font-bold ${
+                          page === totalPages ? 'bg-[#4452FB] text-white' : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
                         {totalPages}
@@ -776,7 +781,7 @@ CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR 
                   <button
                     disabled={page >= totalPages}
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    className="p-1.5 text-slate-400 hover:text-slate-800 disabled:opacity-30 disabled:hover:text-slate-400"
+                    className="p-2 text-slate-400 hover:text-slate-800 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
