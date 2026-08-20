@@ -2,7 +2,7 @@
 import React from 'react';
 import type { GenerateImageParams } from '../../types';
 import { FormTextArea, FormInput } from '../ui/Form';
-import { SectionTitle, BestForLabel, HelpLabel } from './shared';
+import { SectionTitle, BestForLabel, HelpLabel, ControlButton } from './shared';
 
 interface RemixControlsProps {
     params: GenerateImageParams;
@@ -50,6 +50,22 @@ export const RemixControls: React.FC<RemixControlsProps> = ({
                         value={params.remixNegativePrompt || ''}
                         onChange={e => handleParamChange('remixNegativePrompt', e.target.value)}
                     />
+                </div>
+
+                <div>
+                    <HelpLabel label="Variations" tooltip="Generate more than one interpretation of the same remix in a single run. Each variation is charged as a separate credit." />
+                    <div className="flex gap-2">
+                        {[1, 2, 3, 4].map(count => (
+                            <ControlButton
+                                key={count}
+                                onClick={() => handleParamChange('remixVariationCount', count)}
+                                selected={(params.remixVariationCount || 1) === count}
+                                className="!text-xs px-4 py-1.5"
+                            >
+                                {count}
+                            </ControlButton>
+                        ))}
+                    </div>
                 </div>
 
                 <div className="pt-2">

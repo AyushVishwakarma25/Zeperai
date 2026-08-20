@@ -83,8 +83,8 @@ export const calculateGenerationCost = (params: GenerateImageParams, userTier: s
             break;
 
         case AppMode.Remix:
-            // Remix is typically 1 input -> 1 output unless explicitly multi-ratio
-            baseVariations = 1; 
+            // Remix charges per requested variation (clamped 1-4, mirrored in geminiService.ts).
+            baseVariations = Math.min(Math.max(params.remixVariationCount || 1, 1), 4);
             break;
 
         default:

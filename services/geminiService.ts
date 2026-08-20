@@ -656,7 +656,12 @@ export const generateImages = async (params: GenerateImageParams, userTier: 'Fre
              variations.push({ preset });
          }
     } else if (params.appMode === AppMode.Remix) {
-        variations.push({});
+        // Remix Mode Logic: same reference + product context, N independent variations.
+        // Clamp to 1-4: unlike Fashion's multi-pose batches, each Remix variation is a
+        // fresh interpretation of the same protocol rather than a different pose, so we
+        // cap it lower to keep cost/latency sane.
+        const remixCount = Math.min(Math.max(params.remixVariationCount || 1, 1), 4);
+        for (let i = 0; i < remixCount; i++) variations.push({});
     } else {
         // Standard / Influencer / AdCreative / Others
         variations.push({});

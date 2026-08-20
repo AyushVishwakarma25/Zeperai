@@ -244,6 +244,7 @@ export interface GenerateImageParams {
   remixBackground?: string;
   remixElements?: string;
   remixNegativePrompt?: string;
+  remixVariationCount?: number;
   modelSourceOption?: 'new' | 'existing';
   modelSeedId?: string;
   saveModel?: boolean;
