@@ -39,8 +39,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
       }
       onLoginSuccess(session);
       onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed");
+    } catch (err: any) {
+      const msg = typeof err === 'string'
+        ? err
+        : err?.message
+          ? String(err.message)
+          : err?.error
+            ? String(err.error)
+            : typeof err === 'object' && err !== null
+              ? (err.code ? `${err.code}: ${err.message || 'Authentication failed'}` : JSON.stringify(err))
+              : String(err || 'Authentication failed');
+      setError(msg);
     } finally {
       setIsLoading(false);
     }

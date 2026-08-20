@@ -29,9 +29,16 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
-      const errorMessage = this.state.error instanceof Error 
-        ? this.state.error.message 
-        : String(this.state.error || 'Unknown error occurred');
+      const err = this.state.error as any;
+      const errorMessage = typeof err === 'string'
+        ? err
+        : err instanceof Error
+          ? err.message
+          : err?.message
+            ? String(err.message)
+            : typeof err === 'object' && err !== null
+              ? (err.code ? `${err.code}: ${err.message || 'Unknown error'}` : JSON.stringify(err))
+              : String(err || 'Unknown error occurred');
 
       return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#f8fafc', padding: '1rem', textAlign: 'center', fontFamily: 'sans-serif' }}>

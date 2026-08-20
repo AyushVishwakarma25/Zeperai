@@ -66,11 +66,11 @@ export const userService = {
           .from('profiles')
           .select('*')
           .eq('id', uid)
-          .single();
+          .maybeSingle();
       
-      if (error) {
+      if (error || !data) {
           // If the table doesn't exist or row is missing, just return null (fallback will handle it)
-          if (error.code !== '42P01' && error.code !== '404' && error.code !== 'PGRST116' && (error as any).status !== 404) {
+          if (error && error.code !== '42P01' && error.code !== '404' && error.code !== 'PGRST116' && (error as any).status !== 404) {
                console.warn('Failed to load user profile from DB:', error.message || error);
           }
           return null;
@@ -163,10 +163,10 @@ export const userService = {
           .from('user_credits')
           .select('current_balance, total_quota')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
-      if (error) {
-          if (error.code !== '42P01' && error.code !== '404' && (error as any).status !== 404) {
+      if (error || !data) {
+          if (error && error.code !== '42P01' && error.code !== '404' && (error as any).status !== 404) {
                console.warn('Failed to load credits:', error.message || error);
           }
           return { current: 0, total: 0 };

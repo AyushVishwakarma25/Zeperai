@@ -12,13 +12,13 @@ export const brandService = {
         .from('brand_kits')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error) {
+      if (error || !data) {
           // PGRST116: JSON object requested, multiple (or no) rows returned - Normal for new users
           // 42P01: relation "public.brand_kits" does not exist - Normal before DB setup
           // 404: Resource not found (Table often reports as this via REST if not exposed/existing)
-          if (error.code === 'PGRST116' || error.code === '42P01' || error.code === '404' || (error as any).status === 404) {
+          if (!error || error.code === 'PGRST116' || error.code === '42P01' || error.code === '404' || (error as any).status === 404) {
               return null;
           }
           console.warn('Brand kits fetch error:', error.message);

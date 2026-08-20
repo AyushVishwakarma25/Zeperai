@@ -92,8 +92,14 @@ const AppInternal: React.FC = () => {
   useEffect(() => {
     const handleAppToast = (e: any) => {
       if (e.detail?.message) {
+        const rawMsg = e.detail.message;
+        const safeMsg = typeof rawMsg === 'string'
+          ? rawMsg
+          : typeof rawMsg === 'object' && rawMsg !== null
+            ? rawMsg.message || rawMsg.error || JSON.stringify(rawMsg)
+            : String(rawMsg || '');
         setToast({
-          message: e.detail.message,
+          message: safeMsg,
           type: e.detail.type || 'error'
         });
       }
