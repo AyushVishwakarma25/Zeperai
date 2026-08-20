@@ -33,7 +33,7 @@ export const AdminLoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !password) {
+    if (!username.trim() || !password.trim()) {
       setError('Please enter both username and password.');
       return;
     }
@@ -44,7 +44,7 @@ export const AdminLoginPage: React.FC = () => {
 
       const res = await axios.post('/api/admin/login', {
         username: username.trim(),
-        password: password
+        password: password.trim()
       });
 
       if (res.data?.success && res.data?.token) {
