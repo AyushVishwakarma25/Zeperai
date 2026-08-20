@@ -54,9 +54,17 @@ const AppInternal: React.FC = () => {
   const appData = useAppData();
   
   // UI State
+  const [showSplash, setShowSplash] = useState(true);
   const [currentView, setCurrentView] = useState<View>(View.Dashboard);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2200);
+    return () => clearTimeout(timer);
+  }, []);
   
   // Dashboard Floating Input State
   const [floatingPrompt, setFloatingPrompt] = useState('');
@@ -416,8 +424,8 @@ const AppInternal: React.FC = () => {
       }
   }, [creative.setParams]);
 
-  if (isAuthLoading) {
-      return <SplashScreen />;
+  if (isAuthLoading || showSplash) {
+      return <SplashScreen durationMs={2200} />;
   }
 
   const isStoryboardResult = !!creative.params.storyboardScenes && creative.params.storyboardScenes.length > 0;

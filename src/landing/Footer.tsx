@@ -27,7 +27,22 @@ export const Footer: React.FC = () => {
         <div>
           <h4 className="text-white font-bold mb-4">Product</h4>
           <ul className="space-y-3 text-sm">
-            <li><a href="/#features" className="hover:text-white transition-colors">Features</a></li>
+            <li>
+              <Link 
+                to="/" 
+                onClick={() => {
+                  const element = document.getElementById('features');
+                  if (element) {
+                    element.scrollIntoView({ behavior: 'smooth' });
+                  } else {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }
+                }} 
+                className="hover:text-white transition-colors"
+              >
+                Features
+              </Link>
+            </li>
             <li><Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
             <li><Link to="/login" className="hover:text-white transition-colors">Sign In</Link></li>
           </ul>

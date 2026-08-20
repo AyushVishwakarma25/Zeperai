@@ -1,25 +1,21 @@
 import React from 'react';
-import { BrandLogo } from './ui/BrandLogo';
+import { EncryptedText } from './ui/encrypted-text';
 
-export const SplashScreen: React.FC = () => {
+interface SplashScreenProps {
+  durationMs?: number;
+}
+
+export const SplashScreen: React.FC<SplashScreenProps> = () => {
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white overflow-hidden">
-        {/* Background Animated GIF */}
-        <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
-             <img
-              src="https://i.pinimg.com/originals/e0/72/79/e072795e2df448bc05973c24237d002d.gif" 
-              alt="Loading..."
-              className="w-full h-full object-cover"
-          />
-        </div>
-        
-        {/* Centered Content */}
-        <div className="relative z-10 flex flex-col items-center animate-fade-in-scale-up">
-            <div className="mb-6 animate-pulse">
-                <BrandLogo variant="full" color="black" className="w-64 h-auto" />
-            </div>
-            <p className="text-slate-400 text-xs font-semibold tracking-[0.3em] uppercase mt-2">Creative Studio</p>
-        </div>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black text-white p-4 select-none">
+      <p className="mx-auto max-w-lg py-10 text-left text-xl sm:text-2xl font-mono">
+        <EncryptedText
+          text="Welcome to the ZeperAI."
+          encryptedClassName="text-neutral-500"
+          revealedClassName="text-white"
+          revealDelayMs={50}
+        />
+      </p>
     </div>
   );
 };

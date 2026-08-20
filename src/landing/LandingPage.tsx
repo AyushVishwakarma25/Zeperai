@@ -37,6 +37,17 @@ export const LandingPage: React.FC = () => {
           element.scrollIntoView({ behavior: 'smooth' });
         }, 100);
       }
+      if (window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    } else if (location.state && (location.state as any).scrollTo) {
+      const targetId = (location.state as any).scrollTo;
+      const element = document.getElementById(targetId);
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      }
     } else {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -85,8 +96,7 @@ export const LandingPage: React.FC = () => {
         
         {/* Top Headline */}
         <div className="text-center mb-12 relative z-10">
-          <div className="inline-flex items-center gap-2 bg-[#F3F4FF] border border-[#E6E8FF] text-[#3641C9] px-4 py-1.5 rounded-full text-sm font-bold tracking-wide uppercase mb-6">
-            <span className="w-2 h-2 bg-[#4452FB] rounded-full animate-pulse"></span>
+          <div className="inline-flex items-center text-[#3641C9] text-sm font-extrabold tracking-widest uppercase mb-6">
             Built for Indian D2C Brands
           </div>
           <h1 className="text-5xl md:text-7xl font-black tracking-tight text-slate-900 mx-auto leading-[1.1] max-w-5xl relative mb-6">
