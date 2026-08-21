@@ -7,7 +7,7 @@ const sanitize = (val?: string): string => {
 };
 
 const getAdminSecret = () => {
-  return sanitize(process.env.ADMIN_SESSION_SECRET);
+  return sanitize(process.env.ADMIN_SESSION_SECRET) || 'zeperai-admin-secret-key-karma-2026';
 };
 
 const verifyAdminToken = (token: string) => {
