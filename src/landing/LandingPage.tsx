@@ -4,7 +4,6 @@ import { Icon } from '../../components/ui/Icon';
 import { BrandLogo } from '../../components/ui/BrandLogo';
 import { useScrollDirection } from '../../hooks/useScrollDirection';
 import { LandingHeader } from './LandingHeader';
-import { WorkCarousel } from './WorkCarousel';
 import { ActionCarousel } from './ActionCarousel';
 import { CreativitySection } from './CreativitySection';
 import { Footer } from './Footer';
@@ -64,9 +63,8 @@ export const LandingPage: React.FC = () => {
                  3x Higher CTR <span className="w-1 h-1 bg-white/50 rounded-full"></span>
                  ROAS Optimized Creatives <span className="w-1 h-1 bg-white/50 rounded-full"></span>
                  Zero Prompt Engineering <span className="w-1 h-1 bg-white/50 rounded-full"></span>
-                 25 Free Credits on Signup <span className="w-1 h-1 bg-white/50 rounded-full"></span>
+                 10 Credits On Signup <span className="w-1 h-1 bg-white/50 rounded-full"></span>
                  Trusted by D2C Founders <span className="w-1 h-1 bg-white/50 rounded-full"></span>
-                 4.9/5 Average Rating <span className="w-1 h-1 bg-white/50 rounded-full"></span>
                  Scale Your Creative Output <span className="w-1 h-1 bg-white/50 rounded-full"></span>
                  Stop the Guesswork
                </span>
@@ -113,7 +111,7 @@ export const LandingPage: React.FC = () => {
               onClick={() => navigate('/login')}
               className="w-full sm:w-auto bg-[#4452FB] hover:bg-[#3641C9] text-white px-6 py-3 md:px-8 md:py-4 rounded-xl text-base md:text-lg font-bold transition-all shadow-lg shadow-[#C8CEFE] transform hover:-translate-y-1 flex items-center justify-center gap-2"
             >
-              Claim Your 25 Free Credits <Icon name="arrow-right" className="w-5 h-5" />
+              Get Free Credits <Icon name="arrow-right" className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -187,27 +185,47 @@ export const LandingPage: React.FC = () => {
 
       </section>
 
-      {/* SOCIAL PROOF BAR */}
+      {/* STATS CARD BELOW HERO */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto mb-24">
-        <div className="bg-gradient-to-br from-[#F3F4FF] to-emerald-50 border border-[#E6E8FF] rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center gap-8 md:gap-12 justify-between">
-          <div className="text-center md:text-left">
-            <div className="text-2xl md:text-3xl font-black text-[#4452FB] tracking-tight leading-tight mb-2">
-              Blended ROAS Lift of 1.4x and 3x Hook-Rate Improvement.
+        <div className="bg-gradient-to-br from-[#F3F4FF] via-white to-emerald-50 border border-[#E6E8FF] rounded-3xl p-6 md:p-10 shadow-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-slate-200/80">
+            
+            <div className="text-center md:text-left pt-4 sm:pt-0 sm:px-4 flex flex-col justify-center">
+              <div className="text-3xl md:text-4xl font-black text-[#4452FB] tracking-tight leading-none mb-2">
+                100+
+              </div>
+              <p className="text-xs md:text-sm font-bold text-slate-700 uppercase tracking-wide">
+                Creatives Generated All Together
+              </p>
             </div>
-          </div>
-          <div className="h-px w-full md:h-16 md:w-px bg-slate-200"></div>
-          <div className="text-center md:text-left">
-            <div className="text-4xl md:text-5xl font-black text-[#4452FB] tracking-tight leading-none mb-2">
-              Nano Banana Pro
+
+            <div className="text-center md:text-left pt-4 sm:pt-0 sm:px-4 flex flex-col justify-center">
+              <div className="text-2xl md:text-3xl font-black text-[#4452FB] tracking-tight leading-none mb-2">
+                Nano Banana Pro
+              </div>
+              <p className="text-xs md:text-sm font-bold text-slate-700 uppercase tracking-wide">
+                Powered by Enterprise-Grade AI
+              </p>
             </div>
-            <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Powered by Enterprise-Grade AI</p>
-          </div>
-          <div className="h-px w-full md:h-16 md:w-px bg-slate-200"></div>
-          <div className="text-center md:text-left">
-            <div className="text-4xl md:text-5xl font-black text-[#4452FB] tracking-tight leading-none mb-2">
-              100+
+
+            <div className="text-center md:text-left pt-4 sm:pt-0 sm:px-4 flex flex-col justify-center">
+              <div className="text-3xl md:text-4xl font-black text-[#4452FB] tracking-tight leading-none mb-2">
+                1.4x ROAS
+              </div>
+              <p className="text-xs md:text-sm font-bold text-slate-700 uppercase tracking-wide">
+                Blended ROAS Lift & 3x Hook-Rate
+              </p>
             </div>
-            <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Creatives Generated Across Categories</p>
+
+            <div className="text-center md:text-left pt-4 sm:pt-0 sm:px-4 flex flex-col justify-center">
+              <div className="text-2xl md:text-3xl font-black text-[#4452FB] tracking-tight leading-none mb-2">
+                High CTR
+              </div>
+              <p className="text-xs md:text-sm font-bold text-slate-700 uppercase tracking-wide">
+                Proven Templates Updated Monthly
+              </p>
+            </div>
+
           </div>
         </div>
       </section>
@@ -285,9 +303,6 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* SECTION 3 — WORK CAROUSEL */}
-      <WorkCarousel />
-
       {/* SECTION 4 — CREATIVITY SECTION */}
       <CreativitySection />
 
@@ -303,26 +318,9 @@ export const LandingPage: React.FC = () => {
           <h2 className="text-3xl md:text-5xl font-black mb-6 tracking-tight">
             Not just AI generation. Templates that are already proven to convert.
           </h2>
-          <p className="text-xl text-slate-300 mb-12 max-w-4xl mx-auto leading-relaxed">
+          <p className="text-xl text-slate-300 max-w-4xl mx-auto leading-relaxed">
             Every other AI tool gives you a blank canvas and a prayer. ZeperAI gives you 100+ creative templates hand-picked from real campaigns — optimised for CTR, built for e-commerce, and ready to customise with your brand in seconds. The result isn't just beautiful creative. It's creative that performs.
           </p>
-          
-          <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 border-t border-white/10 pt-12">
-            <div>
-              <div className="text-4xl font-black text-[#C8CEFE] mb-2">100+</div>
-              <div className="text-sm font-bold uppercase tracking-wider text-slate-400">proven templates</div>
-            </div>
-            <div className="hidden md:block w-px h-12 bg-white/10"></div>
-            <div>
-              <div className="text-4xl font-black text-[#C8CEFE] mb-2">High CTR</div>
-              <div className="text-sm font-bold uppercase tracking-wider text-slate-400">Built for performance</div>
-            </div>
-            <div className="hidden md:block w-px h-12 bg-white/10"></div>
-            <div>
-              <div className="text-4xl font-black text-[#C8CEFE] mb-2">Monthly</div>
-              <div className="text-sm font-bold uppercase tracking-wider text-slate-400">Updated with new top-performers</div>
-            </div>
-          </div>
         </div>
       </section>
 

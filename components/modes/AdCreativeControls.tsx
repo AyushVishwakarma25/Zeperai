@@ -96,7 +96,7 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
                     onClick={() => handleParamChange('isComparisonMode', false)}
                     className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${!params.isComparisonMode ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'}`}
                 >
-                    Standard Ad (Prompt Library v4)
+                    Standard Ad
                 </button>
                 <button
                     type="button"
@@ -167,18 +167,8 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
                     </div>
                 )}
                 
-                <div className="flex items-center justify-between mt-4 mb-2 pt-4 border-t border-slate-200">
-                    <HelpLabel label="Ad Content" tooltip="Write your own or use AI to generate high-converting copy based on your product details." />
-                    <Button 
-                        variant="secondary" 
-                        className="h-8 py-0.5 px-3 text-xs gap-1 border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
-                        onClick={handleAutoGenerateCopy}
-                        disabled={isGeneratingCopy || !params.productDescription}
-                        isLoading={isGeneratingCopy}
-                    >
-                        <Icon name="sparkles" className="w-3.5 h-3.5" />
-                        Auto-Write Copy
-                    </Button>
+                <div className="mt-4 mb-2 pt-4 border-t border-slate-200">
+                    <HelpLabel label="Ad Content" tooltip="Write your own copy based on your product details." />
                 </div>
                 
                 <FormInput 
@@ -246,20 +236,6 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
                         onChange={e => handleParamChange('adTextColor', e.target.value)}
                     />
                 </div>
-
-                <div className="pt-4">
-                    <Button 
-                        onClick={() => setShowScorecard(!showScorecard)} 
-                        variant="secondary" 
-                        fullWidth
-                        className={showScorecard ? 'bg-primary/10 text-primary border-primary/20' : ''}
-                    >
-                        <Icon name="strategy" className="w-4 h-4 mr-2" />
-                        {showScorecard ? 'Hide Creative Intelligence' : 'Analyze Performance Potential'}
-                    </Button>
-                </div>
-
-                {showScorecard && <CreativeScorecard params={params} />}
             </div>
         </>
     );

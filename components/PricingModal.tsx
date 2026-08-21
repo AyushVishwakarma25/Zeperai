@@ -315,10 +315,6 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
                             : 'bg-slate-50 rounded-xl py-1.5 px-2.5 mb-2.5 text-center border border-slate-100 flex items-center justify-center gap-1.5'
                         }
                       >
-                        <Icon
-                          name={isPro ? 'sparkles' : 'stack'}
-                          className={`w-3.5 h-3.5 shrink-0 ${isPro ? 'text-white' : 'text-[#4452FB]'}`}
-                        />
                         <span className={`font-bold text-xs ${isPro ? 'text-white' : 'text-slate-800'}`}>
                           {plan.credits}
                         </span>

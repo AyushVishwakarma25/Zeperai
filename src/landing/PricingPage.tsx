@@ -190,10 +190,6 @@ export const PricingPage: React.FC = () => {
                     : 'bg-slate-50 rounded-xl p-3 mb-6 text-center border border-slate-100 flex items-center justify-center'
                 }
               >
-                <Icon
-                  name={plan.highlight ? 'sparkles' : 'stack'}
-                  className={`w-5 h-5 mr-2 ${plan.highlight ? 'text-white' : 'text-[#4452FB]'}`}
-                />
                 <span className={`font-bold ${plan.highlight ? 'text-white text-lg' : 'text-slate-700'}`}>
                   {plan.creditsLabel}
                 </span>

@@ -114,18 +114,9 @@ const ABTestModal: React.FC<ABTestModalProps> = ({ image, onClose, onGenerate, o
                         <Icon name="variants" className="w-6 h-6 mr-3 text-primary" />
                         <h2 className="text-xl font-bold text-slate-800">A/B Testing Variants</h2>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button 
-                            onClick={() => setShowPricingTable(!showPricingTable)}
-                            className="text-xs font-bold text-[#4452FB] bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors flex items-center gap-1"
-                        >
-                            <Icon name="stack" className="w-3.5 h-3.5 text-primary" />
-                            <span>Pricing Table</span>
-                        </button>
-                        <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors">
-                            <Icon name="close" className="w-5 h-5"/>
-                        </button>
-                    </div>
+                    <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition-colors shrink-0">
+                        <Icon name="close" className="w-5 h-5"/>
+                    </button>
                 </header>
 
                 {showPricingTable && (

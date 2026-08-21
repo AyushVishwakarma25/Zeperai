@@ -181,24 +181,6 @@ export default function BackgroundRemoverPro({ onDeductCredits, onRefundCredits,
           </a>
         </div>
       )}
-
-      <div className="pt-2 border-t border-slate-100">
-        <button
-          onClick={() => setShowPricingTable(!showPricingTable)}
-          className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200/80 text-slate-700 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all border border-slate-200/70"
-        >
-          <span>{showPricingTable ? 'Hide Feature Pricing Table' : 'View Feature & Model Rates Table'}</span>
-        </button>
-        {showPricingTable && (
-          <div className="mt-3">
-            <FeaturePricingTable
-              onOpenPricingModal={onOpenPricingModal}
-              onClose={() => setShowPricingTable(false)}
-              compact
-            />
-          </div>
-        )}
-      </div>
     </div>
   );
 }

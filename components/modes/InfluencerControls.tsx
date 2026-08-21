@@ -117,12 +117,21 @@ export const InfluencerControls: React.FC<InfluencerControlsProps> = ({
                     </label>
                 </div>
             )}
-            <div className="relative mt-4">
-                <HelpLabel label="Model Persona" tooltip="Defines the vibe and demographic of the influencer." />
+            <div className="mt-4">
+                <div className="flex justify-between items-center mb-1">
+                    <HelpLabel label="Model Persona" tooltip="Defines the vibe and demographic of the influencer." className="!mb-0" />
+                    <button 
+                        type="button"
+                        onClick={() => onGenerateVariants('modelPersona')} 
+                        className="text-xs text-[#4452FB] hover:text-[#3641C9] font-semibold flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                    >
+                        <Icon name="sparkles" className="w-3.5 h-3.5"/>
+                        <span>AI Ideas</span>
+                    </button>
+                </div>
                 <Select label="" value={params.modelPersona} onChange={e => handleParamChange('modelPersona', e.target.value)}>
                     {Object.keys(MODEL_PERSONA_OPTIONS).map(group => ( <optgroup key={group} label={group}> {MODEL_PERSONA_OPTIONS[group].map(opt => <option key={opt} value={opt}>{opt}</option>)} </optgroup> ))}
                 </Select>
-                <button onClick={() => onGenerateVariants('modelPersona')} className="absolute top-8 right-2 p-1 text-slate-400 hover:text-primary"><Icon name="sparkles" className="w-4 h-4"/></button>
             </div>
             
             <div className="border-t border-slate-200 my-6"></div>
@@ -154,10 +163,16 @@ export const InfluencerControls: React.FC<InfluencerControlsProps> = ({
 
             <div className="mt-6">
                 <HelpLabel label="Outfit Type" />
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {CLOTHING_TYPE_OPTIONS.map(opt => (
-                        <ControlButton key={opt.value} onClick={() => handleParamChange('clothingType', opt.value)} selected={params.clothingType === opt.value}>
-                        <Icon name={opt.icon} className="w-4 h-4" /> <span>{opt.label}</span>
+                        <ControlButton 
+                            key={opt.value} 
+                            onClick={() => handleParamChange('clothingType', opt.value)} 
+                            selected={params.clothingType === opt.value}
+                            className="!px-2 !py-2 text-[11px] sm:text-xs font-semibold whitespace-nowrap overflow-hidden flex items-center justify-center gap-1.5"
+                        >
+                            <Icon name={opt.icon} className="w-3.5 h-3.5 shrink-0" /> 
+                            <span className="truncate">{opt.label}</span>
                         </ControlButton>
                     ))}
                 </div>

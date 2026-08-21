@@ -62,17 +62,10 @@ export const LandingHeader: React.FC = () => {
                 Features
               </Link>
               <Link 
-                to="/#how-it-works" 
-                onClick={(e) => handleScrollTo(e, 'how-it-works')}
+                to="/about" 
                 className="hover:text-[#4452FB] transition-colors"
               >
-                How It Works
-              </Link>
-              <Link 
-                to="/tools/background-remover" 
-                className="hover:text-[#4452FB] transition-colors"
-              >
-                Background Remover
+                About Us
               </Link>
               <Link 
                 to="/pricing" 
@@ -81,16 +74,16 @@ export const LandingHeader: React.FC = () => {
                 Pricing
               </Link>
               <Link 
-                to="/about" 
-                className="hover:text-[#4452FB] transition-colors"
-              >
-                About Us
-              </Link>
-              <Link 
                 to="/contact" 
                 className="hover:text-[#4452FB] transition-colors"
               >
                 Contact
+              </Link>
+              <Link 
+                to="/tools/background-remover" 
+                className="hover:text-[#4452FB] transition-colors"
+              >
+                Background Remover
               </Link>
             </div>
 
@@ -185,18 +178,11 @@ export const LandingHeader: React.FC = () => {
               Features
             </Link>
             <Link 
-              to="/#how-it-works" 
-              onClick={(e) => handleScrollTo(e, 'how-it-works')}
-              className="text-base font-medium text-slate-700 hover:text-slate-900 py-2 border-b border-slate-100"
-            >
-              How It Works
-            </Link>
-            <Link 
-              to="/tools/background-remover" 
+              to="/about" 
               className="text-base font-medium text-slate-700 hover:text-slate-900 py-2 border-b border-slate-100"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              Background Remover
+              About Us
             </Link>
             <Link 
               to="/pricing" 
@@ -206,18 +192,18 @@ export const LandingHeader: React.FC = () => {
               Pricing
             </Link>
             <Link 
-              to="/about" 
+              to="/contact" 
               className="text-base font-medium text-slate-700 hover:text-slate-900 py-2 border-b border-slate-100"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              About Us
+              Contact
             </Link>
             <Link 
-              to="/contact" 
-              className="text-base font-medium text-slate-700 hover:text-slate-900 py-2"
+              to="/tools/background-remover" 
+              className="text-base font-medium text-slate-700 hover:text-slate-900 py-2 border-b border-slate-100"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              Contact
+              Background Remover
             </Link>
             {user ? (
               <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
