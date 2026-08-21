@@ -197,26 +197,27 @@ const sanitizeSecret = (val?: string): string => {
     .trim();
 };
 
-export const getAdminSecret = () => {
-  return sanitizeSecret(process.env.ADMIN_SESSION_SECRET) || 'zeperai-admin-secret-key-karma-2026';
+export const getAdminSecret = (): string => {
+  return sanitizeSecret(process.env.ADMIN_SESSION_SECRET);
 };
 
-export const getAdminUsername = () => {
-  return sanitizeSecret(process.env.ADMIN_USERNAME) || 'MadMan';
+export const getAdminUsername = (): string => {
+  return sanitizeSecret(process.env.ADMIN_USERNAME);
 };
 
-export const getAdminPassword = () => {
-  return sanitizeSecret(process.env.ADMIN_PASSWORD) || '197325';
+export const getAdminPassword = (): string => {
+  return sanitizeSecret(process.env.ADMIN_PASSWORD);
 };
 
 export const getAdminAllowedEmails = (): string[] => {
   const raw = sanitizeSecret(process.env.ADMIN_ALLOWED_EMAILS);
-  const configured = raw ? raw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean) : [];
-  const defaults = ['reachtoayush25@gmail.com', 'sharma25ayush@gmail.com'];
-  return Array.from(new Set([...defaults, ...configured]));
+  if (!raw) return [];
+  return raw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 };
 
-export const generateAdminToken = (username: string) => {
+export const generateAdminToken = (username: string): string | null => {
+  const secret = getAdminSecret();
+  if (!secret) return null;
   const payload = {
     username: username || getAdminUsername() || 'admin',
     role: 'admin',
@@ -224,18 +225,24 @@ export const generateAdminToken = (username: string) => {
     exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
   };
   const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const signature = crypto.createHmac('sha256', getAdminSecret()).update(payloadB64).digest('hex');
+  const signature = crypto.createHmac('sha256', secret).update(payloadB64).digest('hex');
   return `zeperai_adm_${payloadB64}.${signature}`;
 };
 
 export const verifyAdminToken = (token: string) => {
   if (!token || !token.startsWith('zeperai_adm_')) return null;
+  const secret = getAdminSecret();
+  if (!secret) return null;
   try {
     const raw = token.replace('zeperai_adm_', '');
     const [payloadB64, signature] = raw.split('.');
     if (!payloadB64 || !signature) return null;
-    const expectedSig = crypto.createHmac('sha256', getAdminSecret()).update(payloadB64).digest('hex');
-    if (signature !== expectedSig) return null;
+    const expectedSig = crypto.createHmac('sha256', secret).update(payloadB64).digest('hex');
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expectedSig);
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      return null;
+    }
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
     if (payload.exp && Date.now() > payload.exp) return null;
     return payload;
@@ -245,8 +252,14 @@ export const verifyAdminToken = (token: string) => {
 };
 
 export const getAdminSupabaseClient = async (authHeader?: string) => {
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+  const supabaseUrl = sanitizeSecret(process.env.SUPABASE_URL) || sanitizeSecret(process.env.VITE_SUPABASE_URL) || DEFAULT_SUPABASE_URL;
+  const supabaseKey = sanitizeSecret(process.env.SUPABASE_SERVICE_ROLE_KEY) || 
+                      sanitizeSecret(process.env.SUPABASE_SERVICE_KEY) || 
+                      sanitizeSecret(process.env.SUPABASE_SECRET_KEY) || 
+                      sanitizeSecret(process.env.SUPABASE_KEY) || 
+                      sanitizeSecret(process.env.SUPABASE_ANON_KEY) || 
+                      sanitizeSecret(process.env.VITE_SUPABASE_ANON_KEY) || 
+                      DEFAULT_SUPABASE_ANON_KEY;
   const { createClient } = await import('@supabase/supabase-js');
   
   const options: any = {
@@ -254,7 +267,12 @@ export const getAdminSupabaseClient = async (authHeader?: string) => {
   };
   
   // Forward authorization header only if it is a valid Supabase JWT (starts with Bearer eyJ) and service role key is not configured
-  if (authHeader && !process.env.SUPABASE_SERVICE_ROLE_KEY && authHeader.startsWith('Bearer eyJ')) {
+  const hasServiceRoleKey = !!(
+    sanitizeSecret(process.env.SUPABASE_SERVICE_ROLE_KEY) || 
+    sanitizeSecret(process.env.SUPABASE_SERVICE_KEY) || 
+    sanitizeSecret(process.env.SUPABASE_SECRET_KEY)
+  );
+  if (authHeader && !hasServiceRoleKey && authHeader.startsWith('Bearer eyJ')) {
     options.global = {
       headers: { Authorization: authHeader }
     };
@@ -330,38 +348,17 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     return next();
   }
 
-  const userEmail = (req.user.email || '').toLowerCase().trim();
-  const allowedEmails = getAdminAllowedEmails();
-  if (allowedEmails.includes(userEmail)) {
-    req.user.is_admin = true;
-    return next();
-  }
-
   try {
     const adminClient = await getAdminSupabaseClient();
     const { data, error } = await adminClient
       .from('profiles')
-      .select('is_admin, role')
+      .select('is_admin')
       .eq('id', req.user.id)
-      .maybeSingle();
-
-    if (!error && (data?.is_admin || data?.role === 'admin' || data?.role === 'Admin')) {
-      req.user.is_admin = true;
-      return next();
-    }
-
-    if (allowedEmails.includes(userEmail)) {
-      req.user.is_admin = true;
-      return next();
-    }
-
-    return res.status(403).json({ error: 'Forbidden: Admin access required.' });
+      .single();
+    if (error || !data?.is_admin) return res.status(403).json({ error: 'Forbidden: Admin access required.' });
+    next();
   } catch (err: any) {
-    if (allowedEmails.includes(userEmail)) {
-      req.user.is_admin = true;
-      return next();
-    }
-    return res.status(403).json({ error: 'Forbidden: Admin verification failed.' });
+    return res.status(500).json({ error: 'Failed to verify admin status.' });
   }
 };
 
@@ -389,43 +386,55 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
       const configuredUser = getAdminUsername();
       const configuredPass = getAdminPassword();
+      const configuredSecret = getAdminSecret();
 
       const safeStringEqual = (a: string, b: string): boolean => {
         if (!a || !b) return false;
+        if (typeof a !== 'string' || typeof b !== 'string') return false;
         try {
-          const aBuf = crypto.createHash('sha256').update(Buffer.from(String(a))).digest();
-          const bBuf = crypto.createHash('sha256').update(Buffer.from(String(b))).digest();
-          return crypto.timingSafeEqual(aBuf, bBuf) && a.length === b.length;
-        } catch (e) {
+          const aBuf = Buffer.from(String(a));
+          const bBuf = Buffer.from(String(b));
+          if (aBuf.length !== bBuf.length) {
+            const aHash = crypto.createHash('sha256').update(aBuf).digest();
+            const bHash = crypto.createHash('sha256').update(bBuf).digest();
+            crypto.timingSafeEqual(aHash, bHash);
+            return false;
+          }
+          return crypto.timingSafeEqual(aBuf, bBuf);
+        } catch {
           return false;
         }
       };
 
-      // 1. Direct configured admin credential match
-      const isConfiguredValid = safeStringEqual(inputUser, configuredUser) && safeStringEqual(inputPass, configuredPass);
-      const isAyushAdmin = safeStringEqual(inputUser, 'ayushlogin') && safeStringEqual(inputPass, 'logmein25');
-      const isMadManAdmin = safeStringEqual(inputUser, 'MadMan') && safeStringEqual(inputPass, '197325');
+      // 1. Direct credentials matching strictly against configured environment variables (fail closed if not configured)
+      if (configuredUser && configuredPass && configuredSecret) {
+        const isUserMatch = safeStringEqual(inputUser, configuredUser);
+        const isPassMatch = safeStringEqual(inputPass, configuredPass);
 
-      if (isConfiguredValid || isAyushAdmin || isMadManAdmin) {
-        const token = generateAdminToken(inputUser);
-        return res.json({
-          success: true,
-          token,
-          user: {
-            username: inputUser,
-            name: inputUser,
-            email: 'admin@zeper.ai',
-            role: 'admin',
-            is_admin: true
+        if (isUserMatch && isPassMatch) {
+          const token = generateAdminToken(inputUser);
+          if (!token) {
+            return res.status(500).json({ success: false, error: 'Admin session secret is not configured.' });
           }
-        });
+          return res.json({
+            success: true,
+            token,
+            user: {
+              username: inputUser,
+              name: inputUser,
+              email: 'admin@zeper.ai',
+              role: 'admin',
+              is_admin: true
+            }
+          });
+        }
       }
 
-      // 2. Supabase Auth fallback for admin email accounts
+      // 2. Supabase Auth Fallback (if user enters their Supabase admin email and password)
       if (inputUser.includes('@')) {
         try {
-          const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-          const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+          const supabaseUrl = sanitizeSecret(process.env.SUPABASE_URL) || sanitizeSecret(process.env.VITE_SUPABASE_URL) || DEFAULT_SUPABASE_URL;
+          const supabaseAnonKey = sanitizeSecret(process.env.SUPABASE_ANON_KEY) || sanitizeSecret(process.env.VITE_SUPABASE_ANON_KEY) || DEFAULT_SUPABASE_ANON_KEY;
           const { createClient } = await import('@supabase/supabase-js');
           const supabase = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
 
@@ -435,36 +444,32 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           });
 
           if (!authError && authData?.user) {
-            const email = (authData.user.email || '').toLowerCase().trim();
+            const userEmail = (authData.user.email || '').toLowerCase().trim();
             const allowedEmails = getAdminAllowedEmails();
-            const isEmailAdmin = allowedEmails.includes(email) || authData.user.user_metadata?.is_admin === true;
+            const isAdmin =
+              (allowedEmails.length > 0 && allowedEmails.includes(userEmail)) ||
+              authData.user.user_metadata?.is_admin === true;
 
-            const adminClient = await getAdminSupabaseClient();
-            const { data: profile } = await adminClient
-              .from('profiles')
-              .select('is_admin, role, name')
-              .eq('id', authData.user.id)
-              .maybeSingle();
-
-            const isDbAdmin = profile?.is_admin === true || profile?.role === 'admin' || profile?.role === 'Admin';
-
-            if (isEmailAdmin || isDbAdmin) {
-              const token = generateAdminToken(email);
+            if (isAdmin) {
+              const token = generateAdminToken(userEmail);
+              if (!token) {
+                return res.status(500).json({ success: false, error: 'Admin session secret is not configured.' });
+              }
               return res.json({
                 success: true,
                 token,
                 user: {
-                  username: email,
-                  name: profile?.name || email.split('@')[0],
-                  email: email,
+                  username: userEmail,
+                  name: authData.user.user_metadata?.name || 'Administrator',
+                  email: userEmail,
                   role: 'admin',
                   is_admin: true
                 }
               });
             }
           }
-        } catch (supabaseAuthErr) {
-          console.warn('Supabase auth sign-in fallback attempt failed:', supabaseAuthErr);
+        } catch (supabaseErr) {
+          console.warn('Supabase fallback admin check exception:', supabaseErr);
         }
       }
 
@@ -3951,16 +3956,11 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   
   // --- VITE & STATIC SERVING ---
   const setupViteAndStart = async () => {
-      const httpServer = app.listen(PORT, '0.0.0.0', () => {
-        console.log(`Server running on http://0.0.0.0:${PORT}`);
-      });
-
       if (process.env.NODE_ENV !== 'production') {
         const { createServer: createViteServer } = await import('vite');
         const vite = await createViteServer({
           server: { 
-            middlewareMode: true,
-            hmr: { server: httpServer }
+            middlewareMode: true
           },
           appType: 'spa',
         });
@@ -3986,6 +3986,10 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           res.sendFile(path.join(distPath, 'index.html'));
         });
       }
+
+      app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Server running on http://0.0.0.0:${PORT}`);
+      });
     };
     
     if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME && !process.env.NOW_REGION) {

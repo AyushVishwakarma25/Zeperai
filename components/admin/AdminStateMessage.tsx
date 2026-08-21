@@ -16,30 +16,6 @@ export interface AdminStateMessageProps {
   className?: string;
 }
 
-/**
- * Guarantees a safe, renderable string regardless of what's actually passed at
- * runtime. Callers type `message` as `string`, but values sourced from `catch (err: any)`
- * blocks or API responses aren't type-checked, so an object (e.g. { code, message })
- * can slip through and crash React with "Objects are not valid as a React child"
- * (minified error #31) if rendered directly.
- */
-function toSafeMessage(value: unknown): string {
-  if (typeof value === 'string') return value;
-  if (value == null) return 'An unexpected error occurred.';
-  if (value instanceof Error) return value.message || 'An unexpected error occurred.';
-  if (typeof value === 'object') {
-    const obj = value as Record<string, unknown>;
-    if (typeof obj.message === 'string') return obj.message;
-    if (typeof obj.error === 'string') return obj.error;
-    try {
-      return JSON.stringify(obj);
-    } catch {
-      return 'An unexpected error occurred.';
-    }
-  }
-  return String(value);
-}
-
 export const AdminStateMessage: React.FC<AdminStateMessageProps> = ({
   type,
   title,
@@ -51,13 +27,12 @@ export const AdminStateMessage: React.FC<AdminStateMessageProps> = ({
   icon,
   className = ''
 }) => {
-  const safeMessage = toSafeMessage(message);
   if (type === 'loading') {
     return (
       <div className={`py-16 flex flex-col items-center justify-center space-y-3 font-sans text-center ${className}`}>
         <Spinner className="w-8 h-8 text-[#4452FB]" />
         {title && <h4 className="text-sm font-bold text-slate-900">{title}</h4>}
-        <p className="text-xs text-slate-500 max-w-md">{safeMessage}</p>
+        <p className="text-xs text-slate-500 max-w-md">{message}</p>
       </div>
     );
   }
@@ -71,7 +46,7 @@ export const AdminStateMessage: React.FC<AdminStateMessageProps> = ({
           </div>
           <div className="space-y-1">
             <h4 className="text-sm font-bold text-slate-900">{title || 'Failed to Load Data'}</h4>
-            <p className="text-xs text-slate-500 leading-relaxed">{safeMessage}</p>
+            <p className="text-xs text-slate-500 leading-relaxed">{message}</p>
           </div>
           {onRetry && (
             <Button
@@ -96,7 +71,7 @@ export const AdminStateMessage: React.FC<AdminStateMessageProps> = ({
       </div>
       <div className="space-y-1">
         <h4 className="text-sm font-bold text-slate-900">{title || 'No Records Found'}</h4>
-        <p className="text-xs text-slate-500 max-w-sm">{safeMessage}</p>
+        <p className="text-xs text-slate-500 max-w-sm">{message}</p>
       </div>
       {onClearFilters && (
         <Button

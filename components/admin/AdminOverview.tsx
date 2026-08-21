@@ -118,9 +118,7 @@ export default function AdminOverview({ onNavigateTab }: AdminOverviewProps) {
       setSummary(res.data.summary);
     } catch (err: any) {
       console.error('Failed to load dashboard summary:', err);
-      const apiError = err.response?.data?.error;
-      const safeError = typeof apiError === 'string' ? apiError : (err.message || 'Failed to aggregate administrative metrics. Please check network and database connectivity.');
-      setError(safeError);
+      setError(err.response?.data?.error || err.message || 'Failed to aggregate administrative metrics. Please check network and database connectivity.');
     } finally {
       setLoading(false);
       setRefreshing(false);

@@ -40,7 +40,6 @@ export const INITIAL_GENERATE_PARAMS: GenerateImageParams = {
   adAvailability: '',
   remixReferenceImage: undefined,
   remixProductImage: undefined,
-  remixVariationCount: 1,
   modelSourceOption: 'new',
   isComparisonMode: false,
   productAFeatures: '',

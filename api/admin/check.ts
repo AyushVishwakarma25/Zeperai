@@ -6,19 +6,30 @@ const sanitize = (val?: string): string => {
   return String(val).replace(/^["']|["']$/g, '').replace(/[\r\n]/g, '').trim();
 };
 
-const getAdminSecret = () => {
-  return sanitize(process.env.ADMIN_SESSION_SECRET) || 'zeperai-admin-secret-key-karma-2026';
+const getAdminSecret = (): string => {
+  return sanitize(process.env.ADMIN_SESSION_SECRET);
+};
+
+const getAdminAllowedEmails = (): string[] => {
+  const raw = sanitize(process.env.ADMIN_ALLOWED_EMAILS);
+  if (!raw) return [];
+  return raw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 };
 
 const verifyAdminToken = (token: string) => {
+  if (!token || !token.startsWith('zeperai_adm_')) return null;
   const secret = getAdminSecret();
-  if (!secret || !token || !token.startsWith('zeperai_adm_')) return null;
+  if (!secret) return null;
   try {
     const raw = token.replace('zeperai_adm_', '');
     const [payloadB64, signature] = raw.split('.');
     if (!payloadB64 || !signature) return null;
     const expectedSig = crypto.createHmac('sha256', secret).update(payloadB64).digest('hex');
-    if (signature !== expectedSig) return null;
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expectedSig);
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      return null;
+    }
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
     if (payload.exp && Date.now() > payload.exp) return null;
     return payload;
@@ -62,18 +73,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // 2. Verify Supabase JWT token
   try {
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://kvqzfiezakcbnxbagxjs.supabase.co';
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_6JMJwxQ-176l71T_ULVl2A_82Z0u_rb';
+    const supabaseUrl = sanitize(process.env.SUPABASE_URL) || sanitize(process.env.VITE_SUPABASE_URL) || 'https://kvqzfiezakcbnxbagxjs.supabase.co';
+    const supabaseAnonKey = sanitize(process.env.SUPABASE_ANON_KEY) || sanitize(process.env.VITE_SUPABASE_ANON_KEY) || 'sb_publishable_6JMJwxQ-176l71T_ULVl2A_82Z0u_rb';
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
 
     const { data, error } = await supabase.auth.getUser(token);
     if (!error && data?.user) {
-      const email = (data.user.email || '').toLowerCase();
-      const allowedEmails = sanitize(process.env.ADMIN_ALLOWED_EMAILS)
-        .split(',')
-        .map(e => e.trim().toLowerCase())
-        .filter(Boolean);
+      const email = (data.user.email || '').toLowerCase().trim();
+      const allowedEmails = getAdminAllowedEmails();
       const isAdmin =
         (allowedEmails.length > 0 && allowedEmails.includes(email)) ||
         data.user.user_metadata?.is_admin === true;
