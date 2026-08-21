@@ -12,6 +12,12 @@ interface ToastProps {
 export const Toast: React.FC<ToastProps> = ({ message, type = 'success', onClose, duration = 3000 }) => {
   const [isVisible, setIsVisible] = useState(false);
 
+  const displayMessage = typeof message === 'string' 
+    ? message 
+    : typeof message === 'object' && message !== null 
+      ? (message as any).message || (message as any).error || JSON.stringify(message) 
+      : String(message ?? '');
+
   useEffect(() => {
     // Small delay to trigger entry animation
     requestAnimationFrame(() => setIsVisible(true));
@@ -33,7 +39,7 @@ export const Toast: React.FC<ToastProps> = ({ message, type = 'success', onClose
         }`}
     >
       <Icon name={type === 'success' ? 'check-circle' : 'close'} className="w-5 h-5 mr-3 text-white" />
-      <span className="font-medium text-sm">{message}</span>
+      <span className="font-medium text-sm">{displayMessage}</span>
       <button onClick={() => setIsVisible(false)} className="ml-4 opacity-70 hover:opacity-100">
         <Icon name="close" className="w-4 h-4" />
       </button>

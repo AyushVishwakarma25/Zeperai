@@ -23,7 +23,16 @@ export const SignupPage: React.FC<{ onLoginSuccess: (session: AuthSession) => vo
     try {
       await authService.signInWithGoogle();
     } catch (err: any) {
-      setError(err instanceof Error ? err.message : 'Google sign up failed');
+      const msg = typeof err === 'string'
+        ? err
+        : err?.message
+          ? String(err.message)
+          : err?.error
+            ? String(err.error)
+            : typeof err === 'object' && err !== null
+              ? (err.code ? `${err.code}: ${err.message || 'Google sign up failed'}` : JSON.stringify(err))
+              : String(err || 'Google sign up failed');
+      setError(msg);
       setIsGoogleLoading(false);
     }
   };
@@ -42,7 +51,16 @@ export const SignupPage: React.FC<{ onLoginSuccess: (session: AuthSession) => vo
       const session = await authService.signUpWithPassword(name, email, password);
       onLoginSuccess(session);
     } catch (err: any) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      const msg = typeof err === 'string'
+        ? err
+        : err?.message
+          ? String(err.message)
+          : err?.error
+            ? String(err.error)
+            : typeof err === 'object' && err !== null
+              ? (err.code ? `${err.code}: ${err.message || 'Registration failed'}` : JSON.stringify(err))
+              : String(err || 'Registration failed');
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
