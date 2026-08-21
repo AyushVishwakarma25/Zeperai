@@ -198,15 +198,15 @@ const sanitizeSecret = (val?: string): string => {
 };
 
 export const getAdminSecret = () => {
-  return sanitizeSecret(process.env.ADMIN_SESSION_SECRET) || 'zeperai-admin-secret-key-karma-2026';
+  return sanitizeSecret(process.env.ADMIN_SESSION_SECRET);
 };
 
 export const getAdminUsername = () => {
-  return sanitizeSecret(process.env.ADMIN_USERNAME) || 'MadMan';
+  return sanitizeSecret(process.env.ADMIN_USERNAME);
 };
 
 export const getAdminPassword = () => {
-  return sanitizeSecret(process.env.ADMIN_PASSWORD) || '197325';
+  return sanitizeSecret(process.env.ADMIN_PASSWORD);
 };
 
 export const generateAdminToken = (username: string) => {
@@ -362,6 +362,11 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       const configuredUser = getAdminUsername();
       const configuredPass = getAdminPassword();
 
+      if (!configuredUser || !configuredPass || !getAdminSecret()) {
+        console.error('[admin/login] ADMIN_USERNAME / ADMIN_PASSWORD / ADMIN_SESSION_SECRET are not fully configured.');
+        return res.status(500).json({ success: false, error: 'Admin login is not configured. Contact the site owner.' });
+      }
+
       const safeStringEqual = (a: string, b: string): boolean => {
         if (!a || !b) return false;
         try {
@@ -371,24 +376,16 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           const bHash = crypto.createHash('sha256').update(bBuf).digest();
           return crypto.timingSafeEqual(aHash, bHash) && a.length === b.length;
         } catch (e) {
-          return String(a).trim() === String(b).trim();
+          return false;
         }
       };
 
-      // 1. Check Username / Password against configured environment variables or known admin accounts
-      const isUserMatch =
-        safeStringEqual(inputUser.toLowerCase(), configuredUser.toLowerCase()) ||
-        safeStringEqual(inputUser.toLowerCase(), 'ayushlogin') ||
-        safeStringEqual(inputUser.toLowerCase(), 'madman') ||
-        safeStringEqual(inputUser.toLowerCase(), 'admin');
+      // Strict, exact, constant-time match against server-configured credentials only.
+      // No hardcoded fallback usernames/passwords, no Supabase email-substring fallback.
+      const isValid = safeStringEqual(inputUser, configuredUser) && safeStringEqual(inputPass, configuredPass);
 
-      const isPassMatch =
-        safeStringEqual(inputPass, configuredPass) ||
-        safeStringEqual(inputPass, 'logmein25') ||
-        safeStringEqual(inputPass, '197325');
-
-      if (isUserMatch && isPassMatch) {
-        const token = generateAdminToken(inputUser || 'admin');
+      if (isValid) {
+        const token = generateAdminToken(inputUser);
         return res.json({
           success: true,
           token,
@@ -400,46 +397,6 @@ const requireAdmin = async (req: any, res: any, next: any) => {
             is_admin: true
           }
         });
-      }
-
-      // 2. Supabase Auth Fallback (if user enters their Supabase admin email and password)
-      if (inputUser.includes('@')) {
-        try {
-          const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-          const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
-          const { createClient } = await import('@supabase/supabase-js');
-          const supabase = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
-
-          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            email: inputUser,
-            password: inputPass
-          });
-
-          if (!authError && authData?.user) {
-            const userEmail = (authData.user.email || '').toLowerCase();
-            const isAdmin =
-              userEmail === 'reachtoayush25@gmail.com' ||
-              userEmail.includes('admin') ||
-              authData.user.user_metadata?.is_admin === true;
-
-            if (isAdmin) {
-              const token = generateAdminToken(userEmail);
-              return res.json({
-                success: true,
-                token,
-                user: {
-                  username: userEmail,
-                  name: authData.user.user_metadata?.name || 'Administrator',
-                  email: userEmail,
-                  role: 'admin',
-                  is_admin: true
-                }
-              });
-            }
-          }
-        } catch (supabaseErr) {
-          console.warn('Supabase fallback admin check exception:', supabaseErr);
-        }
       }
 
       return res.status(401).json({ success: false, error: 'Invalid admin username or password.' });
