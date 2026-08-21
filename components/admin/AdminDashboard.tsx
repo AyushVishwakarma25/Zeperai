@@ -149,7 +149,9 @@ export default function AdminDashboard() {
       }
     } catch (err: any) {
       console.error('Failed to fetch users list:', err);
-      setError(err.response?.data?.error || err.message || 'Failed to retrieve registered users. Please verify database connection.');
+      const apiError = err.response?.data?.error;
+      const safeError = typeof apiError === 'string' ? apiError : (err.message || 'Failed to retrieve registered users. Please verify database connection.');
+      setError(safeError);
     } finally {
       setLoading(false);
     }
