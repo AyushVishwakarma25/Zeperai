@@ -1,6 +1,6 @@
 
 import React from 'react';
-import type { SkinTone } from '../../types';
+import type { SkinTone } from '../../types.js';
 
 interface SkinToneOption {
     value: SkinTone;

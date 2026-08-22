@@ -1,12 +1,12 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import type { GenerateImageParams, GeneratedImage, BrandKit, AspectRatio } from '../types';
-import { AppMode, ResolutionQuality } from '../types';
-import { INITIAL_GENERATE_PARAMS, FREE_TRIAL_LIMIT, LOADING_MESSAGES } from '../constants';
-import { generateImages } from '../services/geminiService';
-import { processImageFile, isImageBlurry } from '../utils/images';
-import { getModeDefaults, toggleAspectRatio } from '../utils/configLogic';
-import { calculateGenerationCost } from '../utils/costs';
+import type { GenerateImageParams, GeneratedImage, BrandKit, AspectRatio } from '../types.js';
+import { AppMode, ResolutionQuality } from '../types.js';
+import { INITIAL_GENERATE_PARAMS, FREE_TRIAL_LIMIT, LOADING_MESSAGES } from '../constants.js';
+import { generateImages } from '../services/geminiService.js';
+import { processImageFile, isImageBlurry } from '../utils/images.js';
+import { getModeDefaults, toggleAspectRatio } from '../utils/configLogic.js';
+import { calculateGenerationCost } from '../utils/costs.js';
 
 export const useCreativeSession = (
     userTier: 'Free' | 'PayAsYouGo',

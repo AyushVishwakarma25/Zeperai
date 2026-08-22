@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { BrandLogo } from '../../components/ui/BrandLogo';
-import { Icon } from '../../components/ui/Icon';
-import { useScrollDirection } from '../../hooks/useScrollDirection';
-import { LandingHeader } from './LandingHeader';
-import { Footer } from './Footer';
+import { BrandLogo } from '../../components/ui/BrandLogo.js';
+import { Icon } from '../../components/ui/Icon.js';
+import { useScrollDirection } from '../../hooks/useScrollDirection.js';
+import { LandingHeader } from './LandingHeader.js';
+import { Footer } from './Footer.js';
 
 export const BlogPage: React.FC = () => {
   const navigate = useNavigate();

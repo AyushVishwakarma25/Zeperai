@@ -1,18 +1,18 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { generateMarketingCopy, rewriteMarketingCopy } from '../services/contentGeneratorService';
-import type { GenerateContentParams, CopyVariation, RewriteCopyParams } from '../types';
-import { RewriteAction } from '../types';
-import { FormInput, FormTextArea } from './ui/Form';
-import { Select } from './ui/Select';
-import { Button } from './ui/Button';
-import { Spinner } from './ui/Spinner';
-import { Icon } from './ui/Icon';
-import { Toggle } from './ui/Toggle';
-import { SegmentedControl } from './ui/SegmentedControl';
-import { Toast } from './ui/Toast';
-import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import { FeaturePricingTable } from './FeaturePricingTable';
+import { generateMarketingCopy, rewriteMarketingCopy } from '../services/contentGeneratorService.js';
+import type { GenerateContentParams, CopyVariation, RewriteCopyParams } from '../types.js';
+import { RewriteAction } from '../types.js';
+import { FormInput, FormTextArea } from './ui/Form.js';
+import { Select } from './ui/Select.js';
+import { Button } from './ui/Button.js';
+import { Spinner } from './ui/Spinner.js';
+import { Icon } from './ui/Icon.js';
+import { Toggle } from './ui/Toggle.js';
+import { SegmentedControl } from './ui/SegmentedControl.js';
+import { Toast } from './ui/Toast.js';
+import { useNetworkStatus } from '../hooks/useNetworkStatus.js';
+import { FeaturePricingTable } from './FeaturePricingTable.js';
 
 const AI_WRITER_FREE_LIMIT = 10;
 

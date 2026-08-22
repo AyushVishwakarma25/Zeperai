@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Icon } from './ui/Icon';
-import { AppMode, GeneratedImage } from '../types';
+import { Icon } from './ui/Icon.js';
+import { AppMode, GeneratedImage } from '../types.js';
 
 interface ColorfulCardProps {
   title: string;

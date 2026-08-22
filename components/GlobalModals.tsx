@@ -1,19 +1,19 @@
 
 import React, { Suspense, lazy } from 'react';
-import type { GeneratedImage, EditImageParams, BrandKit, SavedModel, GenerateImageParams } from '../types';
-import type { UserProfileData } from '../services/userService';
-import { Spinner } from './ui/Spinner';
+import type { GeneratedImage, EditImageParams, BrandKit, SavedModel, GenerateImageParams } from '../types.js';
+import type { UserProfileData } from '../services/userService.js';
+import { Spinner } from './ui/Spinner.js';
 
 // Lazy load heavy components
-const EditModal = lazy(() => import('./EditModal'));
-const ZoomModal = lazy(() => import('./ZoomModal'));
-const FeedbackModal = lazy(() => import('./FeedbackModal'));
-const PricingModal = lazy(() => import('./PricingModal'));
-const SupportModal = lazy(() => import('./SupportModal'));
-const ContentGenerator = lazy(() => import('./ContentGenerator'));
-const ProfileEditModal = lazy(() => import('./ProfileEditModal'));
-const BrandKitModal = lazy(() => import('./BrandKitModal'));
-const ABTestModal = lazy(() => import('./ABTestModal'));
+const EditModal = lazy(() => import('./EditModal.js'));
+const ZoomModal = lazy(() => import('./ZoomModal.js'));
+const FeedbackModal = lazy(() => import('./FeedbackModal.js'));
+const PricingModal = lazy(() => import('./PricingModal.js'));
+const SupportModal = lazy(() => import('./SupportModal.js'));
+const ContentGenerator = lazy(() => import('./ContentGenerator.js'));
+const ProfileEditModal = lazy(() => import('./ProfileEditModal.js'));
+const BrandKitModal = lazy(() => import('./BrandKitModal.js'));
+const ABTestModal = lazy(() => import('./ABTestModal.js'));
 
 interface GlobalModalsProps {
     editingImage: GeneratedImage | null;

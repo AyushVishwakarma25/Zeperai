@@ -1,4 +1,4 @@
-import { supabase } from '../../services/supabaseClient';
+import { supabase } from '../../services/supabaseClient.js';
 
 const ADMIN_TOKEN_STORAGE_KEY = 'zeperai_admin_token';
 const ADMIN_USER_STORAGE_KEY = 'zeperai_admin_user';

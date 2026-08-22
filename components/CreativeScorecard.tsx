@@ -1,8 +1,8 @@
 
 import React, { useMemo } from 'react';
-import { Icon } from './ui/Icon';
-import type { GenerateImageParams } from '../types';
-import { AspectRatio } from '../types';
+import { Icon } from './ui/Icon.js';
+import type { GenerateImageParams } from '../types.js';
+import { AspectRatio } from '../types.js';
 
 interface CreativeScorecardProps {
   params: GenerateImageParams;

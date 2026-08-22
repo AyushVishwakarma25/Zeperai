@@ -1,8 +1,8 @@
 import React, { useState, useRef, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Environment, useGLTF, ContactShadows } from '@react-three/drei';
-import { Button } from '../ui/Button';
-import { Icon } from '../ui/Icon';
+import { Button } from '../ui/Button.js';
+import { Icon } from '../ui/Icon.js';
 
 function Model({ url }: { url: string }) {
   const { scene } = useGLTF(url);

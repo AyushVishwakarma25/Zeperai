@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Icon } from './ui/Icon';
-import { Button } from './ui/Button';
+import { Icon } from './ui/Icon.js';
+import { Button } from './ui/Button.js';
 import { 
   getSubscriptionDetails, 
   openUpdatePaymentMethodCheckout, 
   SubscriptionInfo 
-} from '../services/razorpayService';
+} from '../services/razorpayService.js';
 
 interface SubscriptionManagementProps {
   user: {

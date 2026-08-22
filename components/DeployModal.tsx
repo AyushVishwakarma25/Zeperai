@@ -1,9 +1,9 @@
 
 import React, { useCallback } from 'react';
-import type { GeneratedImage } from '../types';
-import { Button } from './ui/Button';
-import { Icon } from './ui/Icon';
-import { generateFilename } from '../utils/images';
+import type { GeneratedImage } from '../types.js';
+import { Button } from './ui/Button.js';
+import { Icon } from './ui/Icon.js';
+import { generateFilename } from '../utils/images.js';
 
 interface DeployModalProps {
   images: GeneratedImage[];

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Button } from './ui/Button';
-import { Icon } from './ui/Icon';
-import { BrandLogo } from './ui/BrandLogo';
-import { FormInput } from './ui/Form';
-import { authService, AuthSession } from '../services/authService';
+import { Button } from './ui/Button.js';
+import { Icon } from './ui/Icon.js';
+import { BrandLogo } from './ui/BrandLogo.js';
+import { FormInput } from './ui/Form.js';
+import { authService, AuthSession } from '../services/authService.js';
 
 export const SignupPage: React.FC<{ onLoginSuccess: (session: AuthSession) => void }> = ({ onLoginSuccess }) => {
   const navigate = useNavigate();

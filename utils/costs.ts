@@ -1,7 +1,7 @@
 
-import { AppMode, ResolutionQuality, GenerateImageParams, ImageModel } from '../types';
-import { CATALOG_BUNDLE_DISCOUNT } from '../constants';
-import { resolveModelForGeneration } from '../src/config/modelConfig';
+import { AppMode, ResolutionQuality, GenerateImageParams, ImageModel } from '../types.js';
+import { CATALOG_BUNDLE_DISCOUNT } from '../constants.js';
+import { resolveModelForGeneration } from '../src/config/modelConfig.js';
 
 /**
  * Calculates the total credit cost for a generation request.

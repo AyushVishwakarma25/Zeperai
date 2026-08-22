@@ -1,22 +1,22 @@
 
 import React, { useState, useCallback } from 'react';
-import type { GeneratedImage, GenerateCaptionParams, BrandKit } from '../types';
-import { CaptionTone } from '../types';
-import { Button } from './ui/Button';
-import { Icon } from './ui/Icon';
-import { Select } from './ui/Select';
+import type { GeneratedImage, GenerateCaptionParams, BrandKit } from '../types.js';
+import { CaptionTone } from '../types.js';
+import { Button } from './ui/Button.js';
+import { Icon } from './ui/Icon.js';
+import { Select } from './ui/Select.js';
 import { 
     CAPTION_TONE_OPTIONS, 
     CAPTION_LENGTH_OPTIONS, 
     CAPTION_PLATFORM_OPTIONS,
     CAPTION_LANGUAGE_OPTIONS
-} from '../constants';
-import { generateFilename, downloadImage } from '../utils/images';
-import { inspirationService } from '../services/inspirationService';
-import { Toast } from './ui/Toast';
-import { AdTextOverlay } from './ui/AdTextOverlay';
-import { useDesigns } from '../contexts/DesignsContext';
-import { DirectorCanvas } from './DirectorCanvas';
+} from '../constants.js';
+import { generateFilename, downloadImage } from '../utils/images.js';
+import { inspirationService } from '../services/inspirationService.js';
+import { Toast } from './ui/Toast.js';
+import { AdTextOverlay } from './ui/AdTextOverlay.js';
+import { useDesigns } from '../contexts/DesignsContext.js';
+import { DirectorCanvas } from './DirectorCanvas.js';
 
 interface DetailPanelProps {
   image: GeneratedImage;
@@ -108,8 +108,8 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
     const handleGenerateAdCopy = async () => {
         setIsGeneratingAdCopy(true);
         try {
-            const { generateAdCopy } = await import('../services/geminiService');
-            const { AD_TEMPLATES } = await import('../constants');
+            const { generateAdCopy } = await import('../services/geminiService.js');
+            const { AD_TEMPLATES } = await import('../constants.js');
             
             let vibe = undefined;
             if (image.params.adTemplateId) {
@@ -156,7 +156,7 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
         // If it's a saved design, we should ideally persist it to the backend here
         // For now, we'll just update local state
         try {
-            const { designService } = await import('../services/designService');
+            const { designService } = await import('../services/designService.js');
             if (image.id && !image.id.startsWith('local-')) {
                 await designService.updateDesignParams(image.id, updatedImage.params);
             }
@@ -175,7 +175,7 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ image, onClose, onGene
         try {
             if (image.params.appMode === 'Ad Creative' && imageContainerRef.current && !showOriginal) {
                 // Download the composite image (image + text overlay)
-                const { downloadCompositeImage } = await import('../utils/images');
+                const { downloadCompositeImage } = await import('../utils/images.js');
                 await downloadCompositeImage(imageContainerRef.current, filename, downloadFormat);
             } else {
                 await downloadImage(image.imageUrl, filename, downloadFormat);

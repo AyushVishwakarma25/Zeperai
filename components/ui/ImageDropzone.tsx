@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
-import { Icon } from './Icon';
-import { Spinner } from './Spinner';
+import { Icon } from './Icon.js';
+import { Spinner } from './Spinner.js';
 
 interface ImageDropzoneProps {
   id: string;

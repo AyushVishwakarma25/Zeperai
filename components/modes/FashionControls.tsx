@@ -1,12 +1,12 @@
 
 import React, { useMemo } from 'react';
-import type { GenerateImageParams } from '../../types';
-import { FashionGender, FashionShootType, FashionBodyType, FashionAgeBracket, RegionalStyle } from '../../types';
-import { FASHION_CATEGORIES, FASHION_MODEL_LOCKS, FASHION_POSE_OPTIONS, FASHION_POSE_TEMPLATES } from '../../constants';
-import { Select } from '../ui/Select';
-import { Icon } from '../ui/Icon';
-import { Toggle } from '../ui/Toggle';
-import { SectionTitle, HelpLabel, BestForLabel, ControlButton } from './shared';
+import type { GenerateImageParams } from '../../types.js';
+import { FashionGender, FashionShootType, FashionBodyType, FashionAgeBracket, RegionalStyle } from '../../types.js';
+import { FASHION_CATEGORIES, FASHION_MODEL_LOCKS, FASHION_POSE_OPTIONS, FASHION_POSE_TEMPLATES } from '../../constants.js';
+import { Select } from '../ui/Select.js';
+import { Icon } from '../ui/Icon.js';
+import { Toggle } from '../ui/Toggle.js';
+import { SectionTitle, HelpLabel, BestForLabel, ControlButton } from './shared.js';
 
 interface FashionControlsProps {
     params: GenerateImageParams;

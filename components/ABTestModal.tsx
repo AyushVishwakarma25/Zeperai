@@ -19,14 +19,14 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import type { GeneratedImage, ABTestSuggestion } from '../types';
-import { Button } from './ui/Button';
-import { Icon } from './ui/Icon';
-import { Spinner } from './ui/Spinner';
-import { getABTestSuggestions, editImage } from '../services/geminiService';
-import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import { Skeleton } from './ui/Skeleton';
-import { FeaturePricingTable } from './FeaturePricingTable';
+import type { GeneratedImage, ABTestSuggestion } from '../types.js';
+import { Button } from './ui/Button.js';
+import { Icon } from './ui/Icon.js';
+import { Spinner } from './ui/Spinner.js';
+import { getABTestSuggestions, editImage } from '../services/geminiService.js';
+import { useNetworkStatus } from '../hooks/useNetworkStatus.js';
+import { Skeleton } from './ui/Skeleton.js';
+import { FeaturePricingTable } from './FeaturePricingTable.js';
 
 interface ABTestModalProps {
   image: GeneratedImage;

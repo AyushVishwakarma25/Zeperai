@@ -1,11 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Icon } from './ui/Icon';
-import { BrandLogo } from './ui/BrandLogo';
-import { AppMode, View, GeneratedImage } from '../types';
-import { Toggle } from './ui/Toggle';
-import { UserProfileData } from '../services/userService';
+import { Icon } from './ui/Icon.js';
+import { BrandLogo } from './ui/BrandLogo.js';
+import { AppMode, View, GeneratedImage } from '../types.js';
+import { Toggle } from './ui/Toggle.js';
+import { UserProfileData } from '../services/userService.js';
 
 const NavItem: React.FC<{ icon: string; label: string; active?: boolean; onClick?: () => void; isOpen: boolean; }> = ({ icon, label, active = false, onClick, isOpen }) => (
   <button

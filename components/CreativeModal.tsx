@@ -1,27 +1,27 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import type { GenerateImageParams, GeneratedImage, SavedModel, BrandKit } from '../types';
-import { AspectRatio, AppMode, ResolutionQuality } from '../types';
-import { FREE_TRIAL_LIMIT } from '../constants';
-import { Button } from './ui/Button';
-import { Icon } from './ui/Icon';
-import { ImageDropzone } from './ui/ImageDropzone';
-import { FormTextArea } from './ui/Form';
-import { calculateGenerationCost, getCatalogDiscountInfo } from '../utils/costs';
-import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import { SectionTitle, HelpLabel } from './modes/shared';
-import { toggleAspectRatio } from '../utils/configLogic';
-import { Toggle } from './ui/Toggle';
-import { analyzeProductContext } from '../services/geminiService';
+import type { GenerateImageParams, GeneratedImage, SavedModel, BrandKit } from '../types.js';
+import { AspectRatio, AppMode, ResolutionQuality } from '../types.js';
+import { FREE_TRIAL_LIMIT } from '../constants.js';
+import { Button } from './ui/Button.js';
+import { Icon } from './ui/Icon.js';
+import { ImageDropzone } from './ui/ImageDropzone.js';
+import { FormTextArea } from './ui/Form.js';
+import { calculateGenerationCost, getCatalogDiscountInfo } from '../utils/costs.js';
+import { useNetworkStatus } from '../hooks/useNetworkStatus.js';
+import { SectionTitle, HelpLabel } from './modes/shared.js';
+import { toggleAspectRatio } from '../utils/configLogic.js';
+import { Toggle } from './ui/Toggle.js';
+import { analyzeProductContext } from '../services/geminiService.js';
 
 // Mode Components
-import { InfluencerControls } from './modes/InfluencerControls';
-import { ProductControls } from './modes/ProductControls';
-import { FashionControls } from './modes/FashionControls';
-import { CommonControls } from './modes/CommonControls';
-import { AdCreativeControls } from './modes/AdCreativeControls';
-import { FestivalControls } from './modes/FestivalControls';
-import { RemixControls } from './modes/RemixControls';
+import { InfluencerControls } from './modes/InfluencerControls.js';
+import { ProductControls } from './modes/ProductControls.js';
+import { FashionControls } from './modes/FashionControls.js';
+import { CommonControls } from './modes/CommonControls.js';
+import { AdCreativeControls } from './modes/AdCreativeControls.js';
+import { FestivalControls } from './modes/FestivalControls.js';
+import { RemixControls } from './modes/RemixControls.js';
 
 interface CreativeModalProps {
   mode: AppMode;

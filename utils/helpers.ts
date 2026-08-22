@@ -1,5 +1,5 @@
 
-import { AppMode } from '../types';
+import { AppMode } from '../types.js';
 
 export function debounce<T extends (...args: any[]) => any>(func: T, delay: number): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;

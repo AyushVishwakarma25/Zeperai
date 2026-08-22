@@ -1,5 +1,5 @@
 import React from 'react';
-import { GenerateImageParams, AdLayout } from '../../types';
+import { GenerateImageParams, AdLayout } from '../../types.js';
 
 interface AdTextOverlayProps {
   params: GenerateImageParams;

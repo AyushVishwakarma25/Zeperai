@@ -1,9 +1,9 @@
 import React, { useRef, useCallback } from 'react';
-import type { GenerateImageParams, ElementTransform } from '../../types';
+import type { GenerateImageParams, ElementTransform } from '../../types.js';
 import {
     LAYOUT_BLUEPRINTS, ELEMENT_CONTENT_SOURCE, type AdElementKey
-} from './layoutBlueprints';
-import { loadGoogleFont } from './googleFonts';
+} from './layoutBlueprints.js';
+import { loadGoogleFont } from './googleFonts.js';
 
 interface AdLayerOverlayProps {
     backgroundImageUrl: string | null;

@@ -1,6 +1,6 @@
 
-import { supabase } from './supabaseClient';
-import type { BrandKit } from '../types';
+import { supabase } from './supabaseClient.js';
+import type { BrandKit } from '../types.js';
 
 export const brandService = {
   async getBrandKit(): Promise<BrandKit | null> {

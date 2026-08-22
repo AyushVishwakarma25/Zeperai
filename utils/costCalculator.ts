@@ -1,5 +1,5 @@
 
-import { AppMode, ResolutionQuality, GenerateImageParams } from '../types';
+import { AppMode, ResolutionQuality, GenerateImageParams } from '../types.js';
 
 export const calculateGenerationCost = (params: GenerateImageParams, userTier: string): number => {
     const numRatios = params.aspectRatios?.length || 0;

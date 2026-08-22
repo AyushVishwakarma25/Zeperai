@@ -1,5 +1,5 @@
-import { ShopifyAnalysisResult } from '../types';
-import { supabase } from './supabaseClient';
+import { ShopifyAnalysisResult } from '../types.js';
+import { supabase } from './supabaseClient.js';
 
 export const shopifyService = {
     async analyzeFiles(files: File | File[]): Promise<ShopifyAnalysisResult> {

@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
-import { supabase } from "../../services/supabaseClient";
-import { FeaturePricingTable } from "../FeaturePricingTable";
+import { supabase } from "../../services/supabaseClient.js";
+import { FeaturePricingTable } from "../FeaturePricingTable.js";
 
 interface BackgroundRemoverProProps {
   onDeductCredits: (cost: number) => boolean;

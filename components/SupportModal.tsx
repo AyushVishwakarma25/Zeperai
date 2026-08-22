@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { Button } from './ui/Button';
-import { Icon } from './ui/Icon';
+import { Button } from './ui/Button.js';
+import { Icon } from './ui/Icon.js';
 
 interface SupportModalProps {
   onClose: () => void;

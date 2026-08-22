@@ -1,18 +1,18 @@
 
 import React, { Suspense, lazy } from 'react';
-import { MainContent } from './MainContent';
-import { Dashboard } from './Dashboard';
-import { MyDesigns } from './MyDesigns';
-import { Spinner } from './ui/Spinner';
-import type { GenerateImageParams, GeneratedImage, InspirationItem, ShopifyAnalysisResult, GenerateCaptionParams, BrandKit } from '../types';
-import type { UserProfileData } from '../services/userService';
-import { AppMode, View } from '../types';
+import { MainContent } from './MainContent.js';
+import { Dashboard } from './Dashboard.js';
+import { MyDesigns } from './MyDesigns.js';
+import { Spinner } from './ui/Spinner.js';
+import type { GenerateImageParams, GeneratedImage, InspirationItem, ShopifyAnalysisResult, GenerateCaptionParams, BrandKit } from '../types.js';
+import type { UserProfileData } from '../services/userService.js';
+import { AppMode, View } from '../types.js';
 
 // Lazy load larger views
-const AnalyticsDashboard = lazy(() => import('./AnalyticsDashboard').then(module => ({ default: module.AnalyticsDashboard })));
-const ShopifyDashboard = lazy(() => import('./ShopifyDashboard'));
-const ProfilePage = lazy(() => import('./ProfilePage'));
-const InspirationPage = lazy(() => import('./InspirationPage'));
+const AnalyticsDashboard = lazy(() => import('./AnalyticsDashboard.js').then(module => ({ default: module.AnalyticsDashboard })));
+const ShopifyDashboard = lazy(() => import('./ShopifyDashboard.js'));
+const ProfilePage = lazy(() => import('./ProfilePage.js'));
+const InspirationPage = lazy(() => import('./InspirationPage.js'));
 
 interface AppMainViewProps {
     currentView: View;

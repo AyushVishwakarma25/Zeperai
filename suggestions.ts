@@ -1,4 +1,4 @@
-import { AppMode } from './types';
+import { AppMode } from './types.js';
 
 const influencerSuggestions = {
   beverage: [

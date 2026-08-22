@@ -1,10 +1,10 @@
 
-import { supabase } from './supabaseClient';
-import { storageService } from './storageService';
-import type { InspirationItem, GeneratedImage } from '../types';
-import { INSPIRATION_GALLERY } from '../data/inspirationGallery';
-import { AppMode } from '../types';
-import { compressImage } from '../utils/images';
+import { supabase } from './supabaseClient.js';
+import { storageService } from './storageService.js';
+import type { InspirationItem, GeneratedImage } from '../types.js';
+import { INSPIRATION_GALLERY } from '../data/inspirationGallery.js';
+import { AppMode } from '../types.js';
+import { compressImage } from '../utils/images.js';
 
 const TABLE_NAME = 'inspiration_gallery';
 

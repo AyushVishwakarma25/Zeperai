@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { Icon } from './ui/Icon';
-import { Button } from './ui/Button';
-import { SubscriptionManagement } from './SubscriptionManagement';
-import { View, UserActivity } from '../types';
+import { Icon } from './ui/Icon.js';
+import { Button } from './ui/Button.js';
+import { SubscriptionManagement } from './SubscriptionManagement.js';
+import { View, UserActivity } from '../types.js';
 
 interface UserProfile {
   id?: string;

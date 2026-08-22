@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { getAdminAuthHeader } from './adminAuthHelper';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { Spinner } from '../ui/Spinner';
-import { AdminStateMessage } from './AdminStateMessage';
+import { getAdminAuthHeader } from './adminAuthHelper.js';
+import { Card } from '../ui/Card.js';
+import { Button } from '../ui/Button.js';
+import { Spinner } from '../ui/Spinner.js';
+import { AdminStateMessage } from './AdminStateMessage.js';
 import {
   Coins,
   Search,

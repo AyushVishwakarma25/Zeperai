@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
-import { Button } from './ui/Button';
-import { Icon } from './ui/Icon';
-import { feedbackService } from '../services/feedbackService';
-import { Toast } from './ui/Toast';
-import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { Button } from './ui/Button.js';
+import { Icon } from './ui/Icon.js';
+import { feedbackService } from '../services/feedbackService.js';
+import { Toast } from './ui/Toast.js';
+import { useNetworkStatus } from '../hooks/useNetworkStatus.js';
 
 interface FeedbackModalProps {
   onClose: () => void;

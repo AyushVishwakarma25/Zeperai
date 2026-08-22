@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
-import { Button } from './ui/Button';
-import { Icon } from './ui/Icon';
-import { BrandLogo } from './ui/BrandLogo';
-import { FormInput } from './ui/Form';
-import { authService, AuthSession } from '../services/authService';
+import { Button } from './ui/Button.js';
+import { Icon } from './ui/Icon.js';
+import { BrandLogo } from './ui/BrandLogo.js';
+import { FormInput } from './ui/Form.js';
+import { authService, AuthSession } from '../services/authService.js';
 
 interface AuthModalProps {
   onClose: () => void;

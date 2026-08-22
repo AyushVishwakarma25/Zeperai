@@ -1,6 +1,6 @@
 
-import { supabase } from './supabaseClient';
-import { UserProfileData, userService } from './userService';
+import { supabase } from './supabaseClient.js';
+import { UserProfileData, userService } from './userService.js';
 
 /**
  * Enhanced profile mapper with internal timeout.

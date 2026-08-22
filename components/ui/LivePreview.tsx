@@ -1,9 +1,9 @@
 
 import React from 'react';
-import type { GenerateImageParams } from '../../types';
-import { AspectRatio } from '../../types';
-import { Icon } from './Icon';
-import { INITIAL_GENERATE_PARAMS } from '../../constants';
+import type { GenerateImageParams } from '../../types.js';
+import { AspectRatio } from '../../types.js';
+import { Icon } from './Icon.js';
+import { INITIAL_GENERATE_PARAMS } from '../../constants.js';
 
 interface LivePreviewProps {
   params: GenerateImageParams;

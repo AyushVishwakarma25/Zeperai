@@ -1,15 +1,15 @@
 import React, { useCallback, useState, useRef } from 'react';
-import type { GeneratedImage, GenerateCaptionParams, BrandKit } from '../types';
-import { Icon } from './ui/Icon';
-import { Button } from './ui/Button';
-import { Spinner } from './ui/Spinner';
-import { View } from '../types';
-import { generateFilename, downloadImage } from '../utils/images';
-import { useDesigns } from '../contexts/DesignsContext';
-import { Toast } from './ui/Toast';
-import { DetailPanel } from './DetailPanel';
-import { AdTextOverlay } from './ui/AdTextOverlay';
-import { inspirationService } from '../services/inspirationService';
+import type { GeneratedImage, GenerateCaptionParams, BrandKit } from '../types.js';
+import { Icon } from './ui/Icon.js';
+import { Button } from './ui/Button.js';
+import { Spinner } from './ui/Spinner.js';
+import { View } from '../types.js';
+import { generateFilename, downloadImage } from '../utils/images.js';
+import { useDesigns } from '../contexts/DesignsContext.js';
+import { Toast } from './ui/Toast.js';
+import { DetailPanel } from './DetailPanel.js';
+import { AdTextOverlay } from './ui/AdTextOverlay.js';
+import { inspirationService } from '../services/inspirationService.js';
 
 interface MyDesignsProps {
   onSetView: (view: View) => void;

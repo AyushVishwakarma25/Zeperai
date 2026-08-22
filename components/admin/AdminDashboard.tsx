@@ -31,22 +31,22 @@ import {
   RefreshCw,
   Terminal
 } from 'lucide-react';
-import { getAdminAuthHeader, clearAdminAuthSession, getStoredAdminUser } from './adminAuthHelper';
-import { BrandLogo } from '../ui/BrandLogo';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { Spinner } from '../ui/Spinner';
-import SubscriptionsList from './SubscriptionsList';
-import PaymentsManager from './PaymentsManager';
-import AdminOverview from './AdminOverview';
-import StorageManager from './StorageManager';
-import CreditsManager from './CreditsManager';
-import AIUsageAnalytics from './AIUsageAnalytics';
-import UserDetailModal from './UserDetailModal';
-import GenerationMonitoring from './GenerationMonitoring';
-import AdminAuditLog from './AdminAuditLog';
-import GlobalSearchModal from './GlobalSearchModal';
-import { AdminStateMessage } from './AdminStateMessage';
+import { getAdminAuthHeader, clearAdminAuthSession, getStoredAdminUser } from './adminAuthHelper.js';
+import { BrandLogo } from '../ui/BrandLogo.js';
+import { Card } from '../ui/Card.js';
+import { Button } from '../ui/Button.js';
+import { Spinner } from '../ui/Spinner.js';
+import SubscriptionsList from './SubscriptionsList.js';
+import PaymentsManager from './PaymentsManager.js';
+import AdminOverview from './AdminOverview.js';
+import StorageManager from './StorageManager.js';
+import CreditsManager from './CreditsManager.js';
+import AIUsageAnalytics from './AIUsageAnalytics.js';
+import UserDetailModal from './UserDetailModal.js';
+import GenerationMonitoring from './GenerationMonitoring.js';
+import AdminAuditLog from './AdminAuditLog.js';
+import GlobalSearchModal from './GlobalSearchModal.js';
+import { AdminStateMessage } from './AdminStateMessage.js';
 
 type AdminTab = 'users' | 'overview' | 'payments' | 'subscriptions' | 'credits' | 'analytics' | 'monitoring' | 'storage' | 'audit';
 

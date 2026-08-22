@@ -1,13 +1,13 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Icon } from './ui/Icon';
-import { Button } from './ui/Button';
-import { FormInput, FormTextArea } from './ui/Form';
-import { ImageDropzone } from './ui/ImageDropzone';
-import { SubscriptionManagement } from './SubscriptionManagement';
-import { processImageFile } from '../utils/images';
-import { storageService } from '../services/storageService';
-import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { Icon } from './ui/Icon.js';
+import { Button } from './ui/Button.js';
+import { FormInput, FormTextArea } from './ui/Form.js';
+import { ImageDropzone } from './ui/ImageDropzone.js';
+import { SubscriptionManagement } from './SubscriptionManagement.js';
+import { processImageFile } from '../utils/images.js';
+import { storageService } from '../services/storageService.js';
+import { useNetworkStatus } from '../hooks/useNetworkStatus.js';
 
 interface UserProfile {
   id: string;

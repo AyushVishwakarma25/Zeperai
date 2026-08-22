@@ -1,7 +1,7 @@
 import React, { createContext, useState, useCallback, useContext, useEffect } from 'react';
-import { designService } from '../services/designService';
-import type { GeneratedImage } from '../types';
-import { useAuth } from './AuthContext';
+import { designService } from '../services/designService.js';
+import type { GeneratedImage } from '../types.js';
+import { useAuth } from './AuthContext.js';
 
 interface DesignsContextType {
   designs: GeneratedImage[];

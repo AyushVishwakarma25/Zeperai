@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Icon } from '../../components/ui/Icon';
-import { BrandLogo } from '../../components/ui/BrandLogo';
+import { Icon } from '../../components/ui/Icon.js';
+import { BrandLogo } from '../../components/ui/BrandLogo.js';
 
 export const Footer: React.FC = () => {
   return (

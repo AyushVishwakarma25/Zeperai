@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
-import type { GenerateImageParams } from '../../types';
-import { AD_TEMPLATES, COMPARISON_LAYOUT_OPTIONS } from '../../constants';
-import { FormInput, FormTextArea } from '../ui/Form';
-import { Button } from '../ui/Button';
-import { Icon } from '../ui/Icon';
-import { HelpLabel, BestForLabel } from './shared';
-import { CreativeScorecard } from '../CreativeScorecard';
-import { StyleSelector } from '../ui/StyleSelector';
-import { generateAdCopy, generateAdBackground } from '../../services/geminiService';
-import { AdPromptLibraryPicker } from './AdPromptLibraryPicker';
-import { AdElementEditorPanel } from './AdElementEditorPanel';
-import { AdLayerOverlay } from './AdLayerOverlay';
-import { AD_CREATIVE_PROMPT_LIBRARY, AdPromptTemplate } from './adCreativePromptLibrary';
-import { type AdElementKey } from './layoutBlueprints';
+import type { GenerateImageParams } from '../../types.js';
+import { AD_TEMPLATES, COMPARISON_LAYOUT_OPTIONS } from '../../constants.js';
+import { FormInput, FormTextArea } from '../ui/Form.js';
+import { Button } from '../ui/Button.js';
+import { Icon } from '../ui/Icon.js';
+import { HelpLabel, BestForLabel } from './shared.js';
+import { CreativeScorecard } from '../CreativeScorecard.js';
+import { StyleSelector } from '../ui/StyleSelector.js';
+import { generateAdCopy, generateAdBackground } from '../../services/geminiService.js';
+import { AdPromptLibraryPicker } from './AdPromptLibraryPicker.js';
+import { AdElementEditorPanel } from './AdElementEditorPanel.js';
+import { AdLayerOverlay } from './AdLayerOverlay.js';
+import { AD_CREATIVE_PROMPT_LIBRARY, AdPromptTemplate } from './adCreativePromptLibrary.js';
+import { type AdElementKey } from './layoutBlueprints.js';
 
 interface AdCreativeControlsProps {
     params: GenerateImageParams;

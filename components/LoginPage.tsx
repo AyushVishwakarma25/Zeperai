@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Button } from './ui/Button';
-import { Icon } from './ui/Icon';
-import { BrandLogo } from './ui/BrandLogo';
-import { FormInput } from './ui/Form';
-import { authService, AuthSession } from '../services/authService';
-import { SUPABASE_SETUP_SQL } from '../infra/supabaseSetup';
-import { SqlHelper } from './dev/SqlHelper';
+import { Button } from './ui/Button.js';
+import { Icon } from './ui/Icon.js';
+import { BrandLogo } from './ui/BrandLogo.js';
+import { FormInput } from './ui/Form.js';
+import { authService, AuthSession } from '../services/authService.js';
+import { SUPABASE_SETUP_SQL } from '../infra/supabaseSetup.js';
+import { SqlHelper } from './dev/SqlHelper.js';
 
 interface LoginPageProps {
   onLoginSuccess: (session: AuthSession) => void;

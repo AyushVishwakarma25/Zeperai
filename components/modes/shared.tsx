@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Tooltip } from '../ui/Tooltip';
+import { Tooltip } from '../ui/Tooltip.js';
 
 export const SectionTitle: React.FC<{ title: string; className?: string }> = ({ title, className }) => (
     <h3 className={`text-base font-bold text-slate-900 mb-4 ${className || ''}`}>{title}</h3>

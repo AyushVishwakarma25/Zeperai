@@ -13,11 +13,11 @@ import {
   ChartOptions
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
-import { Icon } from './ui/Icon';
-import { analyticsService } from '../services/analyticsService';
-import { View } from '../types';
-import { Button } from './ui/Button';
-import { useDesigns } from '../contexts/DesignsContext';
+import { Icon } from './ui/Icon.js';
+import { analyticsService } from '../services/analyticsService.js';
+import { View } from '../types.js';
+import { Button } from './ui/Button.js';
+import { useDesigns } from '../contexts/DesignsContext.js';
 
 // Register ChartJS components
 ChartJS.register(

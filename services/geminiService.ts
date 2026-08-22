@@ -5,12 +5,12 @@
  */
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { getAI } from '../config/ai';
-import { supabase } from './supabaseClient';
-import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS, UGC_STYLE_OPTIONS, AD_STYLE_PRESETS, FASHION_POSE_OPTIONS, FASHION_POSE_TEMPLATES, FASHION_MODEL_LOCKS, FESTIVAL_PRESETS, AD_TEMPLATES } from '../constants';
-import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis, ABTestSuggestion } from '../types';
-import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, FashionGender, RegionalStyle, ProductCategory, ResolutionQuality, GenerationQuality, AdLayout, ImageModel } from '../types';
-import { resolveModelForGeneration } from '../src/config/modelConfig';
+import { getAI } from '../config/ai.js';
+import { supabase } from './supabaseClient.js';
+import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS, UGC_STYLE_OPTIONS, AD_STYLE_PRESETS, FASHION_POSE_OPTIONS, FASHION_POSE_TEMPLATES, FASHION_MODEL_LOCKS, FESTIVAL_PRESETS, AD_TEMPLATES } from '../constants.js';
+import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis, ABTestSuggestion } from '../types.js';
+import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, FashionGender, RegionalStyle, ProductCategory, ResolutionQuality, GenerationQuality, AdLayout, ImageModel } from '../types.js';
+import { resolveModelForGeneration } from '../src/config/modelConfig.js';
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 

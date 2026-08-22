@@ -1,13 +1,13 @@
 
 import React, { useState, useCallback } from 'react';
-import { generateAdCopy } from '../services/adCopyService';
-import type { GenerateAdCopyParams, AdCopy } from '../types';
-import { FormTextArea } from './ui/Form';
-import { Select } from './ui/Select';
-import { Button } from './ui/Button';
-import { Spinner } from './ui/Spinner';
-import { Icon } from './ui/Icon';
-import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { generateAdCopy } from '../services/adCopyService.js';
+import type { GenerateAdCopyParams, AdCopy } from '../types.js';
+import { FormTextArea } from './ui/Form.js';
+import { Select } from './ui/Select.js';
+import { Button } from './ui/Button.js';
+import { Spinner } from './ui/Spinner.js';
+import { Icon } from './ui/Icon.js';
+import { useNetworkStatus } from '../hooks/useNetworkStatus.js';
 
 const initialParams: GenerateAdCopyParams = {
   productDescription: '',

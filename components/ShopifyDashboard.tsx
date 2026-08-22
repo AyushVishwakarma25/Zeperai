@@ -33,8 +33,8 @@ import {
   X,
   Plus
 } from 'lucide-react';
-import { shopifyService } from '../services/shopifyService';
-import { ShopifyAnalysisResult, ProductZoneItem } from '../types';
+import { shopifyService } from '../services/shopifyService.js';
+import { ShopifyAnalysisResult, ProductZoneItem } from '../types.js';
 
 // Register ChartJS
 ChartJS.register(

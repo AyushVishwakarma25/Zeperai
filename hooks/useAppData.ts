@@ -1,9 +1,9 @@
 
 import { useState, useCallback, useEffect } from 'react';
-import { userService } from '../services/userService';
-import { brandService } from '../services/brandService';
-import type { BrandKit, SavedModel } from '../types';
-import { useAuth } from '../contexts/AuthContext';
+import { userService } from '../services/userService.js';
+import { brandService } from '../services/brandService.js';
+import type { BrandKit, SavedModel } from '../types.js';
+import { useAuth } from '../contexts/AuthContext.js';
 
 export const useAppData = () => {
     const { user } = useAuth();

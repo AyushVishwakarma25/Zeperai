@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Icon } from './ui/Icon';
-import { Button } from './ui/Button';
-import { ImageModel } from '../types';
+import { Icon } from './ui/Icon.js';
+import { Button } from './ui/Button.js';
+import { ImageModel } from '../types.js';
 
 interface FeaturePricingTableProps {
   onOpenPricingModal?: () => void;

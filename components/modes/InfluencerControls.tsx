@@ -1,16 +1,16 @@
 
 import React from 'react';
-import type { GenerateImageParams, SavedModel } from '../../types';
+import type { GenerateImageParams, SavedModel } from '../../types.js';
 import { 
     MODEL_GENDER_OPTIONS, SKIN_TONE_OPTIONS, MODEL_PERSONA_OPTIONS, 
     CLOTHING_TYPE_OPTIONS, ALL_BACKGROUND_OPTIONS, 
     UGC_STYLE_OPTIONS, AI_SUGGESTED
-} from '../../constants';
-import { Select } from '../ui/Select';
-import { Icon } from '../ui/Icon';
-import { ControlButton, SectionTitle, HelpLabel, BestForLabel } from './shared';
-import { ProductCategory } from '../../types';
-import { StyleSelector } from '../ui/StyleSelector';
+} from '../../constants.js';
+import { Select } from '../ui/Select.js';
+import { Icon } from '../ui/Icon.js';
+import { ControlButton, SectionTitle, HelpLabel, BestForLabel } from './shared.js';
+import { ProductCategory } from '../../types.js';
+import { StyleSelector } from '../ui/StyleSelector.js';
 
 interface InfluencerControlsProps {
     params: GenerateImageParams;

@@ -1,6 +1,6 @@
 
-import { AppMode, GenerateImageParams, AspectRatio, ProductCategory } from '../types';
-import { AI_SUGGESTED } from '../constants';
+import { AppMode, GenerateImageParams, AspectRatio, ProductCategory } from '../types.js';
+import { AI_SUGGESTED } from '../constants.js';
 
 export const getModeConfiguration = (
     targetMode: AppMode, 

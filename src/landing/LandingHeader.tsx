@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { BrandLogo } from '../../components/ui/BrandLogo';
-import { useScrollDirection } from '../../hooks/useScrollDirection';
-import { Icon } from '../../components/ui/Icon';
-import { useAuth } from '../../contexts/AuthContext';
+import { BrandLogo } from '../../components/ui/BrandLogo.js';
+import { useScrollDirection } from '../../hooks/useScrollDirection.js';
+import { Icon } from '../../components/ui/Icon.js';
+import { useAuth } from '../../contexts/AuthContext.js';
 
 export const LandingHeader: React.FC = () => {
   const navigate = useNavigate();

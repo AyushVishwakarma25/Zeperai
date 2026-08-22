@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, X, Send, Mic, MicOff, Volume2, VolumeX, Sparkles, User, Bot } from 'lucide-react';
-import { chatService, ChatMessage } from '../services/chatService';
+import { chatService, ChatMessage } from '../services/chatService.js';
 
 interface ChatBotProps {
     onDeductCredits?: (cost: number) => boolean;

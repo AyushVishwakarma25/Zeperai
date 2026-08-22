@@ -1,7 +1,7 @@
 import React from 'react';
-import { AD_CREATIVE_PROMPT_LIBRARY, type AdPromptTemplate } from './adCreativePromptLibrary';
-import type { GenerateImageParams } from '../../types';
-import { HelpLabel } from './shared';
+import { AD_CREATIVE_PROMPT_LIBRARY, type AdPromptTemplate } from './adCreativePromptLibrary.js';
+import type { GenerateImageParams } from '../../types.js';
+import { HelpLabel } from './shared.js';
 
 interface Props {
     params: GenerateImageParams;

@@ -1,12 +1,12 @@
 import React from 'react';
-import type { GenerateImageParams, ElementTransform } from '../../types';
+import type { GenerateImageParams, ElementTransform } from '../../types.js';
 import {
     LAYOUT_BLUEPRINTS, ELEMENT_CONTENT_SOURCE, ELEMENT_LABELS,
     type AdElementKey
-} from './layoutBlueprints';
-import { GOOGLE_FONT_LIBRARY, loadGoogleFont } from './googleFonts';
-import { FormInput, FormTextArea } from '../ui/Form';
-import { Button } from '../ui/Button';
+} from './layoutBlueprints.js';
+import { GOOGLE_FONT_LIBRARY, loadGoogleFont } from './googleFonts.js';
+import { FormInput, FormTextArea } from '../ui/Form.js';
+import { Button } from '../ui/Button.js';
 
 interface Props {
     selectedElement: AdElementKey | null;

@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Icon } from './ui/Icon';
-import type { BrandKit, GenerateImageParams } from '../types';
+import { Icon } from './ui/Icon.js';
+import type { BrandKit, GenerateImageParams } from '../types.js';
 
 interface DirectorCanvasProps {
   backgroundImage: string;

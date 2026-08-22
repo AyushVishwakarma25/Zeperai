@@ -1,14 +1,14 @@
 import React, { useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Icon } from '../../components/ui/Icon';
-import { BrandLogo } from '../../components/ui/BrandLogo';
-import { useScrollDirection } from '../../hooks/useScrollDirection';
-import { LandingHeader } from './LandingHeader';
-import { ActionCarousel } from './ActionCarousel';
-import { CreativitySection } from './CreativitySection';
-import { Footer } from './Footer';
-import { BeforeAfterSlider } from './BeforeAfterSlider';
-import { landingAssets } from './landingAssets';
+import { Icon } from '../../components/ui/Icon.js';
+import { BrandLogo } from '../../components/ui/BrandLogo.js';
+import { useScrollDirection } from '../../hooks/useScrollDirection.js';
+import { LandingHeader } from './LandingHeader.js';
+import { ActionCarousel } from './ActionCarousel.js';
+import { CreativitySection } from './CreativitySection.js';
+import { Footer } from './Footer.js';
+import { BeforeAfterSlider } from './BeforeAfterSlider.js';
+import { landingAssets } from './landingAssets.js';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();

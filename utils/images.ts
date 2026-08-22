@@ -1,7 +1,7 @@
 
-import type { AspectRatio, GeneratedImage, GenerateImageParams } from '../types';
-import { AppMode } from '../types';
-import { INITIAL_GENERATE_PARAMS } from '../constants';
+import type { AspectRatio, GeneratedImage, GenerateImageParams } from '../types.js';
+import { AppMode } from '../types.js';
+import { INITIAL_GENERATE_PARAMS } from '../constants.js';
 import * as htmlToImage from 'html-to-image';
 
 export const downloadCompositeImage = async (

@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { Button } from './ui/Button';
-import { Icon } from './ui/Icon';
-import { Spinner } from './ui/Spinner';
+import { Button } from './ui/Button.js';
+import { Icon } from './ui/Icon.js';
+import { Spinner } from './ui/Spinner.js';
 
 interface QuickVariantsModalProps {
   field: 'modelPersona' | 'poseSuggestion';

@@ -11,7 +11,7 @@
  * 4. Paid accounts have a clean Quality selector: [ Standard (1 Credit) | Pro (2 Credits) ].
  */
 
-import { AppMode } from '../../types';
+import { AppMode } from '../../types.js';
 
 export enum GenerationQuality {
   Standard = 'Standard',

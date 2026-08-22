@@ -1,7 +1,7 @@
 
 import { Type } from "@google/genai";
-import { GenerateContentParams, CopyVariation, RewriteCopyParams, RewriteAction } from '../types';
-import { getAI } from '../config/ai';
+import { GenerateContentParams, CopyVariation, RewriteCopyParams, RewriteAction } from '../types.js';
+import { getAI } from '../config/ai.js';
 
 export const generateMarketingCopy = async (params: GenerateContentParams): Promise<CopyVariation[]> => {
     const ai = getAI();

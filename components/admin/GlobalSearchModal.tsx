@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { getAdminAuthHeader } from './adminAuthHelper';
+import { getAdminAuthHeader } from './adminAuthHelper.js';
 import { Search, User, CreditCard, Layers, X, ExternalLink, Shield } from 'lucide-react';
-import { Spinner } from '../ui/Spinner';
+import { Spinner } from '../ui/Spinner.js';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;

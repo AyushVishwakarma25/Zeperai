@@ -1,6 +1,6 @@
 
-import { supabase } from './supabaseClient';
-import type { ShopifyAnalysisResult } from '../types';
+import { supabase } from './supabaseClient.js';
+import type { ShopifyAnalysisResult } from '../types.js';
 
 export const analysisService = {
   /**

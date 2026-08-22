@@ -1,6 +1,6 @@
 import React from 'react';
-import { LandingHeader } from './LandingHeader';
-import { Footer } from './Footer';
+import { LandingHeader } from './LandingHeader.js';
+import { Footer } from './Footer.js';
 
 export const AboutUsPage: React.FC = () => {
   return (

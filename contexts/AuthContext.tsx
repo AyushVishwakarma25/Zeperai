@@ -1,7 +1,7 @@
 
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
-import { authService, AuthSession } from '../services/authService';
-import { UserProfileData } from '../services/userService';
+import { authService, AuthSession } from '../services/authService.js';
+import { UserProfileData } from '../services/userService.js';
 
 interface AuthContextType {
   session: AuthSession | null;

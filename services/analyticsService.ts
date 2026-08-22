@@ -1,6 +1,6 @@
 
-import type { GeneratedImage } from '../types';
-import { AspectRatio } from '../types';
+import type { GeneratedImage } from '../types.js';
+import { AspectRatio } from '../types.js';
 
 export interface AnalyticsMetric {
     date: string;

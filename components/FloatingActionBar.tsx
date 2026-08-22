@@ -1,10 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Icon } from './ui/Icon';
-import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import { GeneratedImage, AppMode } from '../types';
-import { dataURLtoFile } from '../utils/images';
+import { Icon } from './ui/Icon.js';
+import { useNetworkStatus } from '../hooks/useNetworkStatus.js';
+import { GeneratedImage, AppMode } from '../types.js';
+import { dataURLtoFile } from '../utils/images.js';
 
 interface FloatingActionBarProps {
   prompt: string;

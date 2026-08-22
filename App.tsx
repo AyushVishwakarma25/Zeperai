@@ -1,42 +1,42 @@
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import type { GenerateImageParams, GeneratedImage, EditImageParams, BrandKit, ShopifyAnalysisResult, GenerateCaptionParams } from './types';
-import { editImage, generateCaption, removeBackground, removeBackgroundPro } from './services/geminiService';
-import { userService, UserProfileData } from './services/userService';
-import { designService } from './services/designService'; 
-import { AppMode, AspectRatio, View } from './types';
-import { INITIAL_GENERATE_PARAMS } from './constants';
-import { getActionLabel } from './utils/helpers';
-import { getModeDefaults } from './utils/configLogic'; 
-import { CreativeModal } from './components/CreativeModal';
-import { Toast } from './components/ui/Toast';
-import { LoginPage } from './components/LoginPage';
-import { SignupPage } from './components/SignupPage';
-import { useNetworkStatus } from './hooks/useNetworkStatus';
-import { useAuth } from './contexts/AuthContext';
-import { useDesigns } from './contexts/DesignsContext';
-import { useCreativeSession } from './hooks/useCreativeSession';
-import { useAppData } from './hooks/useAppData';
-import { ModalProvider, useModals } from './contexts/ModalContext';
-import { GlobalModals } from './components/GlobalModals';
-import { AppMainView } from './components/AppMainView';
-import { Layout } from './components/Layout';
-import { Spinner } from './components/ui/Spinner';
-import { SplashScreen } from './components/SplashScreen';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { ChatBot } from './components/ChatBot';
+import type { GenerateImageParams, GeneratedImage, EditImageParams, BrandKit, ShopifyAnalysisResult, GenerateCaptionParams } from './types.js';
+import { editImage, generateCaption, removeBackground, removeBackgroundPro } from './services/geminiService.js';
+import { userService, UserProfileData } from './services/userService.js';
+import { designService } from './services/designService.js'; 
+import { AppMode, AspectRatio, View } from './types.js';
+import { INITIAL_GENERATE_PARAMS } from './constants.js';
+import { getActionLabel } from './utils/helpers.js';
+import { getModeDefaults } from './utils/configLogic.js'; 
+import { CreativeModal } from './components/CreativeModal.js';
+import { Toast } from './components/ui/Toast.js';
+import { LoginPage } from './components/LoginPage.js';
+import { SignupPage } from './components/SignupPage.js';
+import { useNetworkStatus } from './hooks/useNetworkStatus.js';
+import { useAuth } from './contexts/AuthContext.js';
+import { useDesigns } from './contexts/DesignsContext.js';
+import { useCreativeSession } from './hooks/useCreativeSession.js';
+import { useAppData } from './hooks/useAppData.js';
+import { ModalProvider, useModals } from './contexts/ModalContext.js';
+import { GlobalModals } from './components/GlobalModals.js';
+import { AppMainView } from './components/AppMainView.js';
+import { Layout } from './components/Layout.js';
+import { Spinner } from './components/ui/Spinner.js';
+import { SplashScreen } from './components/SplashScreen.js';
+import { ErrorBoundary } from './components/ErrorBoundary.js';
+import { ChatBot } from './components/ChatBot.js';
 
 import { Routes, Route, Navigate } from 'react-router-dom';
-import AdminDashboard from './components/admin/AdminDashboard';
-import { AdminLoginPage } from './components/admin/AdminLoginPage';
-import { LandingPage } from './src/landing/LandingPage';
-import { BackgroundRemoverLandingPage } from './src/landing/BackgroundRemoverLandingPage';
-import { PrivacyPolicyPage } from './src/landing/PrivacyPolicyPage';
-import { TermsPage } from './src/landing/TermsPage';
-import { CookiePolicyPage } from './src/landing/CookiePolicyPage';
-import { PricingPage } from './src/landing/PricingPage';
-import { AboutUsPage } from './src/landing/AboutUsPage';
-import { ContactPage } from './src/landing/ContactPage';
+import AdminDashboard from './components/admin/AdminDashboard.js';
+import { AdminLoginPage } from './components/admin/AdminLoginPage.js';
+import { LandingPage } from './src/landing/LandingPage.js';
+import { BackgroundRemoverLandingPage } from './src/landing/BackgroundRemoverLandingPage.js';
+import { PrivacyPolicyPage } from './src/landing/PrivacyPolicyPage.js';
+import { TermsPage } from './src/landing/TermsPage.js';
+import { CookiePolicyPage } from './src/landing/CookiePolicyPage.js';
+import { PricingPage } from './src/landing/PricingPage.js';
+import { AboutUsPage } from './src/landing/AboutUsPage.js';
+import { ContactPage } from './src/landing/ContactPage.js';
 
 const dataURLToParts = (dataURL: string) => {
     const parts = dataURL.split(',');
@@ -279,7 +279,7 @@ const AppInternal: React.FC = () => {
     if (!editingImage) return;
     setIsEditing(true);
     try {
-        const { removeBackgroundClientSide } = await import('./services/bgRemovalService');
+        const { removeBackgroundClientSide } = await import('./services/bgRemovalService.js');
         const newUrl = await removeBackgroundClientSide(editingImage.imageUrl);
         setEditingImage(prev => prev ? ({ ...prev, imageUrl: newUrl }) : null);
         setToast({ message: "Background removed successfully!", type: 'success' });
@@ -411,7 +411,7 @@ const AppInternal: React.FC = () => {
 
   const handleGenerateVariants = useCallback((field: 'modelPersona' | 'poseSuggestion') => {
       if (field === 'modelPersona') {
-          import('./constants').then(({ MODEL_PERSONA_OPTIONS }) => {
+          import('./constants.js').then(({ MODEL_PERSONA_OPTIONS }) => {
               const groups = Object.keys(MODEL_PERSONA_OPTIONS).filter(g => g !== '✨ AI Suggested');
               const randomGroup = groups[Math.floor(Math.random() * groups.length)];
               const options = MODEL_PERSONA_OPTIONS[randomGroup];

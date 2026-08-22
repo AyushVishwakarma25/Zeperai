@@ -1,4 +1,4 @@
-import { ElementTransform } from '../../types';
+import { ElementTransform } from '../../types.js';
 
 export type { ElementTransform };
 

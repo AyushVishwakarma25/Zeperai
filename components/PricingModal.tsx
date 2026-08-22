@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Icon } from './ui/Icon';
-import { Spinner } from './ui/Spinner';
-import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import { supabase } from '../services/supabaseClient';
-import { openCheckout } from '../services/razorpayService';
+import { Icon } from './ui/Icon.js';
+import { Spinner } from './ui/Spinner.js';
+import { useNetworkStatus } from '../hooks/useNetworkStatus.js';
+import { supabase } from '../services/supabaseClient.js';
+import { openCheckout } from '../services/razorpayService.js';
 
 interface PricingModalProps {
   onClose: () => void;

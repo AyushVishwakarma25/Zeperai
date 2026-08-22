@@ -12,9 +12,9 @@ import {
   AlertCircle, 
   ShieldCheck 
 } from 'lucide-react';
-import { setAdminAuthSession, getAdminAuthToken } from './adminAuthHelper';
-import { BrandLogo } from '../ui/BrandLogo';
-import { Spinner } from '../ui/Spinner';
+import { setAdminAuthSession, getAdminAuthToken } from './adminAuthHelper.js';
+import { BrandLogo } from '../ui/BrandLogo.js';
+import { Spinner } from '../ui/Spinner.js';
 
 export const AdminLoginPage: React.FC = () => {
   const navigate = useNavigate();

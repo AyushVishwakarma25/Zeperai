@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Icon } from './ui/Icon';
-import { Button } from './ui/Button';
-import { View, InspirationItem } from '../types';
-import { inspirationService } from '../services/inspirationService';
-import { Spinner } from './ui/Spinner';
+import { Icon } from './ui/Icon.js';
+import { Button } from './ui/Button.js';
+import { View, InspirationItem } from '../types.js';
+import { inspirationService } from '../services/inspirationService.js';
+import { Spinner } from './ui/Spinner.js';
 
 interface InspirationPageProps {
   onSetView: (view: View) => void;

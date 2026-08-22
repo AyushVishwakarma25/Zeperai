@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LandingHeader } from './LandingHeader';
-import { Footer } from './Footer';
-import BackgroundRemoverPro from '../../components/tools/BackgroundRemoverPro';
-import BackgroundRemover from '../../components/tools/BackgroundRemover';
+import { LandingHeader } from './LandingHeader.js';
+import { Footer } from './Footer.js';
+import BackgroundRemoverPro from '../../components/tools/BackgroundRemoverPro.js';
+import BackgroundRemover from '../../components/tools/BackgroundRemover.js';
 
 interface Props {
   user: any;

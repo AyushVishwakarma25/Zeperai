@@ -1,5 +1,5 @@
 
-import { AspectRatio, ModelGender, StylePreset, SkinTone, ClothingType, AppMode, OutputFormat, AdLayout, ResolutionQuality, GenerationQuality, ProductCategory, MarketplacePreset, CaptionTone, FashionGender, FashionShootType, ModelPersona, ProProductStyleCategory, GenerateImageParams, OutfitChoice, ImageModel } from './types';
+import { AspectRatio, ModelGender, StylePreset, SkinTone, ClothingType, AppMode, OutputFormat, AdLayout, ResolutionQuality, GenerationQuality, ProductCategory, MarketplacePreset, CaptionTone, FashionGender, FashionShootType, ModelPersona, ProProductStyleCategory, GenerateImageParams, OutfitChoice, ImageModel } from './types.js';
 
 export const AI_SUGGESTED = 'AI Suggested';
 export const FREE_TRIAL_LIMIT = 10;

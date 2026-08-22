@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { DashboardSidebar } from './DashboardSidebar';
-import type { UserProfileData } from '../services/userService';
-import type { AppMode, View, GeneratedImage } from '../types';
+import { DashboardSidebar } from './DashboardSidebar.js';
+import type { UserProfileData } from '../services/userService.js';
+import type { AppMode, View, GeneratedImage } from '../types.js';
 
 interface LayoutProps {
     children: React.ReactNode;

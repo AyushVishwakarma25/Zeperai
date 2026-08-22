@@ -1,13 +1,13 @@
 
 import React, { useState } from 'react';
-import type { GenerateImageParams, AspectRatio } from '../../types';
-import { AppMode, ResolutionQuality, GenerationQuality, ImageModel } from '../../types';
-import { ASPECT_RATIO_OPTIONS, OUTPUT_FORMAT_OPTIONS, RESOLUTION_QUALITY_OPTIONS } from '../../constants';
-import { Select } from '../ui/Select';
-import { Icon } from '../ui/Icon';
-import { ControlButton, SectionTitle, HelpLabel } from './shared';
-import { toggleAspectRatio } from '../../utils/configLogic';
-import { FeaturePricingTable } from '../FeaturePricingTable';
+import type { GenerateImageParams, AspectRatio } from '../../types.js';
+import { AppMode, ResolutionQuality, GenerationQuality, ImageModel } from '../../types.js';
+import { ASPECT_RATIO_OPTIONS, OUTPUT_FORMAT_OPTIONS, RESOLUTION_QUALITY_OPTIONS } from '../../constants.js';
+import { Select } from '../ui/Select.js';
+import { Icon } from '../ui/Icon.js';
+import { ControlButton, SectionTitle, HelpLabel } from './shared.js';
+import { toggleAspectRatio } from '../../utils/configLogic.js';
+import { FeaturePricingTable } from '../FeaturePricingTable.js';
 
 interface CommonControlsProps {
     params: GenerateImageParams;

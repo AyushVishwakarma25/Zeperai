@@ -1,7 +1,7 @@
 import React from 'react';
-import { LandingHeader } from './LandingHeader';
-import { Footer } from './Footer';
-import { Icon } from '../../components/ui/Icon';
+import { LandingHeader } from './LandingHeader.js';
+import { Footer } from './Footer.js';
+import { Icon } from '../../components/ui/Icon.js';
 import { useNavigate } from 'react-router-dom';
 
 // ─────────────────────────────────────────────────────────────

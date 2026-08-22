@@ -1,16 +1,16 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Icon } from './ui/Icon';
-import { Button } from './ui/Button';
-import { FormInput, FormTextArea } from './ui/Form';
-import { Select } from './ui/Select';
-import { ImageDropzone } from './ui/ImageDropzone';
-import { storageService } from '../services/storageService';
-import { brandService } from '../services/brandService';
-import { analyzeBrandLogo, fileToBase64 } from '../services/geminiService';
-import type { BrandKit } from '../types';
-import { processImageFile, dataURLtoFile } from '../utils/images';
-import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { Icon } from './ui/Icon.js';
+import { Button } from './ui/Button.js';
+import { FormInput, FormTextArea } from './ui/Form.js';
+import { Select } from './ui/Select.js';
+import { ImageDropzone } from './ui/ImageDropzone.js';
+import { storageService } from '../services/storageService.js';
+import { brandService } from '../services/brandService.js';
+import { analyzeBrandLogo, fileToBase64 } from '../services/geminiService.js';
+import type { BrandKit } from '../types.js';
+import { processImageFile, dataURLtoFile } from '../utils/images.js';
+import { useNetworkStatus } from '../hooks/useNetworkStatus.js';
 
 interface BrandKitModalProps {
   onClose: () => void;

@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Modality } from "@google/genai";
-import { getAI } from '../config/ai';
+import { getAI } from '../config/ai.js';
 
 export interface ChatMessage {
     role: 'user' | 'model';

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { LandingHeader } from './LandingHeader';
-import { Footer } from './Footer';
+import { LandingHeader } from './LandingHeader.js';
+import { Footer } from './Footer.js';
 
 export const CookiePolicyPage: React.FC = () => {
   useEffect(() => {

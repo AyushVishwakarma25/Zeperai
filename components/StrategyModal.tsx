@@ -1,14 +1,14 @@
 
 import React, { useState, useCallback } from 'react';
-import type { MoodBoard, BrandAnalysis, BrandGuidelines } from '../types';
-import { Button } from './ui/Button';
-import { Icon } from './ui/Icon';
-import { Spinner } from './ui/Spinner';
-import { generateMoodBoard, analyzeBrandLogo, fileToBase64 } from '../services/geminiService';
-import { processImageFile } from '../utils/images';
-import { ImageDropzone } from './ui/ImageDropzone';
-import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import { FeaturePricingTable } from './FeaturePricingTable';
+import type { MoodBoard, BrandAnalysis, BrandGuidelines } from '../types.js';
+import { Button } from './ui/Button.js';
+import { Icon } from './ui/Icon.js';
+import { Spinner } from './ui/Spinner.js';
+import { generateMoodBoard, analyzeBrandLogo, fileToBase64 } from '../services/geminiService.js';
+import { processImageFile } from '../utils/images.js';
+import { ImageDropzone } from './ui/ImageDropzone.js';
+import { useNetworkStatus } from '../hooks/useNetworkStatus.js';
+import { FeaturePricingTable } from './FeaturePricingTable.js';
 
 interface StrategyModalProps {
   onClose: () => void;

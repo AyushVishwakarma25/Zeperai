@@ -1,5 +1,5 @@
 import React from 'react';
-import { landingAssets } from './landingAssets';
+import { landingAssets } from './landingAssets.js';
 
 const items = [
   { id: 1, src: landingAssets.action1 },

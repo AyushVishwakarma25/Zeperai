@@ -1,9 +1,9 @@
 
 import React, { useState, useCallback } from 'react';
-import type { GeneratedImage } from '../../types';
-import { Button } from './Button';
-import { Icon } from './Icon';
-import { generateFilename } from '../../utils/images';
+import type { GeneratedImage } from '../../types.js';
+import { Button } from './Button.js';
+import { Icon } from './Icon.js';
+import { generateFilename } from '../../utils/images.js';
 
 interface SharePanelProps {
   image: GeneratedImage;

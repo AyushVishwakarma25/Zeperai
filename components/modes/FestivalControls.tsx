@@ -1,10 +1,10 @@
 
 import React, { useState, useRef } from 'react';
-import type { GenerateImageParams } from '../../types';
-import { FESTIVAL_PRESETS, AI_SUGGESTED } from '../../constants';
-import { SectionTitle, BestForLabel } from './shared';
-import { Icon } from '../ui/Icon';
-import { StyleSelector } from '../ui/StyleSelector';
+import type { GenerateImageParams } from '../../types.js';
+import { FESTIVAL_PRESETS, AI_SUGGESTED } from '../../constants.js';
+import { SectionTitle, BestForLabel } from './shared.js';
+import { Icon } from '../ui/Icon.js';
+import { StyleSelector } from '../ui/StyleSelector.js';
 
 interface FestivalControlsProps {
     params: GenerateImageParams;

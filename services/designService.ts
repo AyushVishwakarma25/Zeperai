@@ -1,8 +1,8 @@
 
-import { supabase } from './supabaseClient';
-import { storageService } from './storageService';
-import { GeneratedImage } from '../types';
-import { createThumbnail } from '../utils/images';
+import { supabase } from './supabaseClient.js';
+import { storageService } from './storageService.js';
+import { GeneratedImage } from '../types.js';
+import { createThumbnail } from '../utils/images.js';
 
 export const designService = {
   async getSavedDesigns(page: number = 0, limit: number = 20): Promise<GeneratedImage[]> {

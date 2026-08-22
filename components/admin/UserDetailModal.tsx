@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { getAdminAuthHeader } from './adminAuthHelper';
-import { Button } from '../ui/Button';
-import { Spinner } from '../ui/Spinner';
-import { Icon } from '../ui/Icon';
-import { AdminConfirmationModal } from './AdminConfirmationModal';
+import { getAdminAuthHeader } from './adminAuthHelper.js';
+import { Button } from '../ui/Button.js';
+import { Spinner } from '../ui/Spinner.js';
+import { Icon } from '../ui/Icon.js';
+import { AdminConfirmationModal } from './AdminConfirmationModal.js';
 
 interface Props {
   userId: string;

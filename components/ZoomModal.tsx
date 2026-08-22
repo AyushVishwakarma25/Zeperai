@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import type { GeneratedImage } from '../types';
-import { Icon } from './ui/Icon';
-import { AdTextOverlay } from './ui/AdTextOverlay';
+import type { GeneratedImage } from '../types.js';
+import { Icon } from './ui/Icon.js';
+import { AdTextOverlay } from './ui/AdTextOverlay.js';
 
 interface ZoomModalProps {
   image: GeneratedImage;

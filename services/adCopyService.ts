@@ -21,8 +21,8 @@
  */
 
 import { Type } from "@google/genai";
-import type { GenerateAdCopyParams, AdCopy } from '../types';
-import { getAI } from '../config/ai';
+import type { GenerateAdCopyParams, AdCopy } from '../types.js';
+import { getAI } from '../config/ai.js';
 
 export const generateAdCopy = async (params: GenerateAdCopyParams): Promise<AdCopy[]> => {
     // 1. Validate input

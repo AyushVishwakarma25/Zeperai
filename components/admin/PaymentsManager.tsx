@@ -12,11 +12,11 @@ import {
   Bar,
   Cell
 } from 'recharts';
-import { getAdminAuthHeader } from './adminAuthHelper';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { Spinner } from '../ui/Spinner';
-import { AdminStateMessage } from './AdminStateMessage';
+import { getAdminAuthHeader } from './adminAuthHelper.js';
+import { Card } from '../ui/Card.js';
+import { Button } from '../ui/Button.js';
+import { Spinner } from '../ui/Spinner.js';
+import { AdminStateMessage } from './AdminStateMessage.js';
 import { 
   CreditCard, 
   Search, 

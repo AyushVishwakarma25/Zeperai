@@ -1,17 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
-import type { GeneratedImage, GenerateCaptionParams, GenerateImageParams, BrandKit } from '../types';
-import { AppMode } from '../types';
-import { Button } from './ui/Button';
-import { Icon } from './ui/Icon';
-import { DetailPanel } from './DetailPanel';
-import { LivePreview } from './ui/LivePreview';
-import { AdTextOverlay } from './ui/AdTextOverlay';
-import { useDesigns } from '../contexts/DesignsContext';
-import { Toast } from './ui/Toast';
-import { Spinner } from './ui/Spinner';
-import { inspirationService } from '../services/inspirationService';
-import { downloadImage, generateFilename } from '../utils/images';
+import type { GeneratedImage, GenerateCaptionParams, GenerateImageParams, BrandKit } from '../types.js';
+import { AppMode } from '../types.js';
+import { Button } from './ui/Button.js';
+import { Icon } from './ui/Icon.js';
+import { DetailPanel } from './DetailPanel.js';
+import { LivePreview } from './ui/LivePreview.js';
+import { AdTextOverlay } from './ui/AdTextOverlay.js';
+import { useDesigns } from '../contexts/DesignsContext.js';
+import { Toast } from './ui/Toast.js';
+import { Spinner } from './ui/Spinner.js';
+import { inspirationService } from '../services/inspirationService.js';
+import { downloadImage, generateFilename } from '../utils/images.js';
 
 interface MainContentProps {
   params: GenerateImageParams;

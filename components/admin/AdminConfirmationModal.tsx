@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { Spinner } from '../ui/Spinner';
+import { Card } from '../ui/Card.js';
+import { Button } from '../ui/Button.js';
+import { Spinner } from '../ui/Spinner.js';
 import { AlertTriangle, ShieldAlert, X } from 'lucide-react';
 
 export interface ConfirmationModalProps {

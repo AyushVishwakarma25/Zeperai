@@ -1,6 +1,6 @@
 
-import { AppMode, GenerateImageParams, AspectRatio, ProductCategory, ResolutionQuality, AdLayout } from '../types';
-import { AI_SUGGESTED } from '../constants';
+import { AppMode, GenerateImageParams, AspectRatio, ProductCategory, ResolutionQuality, AdLayout } from '../types.js';
+import { AI_SUGGESTED } from '../constants.js';
 
 /**
  * GLOBAL CONFIGURATION LOGIC

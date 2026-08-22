@@ -1,8 +1,8 @@
 
 import React from 'react';
-import type { GenerateImageParams } from '../../types';
-import { FormTextArea, FormInput } from '../ui/Form';
-import { SectionTitle, BestForLabel, HelpLabel } from './shared';
+import type { GenerateImageParams } from '../../types.js';
+import { FormTextArea, FormInput } from '../ui/Form.js';
+import { SectionTitle, BestForLabel, HelpLabel } from './shared.js';
 
 interface RemixControlsProps {
     params: GenerateImageParams;

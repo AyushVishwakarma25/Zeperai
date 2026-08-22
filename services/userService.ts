@@ -1,7 +1,7 @@
 
-import { supabase } from './supabaseClient';
-import { storageService } from './storageService';
-import type { SavedModel } from '../types';
+import { supabase } from './supabaseClient.js';
+import { storageService } from './storageService.js';
+import type { SavedModel } from '../types.js';
 
 export interface UserProfileData {
   id: string;

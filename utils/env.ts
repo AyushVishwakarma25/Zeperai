@@ -7,7 +7,7 @@
  * - Validates required variables and throws clear errors if they are missing.
  *
  * USAGE:
- * import { env } from '../utils/env';
+ * import { env } from '../utils/env.js';
  * const apiKey = env.API_KEY;
  */
 

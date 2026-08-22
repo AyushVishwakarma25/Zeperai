@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { landingAssets } from './landingAssets';
+import { landingAssets } from './landingAssets.js';
 
 const items = [
   { id: 1, src: landingAssets.work1 },

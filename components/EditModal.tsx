@@ -1,13 +1,13 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import type { GeneratedImage, EditImageParams } from '../types';
-import { Button } from './ui/Button';
-import { Icon } from './ui/Icon';
-import { ImageDropzone } from './ui/ImageDropzone';
-import { processImageFile, dataURLtoFile, downloadImage } from '../utils/images';
-import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import { DirectorCanvas } from './DirectorCanvas';
-import { GenerateImageParams, BrandKit } from '../types';
+import type { GeneratedImage, EditImageParams } from '../types.js';
+import { Button } from './ui/Button.js';
+import { Icon } from './ui/Icon.js';
+import { ImageDropzone } from './ui/ImageDropzone.js';
+import { processImageFile, dataURLtoFile, downloadImage } from '../utils/images.js';
+import { useNetworkStatus } from '../hooks/useNetworkStatus.js';
+import { DirectorCanvas } from './DirectorCanvas.js';
+import { GenerateImageParams, BrandKit } from '../types.js';
 
 interface EditModalProps {
   image: GeneratedImage;

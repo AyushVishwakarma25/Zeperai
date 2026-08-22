@@ -1,5 +1,5 @@
 
-import { AppMode, AspectRatio, InspirationItem, ProductCategory, AdLayout, FashionGender, FashionShootType, RegionalStyle } from '../types';
+import { AppMode, AspectRatio, InspirationItem, ProductCategory, AdLayout, FashionGender, FashionShootType, RegionalStyle } from '../types.js';
 
 export const INSPIRATION_GALLERY: InspirationItem[] = [
   {
