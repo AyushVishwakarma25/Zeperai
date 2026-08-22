@@ -43,8 +43,8 @@ process.env.SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VIT
 process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 process.env.VITE_SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
-import { getAI } from './config/ai';
-import { globalErrorHandler, asyncHandler, setupProcessLevelHandlers, AppError } from './utils/errorHandler';
+import { getAI } from './config/ai.js';
+import { globalErrorHandler, asyncHandler, setupProcessLevelHandlers, AppError } from './utils/errorHandler.js';
 
 // Initialize global process-level error handling for unhandled rejections and uncaught exceptions
 setupProcessLevelHandlers();
