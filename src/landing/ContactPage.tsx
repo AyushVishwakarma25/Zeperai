@@ -41,7 +41,11 @@ export const ContactPage: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900">Email</h3>
-                  <p className="text-slate-600">hello@zeperai.com</p>
+                  <p className="text-slate-600">
+                    <a href="mailto:growth@zeperai.com" className="hover:text-[#4452FB] transition-colors">
+                      growth@zeperai.com
+                    </a>
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
@@ -50,7 +54,7 @@ export const ContactPage: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900">Office</h3>
-                  <p className="text-slate-600">Bengaluru, India</p>
+                  <p className="text-slate-600">Lucknow, India.</p>
                 </div>
               </div>
             </div>
