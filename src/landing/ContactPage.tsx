@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { LandingHeader } from './LandingHeader.js';
 import { Footer } from './Footer.js';
 import { Icon } from '../../components/ui/Icon.js';
+import { SEO } from '../../components/SEO.js';
 
 export const ContactPage: React.FC = () => {
   const [submitted, setSubmitted] = useState(false);
@@ -13,6 +14,11 @@ export const ContactPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE]">
+      <SEO
+        title="Contact Us | ZeperAi Studio"
+        description="Get in touch with the ZeperAi Studio team — we're here to help with questions about our AI creative platform."
+        canonicalUrl="https://zeperai.in/contact"
+      />
       <LandingHeader />
       
       <main className="pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">

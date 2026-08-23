@@ -1,6 +1,7 @@
 import React from 'react';
 import { LandingHeader } from './LandingHeader.js';
 import { Footer } from './Footer.js';
+import { SEO } from '../../components/SEO.js';
 import { Icon } from '../../components/ui/Icon.js';
 import { useNavigate } from 'react-router-dom';
 
@@ -137,7 +138,13 @@ export const PricingPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE]">
+    <>
+    <SEO
+        title="Pricing | ZeperAi Studio"
+        description="Simple, transparent pricing for ZeperAi Studio's AI creative tools. Choose the plan that fits your brand's growth, with no hidden fees."
+        canonicalUrl="https://zeperai.in/pricing"
+      />
+      <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE]">
       <LandingHeader />
 
       <main className="pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -274,5 +281,6 @@ export const PricingPage: React.FC = () => {
 
       <Footer />
     </div>
+  </>
   );
 };

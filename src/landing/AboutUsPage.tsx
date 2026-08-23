@@ -1,10 +1,17 @@
 import React from 'react';
 import { LandingHeader } from './LandingHeader.js';
 import { Footer } from './Footer.js';
+import { SEO } from '../../components/SEO.js';
 
 export const AboutUsPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE]">
+    <>
+    <SEO
+        title="About Us | ZeperAi Studio"
+        description="Learn about ZeperAi Studio's mission to help D2C and e-commerce brands create stunning AI-powered visuals and content."
+        canonicalUrl="https://zeperai.in/about"
+      />
+      <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE]">
       <LandingHeader />
       
       <main className="pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
@@ -46,5 +53,6 @@ export const AboutUsPage: React.FC = () => {
 
       <Footer />
     </div>
+  </>
   );
 };
