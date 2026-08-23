@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { LandingHeader } from './LandingHeader.js';
 import { Footer } from './Footer.js';
+import { SEO } from '../../components/SEO.js';
 
 export const CookiePolicyPage: React.FC = () => {
   useEffect(() => {
@@ -8,7 +9,13 @@ export const CookiePolicyPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#4452FB] selection:text-white flex flex-col">
+    <>
+    <SEO
+        title="Cookie Policy | ZeperAi Studio"
+        description="Read ZeperAi Studio's cookie policy to understand how we use cookies on our website."
+        canonicalUrl="https://zeperai.in/cookies"
+      />
+      <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#4452FB] selection:text-white flex flex-col">
       <LandingHeader />
 
       <main className="flex-grow max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 w-full">
@@ -141,6 +148,7 @@ export const CookiePolicyPage: React.FC = () => {
 
       <Footer />
     </div>
+  </>
   );
 };
 

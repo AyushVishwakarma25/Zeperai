@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { LandingHeader } from './LandingHeader.js';
 import { Footer } from './Footer.js';
+import { SEO } from '../../components/SEO.js';
 
 export const TermsPage: React.FC = () => {
   useEffect(() => {
@@ -8,7 +9,13 @@ export const TermsPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#4452FB] selection:text-white flex flex-col">
+    <>
+    <SEO
+        title="Terms and Conditions | ZeperAi Studio"
+        description="Read the terms and conditions for using ZeperAi Studio's AI creative platform and services."
+        canonicalUrl="https://zeperai.in/terms"
+      />
+      <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#4452FB] selection:text-white flex flex-col">
       <LandingHeader />
 
       <main className="flex-grow max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 w-full">
@@ -179,6 +186,7 @@ export const TermsPage: React.FC = () => {
 
       <Footer />
     </div>
+  </>
   );
 };
 

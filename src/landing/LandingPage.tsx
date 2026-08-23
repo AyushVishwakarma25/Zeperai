@@ -9,6 +9,7 @@ import { CreativitySection } from './CreativitySection.js';
 import { Footer } from './Footer.js';
 import { BeforeAfterSlider } from './BeforeAfterSlider.js';
 import { landingAssets } from './landingAssets.js';
+import { SEO } from '../../components/SEO.js';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -53,7 +54,13 @@ export const LandingPage: React.FC = () => {
   }, [location]);
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE]">
+    <>
+    <SEO
+        title="ZeperAi Studio | AI Creative Platform for D2C & E-commerce Brands"
+        description="Generate on-brand product photos, ads, and social content in seconds with ZeperAi Studio — the AI creative platform built for D2C and e-commerce brands."
+        canonicalUrl="https://zeperai.in/"
+      />
+      <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE]">
       {/* Ticker Section at Top */}
       <div className="bg-black text-white py-2 overflow-hidden whitespace-nowrap relative z-[60]">
         <div className="flex animate-marquee gap-8 items-center">
@@ -801,5 +808,6 @@ export const LandingPage: React.FC = () => {
         </button>
       )}
     </div>
+    </>
   );
 };
