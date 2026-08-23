@@ -182,12 +182,18 @@ async function moderatePrompt(prompt: string): Promise<{ isAllowed: boolean, rea
 }
 
 // Helper to optimize prompt using Gemini Text Model (The Critic/Optimizer Step)
-async function optimizePromptWithBrandKit(originalPrompt: string, brandKit?: BrandKit | null, appMode?: AppMode): Promise<string> {
+async function optimizePromptWithBrandKit(originalPrompt: string, brandKit?: BrandKit | null, appMode?: AppMode, isPresetActive?: boolean): Promise<string> {
     // Skip optimization for simple/empty prompts or if no brand kit to enforce
     if (!originalPrompt || originalPrompt.length < 5) return originalPrompt;
     
     const ai = getAI();
     const modeContext = appMode ? `Context: Generating a ${appMode} image.` : '';
+    const presetRule = isPresetActive ? `
+    CRITICAL PRESET RULE:
+    The user has selected an active scene/environment preset.
+    Rewrite the user's prompt to focus EXCLUSIVELY on the physical product subject itself (materials, finish, container type, colors, textures, branding).
+    Strictly REMOVE any environment, backdrop, background, room, surface, or studio setting descriptions so there is ZERO overlap or conflict with the selected preset scene.
+    ` : '';
     const brandContext = brandKit ? `
     Brand Identity to Enforce (Brand Vault):
     - Voice: ${brandKit.voice}
@@ -203,9 +209,10 @@ async function optimizePromptWithBrandKit(originalPrompt: string, brandKit?: Bra
     
     RULES:
     1. Keep the core subject/product exactly as described.
-    2. Enhance lighting, texture, and composition details.
+    2. Enhance material details, texture, and visual craftsmanship.
     3. If a Brand Kit is provided, strictly weave its aesthetic into the description.
     4. Use the Style Keyword to set the overall mood.
+    ${presetRule}
     5. Output ONLY the optimized prompt text. No explanations.
     `;
 
@@ -255,10 +262,15 @@ async function buildPromptParts(params: GenerateImageParams, brandKit?: BrandKit
     } = params;
     
     // --- PROMPT CHAINING: OPTIMIZER STEP ---
+    // Determine if an explicit scene preset is selected
+    const isProductPresetActive = (appMode === AppMode.Product && !!productStylePreset && productStylePreset !== AI_SUGGESTED) ||
+                                  (appMode === AppMode.Festival && !!params.festivalStyle) ||
+                                  (appMode === AppMode.Influencer && !!ugcStyle);
+
     // We optimize the core description BEFORE building the final technical prompt
     let optimizedDescription = productDescription;
     if (appMode !== AppMode.Remix && productDescription) { // Skip for Remix as it has its own strict protocol
-         optimizedDescription = await optimizePromptWithBrandKit(productDescription, brandKit, appMode);
+         optimizedDescription = await optimizePromptWithBrandKit(productDescription, brandKit, appMode, isProductPresetActive);
     }
 
     let parts: any[] = [];
@@ -342,7 +354,9 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
             case AppMode.Product:
             case AppMode.Festival:
                 const baseSubject = optimizedDescription || 'the product';
+                let structuredComposition = "";
                 let finalPrompt = "";
+
                 if (appMode === AppMode.Festival && params.festivalStyle) {
                     let searchName = params.festivalStyle.includes('|') ? params.festivalStyle.split('|')[1] : params.festivalStyle;
                     let foundPreset = null;
@@ -350,7 +364,15 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
                         const p = cat.presets.find(p => p.name === searchName);
                         if (p) { foundPreset = p; break; }
                     }
-                    finalPrompt = foundPreset ? foundPreset.prompt.replace(/\[product\]/g, baseSubject) : `Festive photoshoot of ${baseSubject}. Theme: ${params.festivalStyle}.`;
+                    const presetScene = foundPreset ? foundPreset.prompt.replace(/\[product\]/g, baseSubject) : `Festive photoshoot of ${baseSubject}. Theme: ${params.festivalStyle}.`;
+                    structuredComposition = `
+                    1. PRIMARY PRODUCT SUBJECT:
+                       - Description: ${baseSubject}
+                       - Requirement: Maintain exact product physical features, materials, craftsmanship, and label/logo legibility.
+                    2. FESTIVE SCENE & BACKDROP:
+                       - Setting: ${presetScene}
+                       - Requirement: Seamlessly integrate the primary product into this festive scene.
+                    `.trim();
                 } else if (productStylePreset && productStylePreset !== AI_SUGGESTED) {
                     const pParts = productStylePreset.split('|');
                     const presetName = pParts.length > 1 ? pParts[1] : pParts[0];
@@ -359,9 +381,23 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
                         const p = cat.presets.find(p => p.name === presetName);
                         if (p) { foundPreset = p; break; }
                     }
-                    finalPrompt = foundPreset ? foundPreset.prompt.replace(/\[product\]/g, baseSubject) : `Studio shot of ${baseSubject}. Style: ${presetName}.`;
+                    const presetScene = foundPreset ? foundPreset.prompt.replace(/\[product\]/g, baseSubject) : `Studio shot of ${baseSubject}. Style: ${presetName}.`;
+                    structuredComposition = `
+                    1. PRIMARY PRODUCT SUBJECT:
+                       - Description: ${baseSubject}
+                       - Requirement: Maintain 100% fidelity to physical product identity, materials, finish, and label typography.
+                    2. SCENE & ENVIRONMENT PRESET:
+                       - Setting: ${presetScene}
+                       - Requirement: Construct the surface materials, backdrop, props, and lighting strictly following this preset environment.
+                    `.trim();
                 } else {
-                    finalPrompt = `Professional studio shot of ${baseSubject}. ${backgroundStyle && backgroundStyle !== AI_SUGGESTED ? `Background: ${backgroundStyle}.` : ''}`;
+                    const bgSetting = backgroundStyle && backgroundStyle !== AI_SUGGESTED ? `Background: ${backgroundStyle}.` : 'Clean studio backdrop with balanced commercial lighting.';
+                    structuredComposition = `
+                    1. PRIMARY PRODUCT SUBJECT:
+                       - Description: ${baseSubject}
+                    2. ENVIRONMENT & BACKDROP:
+                       - Setting: Professional studio shot of ${baseSubject}. ${bgSetting}
+                    `.trim();
                 }
 
                 if (params.productCategory === ProductCategory.Jewellery) {
@@ -371,19 +407,23 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
                     1. ASSET INTEGRITY: Maintain the exact design, structure, gemstone cuts, and metal color of the provided jewellery. DO NOT RENDER NEW TEXT or alter existing engravings.
                     2. MACRO FIDELITY: Ensure extreme sharpness on fine details like prongs, engravings, and facets.
                     3. NON-DESTRUCTIVE LIGHTING: Use professional jewellery lighting (soft boxes and reflectors) to create elegant highlights and avoid harsh glares, ensuring the piece's structure is perfectly visible.
-                    4. COMPOSITION: ${finalPrompt}
+                    
+                    3. STRUCTURED COMPOSITION:
+                    ${structuredComposition}
                     `.trim();
                 } else {
                     finalPrompt = `
                     ACT AS A PROFESSIONAL PRODUCT PHOTOGRAPHER.
                     PIXEL-PERFECT BRANDING PROTOCOL:
-                    1. FIXED IDENTITY: The provided image is the absolute reference. Never re-draw labels, text, or logos. Maintain 100% typography legibility.
-                    2. LIGHTING & ENVIRONMENT: ${finalPrompt}
-                    3. PHYSICS: Apply realistic contact shadows and depth-of-field based on the product's actual dimensions.
+                    1. FIXED IDENTITY: The provided reference image is the absolute identity reference. Never re-draw labels, text, or logos. Maintain 100% typography legibility.
+                    2. PHYSICS & RELIGHTING: Apply realistic contact shadows, surface reflections, and optical depth-of-field based on the product's actual dimensions.
+                    
+                    3. STRUCTURED COMPOSITION:
+                    ${structuredComposition}
                     `.trim();
                 }
 
-                corePrompt = `${finalPrompt} Camera Angle: ${pose || 'Front View'}.`;
+                corePrompt = `${finalPrompt}\nCamera Angle: ${pose || 'Front View'}.`;
                 break;
             case AppMode.Influencer:
                 const isAiSuggestedInfluencer = params.productStylePreset === AI_SUGGESTED || !params.productStylePreset;
