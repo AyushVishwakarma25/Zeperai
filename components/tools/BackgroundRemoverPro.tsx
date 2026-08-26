@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { supabase } from "../../services/supabaseClient.js";
 import { FeaturePricingTable } from "../FeaturePricingTable.js";
+import { compressForUpload } from "../../utils/images.js";
 
 interface BackgroundRemoverProProps {
   onDeductCredits: (cost: number) => boolean;
@@ -58,8 +59,18 @@ export default function BackgroundRemoverPro({ onDeductCredits, onRefundCredits,
     setOriginalUrl(objUrl);
 
     try {
+      // Vercel serverless functions have a hard ~4.5MB request body limit that
+      // can't be raised via config. Shrink large photos client-side first so
+      // the upload doesn't fail with "Request Entity Too Large".
+      let uploadBlob: Blob = file;
+      try {
+        uploadBlob = await compressForUpload(file, { maxBytes: 3.8 * 1024 * 1024 });
+      } catch (compressErr) {
+        console.warn('Client-side image compression failed, uploading original file:', compressErr);
+      }
+
       const formData = new FormData();
-      formData.append("image", file);
+      formData.append("image", uploadBlob, file.name || 'image.jpg');
 
       // Using the Express backend route
       const res = await fetch("/api/background-remover-pro", {

@@ -449,3 +449,99 @@ export const fileToGeneratedImage = async (file: File): Promise<GeneratedImage> 
         reader.onerror = reject;
     });
 };
+
+/**
+ * Resizes and compresses an image file to fit under a target byte size,
+ * downscaling dimensions and/or reducing quality iteratively as needed.
+ *
+ * Needed because Vercel serverless functions (standard Node runtime) have a
+ * hard, non-configurable ~4.5MB request body limit. Modern phone photos
+ * routinely exceed this, causing "Request Entity Too Large" /
+ * FUNCTION_PAYLOAD_TOO_LARGE errors on any upload endpoint. This runs
+ * entirely client-side before the upload, so oversized photos are
+ * transparently shrunk instead of failing.
+ */
+export const compressForUpload = (
+    file: File,
+    options: { maxBytes?: number; maxDimension?: number; type?: 'image/jpeg' | 'image/webp' } = {}
+): Promise<Blob> => {
+    const { maxBytes = 3.8 * 1024 * 1024, maxDimension = 2500, type = 'image/jpeg' } = options;
+
+    return new Promise((resolve, reject) => {
+        // If it's already comfortably under budget, skip processing entirely.
+        if (file.size <= maxBytes) {
+            resolve(file);
+            return;
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        const img = new Image();
+
+        img.onload = async () => {
+            URL.revokeObjectURL(objectUrl);
+
+            let { width, height } = img;
+            if (width > maxDimension || height > maxDimension) {
+                const scale = maxDimension / Math.max(width, height);
+                width = Math.round(width * scale);
+                height = Math.round(height * scale);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                reject(new Error('Canvas context unavailable'));
+                return;
+            }
+
+            if (type === 'image/jpeg') {
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, width, height);
+            }
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const toBlob = (quality: number): Promise<Blob | null> =>
+                new Promise((res) => canvas.toBlob(res, type, quality));
+
+            // Step down quality first; if still too large at the floor quality,
+            // shrink dimensions further and retry once.
+            let quality = 0.85;
+            let blob = await toBlob(quality);
+
+            while (blob && blob.size > maxBytes && quality > 0.4) {
+                quality -= 0.15;
+                blob = await toBlob(quality);
+            }
+
+            if (blob && blob.size > maxBytes && Math.max(width, height) > 1200) {
+                const secondScale = 1200 / Math.max(width, height);
+                canvas.width = Math.round(width * secondScale);
+                canvas.height = Math.round(height * secondScale);
+                const ctx2 = canvas.getContext('2d');
+                if (ctx2) {
+                    if (type === 'image/jpeg') {
+                        ctx2.fillStyle = '#FFFFFF';
+                        ctx2.fillRect(0, 0, canvas.width, canvas.height);
+                    }
+                    ctx2.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    blob = await toBlob(0.75);
+                }
+            }
+
+            if (!blob) {
+                reject(new Error('Image compression failed'));
+                return;
+            }
+            resolve(blob);
+        };
+
+        img.onerror = (e) => {
+            URL.revokeObjectURL(objectUrl);
+            reject(e);
+        };
+
+        img.src = objectUrl;
+    });
+};
