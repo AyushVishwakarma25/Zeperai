@@ -3590,6 +3590,337 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     });
   }));
 
+  // --- ZEPERAI LOCAL SEO AUDIT MICRO-SAAS ENGINE ---
+  app.post(['/api/local-seo-audit', '/local-seo-audit-api'], aiLimiter, asyncHandler(async (req: any, res: any) => {
+    const { businessDescription, location, businessName, address, phone } = req.body || {};
+
+    if (!businessDescription || typeof businessDescription !== 'string' || !businessDescription.trim()) {
+      return res.status(400).json({ success: false, error: 'Business description is required.' });
+    }
+    if (!location || typeof location !== 'string' || !location.trim()) {
+      return res.status(400).json({ success: false, error: 'Target location/city is required.' });
+    }
+
+    const explicitDetails = [
+      businessName ? `Explicit Business Name: ${businessName}` : '',
+      address ? `Explicit Address: ${address}` : '',
+      phone ? `Explicit Phone: ${phone}` : ''
+    ].filter(Boolean).join('\n');
+
+    const prompt = `
+You are the core intelligence engine for the ZeperAi Local SEO Audit micro-SaaS. Your objective is to take raw, unstructured business information from a user and generate a comprehensive, hyper-local SEO action plan and technical assets.
+
+Input Variables:
+1. Business Description:
+"""
+${businessDescription.trim()}
+"""
+
+2. Target Location/City:
+"""
+${location.trim()}
+"""
+${explicitDetails ? `\nAdditional Provided Metadata:\n${explicitDetails}\n` : ''}
+
+Execution Workflow:
+
+PHASE 1: Entity Extraction & Keyword Mapping
+Analyze the business description and location. 
+- Identify the primary Google Business Profile (GBP) category.
+- Extract NAP data (Name, Address, Phone). Flag any missing NAP elements as "MISSING".
+- Generate 5 high-intent, geo-modified long-tail keywords based on their niche and location (e.g., "emergency hvac repair in [location]").
+
+PHASE 2: The Local Audit Engine
+Analyze the extracted entities to generate a tactical local SEO plan.
+- GBP Optimization: Provide a 750-character, keyword-rich GBP description template. Recommend 3 specific types of photos they must upload.
+- Citation Strategy: List the top 3 industry-specific local directories they need to be listed on outside of Google/Yelp.
+- Local Relevance: Recommend 3 hyper-local content topics (e.g., neighborhood guides, local partnerships) to build local authority.
+
+PHASE 3: Technical Deliverables
+Generate the assets the user can immediately implement.
+- JSON-LD Schema: Write a complete, valid LocalBusiness JSON-LD schema using the extracted NAP data. Ensure it complies with Google's structured data guidelines. Use placeholders (e.g., "INSERT_URL_HERE") for missing data.
+- Content Calendar: Create a 4-week local content calendar structured as a markdown table (Columns: Week, Topic, Target Keyword, Format).
+- Critical Fix: Provide a concise, 3-step immediate action plan to fix the most glaring gap in their provided data.
+
+STRICT OUTPUT FORMAT:
+You must format your entire response exactly as follows, using these exact markdown headings. Do not include conversational filler before or after this structure.
+
+### 1. Extracted Local Entities
+\`\`\`json
+{
+  "businessName": "...",
+  "primaryCategory": "...",
+  "napData": {
+    "name": "...",
+    "address": "...",
+    "phone": "..."
+  },
+  "missingData": ["..."],
+  "targetKeywords": ["...", "...", "...", "...", "..."]
+}
+\`\`\`
+### 2. The Local Audit & Tactical Strategy
+- **GBP Description (750 chars):** ...
+- **Photo Recommendations:**
+  1. ...
+  2. ...
+  3. ...
+- **Industry Citations:**
+  1. ...
+  2. ...
+  3. ...
+- **Local Relevance Topics:**
+  1. ...
+  2. ...
+  3. ...
+
+### 3. Technical Deliverables & Schema
+- **LocalBusiness JSON-LD:**
+\`\`\`json
+...
+\`\`\`
+- **4-Week Local Content Calendar:**
+| Week | Topic | Target Keyword | Format |
+| Week 1 | ... | ... | ... |
+| Week 2 | ... | ... | ... |
+| Week 3 | ... | ... | ... |
+| Week 4 | ... | ... | ... |
+
+- **Critical Immediate Action Plan:**
+1. ...
+2. ...
+3. ...
+`;
+
+    let generatedText = '';
+
+    try {
+      const ai = getAI();
+      const aiResponse = await ai.models.generateContent({
+        model: 'gemini-3.7-flash',
+        contents: prompt,
+        config: {
+          temperature: 0.2,
+        }
+      });
+      generatedText = aiResponse.text || '';
+    } catch (aiErr: any) {
+      console.warn('Gemini generation for Local SEO Audit failed, generating fallback audit:', aiErr.message);
+    }
+
+    // Fallback generator if AI call failed or returned empty
+    if (!generatedText || !generatedText.includes('### 1. Extracted Local Entities')) {
+      const bName = businessName || (businessDescription.split(/[\n,.]/)[0] || 'Local Business Pro').substring(0, 40).trim();
+      const bCity = location.trim();
+      
+      generatedText = `### 1. Extracted Local Entities
+\`\`\`json
+{
+  "businessName": "${bName}",
+  "primaryCategory": "Local Business & Professional Services",
+  "napData": {
+    "name": "${bName}",
+    "address": "${address || 'MISSING'}",
+    "phone": "${phone || 'MISSING'}"
+  },
+  "missingData": [${!address ? '"Physical Street Address"' : ''}${!address && !phone ? ', ' : ''}${!phone ? '"Direct Telephone Number"' : ''}],
+  "targetKeywords": [
+    "top rated ${bName.toLowerCase()} in ${bCity}",
+    "best local services ${bCity}",
+    "emergency ${bName.toLowerCase()} near me ${bCity}",
+    "affordable professional ${bName.toLowerCase()} in ${bCity}",
+    "${bCity} certified local business"
+  ]
+}
+\`\`\`
+### 2. The Local Audit & Tactical Strategy
+- **GBP Description (750 chars):** Welcome to ${bName}, the premier local service provider in ${bCity}. We specialize in high-quality, dependable services designed specifically for residential and commercial clients across ${bCity} and surrounding neighborhoods. Our experienced team is dedicated to rapid response times, transparent pricing, and 100% customer satisfaction. Whether you need routine maintenance, urgent same-day appointments, or specialized consultations, we ensure flawless execution from start to finish. Proudly serving our local community with verified expertise, licensed technicians, and premium equipment. Contact our ${bCity} team today to schedule your consultation or request an instant quote!
+- **Photo Recommendations:**
+  1. Geotagged storefront or team in uniform standing in front of branded work vehicles in ${bCity}.
+  2. High-resolution before-and-after photos of completed client projects with local landmark context.
+  3. Office interior and customer reception area showcasing clean certifications and modern equipment.
+- **Industry Citations:**
+  1. Better Business Bureau (BBB) & Chamber of Commerce for ${bCity}.
+  2. Angi (Angie's List) / HomeAdvisor or industry trade association directory.
+  3. Nextdoor Local Business Directory for ${bCity} neighborhoods.
+- **Local Relevance Topics:**
+  1. "${bCity} Homeowner & Resident Maintenance Guide: Seasonal Checklist for Local Conditions"
+  2. "Top 5 Neighborhoods in ${bCity} We Service and Common Issues We Solve"
+  3. "Local Community Partnership Spotlight: Supporting ${bCity} Events and Non-Profits"
+
+### 3. Technical Deliverables & Schema
+- **LocalBusiness JSON-LD:**
+\`\`\`json
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "${bName}",
+  "description": "${businessDescription.replace(/"/g, "'").substring(0, 200)}",
+  "url": "INSERT_URL_HERE",
+  "telephone": "${phone || 'INSERT_PHONE_HERE'}",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "${address || 'INSERT_STREET_ADDRESS'}",
+    "addressLocality": "${bCity}",
+    "addressRegion": "INSERT_REGION",
+    "postalCode": "INSERT_POSTAL_CODE",
+    "addressCountry": "INSERT_COUNTRY"
+  },
+  "geo": {
+    "@type": "GeoCoordinates",
+    "latitude": "INSERT_LATITUDE",
+    "longitude": "INSERT_LONGITUDE"
+  },
+  "openingHoursSpecification": [
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      "opens": "08:00",
+      "closes": "18:00"
+    }
+  ],
+  "priceRange": "$$"
+}
+\`\`\`
+- **4-Week Local Content Calendar:**
+| Week | Topic | Target Keyword | Format |
+| Week 1 | How to Choose the Best Local Service Provider in ${bCity} | best local services ${bCity} | Blog Post + GBP Update |
+| Week 2 | Client Case Study: Solving Urgent Problems in ${bCity} | top rated ${bName.toLowerCase()} in ${bCity} | Photo Carousel + Video |
+| Week 3 | Neighborhood Guide: Common Mistakes ${bCity} Residents Make | affordable professional ${bName.toLowerCase()} in ${bCity} | Infographic + Local Guide |
+| Week 4 | 5 Maintenance Tips to Prevent Costly Emergencies | emergency ${bName.toLowerCase()} near me ${bCity} | Short Video / Reel + FAQ |
+
+- **Critical Immediate Action Plan:**
+1. Claim and standardize your Google Business Profile with complete NAP data and primary category.
+2. Embed the generated LocalBusiness JSON-LD schema into your website's header to resolve missing address and phone entity flags.
+3. Upload 5+ high-quality geotagged photos of your team and work in ${bCity} to activate Google Local algorithm signals.`;
+    }
+
+    // Parse sections for rich client-side dashboard presentation
+    let parsedEntities: any = {
+      businessName: businessName || 'Local Business',
+      primaryCategory: 'Local Business',
+      napData: { name: businessName || 'Local Business', address: address || 'MISSING', phone: phone || 'MISSING' },
+      missingData: [],
+      targetKeywords: []
+    };
+
+    try {
+      const entityBlockMatch = generatedText.match(/### 1\. Extracted Local Entities[\s\S]*?```json\s*([\s\S]*?)\s*```/);
+      if (entityBlockMatch && entityBlockMatch[1]) {
+        parsedEntities = JSON.parse(entityBlockMatch[1]);
+      }
+    } catch (e) {
+      console.warn('Could not parse JSON entity block:', e);
+    }
+
+    // Parse Tactical Strategy
+    let gbpDescription = '';
+    const gbpMatch = generatedText.match(/-\s*\*\*GBP Description[^:]*:\*\*\s*([\s\S]*?)(?=-\s*\*\*Photo Recommendations:|$)/i);
+    if (gbpMatch) {
+      gbpDescription = gbpMatch[1].trim();
+    }
+
+    const photoRecommendations: string[] = [];
+    const photoBlockMatch = generatedText.match(/-\s*\*\*Photo Recommendations:\*\*([\s\S]*?)(?=-\s*\*\*Industry Citations:|$)/i);
+    if (photoBlockMatch) {
+      const lines = photoBlockMatch[1].split(/\n/).map(l => l.replace(/^\s*\d+[\.\)]\s*|-\s*/, '').trim()).filter(Boolean);
+      photoRecommendations.push(...lines.slice(0, 3));
+    }
+
+    const industryCitations: string[] = [];
+    const citBlockMatch = generatedText.match(/-\s*\*\*Industry Citations:\*\*([\s\S]*?)(?=-\s*\*\*Local Relevance Topics:|$)/i);
+    if (citBlockMatch) {
+      const lines = citBlockMatch[1].split(/\n/).map(l => l.replace(/^\s*\d+[\.\)]\s*|-\s*/, '').trim()).filter(Boolean);
+      industryCitations.push(...lines.slice(0, 3));
+    }
+
+    const localRelevanceTopics: string[] = [];
+    const relBlockMatch = generatedText.match(/-\s*\*\*Local Relevance Topics:\*\*([\s\S]*?)(?=### 3\.|$)/i);
+    if (relBlockMatch) {
+      const lines = relBlockMatch[1].split(/\n/).map(l => l.replace(/^\s*\d+[\.\)]\s*|-\s*/, '').trim()).filter(Boolean);
+      localRelevanceTopics.push(...lines.slice(0, 3));
+    }
+
+    // Parse Technical Deliverables
+    let schemaJsonLd: any = {};
+    let schemaJsonLdRaw = '';
+    const schemaBlockMatch = generatedText.match(/### 3\. Technical Deliverables & Schema[\s\S]*?-\s*\*\*LocalBusiness JSON-LD:\*\*[\s\S]*?```json\s*([\s\S]*?)\s*```/);
+    if (schemaBlockMatch && schemaBlockMatch[1]) {
+      schemaJsonLdRaw = schemaBlockMatch[1].trim();
+      try {
+        schemaJsonLd = JSON.parse(schemaJsonLdRaw);
+      } catch {
+        schemaJsonLd = schemaJsonLdRaw;
+      }
+    }
+
+    // Parse 4-Week Calendar table
+    const contentCalendar: Array<{ week: string; topic: string; targetKeyword: string; format: string }> = [];
+    const tableMatch = generatedText.match(/\|[\s\S]*?Week[\s\S]*?\|[\s\S]*?\n([\s\S]*?)(?=- \*\*Critical Immediate Action Plan:|$)/i);
+    if (tableMatch) {
+      const rows = tableMatch[0].split('\n').filter(r => r.includes('|') && !r.includes('---') && !r.toLowerCase().includes('topic'));
+      for (const row of rows) {
+        const cols = row.split('|').map(c => c.trim()).filter(Boolean);
+        if (cols.length >= 4) {
+          contentCalendar.push({
+            week: cols[0],
+            topic: cols[1],
+            targetKeyword: cols[2],
+            format: cols[3]
+          });
+        }
+      }
+    }
+
+    // Parse Action Plan
+    const criticalActionPlan: string[] = [];
+    const actionPlanMatch = generatedText.match(/-\s*\*\*Critical Immediate Action Plan:\*\*([\s\S]*?)$/i);
+    if (actionPlanMatch) {
+      const lines = actionPlanMatch[1].split(/\n/).map(l => l.replace(/^\s*\d+[\.\)]\s*|-\s*/, '').trim()).filter(Boolean);
+      criticalActionPlan.push(...lines.slice(0, 3));
+    }
+
+    return res.json({
+      success: true,
+      rawMarkdown: generatedText,
+      entities: parsedEntities,
+      tactical: {
+        gbpDescription: gbpDescription || 'Custom 750-character GBP description tailored to your local business.',
+        photoRecommendations: photoRecommendations.length > 0 ? photoRecommendations : [
+          'Geotagged team and exterior storefront photo in target city.',
+          'Before-and-after proof of service with clear local context.',
+          'Staff at work with modern professional equipment.'
+        ],
+        industryCitations: industryCitations.length > 0 ? industryCitations : [
+          'Local Chamber of Commerce & Better Business Bureau',
+          'Industry Trade Directory & YellowPages Local',
+          'Nextdoor Neighborhood Directory'
+        ],
+        localRelevanceTopics: localRelevanceTopics.length > 0 ? localRelevanceTopics : [
+          `Local Resident Guide to Services in ${location}`,
+          `Neighborhood Case Studies: Solving Problems in ${location}`,
+          `Seasonal Maintenance Tips for ${location} Weather`
+        ]
+      },
+      technical: {
+        schemaJsonLd: schemaJsonLd || schemaJsonLdRaw,
+        schemaJsonLdRaw: schemaJsonLdRaw || JSON.stringify(schemaJsonLd, null, 2),
+        contentCalendar: contentCalendar.length > 0 ? contentCalendar : [
+          { week: 'Week 1', topic: `Ultimate Guide to Local Services in ${location}`, targetKeyword: `best services ${location}`, format: 'Blog Post' },
+          { week: 'Week 2', topic: `Client Spotlight & Transformation in ${location}`, targetKeyword: `top rated ${location}`, format: 'Video + Carousel' },
+          { week: 'Week 3', topic: `Neighborhood Problem-Solving Case Study`, targetKeyword: `affordable ${location}`, format: 'Local Guide' },
+          { week: 'Week 4', topic: `5 Pro Tips to Save Money on Repairs`, targetKeyword: `emergency near me ${location}`, format: 'Short Video / Reel' }
+        ],
+        criticalActionPlan: criticalActionPlan.length > 0 ? criticalActionPlan : [
+          'Verify and claim Google Business Profile with complete NAP matching website.',
+          'Inject LocalBusiness JSON-LD schema into your website header.',
+          'Publish 3+ customer reviews containing geo-modified keyword phrases.'
+        ]
+      },
+      timestamp: new Date().toISOString()
+    });
+  }));
+
   async function generateServerAIInsights(data: any): Promise<string[]> {
     try {
       const ai = getAI();

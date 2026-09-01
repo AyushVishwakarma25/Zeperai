@@ -31,6 +31,7 @@ import AdminDashboard from './components/admin/AdminDashboard.js';
 import { AdminLoginPage } from './components/admin/AdminLoginPage.js';
 import { LandingPage } from './src/landing/LandingPage.js';
 import { BackgroundRemoverLandingPage } from './src/landing/BackgroundRemoverLandingPage.js';
+import { LocalSeoAuditLandingPage } from './src/landing/LocalSeoAuditLandingPage.js';
 import { PrivacyPolicyPage } from './src/landing/PrivacyPolicyPage.js';
 import { TermsPage } from './src/landing/TermsPage.js';
 import { CookiePolicyPage } from './src/landing/CookiePolicyPage.js';
@@ -459,6 +460,8 @@ const AppInternal: React.FC = () => {
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/tools/background-remover" element={<BackgroundRemoverLandingPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
       <Route path="/background-remover" element={<BackgroundRemoverLandingPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
+      <Route path="/tools/local-seo-audit" element={<LocalSeoAuditLandingPage user={user} />} />
+      <Route path="/local-seo-audit" element={<LocalSeoAuditLandingPage user={user} />} />
       <Route path="/about" element={<AboutUsPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/blog" element={<BlogPage />} />

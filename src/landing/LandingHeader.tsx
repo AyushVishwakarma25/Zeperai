@@ -85,6 +85,12 @@ export const LandingHeader: React.FC = () => {
               >
                 Background Remover
               </Link>
+              <Link 
+                to="/tools/local-seo-audit" 
+                className="hover:text-[#4452FB] transition-colors"
+              >
+                Local SEO Audit
+              </Link>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
@@ -204,6 +210,13 @@ export const LandingHeader: React.FC = () => {
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Background Remover
+            </Link>
+            <Link 
+              to="/tools/local-seo-audit" 
+              className="text-base font-medium text-slate-700 hover:text-slate-900 py-2 border-b border-slate-100"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Local SEO Audit
             </Link>
             {user ? (
               <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">

@@ -257,6 +257,35 @@ export const BackgroundRemoverProductSchema: React.FC = () => {
   );
 };
 
+export const getLocalSeoAuditProductSchema = () => ({
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "ZeperAi Local SEO Audit Engine & Schema Generator",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web Browser",
+  "description": "AI-powered Local SEO audit tool for businesses and agencies. Extract NAP entities, generate Google Business Profile optimization strategies, uncover high-intent geo-keywords, and generate valid LocalBusiness JSON-LD schema.",
+  "url": "https://zeperai.in/tools/local-seo-audit",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "INR"
+  },
+  "creator": {
+    "@type": "Organization",
+    "name": "ZeperAi",
+    "url": "https://zeperai.in"
+  }
+});
+
+export const LocalSeoAuditProductSchema: React.FC = () => {
+  const schema = getLocalSeoAuditProductSchema();
+  return (
+    <Helmet>
+      <script type="application/ld+json">{JSON.stringify(schema)}</script>
+    </Helmet>
+  );
+};
+
 export const PricingProductSchema: React.FC = () => {
   const schemas = getPricingProductsSchema();
   return (
