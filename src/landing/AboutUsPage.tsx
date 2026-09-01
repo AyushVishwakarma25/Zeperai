@@ -2,6 +2,7 @@ import React from 'react';
 import { LandingHeader } from './LandingHeader.js';
 import { Footer } from './Footer.js';
 import { SEO } from '../../components/SEO.js';
+import { OrganizationSchema } from '../../components/StructuredData.js';
 
 export const AboutUsPage: React.FC = () => {
   return (
@@ -11,17 +12,42 @@ export const AboutUsPage: React.FC = () => {
         description="Built solo. The hard way. Read the founder note behind ZeperAI Studio and our design + marketing services."
         canonicalUrl="https://zeperai.in/about"
       />
+      <OrganizationSchema />
       <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE]">
         <LandingHeader />
         
         <main className="pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
-          <div className="text-center mb-12">
+          <div className="text-center mb-10">
             <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight mb-3">
               About Zeper AI
             </h1>
             <p className="text-2xl font-bold text-[#4452FB] tracking-tight">
               Built solo. The hard way.
             </p>
+          </div>
+
+          {/* Founder Highlight Card */}
+          <div className="mb-8 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-700/60 flex flex-col sm:flex-row items-center gap-6">
+            <div className="relative flex-shrink-0">
+              <img
+                src="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/landing-assets/Ayush%20Vishwakarma%20Founder%20ZeperAi.jpeg"
+                alt="Ayush Vishwakarma | Founder | Zeperai"
+                className="w-28 h-28 sm:w-36 sm:h-36 rounded-2xl object-cover border-2 border-white/20 shadow-lg"
+                referrerPolicy="no-referrer"
+                loading="eager"
+              />
+              <div className="absolute -bottom-2 -right-2 bg-[#4452FB] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full border-2 border-slate-900 shadow-xs">
+                Solo Founder
+              </div>
+            </div>
+            <div className="text-center sm:text-left space-y-1.5">
+              <span className="text-xs uppercase tracking-widest text-[#939BFB] font-bold">The Person Behind the Platform</span>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Ayush Vishwakarma</h2>
+              <p className="text-[#C8CEFE] font-medium text-sm sm:text-base">Founder & Lead Engineer | ZeperAi</p>
+              <p className="text-slate-300 text-xs sm:text-sm pt-1 max-w-lg leading-relaxed">
+                Building AI creative intelligence and high-velocity workflows for brands that want direct, unfiltered execution.
+              </p>
+            </div>
           </div>
 
           <div className="bg-slate-50/70 p-8 sm:p-12 rounded-3xl border border-slate-200/80 space-y-6 text-slate-700 text-base sm:text-lg leading-relaxed shadow-sm">
@@ -104,9 +130,18 @@ export const AboutUsPage: React.FC = () => {
                 <p>📧 <a href="mailto:growth@zeperai.com" className="hover:underline">growth@zeperai.com</a></p>
                 <p>📷 Instagram: <a href="https://instagram.com/sup_madman" target="_blank" rel="noopener noreferrer" className="hover:underline">@sup_madman</a></p>
               </div>
-              <p className="text-slate-500 text-sm mt-4 italic">
-                You'll hear back from me, personally.
-              </p>
+              <div className="mt-6 pt-4 border-t border-slate-200/80 flex items-center gap-3">
+                <img
+                  src="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/landing-assets/Ayush%20Vishwakarma%20Founder%20ZeperAi.jpeg"
+                  alt="Ayush Vishwakarma"
+                  className="w-11 h-11 rounded-full object-cover border-2 border-[#4452FB]/30 shadow-xs"
+                  referrerPolicy="no-referrer"
+                />
+                <div>
+                  <p className="text-slate-900 font-bold text-sm leading-tight">Ayush Vishwakarma</p>
+                  <p className="text-slate-500 text-xs font-medium">Founder | Zeperai</p>
+                </div>
+              </div>
             </div>
           </div>
         </main>

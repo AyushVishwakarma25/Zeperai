@@ -2,6 +2,7 @@ import React from 'react';
 import { LandingHeader } from './LandingHeader.js';
 import { Footer } from './Footer.js';
 import { SEO } from '../../components/SEO.js';
+import { PricingProductSchema } from '../../components/StructuredData.js';
 import { Icon } from '../../components/ui/Icon.js';
 import { useNavigate } from 'react-router-dom';
 
@@ -139,11 +140,12 @@ export const PricingPage: React.FC = () => {
 
   return (
     <>
-    <SEO
+      <SEO
         title="Pricing | ZeperAi Studio"
         description="Simple, transparent pricing for ZeperAi Studio's AI creative tools. Choose the plan that fits your brand's growth, with no hidden fees."
         canonicalUrl="https://zeperai.in/pricing"
       />
+      <PricingProductSchema />
       <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE]">
       <LandingHeader />
 

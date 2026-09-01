@@ -5,6 +5,7 @@ import { Icon } from '../../components/ui/Icon.js';
 import { useScrollDirection } from '../../hooks/useScrollDirection.js';
 import { LandingHeader } from './LandingHeader.js';
 import { Footer } from './Footer.js';
+import { SEO } from '../../components/SEO.js';
 
 export const BlogPage: React.FC = () => {
   const navigate = useNavigate();
@@ -40,6 +41,11 @@ export const BlogPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#4452FB] selection:text-white flex flex-col">
+      <SEO 
+        title="Blog & Resources - Creative AI & E-Commerce Growth | ZeperAi"
+        description="Explore insights, performance marketing tactics, and creative intelligence strategies to scale your brand's ad creatives and conversions."
+        canonicalUrl="https://zeperai.in/blog"
+      />
       <LandingHeader />
 
       {/* CONTENT */}

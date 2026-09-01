@@ -6,14 +6,18 @@ interface SEOProps {
   description: string;
   canonicalUrl?: string;
   ogImage?: string;
+  schema?: Record<string, any> | Array<Record<string, any>>;
 }
 
 export const SEO: React.FC<SEOProps> = ({ 
   title, 
   description, 
   canonicalUrl, 
-  ogImage = 'https://zeperai.in/og-image.jpg' 
+  ogImage = 'https://zeperai.in/og-image.jpg',
+  schema
 }) => {
+  const schemas = schema ? (Array.isArray(schema) ? schema : [schema]) : [];
+
   return (
     <Helmet>
       {/* Primary Meta Tags */}
@@ -35,6 +39,13 @@ export const SEO: React.FC<SEOProps> = ({
       <meta property="twitter:title" content={title} />
       <meta property="twitter:description" content={description} />
       <meta property="twitter:image" content={ogImage} />
+
+      {/* Structured JSON-LD Schemas */}
+      {schemas.map((s, index) => (
+        <script key={`seo-schema-${index}`} type="application/ld+json">
+          {JSON.stringify(s)}
+        </script>
+      ))}
     </Helmet>
   );
 };

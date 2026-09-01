@@ -1,12 +1,21 @@
 User-agent: *
 Allow: /
 Allow: /pricing
+Allow: /about
+Allow: /contact
+Allow: /blog
+Allow: /tools/background-remover
 Allow: /background-remover
-Allow: /ad-generator
+Allow: /privacy
+Allow: /terms
+Allow: /cookies
 Disallow: /dashboard
 Disallow: /api/
 Disallow: /admin
-Disallow: /login
-Disallow: /signup
+Disallow: /admin-login
+Disallow: /admin/login
+Disallow: /admin-portal
+Disallow: /admin/portal
+Disallow: /admin-dashboard
 
 Sitemap: https://zeperai.in/sitemap.xml

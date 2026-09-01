@@ -43,6 +43,7 @@ export const Footer: React.FC = () => {
                 Features
               </Link>
             </li>
+            <li><Link to="/tools/background-remover" className="hover:text-white transition-colors">Background Remover</Link></li>
             <li><Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
             <li><Link to="/login" className="hover:text-white transition-colors">Sign In</Link></li>
           </ul>
@@ -52,6 +53,7 @@ export const Footer: React.FC = () => {
           <h4 className="text-white font-bold mb-4">Company & Legal</h4>
           <ul className="space-y-3 text-sm">
             <li><Link to="/about" className="hover:text-white transition-colors">About Us</Link></li>
+            <li><Link to="/blog" className="hover:text-white transition-colors">Blog</Link></li>
             <li><Link to="/contact" className="hover:text-white transition-colors">Contact</Link></li>
             <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
             <li><Link to="/terms" className="hover:text-white transition-colors">Terms and Conditions</Link></li>

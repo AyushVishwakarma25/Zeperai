@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { LandingHeader } from './LandingHeader.js';
 import { Footer } from './Footer.js';
+import { SEO } from '../../components/SEO.js';
+import { BackgroundRemoverProductSchema } from '../../components/StructuredData.js';
 import BackgroundRemoverPro from '../../components/tools/BackgroundRemoverPro.js';
 import BackgroundRemover from '../../components/tools/BackgroundRemover.js';
 
@@ -60,6 +62,12 @@ export const BackgroundRemoverLandingPage: React.FC<Props> = ({ user, onDeductCr
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE] flex flex-col">
+      <SEO 
+        title="AI Background Remover - Free Instant Background Removal | ZeperAi"
+        description="Remove backgrounds from your product photos in seconds with high precision. Free transparent cutout tool for e-commerce and creative professionals."
+        canonicalUrl="https://zeperai.in/tools/background-remover"
+      />
+      <BackgroundRemoverProductSchema />
       <LandingHeader />
 
       {/* Hero Section with Tool */}

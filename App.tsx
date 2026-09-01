@@ -26,7 +26,7 @@ import { SplashScreen } from './components/SplashScreen.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { ChatBot } from './components/ChatBot.js';
 
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AdminDashboard from './components/admin/AdminDashboard.js';
 import { AdminLoginPage } from './components/admin/AdminLoginPage.js';
 import { LandingPage } from './src/landing/LandingPage.js';
@@ -37,6 +37,7 @@ import { CookiePolicyPage } from './src/landing/CookiePolicyPage.js';
 import { PricingPage } from './src/landing/PricingPage.js';
 import { AboutUsPage } from './src/landing/AboutUsPage.js';
 import { ContactPage } from './src/landing/ContactPage.js';
+import { BlogPage } from './src/landing/BlogPage.js';
 
 const dataURLToParts = (dataURL: string) => {
     const parts = dataURL.split(',');
@@ -54,17 +55,25 @@ const AppInternal: React.FC = () => {
   const appData = useAppData();
   
   // UI State
-  const [showSplash, setShowSplash] = useState(true);
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
+  const [showSplash, setShowSplash] = useState(() => {
+    return typeof window !== 'undefined' && window.location.pathname === '/';
+  });
   const [currentView, setCurrentView] = useState<View>(View.Dashboard);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
   useEffect(() => {
+    if (!isHomePage) {
+      setShowSplash(false);
+      return;
+    }
     const timer = setTimeout(() => {
       setShowSplash(false);
     }, 2200);
     return () => clearTimeout(timer);
-  }, []);
+  }, [isHomePage]);
   
   // Dashboard Floating Input State
   const [floatingPrompt, setFloatingPrompt] = useState('');
@@ -424,7 +433,7 @@ const AppInternal: React.FC = () => {
       }
   }, [creative.setParams]);
 
-  if (isAuthLoading || showSplash) {
+  if (isHomePage && !user && (isAuthLoading || showSplash)) {
       return <SplashScreen durationMs={2200} />;
   }
 
@@ -449,8 +458,10 @@ const AppInternal: React.FC = () => {
       <Route path="/legal/cookie-policy" element={<CookiePolicyPage />} />
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/tools/background-remover" element={<BackgroundRemoverLandingPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
+      <Route path="/background-remover" element={<BackgroundRemoverLandingPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
       <Route path="/about" element={<AboutUsPage />} />
       <Route path="/contact" element={<ContactPage />} />
+      <Route path="/blog" element={<BlogPage />} />
       <Route path="/login" element={!user ? <LoginPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to={getReturnPath()} replace />} />
       <Route path="/signup" element={!user ? <SignupPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to={getReturnPath()} replace />} />
       <Route path="/dashboard" element={
