@@ -4,63 +4,89 @@ import { Button } from './ui/Button.js';
 import { Icon } from './ui/Icon.js';
 import { BrandLogo } from './ui/BrandLogo.js';
 import { FormInput } from './ui/Form.js';
-import { authService, AuthSession } from '../services/authService.js';
+import { AuthSession } from '../services/authService.js';
+import { useAuth } from '../contexts/AuthContext.js';
 
 export const SignupPage: React.FC<{ onLoginSuccess: (session: AuthSession) => void }> = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
+  const { signUp, signInWithGoogle } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Form State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  const getReturnPath = () => {
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get('returnTo');
+    if (returnTo && returnTo.startsWith('/')) {
+      return returnTo;
+    }
+    return '/dashboard';
+  };
+
+  const sanitizeAuthError = (err: any): string => {
+    const msg = typeof err === 'string'
+      ? err
+      : err?.message
+        ? String(err.message)
+        : err?.error_description || err?.error || 'Registration failed';
+
+    const lower = msg.toLowerCase();
+    if (lower.includes('user already registered') || lower.includes('already exists') || lower.includes('email already')) {
+      return 'An account with this email already exists. Please log in instead.';
+    }
+    if (lower.includes('password') && (lower.includes('short') || lower.includes('least') || lower.includes('characters'))) {
+      return 'Password must be at least 6 characters long.';
+    }
+    if (lower.includes('too many requests') || lower.includes('rate limit')) {
+      return 'Too many attempts. Please wait a minute before trying again.';
+    }
+    return msg;
+  };
+
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     setError(null);
     try {
-      await authService.signInWithGoogle();
+      await signInWithGoogle();
     } catch (err: any) {
-      const msg = typeof err === 'string'
-        ? err
-        : err?.message
-          ? String(err.message)
-          : err?.error
-            ? String(err.error)
-            : typeof err === 'object' && err !== null
-              ? (err.code ? `${err.code}: ${err.message || 'Google sign up failed'}` : JSON.stringify(err))
-              : String(err || 'Google sign up failed');
-      setError(msg);
+      setError(sanitizeAuthError(err));
       setIsGoogleLoading(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-        setError("Name is required");
-        return;
+    const cleanName = name.trim();
+    const cleanEmail = email.trim();
+
+    if (!cleanName) {
+      setError("Full name is required.");
+      return;
+    }
+    if (!cleanEmail) {
+      setError("Email address is required.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      return;
     }
     
     setIsLoading(true);
     setError(null);
 
     try {
-      const session = await authService.signUpWithPassword(name, email, password);
+      const session = await signUp(cleanName, cleanEmail, password);
       onLoginSuccess(session);
+      navigate(getReturnPath(), { replace: true });
     } catch (err: any) {
-      const msg = typeof err === 'string'
-        ? err
-        : err?.message
-          ? String(err.message)
-          : err?.error
-            ? String(err.error)
-            : typeof err === 'object' && err !== null
-              ? (err.code ? `${err.code}: ${err.message || 'Registration failed'}` : JSON.stringify(err))
-              : String(err || 'Registration failed');
-      setError(msg);
+      setError(sanitizeAuthError(err));
     } finally {
       setIsLoading(false);
     }
@@ -122,20 +148,30 @@ export const SignupPage: React.FC<{ onLoginSuccess: (session: AuthSession) => vo
               onChange={e => setEmail(e.target.value)}
               required
             />
-            <FormInput 
-              label="Password" 
-              id="signup-password" 
-              type="password" 
-              placeholder="••••••••" 
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-            />
+            <div className="relative">
+              <FormInput 
+                label="Password" 
+                id="signup-password" 
+                type={showPassword ? 'text' : 'password'} 
+                placeholder="••••••••" 
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-9 text-slate-400 hover:text-slate-600 text-xs font-medium focus:outline-none"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
 
             {error && (
-              <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg flex items-center">
-                <Icon name="close" className="w-4 h-4 mr-2 flex-shrink-0" />
-                <span className="break-words">{error}</span>
+              <div className="text-red-600 text-sm bg-red-50 p-3.5 rounded-xl border border-red-100 flex items-start gap-2">
+                <Icon name="close" className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-500" />
+                <span className="break-words font-medium">{error}</span>
               </div>
             )}
 

@@ -120,11 +120,11 @@ export const getAI = () => {
                 if (modelName === 'gemini-3-flash-preview') realModelName = 'gemini-flash-latest';
                 if (modelName === 'gemini-2.5-flash-preview-tts') realModelName = 'gemini-3.1-flash-tts-preview';
                 if (modelName === 'nano-banana-2-lite') realModelName = 'gemini-2.5-flash-image';
-                if (modelName === 'nano-banana-2' || modelName === 'nano-banana') realModelName = 'gemini-3.1-flash-image';
+                if (modelName === 'nano-banana-2' || modelName === 'nano-banana') realModelName = 'gemini-2.5-flash-image';
                 if (modelName === 'nano-banana-pro') realModelName = 'gemini-3-pro-image';
                 // Discontinued Imagen aliases fallback cleanly to Nano Banana models
                 if (modelName && (modelName.includes('imagen') || modelName.includes('dall-e'))) {
-                    realModelName = 'gemini-3.1-flash-image';
+                    realModelName = 'gemini-2.5-flash-image';
                 }
 
                 // Ensure config has safetySettings if not provided
@@ -135,7 +135,7 @@ export const getAI = () => {
 
                 // Use the modern models.generateContent API
                 return await ai.models.generateContent({ 
-                    model: realModelName || 'gemini-3.1-flash-image',
+                    model: realModelName || 'gemini-2.5-flash-image',
                     contents,
                     config: finalConfig 
                 });

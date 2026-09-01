@@ -9,6 +9,9 @@ interface AuthContextType {
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<AuthSession>;
   signUp: (name: string, email: string, password: string) => Promise<AuthSession>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithOtp: (email: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   setUser: React.Dispatch<React.SetStateAction<UserProfileData | null>>;
 }
@@ -55,11 +58,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     initializeAuth();
 
-    const { unsubscribe } = authService.subscribe((event, session) => {
+    const { unsubscribe } = authService.subscribe((event, authSession) => {
         if (isMounted) {
-            setSession(session);
-            setUser(session ? session.user : null);
-            setIsLoading(false);
+            if (authSession) {
+                setSession(authSession);
+                setUser(authSession.user);
+                setIsLoading(false);
+            } else if (event === 'SIGNED_OUT') {
+                setSession(null);
+                setUser(null);
+                setIsLoading(false);
+            }
         }
     });
 
@@ -84,6 +93,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return session;
   }, []);
 
+  const signInWithGoogle = useCallback(async () => {
+    await authService.signInWithGoogle();
+  }, []);
+
+  const signInWithOtp = useCallback(async (email: string) => {
+    await authService.signInWithOtp(email);
+  }, []);
+
+  const resetPassword = useCallback(async (email: string) => {
+    await authService.resetPasswordForEmail(email);
+  }, []);
+
   const signOut = useCallback(async () => {
     await authService.signOut();
     setUser(null);
@@ -91,7 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session, user, isLoading, signIn, signUp, signOut, setUser }}>
+    <AuthContext.Provider value={{ session, user, isLoading, signIn, signUp, signInWithGoogle, signInWithOtp, resetPassword, signOut, setUser }}>
       {children}
     </AuthContext.Provider>
   );

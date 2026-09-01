@@ -4,7 +4,8 @@ import { Button } from './ui/Button.js';
 import { Icon } from './ui/Icon.js';
 import { BrandLogo } from './ui/BrandLogo.js';
 import { FormInput } from './ui/Form.js';
-import { authService, AuthSession } from '../services/authService.js';
+import { AuthSession } from '../services/authService.js';
+import { useAuth } from '../contexts/AuthContext.js';
 
 interface AuthModalProps {
   onClose: () => void;
@@ -12,6 +13,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess }) => {
+  const { signIn, signUp } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +25,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
 
   const canSubmit = email.trim() !== '' && password.trim() !== '' && (!isSignUp || name.trim() !== '');
 
+  const sanitizeAuthError = (err: any): string => {
+    const msg = typeof err === 'string'
+      ? err
+      : err?.message
+        ? String(err.message)
+        : err?.error_description || err?.error || 'Authentication failed';
+
+    const lower = msg.toLowerCase();
+    if (lower.includes('invalid login credentials') || lower.includes('invalid_credentials')) {
+      return 'Invalid email or password. Please verify your details.';
+    }
+    if (lower.includes('email not confirmed')) {
+      return 'Please check your email and confirm your account before logging in.';
+    }
+    if (lower.includes('user already registered') || lower.includes('already exists')) {
+      return 'An account with this email already exists.';
+    }
+    return msg;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || isLoading) return;
@@ -30,26 +52,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
     setIsLoading(true);
     setError(null);
 
+    const cleanEmail = email.trim();
+    const cleanName = name.trim();
+
     try {
-      let session;
+      let session: AuthSession;
       if (isSignUp) {
-        session = await authService.signUpWithPassword(name, email, password);
+        session = await signUp(cleanName, cleanEmail, password);
       } else {
-        session = await authService.signInWithPassword(email, password);
+        session = await signIn(cleanEmail, password);
       }
       onLoginSuccess(session);
       onClose();
     } catch (err: any) {
-      const msg = typeof err === 'string'
-        ? err
-        : err?.message
-          ? String(err.message)
-          : err?.error
-            ? String(err.error)
-            : typeof err === 'object' && err !== null
-              ? (err.code ? `${err.code}: ${err.message || 'Authentication failed'}` : JSON.stringify(err))
-              : String(err || 'Authentication failed');
-      setError(msg);
+      setError(sanitizeAuthError(err));
     } finally {
       setIsLoading(false);
     }

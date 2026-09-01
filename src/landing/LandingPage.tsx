@@ -16,6 +16,11 @@ export const LandingPage: React.FC = () => {
   const location = useLocation();
   const isHeaderVisible = useScrollDirection();
   const [showScrollTop, setShowScrollTop] = React.useState(false);
+  const [openFaqIndex, setOpenFaqIndex] = React.useState<number | null>(null);
+
+  const toggleFaq = (index: number) => {
+    setOpenFaqIndex(openFaqIndex === index ? null : index);
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -237,6 +242,222 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* SECTION 1 — WORKFLOW DEMO */}
+      <section id="workflow" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center text-[#3641C9] text-xs font-extrabold tracking-widest uppercase mb-4 bg-[#4452FB]/10 px-3 py-1.5 rounded-full">
+            How ZeperAI Works
+          </div>
+          <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tight text-slate-900">
+            5 steps from product image to live ad
+          </h2>
+          <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
+            Zero complex prompting. Just a workflow engineered for e-commerce speed.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+          {/* Step 1 */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-6 flex flex-col justify-between shadow-2xs">
+            <div>
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+                <span className="text-2xl font-black tracking-tight text-slate-900 font-mono">
+                  01
+                </span>
+                <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
+                  <Icon name="upload" className="w-4 h-4" />
+                </div>
+              </div>
+              <h3 className="text-base font-bold text-slate-900 mb-2 leading-snug">
+                Upload your product
+              </h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Drop images or connect your Shopify store.
+              </p>
+            </div>
+          </div>
+
+          {/* Step 2 */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-6 flex flex-col justify-between shadow-2xs">
+            <div>
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+                <span className="text-2xl font-black tracking-tight text-slate-900 font-mono">
+                  02
+                </span>
+                <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
+                  <Icon name="layout" className="w-4 h-4" />
+                </div>
+              </div>
+              <h3 className="text-base font-bold text-slate-900 mb-2 leading-snug">
+                Pick your output
+              </h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Ad creative, product shoot, UGC, fashion, or marketplace listing.
+              </p>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-6 flex flex-col justify-between shadow-2xs">
+            <div>
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+                <span className="text-2xl font-black tracking-tight text-slate-900 font-mono">
+                  03
+                </span>
+                <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
+                  <Icon name="sparkles" className="w-4 h-4" />
+                </div>
+              </div>
+              <h3 className="text-base font-bold text-slate-900 mb-2 leading-snug">
+                Generate & customize
+              </h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Pick a proven template, brand kit applied automatically.
+              </p>
+            </div>
+          </div>
+
+          {/* Step 4 */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-6 flex flex-col justify-between shadow-2xs">
+            <div>
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+                <span className="text-2xl font-black tracking-tight text-slate-900 font-mono">
+                  04
+                </span>
+                <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
+                  <Icon name="edit" className="w-4 h-4" />
+                </div>
+              </div>
+              <h3 className="text-base font-bold text-slate-900 mb-2 leading-snug">
+                Edit inline
+              </h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Click any element to adjust text, color, or layout.
+              </p>
+            </div>
+          </div>
+
+          {/* Step 5 */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-6 flex flex-col justify-between shadow-2xs">
+            <div>
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+                <span className="text-2xl font-black tracking-tight text-slate-900 font-mono">
+                  05
+                </span>
+                <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
+                  <Icon name="download" className="w-4 h-4" />
+                </div>
+              </div>
+              <h3 className="text-base font-bold text-slate-900 mb-2 leading-snug">
+                Download & launch
+              </h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Export in every size Meta, Instagram, and Amazon need.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 2 — CASE STUDIES */}
+      <section id="case-studies" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto bg-slate-50/70 rounded-3xl border border-slate-200/70 mb-16">
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center text-[#3641C9] text-xs font-extrabold tracking-widest uppercase mb-4 bg-[#4452FB]/10 px-3 py-1.5 rounded-full">
+            Client Success Stories
+          </div>
+          <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tight text-slate-900">
+            Real brands. Real creative scale.
+          </h2>
+          <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
+            See how Indian D2C leaders replace agency delays with instant AI generation.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch max-w-5xl mx-auto">
+          {/* Case Study 1: Varan Jewellers */}
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between relative">
+            <Icon name="quote" className="w-8 h-8 text-[#E6E8FF] absolute top-6 right-6" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-widest text-[#4452FB] mb-3">
+                Varan Jewellers
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 leading-snug mb-4">
+                Cataloged 200+ Luxury Pieces with Zero Physical Studio Cost
+              </h3>
+              
+              {/* Metrics */}
+              <div className="grid grid-cols-2 gap-3 my-5">
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
+                  <div className="text-xl font-black text-[#4452FB]">90% Time Saved</div>
+                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Time Saved</div>
+                </div>
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
+                  <div className="text-xl font-black text-[#4452FB]">200+ SKUs</div>
+                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Output Metric</div>
+                </div>
+              </div>
+
+              <p className="text-sm text-slate-600 leading-relaxed mb-6">
+                "ZeperAi completely transformed our jewelry cataloging. What used to be a week-long photoshoot setup is now a seamless, digital process. The clarity and precision they bring to high-end pieces is a total game-changer for our brand."
+              </p>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-slate-200 rounded-full overflow-hidden shrink-0">
+                  <img src="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/shot-hero-box-reach.png" alt="Varan Jewellers" className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900 text-sm">Vansh Rastogi</div>
+                  <div className="text-xs text-slate-500">Founder, Varan Jewellers</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Case Study 2: Prustlr */}
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between relative">
+            <Icon name="quote" className="w-8 h-8 text-[#E6E8FF] absolute top-6 right-6" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-widest text-[#4452FB] mb-3">
+                Prustlr
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 leading-snug mb-4">
+                Generated 50+ High-Converting Ad Variations in a Single Afternoon
+              </h3>
+              
+              {/* Metrics */}
+              <div className="grid grid-cols-2 gap-3 my-5">
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
+                  <div className="text-xl font-black text-[#4452FB]">85% Faster</div>
+                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Time Saved</div>
+                </div>
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
+                  <div className="text-xl font-black text-[#4452FB]">50+ Ads</div>
+                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Output Metric</div>
+                </div>
+              </div>
+
+              <p className="text-sm text-slate-600 leading-relaxed mb-6">
+                "ZeperAI allowed us to test fresh hooks and ad formats continuously without waiting on graphic designers or creator turnarounds. It completely removed our creative bandwidth bottleneck."
+              </p>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-slate-200 rounded-full overflow-hidden shrink-0">
+                  <img src="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/Prustlr%20landing%20page%20image.webp" alt="Prustlr" className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900 text-sm">Brand Manager</div>
+                  <div className="text-xs text-slate-500">Prustlr</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* SECTION 2 — AGITATION (THE PROBLEM) - UPDATED WITH SLIDER */}
       <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto bg-slate-950 rounded-[3rem] my-12 text-white overflow-hidden relative border border-slate-800">
         <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
@@ -315,21 +536,6 @@ export const LandingPage: React.FC = () => {
 
       {/* SECTION 5.5 — ACTION CAROUSEL */}
       <ActionCarousel />
-
-      {/* SECTION - TEMPLATES PROVEN TO CONVERT */}
-      <section className="py-24 bg-slate-900 text-white px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#4452FB] blur-[120px] rounded-full opacity-20 pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-600 blur-[120px] rounded-full opacity-20 pointer-events-none"></div>
-        
-        <div className="max-w-7xl mx-auto relative z-10 text-center">
-          <h2 className="text-3xl md:text-5xl font-black mb-6 tracking-tight">
-            Not just AI generation. Templates that are already proven to convert.
-          </h2>
-          <p className="text-xl text-slate-300 max-w-4xl mx-auto leading-relaxed">
-            Every other AI tool gives you a blank canvas and a prayer. ZeperAI gives you 100+ creative templates hand-picked from real campaigns — optimised for CTR, built for e-commerce, and ready to customise with your brand in seconds. The result isn't just beautiful creative. It's creative that performs.
-          </p>
-        </div>
-      </section>
 
       {/* SECTION - FEATURES (BENTO GRID) */}
       <section id="features" className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -769,6 +975,113 @@ export const LandingPage: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 9 — OBJECTION FAQ */}
+      <section id="faq" className="py-24 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center text-[#3641C9] text-xs font-extrabold tracking-widest uppercase mb-4 bg-[#4452FB]/10 px-3 py-1.5 rounded-full">
+            Frequently Asked Questions
+          </div>
+          <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tight text-slate-900">
+            Got questions? We've got answers.
+          </h2>
+          <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
+            Everything you need to know about scaling your brand with ZeperAI.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {/* FAQ 1 */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden transition-all duration-200 hover:border-[#4452FB]/40">
+            <button
+              onClick={() => toggleFaq(0)}
+              className="w-full p-6 text-left flex items-center justify-between gap-4 font-bold text-lg md:text-xl text-slate-900 focus:outline-none"
+            >
+              <span>Will my creatives look AI-generated?</span>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-white border border-slate-200 transition-transform duration-200 shrink-0 ${openFaqIndex === 0 ? 'rotate-180 bg-[#4452FB]/10 border-[#4452FB]/20' : ''}`}>
+                <Icon name="chevron-down" className="w-4 h-4 text-slate-700" />
+              </div>
+            </button>
+            {openFaqIndex === 0 && (
+              <div className="px-6 pb-6 pt-1 text-slate-600 leading-relaxed text-base border-t border-slate-200/60 mt-1">
+                Brand Kit and curated templates keep output consistent and on-brand, not generic AI-looking.
+              </div>
+            )}
+          </div>
+
+          {/* FAQ 2 */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden transition-all duration-200 hover:border-[#4452FB]/40">
+            <button
+              onClick={() => toggleFaq(1)}
+              className="w-full p-6 text-left flex items-center justify-between gap-4 font-bold text-lg md:text-xl text-slate-900 focus:outline-none"
+            >
+              <span>Is this just another prompting tool?</span>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-white border border-slate-200 transition-transform duration-200 shrink-0 ${openFaqIndex === 1 ? 'rotate-180 bg-[#4452FB]/10 border-[#4452FB]/20' : ''}`}>
+                <Icon name="chevron-down" className="w-4 h-4 text-slate-700" />
+              </div>
+            </button>
+            {openFaqIndex === 1 && (
+              <div className="px-6 pb-6 pt-1 text-slate-600 leading-relaxed text-base border-t border-slate-200/60 mt-1">
+                No prompting — pick a template, upload a product, get output.
+              </div>
+            )}
+          </div>
+
+          {/* FAQ 3 */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden transition-all duration-200 hover:border-[#4452FB]/40">
+            <button
+              onClick={() => toggleFaq(2)}
+              className="w-full p-6 text-left flex items-center justify-between gap-4 font-bold text-lg md:text-xl text-slate-900 focus:outline-none"
+            >
+              <span>Can it use my actual product, not a lookalike?</span>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-white border border-slate-200 transition-transform duration-200 shrink-0 ${openFaqIndex === 2 ? 'rotate-180 bg-[#4452FB]/10 border-[#4452FB]/20' : ''}`}>
+                <Icon name="chevron-down" className="w-4 h-4 text-slate-700" />
+              </div>
+            </button>
+            {openFaqIndex === 2 && (
+              <div className="px-6 pb-6 pt-1 text-slate-600 leading-relaxed text-base border-t border-slate-200/60 mt-1">
+                Yes — identity-lock keeps the real product and label intact across every frame.
+              </div>
+            )}
+          </div>
+
+          {/* FAQ 4 */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden transition-all duration-200 hover:border-[#4452FB]/40">
+            <button
+              onClick={() => toggleFaq(3)}
+              className="w-full p-6 text-left flex items-center justify-between gap-4 font-bold text-lg md:text-xl text-slate-900 focus:outline-none"
+            >
+              <span>Who is this for?</span>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-white border border-slate-200 transition-transform duration-200 shrink-0 ${openFaqIndex === 3 ? 'rotate-180 bg-[#4452FB]/10 border-[#4452FB]/20' : ''}`}>
+                <Icon name="chevron-down" className="w-4 h-4 text-slate-700" />
+              </div>
+            </button>
+            {openFaqIndex === 3 && (
+              <div className="px-6 pb-6 pt-1 text-slate-600 leading-relaxed text-base border-t border-slate-200/60 mt-1">
+                D2C founders, Shopify stores, and agencies who need volume without a studio.
+              </div>
+            )}
+          </div>
+
+          {/* FAQ 5 */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden transition-all duration-200 hover:border-[#4452FB]/40">
+            <button
+              onClick={() => toggleFaq(4)}
+              className="w-full p-6 text-left flex items-center justify-between gap-4 font-bold text-lg md:text-xl text-slate-900 focus:outline-none"
+            >
+              <span>How do credits work?</span>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-white border border-slate-200 transition-transform duration-200 shrink-0 ${openFaqIndex === 4 ? 'rotate-180 bg-[#4452FB]/10 border-[#4452FB]/20' : ''}`}>
+                <Icon name="chevron-down" className="w-4 h-4 text-slate-700" />
+              </div>
+            </button>
+            {openFaqIndex === 4 && (
+              <div className="px-6 pb-6 pt-1 text-slate-600 leading-relaxed text-base border-t border-slate-200/60 mt-1">
+                You get 10 free credits for 7 days on signup to explore our studios. When you're ready to scale, choose Pay As You Go (₹999 for 120 credits that never expire) or Pro Subscriptions (300 credits/mo for ₹1,999) with full commercial usage rights. Credits are spent per generated output image based on the model selected (1 credit for Standard Nano Banana models, 2 credits for flagship Pro photorealism).
+              </div>
+            )}
           </div>
         </div>
       </section>

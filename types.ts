@@ -276,6 +276,7 @@ export interface GenerateImageParams {
   catalogMode?: boolean;
   catalogSetSize?: number; // 4 or 5 — how many images in the auto-generated set
   applyBrandIdentity?: boolean;
+  userDescribeText?: string;
   adCtaBgColor?: string;
   adTitleSize?: number;
   adSubheadingSize?: number;

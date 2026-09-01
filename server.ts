@@ -60,8 +60,9 @@ export const app = express();
 app.use((req, res, next) => {
   const ua = req.headers['user-agent'] || '';
   const isWebView = /Line|FBAV|Instagram|MicroMessenger|WhatsApp|FB_IAB/i.test(ua);
+  const isDevOrFrame = process.env.NODE_ENV !== 'production' || req.headers['sec-fetch-dest'] === 'iframe';
   
-  if (!isWebView) {
+  if (!isWebView && !isDevOrFrame) {
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
     res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
   }
@@ -3960,7 +3961,9 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         const { createServer: createViteServer } = await import('vite');
         const vite = await createViteServer({
           server: { 
-            middlewareMode: true
+            middlewareMode: true,
+            hmr: false,
+            ws: false,
           },
           appType: 'spa',
         });

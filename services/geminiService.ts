@@ -485,41 +485,46 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
                 }
                 break;
             case AppMode.AdCreative:
-                let adStyle = "Graphic design style.";
-                let spaceInstruction = "Leave clean negative space for text overlays.";
-                
+                let templateBasePrompt = "Graphic design commercial style with clean background composition.";
                 if (params.adTemplateId) {
                     const template = AD_TEMPLATES.find(t => t.id === params.adTemplateId);
                     if (template) {
-                        adStyle = template.promptInstruction;
+                        templateBasePrompt = template.promptInstruction;
                     }
                 } else if (adStylePreset && adStylePreset !== AI_SUGGESTED) {
                     const foundAdPreset = AD_STYLE_PRESETS.find(p => p.value === adStylePreset);
-                    if (foundAdPreset) adStyle = foundAdPreset.prompt;
+                    if (foundAdPreset) templateBasePrompt = foundAdPreset.prompt;
                 }
-                
-                if (adLayout === AdLayout.TextRightImageLeft) spaceInstruction = "Position the product on the left and leave clean negative space on the right for text overlays.";
-                else if (adLayout === AdLayout.TextLeftImageRight) spaceInstruction = "Position the product on the right and leave clean negative space on the left for text overlays.";
-                else if (adLayout === AdLayout.TextTopBottomImageCenter) spaceInstruction = "Center the product and leave clean negative space at the top and bottom for text overlays.";
-                else if (adLayout === AdLayout.ProductShowcase) spaceInstruction = "Center the product with clean negative space around it.";
+
+                const userInstructions = params.userDescribeText?.trim();
+                const additionalSection = userInstructions
+                    ? `\nADDITIONAL INSTRUCTIONS FROM THE USER (apply on top of the ad style above; if anything here conflicts with the ad style, the user's instruction wins):\n${userInstructions}`
+                    : '';
 
                 if (activeImages && activeImages.length > 0) {
                     corePrompt = `
-                    ACT AS A HIGH-END STUDIO DIRECTOR (BRAND SPECIALIST).
-                    PIPELINE EXECUTION:
-                    1. SEGMENTATION: Isolate the product from its current background perfectly.
-                    2. PIXEL-PERFECT BRANDING (FIXED IDENTITY): Maintain the exact shape, labels, and branding of the product. DO NOT RENDER NEW TEXT. Use the original pixels for all typography.
-                    3. NON-DESTRUCTIVE RELIGHTING: Apply light-wraps, shadows, and reflections that conform to the product's shape without breaking the legibility of its branding.
-                    4. DEPTH MAPPING: Calculate the geometry of the new environment to ensure the product sits realistically on surfaces.
-                    
-                    SCENE: ${optimizedDescription || 'a professional advertisement'}.
-                    STYLE: ${adStyle} ${spaceInstruction}
-                    
-                    ${brandKit?.style_keyword ? `OVERALL AESTHETIC: ${brandKit.style_keyword}.` : ''}
-                    NEGATIVE CONSTRAINTS: absolutely no text, no words, no typography (except on product), no watermarks, no logos, no changing the product design.
+PRODUCT IMAGE: [attached — use this exact product, do not alter its shape, color, branding, or proportions]
+
+AD STYLE (template baseline — follow this layout, mood, and composition):
+${templateBasePrompt}
+${additionalSection}
+
+REQUIREMENTS:
+- Composite the product naturally into the scene with correct lighting, shadow, and scale
+- Keep the output print and social-ready quality
+- Do not add watermarks, extra logos, or placeholder text
+- Return exactly one final image
                     `.trim();
                 } else {
-                    corePrompt = `Commercial Ad. Product: ${optimizedDescription || 'a product'}. Style: ${adStyle} ${spaceInstruction} NEGATIVE CONSTRAINTS: absolutely no text, no words, no typography, no watermarks, no logos.`;
+                    corePrompt = `
+AD STYLE:
+${templateBasePrompt}
+${additionalSection}
+
+REQUIREMENTS:
+- Clean commercial advertising composition for: ${optimizedDescription || 'featured product'}
+- Do not add watermarks, extra logos, or placeholder text
+                    `.trim();
                 }
                 break;
             default:
@@ -1154,7 +1159,7 @@ export async function generateAdBackground(prompt: string, aspectRatioStr: strin
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3.1-flash-image',
+            model: 'gemini-2.5-flash-image',
             contents: { parts: contents },
             config: {
                 imageConfig: {

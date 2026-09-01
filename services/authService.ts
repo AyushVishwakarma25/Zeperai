@@ -8,20 +8,25 @@ import { UserProfileData, userService } from './userService.js';
  * default metadata to keep the app responsive.
  */
 const mapUserToProfile = async (user: any): Promise<UserProfileData> => {
-    // Attempt to fetch full profile from DB with a 2-second timeout
-    const fetchProfilePromise = userService.getUserProfile(user.id);
-    
-    const timeoutPromise = new Promise<null>((resolve) => 
-        setTimeout(() => resolve(null), 2000)
-    );
+    let profile: UserProfileData | null = null;
+    try {
+      // Attempt to fetch full profile from DB with a 2-second timeout (guarded against rejections)
+      const fetchProfilePromise = userService.getUserProfile(user.id).catch(() => null);
+      
+      const timeoutPromise = new Promise<null>((resolve) => 
+          setTimeout(() => resolve(null), 2000)
+      );
 
-    let profile = await Promise.race([fetchProfilePromise, timeoutPromise]);
+      profile = await Promise.race([fetchProfilePromise, timeoutPromise]);
+    } catch (e) {
+      profile = null;
+    }
 
     // Fallback based on auth metadata if profile row not found/ready or timed out
     if (!profile) {
         profile = {
             id: user.id,
-            name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+            name: user.user_metadata?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
             email: user.email || '',
             role: 'Creator',
             bio: '',
@@ -90,13 +95,14 @@ export const authService = {
    * Sign In with Email and Password
    */
   async signInWithPassword(email: string, password: string): Promise<AuthSession> {
+    const cleanEmail = email.trim().toLowerCase();
     const signInPromise = supabase.auth.signInWithPassword({
-        email,
+        email: cleanEmail,
         password
     });
 
     const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) => 
-        setTimeout(() => reject(new Error("Login timed out. Please check your connection and try again.")), 30000)
+        setTimeout(() => reject(new Error("Login timed out. Please check your connection and try again.")), 25000)
     );
 
     const { data, error } = await Promise.race([signInPromise, timeoutPromise]);
@@ -117,10 +123,11 @@ export const authService = {
    * Sign In with Magic Link (OTP)
    */
   async signInWithOtp(email: string): Promise<void> {
+    const cleanEmail = email.trim().toLowerCase();
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: cleanEmail,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: `${window.location.origin}/dashboard`,
       },
     });
 
@@ -128,16 +135,29 @@ export const authService = {
   },
 
   /**
+   * Send Password Reset Email
+   */
+  async resetPasswordForEmail(email: string): Promise<void> {
+    const cleanEmail = email.trim().toLowerCase();
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo: `${window.location.origin}/login`,
+    });
+    if (error) throw error;
+  },
+
+  /**
    * Sign Up
    */
   async signUpWithPassword(name: string, email: string, password: string): Promise<AuthSession> {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name.trim();
     const { data, error } = await supabase.auth.signUp({
-        email,
+        email: cleanEmail,
         password,
         options: {
             data: {
-                name: name,
-                avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`
+                name: cleanName,
+                avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanEmail}`
             }
         }
     });

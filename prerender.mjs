@@ -27,8 +27,9 @@ const template = fs.readFileSync(templatePath, 'utf-8');
 
 const vite = await createServer({
   root: __dirname,
-  server: { middlewareMode: true },
+  server: { middlewareMode: true, hmr: false, ws: false },
   appType: 'custom',
+  configFile: false,
 });
 
 let ok = 0;
@@ -53,7 +54,6 @@ try {
       const outDir = routePath === '/' ? distDir : path.join(distDir, routePath);
       fs.mkdirSync(outDir, { recursive: true });
       fs.writeFileSync(path.join(outDir, 'index.html'), html);
-      console.log(`prerendered ${routePath} -> ${path.relative(distDir, path.join(outDir, 'index.html')) || 'index.html'}`);
       ok++;
     } catch (err) {
       failed++;
@@ -64,5 +64,4 @@ try {
   await vite.close();
 }
 
-console.log(`\nprerender: ${ok} succeeded, ${failed} failed`);
 if (failed > 0) process.exit(1);

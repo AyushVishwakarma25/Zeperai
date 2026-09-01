@@ -44,9 +44,13 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
         try {
             const productDesc = params.productDescription || 'featured product';
             const brandColor = 'deep blue';
-            const promptText = template.prompt
+            let promptText = template.prompt
                 .replace(/\[PRODUCT\]/g, productDesc)
                 .replace(/\[BRAND_COLOR\]/g, brandColor);
+            
+            if (params.userDescribeText && params.userDescribeText.trim()) {
+                promptText += ` Additional style directions: ${params.userDescribeText.trim()}.`;
+            }
             
             const bgUrl = await generateAdBackground(promptText, template.aspectRatio);
             handleParamChange('adBackgroundImageUrl', bgUrl);
@@ -124,6 +128,17 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
                             params={params} 
                             handleParamChange={handleParamChange} 
                         />
+
+                        <div className="mt-4">
+                            <FormTextArea
+                                label="Additional Instructions (Optional)"
+                                id="ad-user-describe-text"
+                                placeholder="e.g. Place on dark slate with soft golden rim lighting and minimal tropical leaves"
+                                value={params.userDescribeText || ''}
+                                onChange={e => handleParamChange('userDescribeText', e.target.value)}
+                                rows={2}
+                            />
+                        </div>
 
                         {/* Editable Overlay & Editor Panel */}
                         {params.adTemplateId && (
