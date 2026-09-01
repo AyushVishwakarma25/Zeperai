@@ -1,0 +1,36 @@
+# ZeperAi
+
+> ZeperAi is an AI-powered creative platform and performance ad generation suite built for D2C brands, e-commerce stores, and high-velocity marketing teams.
+
+ZeperAi enables brands and agencies to transform raw product photography into high-converting ad creatives, commercial lifestyle studio shots, and transparent cutouts in seconds. By combining generative AI, automated copywriting, professional typography layout blueprints, and multi-format aspect ratios (1:1, 9:16, 16:9, 4:5), ZeperAi eliminates expensive multi-week photoshoots and empowers growth marketers to rapidly test winning ad variants across Meta, Google, TikTok, and Shopify.
+
+## Strategic Pages
+
+- [Homepage](https://zeperai.in/): Primary AI Creative Studio dashboard, interactive before/after showcases, and creative generation playground.
+- [AI Background Remover](https://zeperai.in/tools/background-remover): High-precision, zero-halo background removal tool for instant transparent PNG cutouts of product photos.
+- [Pricing](https://zeperai.in/pricing): Transparent pricing tiers, free trial credits, pay-as-you-go packs (₹999 / 120 credits), Pro subscription (₹1,999 / mo), and Agency volume plans.
+- [About Us & Founder Note](https://zeperai.in/about): Background on ZeperAi, founder mission by Ayush Vishwakarma, and direct contact details.
+- [Blog & Creative Guides](https://zeperai.in/blog): Actionable e-commerce growth strategies, ROAS optimization tips, and AI creative intelligence tutorials.
+- [Contact](https://zeperai.in/contact): Support desk, enterprise custom pipelines, and direct developer communication.
+- [Sign Up](https://zeperai.in/signup): Create a free account with instant trial credits.
+- [Log In](https://zeperai.in/login): Secure user authentication and project workspace access.
+- [Privacy Policy](https://zeperai.in/privacy): Data protection standards, user privacy guidelines, and cloud security rules.
+- [Terms & Conditions](https://zeperai.in/terms): Commercial licensing rights, service terms, and billing policies.
+
+## Core Capabilities & Studios
+
+- **Product Studio**: Place isolated products into photorealistic commercial environments (e.g., luxury marble, minimalist studio, outdoor nature, bathroom vanity, neon tech).
+- **Ad Creative Studio**: Generate scroll-stopping ad creative variations with punchy marketing headlines, benefit pills, discount badges, and CTA overlays tuned for performance marketing.
+- **Background Remover Pro**: Client-side optimized and server-accelerated background extraction preserving fine edges, hair, glass reflections, and intricate packaging.
+- **Influencer & Fashion Studio**: Generate on-model product placement and digital fashion styling without organizing costly talent casting.
+- **Festival & Seasonal Campaigns**: Ready-to-use themed backdrops for Black Friday, Diwali, Christmas, Summer Sales, and flash promotions.
+- **AI Copywriter & Scorecard**: Generate persuasive hooks, primary text, and headlines graded by predicted conversion scores.
+
+## Key Facts & Specifications
+
+- **Target Audience**: D2C founders, Shopify store owners, e-commerce performance marketers, and creative ad agencies.
+- **Supported Export Formats**: High-resolution PNG, WebP, and JPG.
+- **Supported Aspect Ratios**: 1:1 (Square), 9:16 (Stories/Reels/TikTok), 16:9 (Landscape/YouTube), 4:5 (Meta Feed).
+- **Commercial Rights**: All paid and trial outputs include full commercial usage rights for digital marketing campaigns.
+- **Founder & Lead Engineer**: Ayush Vishwakarma
+- **Support & Inquiries**: growth@zeperai.com | contact@zeperai.in

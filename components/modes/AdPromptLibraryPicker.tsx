@@ -21,8 +21,8 @@ export const AdPromptLibraryPicker: React.FC<Props> = ({ params, handleParamChan
     return (
         <div>
             <HelpLabel
-                label="Ad Template"
-                tooltip="Pick a style layout to preview. Fine-tune text layers, then click 'Generate Background Scene' to generate AI background graphics."
+                label="Ad Style Preset"
+                tooltip="Select a proven ad layout & backdrop style for your product."
             />
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {AD_CREATIVE_PROMPT_LIBRARY.map(template => {

@@ -9,6 +9,7 @@ Allow: /background-remover
 Allow: /privacy
 Allow: /terms
 Allow: /cookies
+Allow: /llms.txt
 Disallow: /dashboard
 Disallow: /api/
 Disallow: /admin

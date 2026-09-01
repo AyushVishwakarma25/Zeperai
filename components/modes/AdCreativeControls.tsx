@@ -5,14 +5,10 @@ import { FormInput, FormTextArea } from '../ui/Form.js';
 import { Button } from '../ui/Button.js';
 import { Icon } from '../ui/Icon.js';
 import { HelpLabel, BestForLabel } from './shared.js';
-import { CreativeScorecard } from '../CreativeScorecard.js';
 import { StyleSelector } from '../ui/StyleSelector.js';
-import { generateAdCopy, generateAdBackground } from '../../services/geminiService.js';
+import { generateAdCopy } from '../../services/geminiService.js';
 import { AdPromptLibraryPicker } from './AdPromptLibraryPicker.js';
-import { AdElementEditorPanel } from './AdElementEditorPanel.js';
-import { AdLayerOverlay } from './AdLayerOverlay.js';
-import { AD_CREATIVE_PROMPT_LIBRARY, AdPromptTemplate } from './adCreativePromptLibrary.js';
-import { type AdElementKey } from './layoutBlueprints.js';
+import { AD_CREATIVE_PROMPT_LIBRARY } from './adCreativePromptLibrary.js';
 
 interface AdCreativeControlsProps {
     params: GenerateImageParams;
@@ -22,10 +18,7 @@ interface AdCreativeControlsProps {
 export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({ 
     params, handleParamChange 
 }) => {
-    const [showScorecard, setShowScorecard] = useState(false);
     const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
-    const [isGeneratingBg, setIsGeneratingBg] = useState(false);
-    const [selectedElement, setSelectedElement] = useState<AdElementKey | null>('title');
 
     // Convert comparison layout options to StyleSelector format
     const comparisonStyleSelectorOptions = COMPARISON_LAYOUT_OPTIONS.map(opt => ({
@@ -34,36 +27,9 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
         thumbnail: opt.thumbnail
     }));
 
-    const handleGenerateBackground = async () => {
-        const template = AD_CREATIVE_PROMPT_LIBRARY.find(t => t.id === params.adTemplateId);
-        if (!template) {
-            alert("Please select an Ad Template first.");
-            return;
-        }
-        setIsGeneratingBg(true);
-        try {
-            const productDesc = params.productDescription || 'featured product';
-            const brandColor = 'deep blue';
-            let promptText = template.prompt
-                .replace(/\[PRODUCT\]/g, productDesc)
-                .replace(/\[BRAND_COLOR\]/g, brandColor);
-            
-            if (params.userDescribeText && params.userDescribeText.trim()) {
-                promptText += ` Additional style directions: ${params.userDescribeText.trim()}.`;
-            }
-            
-            const bgUrl = await generateAdBackground(promptText, template.aspectRatio);
-            handleParamChange('adBackgroundImageUrl', bgUrl);
-        } catch (err) {
-            console.error('Failed to generate ad background:', err);
-        } finally {
-            setIsGeneratingBg(false);
-        }
-    };
-
     const handleAutoGenerateCopy = async () => {
         if (!params.productDescription) {
-            alert("Please add a Product Description in Common Controls below to generate copy.");
+            alert("Please provide a product description in the Creative Settings above to auto-generate copy.");
             return;
         }
         setIsGeneratingCopy(true);
@@ -71,9 +37,9 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
             const templateName = AD_CREATIVE_PROMPT_LIBRARY.find(t => t.id === params.adTemplateId)?.name 
                 || AD_TEMPLATES.find(t => t.id === params.adTemplateId)?.name || 'Modern';
             const result = await generateAdCopy(params.productDescription, templateName);
-            handleParamChange('adTitle', result.title);
-            handleParamChange('adSubheading', result.subheading);
-            handleParamChange('adCta', result.cta);
+            if (result.title) handleParamChange('adTitle', result.title);
+            if (result.subheading) handleParamChange('adSubheading', result.subheading);
+            if (result.cta) handleParamChange('adCta', result.cta);
         } catch (e) {
             console.error("Copy generation failed:", e);
         } finally {
@@ -81,15 +47,12 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
         }
     };
 
-    const currentTemplate = AD_CREATIVE_PROMPT_LIBRARY.find(t => t.id === params.adTemplateId);
-    const layoutBlueprintId = currentTemplate ? currentTemplate.layoutBlueprintId : (params.adTemplateId || null);
-
     return (
         <>
             <div className="mt-6 flex justify-between items-start mb-4">
                 <BestForLabel text={params.isComparisonMode 
                     ? "D2C brands comparing their product vs competitors or generic alternatives." 
-                    : "High-conversion social media ads with interactive background AI and Canva-style editable layers."} 
+                    : "High-converting social media ads, promo graphics, and marketing creatives."} 
                 />
             </div>
 
@@ -131,125 +94,88 @@ export const AdCreativeControls: React.FC<AdCreativeControlsProps> = ({
 
                         <div className="mt-4">
                             <FormTextArea
-                                label="Additional Instructions (Optional)"
+                                label="Custom Scene / Describe Instructions (Optional)"
                                 id="ad-user-describe-text"
-                                placeholder="e.g. Place on dark slate with soft golden rim lighting and minimal tropical leaves"
+                                placeholder="e.g. Place on dark slate with soft golden rim lighting, sleek modern studio atmosphere"
                                 value={params.userDescribeText || ''}
                                 onChange={e => handleParamChange('userDescribeText', e.target.value)}
-                                rows={2}
+                                rows={3}
                             />
                         </div>
+                    </div>
+                )}
+                
+                <div className="mt-6 pt-4 border-t border-slate-200">
+                    <div className="flex items-center justify-between mb-3">
+                        <HelpLabel label="Ad Copy & Typography" tooltip="Enter the text and headline to display in your ad creative." />
+                        <Button
+                            variant="secondary"
+                            className="h-7 py-0.5 px-2.5 text-xs gap-1"
+                            onClick={handleAutoGenerateCopy}
+                            disabled={isGeneratingCopy || !params.productDescription}
+                            isLoading={isGeneratingCopy}
+                        >
+                            <Icon name="sparkles" className="w-3.5 h-3.5 text-primary" />
+                            AI Write Copy
+                        </Button>
+                    </div>
 
-                        {/* Editable Overlay & Editor Panel */}
-                        {params.adTemplateId && (
-                            <div className="mt-6 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                                        <Icon name="layers" className="w-4 h-4 text-primary" />
-                                        Visual Ad Canvas & Layer Editor
-                                    </h4>
-                                    <Button
-                                        variant="primary"
-                                        className="h-8 py-0.5 px-3 text-xs gap-1"
-                                        onClick={handleGenerateBackground}
-                                        disabled={isGeneratingBg || !params.adTemplateId}
-                                        isLoading={isGeneratingBg}
-                                    >
-                                        <Icon name="sparkles" className="w-3.5 h-3.5" />
-                                        {params.adBackgroundImageUrl ? 'Regenerate Background' : 'Generate Background Scene'}
-                                    </Button>
-                                </div>
+                    <div className="space-y-4">
+                        <FormInput 
+                            label={params.isComparisonMode ? "Headline (e.g. Us vs Them)" : "Ad Title / Headline"}
+                            id="ad-title"
+                            placeholder={params.isComparisonMode ? "Chocolate, but make it better" : "e.g. Summer Sale 50% Off"}
+                            value={params.adTitle || ''}
+                            onChange={e => handleParamChange('adTitle', e.target.value)}
+                        />
+                        
+                        <FormInput 
+                            label="Subheading / Key Benefit"
+                            id="ad-subheading"
+                            placeholder={params.isComparisonMode ? "The smarter choice for your daily fix" : "e.g. 100% Organic & Handcrafted"}
+                            value={params.adSubheading || ''}
+                            onChange={e => handleParamChange('adSubheading', e.target.value)}
+                        />
 
-                                <AdLayerOverlay 
-                                    backgroundImageUrl={params.adBackgroundImageUrl || null}
-                                    layoutBlueprintId={layoutBlueprintId}
-                                    params={params}
-                                    handleParamChange={handleParamChange}
-                                    selectedElement={selectedElement}
-                                    onSelectElement={setSelectedElement}
-                                    onGenerateBackground={handleGenerateBackground}
-                                    isGeneratingBg={isGeneratingBg}
+                        {params.isComparisonMode && (
+                            <div className="space-y-4 pt-2 border-t border-slate-200">
+                                <HelpLabel label="Comparison Points" tooltip="List 4-5 key features for each side." />
+                                <FormTextArea 
+                                    label="Your Product Features"
+                                    id="prod-a-features"
+                                    placeholder="e.g. High Protein, No Added Sugar, Natural Ingredients"
+                                    value={params.productAFeatures || ''}
+                                    onChange={e => handleParamChange('productAFeatures', e.target.value)}
+                                    rows={3}
                                 />
-
-                                <AdElementEditorPanel 
-                                    selectedElement={selectedElement}
-                                    layoutBlueprintId={layoutBlueprintId}
-                                    params={params}
-                                    handleParamChange={handleParamChange}
+                                <FormTextArea 
+                                    label="Competitor / Generic Features"
+                                    id="prod-b-features"
+                                    placeholder="e.g. Low Protein, Sugar Loaded, Artificial Flavors"
+                                    value={params.productBFeatures || ''}
+                                    onChange={e => handleParamChange('productBFeatures', e.target.value)}
+                                    rows={3}
                                 />
                             </div>
                         )}
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <FormInput 
+                                label="CTA Button (Call to Action)"
+                                id="ad-cta"
+                                placeholder="e.g. Shop Now / Order Today"
+                                value={params.adCta || ''}
+                                onChange={e => handleParamChange('adCta', e.target.value)}
+                            />
+                            <FormInput 
+                                label="Brand / Accent Color (Optional)"
+                                id="ad-cta-bg"
+                                placeholder="e.g. #6A5AE0 or Emerald Green"
+                                value={params.adCtaBgColor || ''}
+                                onChange={e => handleParamChange('adCtaBgColor', e.target.value)}
+                            />
+                        </div>
                     </div>
-                )}
-                
-                <div className="mt-4 mb-2 pt-4 border-t border-slate-200">
-                    <HelpLabel label="Ad Content" tooltip="Write your own copy based on your product details." />
-                </div>
-                
-                <FormInput 
-                    label={params.isComparisonMode ? "Headline (e.g. Us vs Them)" : "Ad Title"}
-                    id="ad-title"
-                    placeholder={params.isComparisonMode ? "Chocolate, but make it better" : "e.g. Summer Sale 50% Off"}
-                    value={params.adTitle || ''}
-                    onChange={e => handleParamChange('adTitle', e.target.value)}
-                    className={!params.adTitle ? 'border-red-300' : ''}
-                />
-                
-                <FormInput 
-                    label="Subheading"
-                    id="ad-subheading"
-                    placeholder={params.isComparisonMode ? "The smarter choice for your daily fix" : "e.g. Limited time offer"}
-                    value={params.adSubheading || ''}
-                    onChange={e => handleParamChange('adSubheading', e.target.value)}
-                />
-
-                {params.isComparisonMode && (
-                    <div className="space-y-4 pt-2 border-t border-slate-200">
-                        <HelpLabel label="Comparison Points" tooltip="List 4-5 key features for each side." />
-                        <FormTextArea 
-                            label="Your Product Features"
-                            id="prod-a-features"
-                            placeholder="e.g. High Protein, No Added Sugar, Natural Ingredients"
-                            value={params.productAFeatures || ''}
-                            onChange={e => handleParamChange('productAFeatures', e.target.value)}
-                            rows={3}
-                        />
-                        <FormTextArea 
-                            label="Competitor / Generic Features"
-                            id="prod-b-features"
-                            placeholder="e.g. Low Protein, Sugar Loaded, Artificial Flavors"
-                            value={params.productBFeatures || ''}
-                            onChange={e => handleParamChange('productBFeatures', e.target.value)}
-                            rows={3}
-                        />
-                    </div>
-                )}
-                
-                <div className="grid grid-cols-2 gap-4">
-                    <FormInput 
-                        label="CTA Button"
-                        id="ad-cta"
-                        placeholder="e.g. Shop Now"
-                        value={params.adCta || ''}
-                        onChange={e => handleParamChange('adCta', e.target.value)}
-                    />
-                    <FormInput 
-                        label="CTA Bg Color (Hex)"
-                        id="ad-cta-bg"
-                        placeholder="#6A5AE0"
-                        value={params.adCtaBgColor || ''}
-                        onChange={e => handleParamChange('adCtaBgColor', e.target.value)}
-                    />
-                </div>
-
-                <div className="pt-2 border-t border-slate-200 mt-4">
-                     <FormInput 
-                        label="Text Color (Hex)"
-                        id="ad-text-color"
-                        placeholder="#ffffff"
-                        value={params.adTextColor || ''}
-                        onChange={e => handleParamChange('adTextColor', e.target.value)}
-                    />
                 </div>
             </div>
         </>

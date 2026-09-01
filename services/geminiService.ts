@@ -8,6 +8,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { getAI } from '../config/ai.js';
 import { supabase } from './supabaseClient.js';
 import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS, UGC_STYLE_OPTIONS, AD_STYLE_PRESETS, FASHION_POSE_OPTIONS, FASHION_POSE_TEMPLATES, FASHION_MODEL_LOCKS, FESTIVAL_PRESETS, AD_TEMPLATES } from '../constants.js';
+import { AD_CREATIVE_PROMPT_LIBRARY } from '../components/modes/adCreativePromptLibrary.js';
 import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis, ABTestSuggestion } from '../types.js';
 import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, FashionGender, RegionalStyle, ProductCategory, ResolutionQuality, GenerationQuality, AdLayout, ImageModel } from '../types.js';
 import { resolveModelForGeneration } from '../src/config/modelConfig.js';
@@ -486,7 +487,10 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
                 break;
             case AppMode.AdCreative:
                 let templateBasePrompt = "Graphic design commercial style with clean background composition.";
-                if (params.adTemplateId) {
+                const libTemplate = AD_CREATIVE_PROMPT_LIBRARY.find(t => t.id === params.adTemplateId);
+                if (libTemplate) {
+                    templateBasePrompt = libTemplate.prompt.replace(/\[PRODUCT\]/g, optimizedDescription || 'featured product').replace(/\[BRAND_COLOR\]/g, params.adCtaBgColor || brandKit?.primaryColor || 'modern brand color');
+                } else if (params.adTemplateId) {
                     const template = AD_TEMPLATES.find(t => t.id === params.adTemplateId);
                     if (template) {
                         templateBasePrompt = template.promptInstruction;
@@ -498,8 +502,23 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
 
                 const userInstructions = params.userDescribeText?.trim();
                 const additionalSection = userInstructions
-                    ? `\nADDITIONAL INSTRUCTIONS FROM THE USER (apply on top of the ad style above; if anything here conflicts with the ad style, the user's instruction wins):\n${userInstructions}`
+                    ? `\nADDITIONAL INSTRUCTIONS / SCENE DETAILS FROM THE USER:\n${userInstructions}`
                     : '';
+
+                let adCopySection = '';
+                const copyItems: string[] = [];
+                if (params.adTitle?.trim()) copyItems.push(`- Headline / Main Title: "${params.adTitle.trim()}"`);
+                if (params.adSubheading?.trim()) copyItems.push(`- Subheading / Benefit: "${params.adSubheading.trim()}"`);
+                if (params.adCta?.trim()) copyItems.push(`- CTA Button Text: "${params.adCta.trim()}"`);
+                if (params.adCtaBgColor?.trim()) copyItems.push(`- Brand / Accent Color: ${params.adCtaBgColor.trim()}`);
+                if (params.isComparisonMode) {
+                    if (params.productAFeatures?.trim()) copyItems.push(`- Our Product Key Features: ${params.productAFeatures.trim()}`);
+                    if (params.productBFeatures?.trim()) copyItems.push(`- Competitor / Alternative Weaknesses: ${params.productBFeatures.trim()}`);
+                }
+
+                if (copyItems.length > 0) {
+                    adCopySection = `\nAD GRAPHIC COPY & TYPOGRAPHY:\n${copyItems.join('\n')}\nIncorporate these marketing copy elements tastefully and legibly into the ad creative graphic layout, using high-impact, professional commercial advertising typography and color harmony.`;
+                }
 
                 if (activeImages && activeImages.length > 0) {
                     corePrompt = `
@@ -508,22 +527,23 @@ PRODUCT IMAGE: [attached — use this exact product, do not alter its shape, col
 AD STYLE (template baseline — follow this layout, mood, and composition):
 ${templateBasePrompt}
 ${additionalSection}
+${adCopySection}
 
 REQUIREMENTS:
 - Composite the product naturally into the scene with correct lighting, shadow, and scale
 - Keep the output print and social-ready quality
-- Do not add watermarks, extra logos, or placeholder text
-- Return exactly one final image
+- Return exactly one final polished ad creative image
                     `.trim();
                 } else {
                     corePrompt = `
 AD STYLE:
 ${templateBasePrompt}
 ${additionalSection}
+${adCopySection}
 
 REQUIREMENTS:
 - Clean commercial advertising composition for: ${optimizedDescription || 'featured product'}
-- Do not add watermarks, extra logos, or placeholder text
+- High-converting marketing graphic quality
                     `.trim();
                 }
                 break;
