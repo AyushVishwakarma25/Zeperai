@@ -3270,6 +3270,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     'pay-as-you-go': { name: 'Pay As You Go', price: 999, credits: 120, tier: 'PayAsYouGo' },
     pro: { name: 'Pro Subscription', price: 1999, credits: 300, tier: 'Pro' },
     agency: { name: 'Agency Plan', price: 4999, credits: 1000, tier: 'Agency' },
+    'local-seo-10': { name: 'Local SEO Audit Pack (10 Reports)', price: 50, credits: 10, tier: 'PayAsYouGo' },
+    'localseo10': { name: 'Local SEO Audit Pack (10 Reports)', price: 50, credits: 10, tier: 'PayAsYouGo' },
   };
 
   // In-flight payment lock map to prevent near-simultaneous concurrency on the same instance
@@ -3590,6 +3592,73 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     });
   }));
 
+  // Guest usage tracker for Local SEO Audit (1 free generation per IP)
+  const guestLocalSeoUsage = new Map<string, number>();
+
+  // --- ZEPERAI LOCAL SEO AUDIT QUOTA / STATUS ENDPOINT ---
+  app.get(['/api/local-seo-audit/quota', '/api/local-seo-audit-quota'], asyncHandler(async (req: any, res: any) => {
+    const authHeader = req.headers.authorization;
+    let authUser: any = null;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+      if (token) {
+        try {
+          const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+          const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+          const { createClient } = await import('@supabase/supabase-js');
+          const supabase = createClient(supabaseUrl, supabaseAnonKey);
+          const { data } = await supabase.auth.getUser(token);
+          if (data?.user) authUser = data.user;
+        } catch (e) {}
+      }
+    }
+
+    if (authUser) {
+      const userEmail = (authUser.email || '').toLowerCase().trim();
+      const isProAdmin = userEmail === 'reachtoayush25@gmail.com' || userEmail === 'sharma25ayush@gmail.com' || authUser.id === 'f58676e8-e373-4c97-803b-57451272154c' || !!authUser.is_admin;
+      if (isProAdmin) {
+        return res.json({
+          success: true,
+          isAuthenticated: true,
+          remainingAudits: 999,
+          freeAuditAvailable: false,
+          canAudit: true,
+          userTier: 'Pro'
+        });
+      }
+
+      const adminClient = await getAdminSupabaseClient();
+      const { data: creditsData } = await adminClient
+        .from('user_credits')
+        .select('current_balance')
+        .eq('user_id', authUser.id)
+        .maybeSingle();
+
+      const balance = creditsData?.current_balance ?? 0;
+      return res.json({
+        success: true,
+        isAuthenticated: true,
+        remainingAudits: balance,
+        freeAuditAvailable: balance === 0,
+        canAudit: balance > 0,
+        userTier: 'Free'
+      });
+    }
+
+    const clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || req.socket.remoteAddress || 'guest';
+    const guestUsage = guestLocalSeoUsage.get(clientIp) || 0;
+    const freeAvailable = guestUsage < 1;
+
+    return res.json({
+      success: true,
+      isAuthenticated: false,
+      remainingAudits: freeAvailable ? 1 : 0,
+      freeAuditAvailable: freeAvailable,
+      canAudit: freeAvailable
+    });
+  }));
+
   // --- ZEPERAI LOCAL SEO AUDIT MICRO-SAAS ENGINE ---
   app.post(['/api/local-seo-audit', '/local-seo-audit-api'], aiLimiter, asyncHandler(async (req: any, res: any) => {
     const { businessDescription, location, businessName, address, phone } = req.body || {};
@@ -3599,6 +3668,88 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
     if (!location || typeof location !== 'string' || !location.trim()) {
       return res.status(400).json({ success: false, error: 'Target location/city is required.' });
+    }
+
+    // 1. Authenticate user or check guest free quota
+    const authHeader = req.headers.authorization;
+    let authUser: any = null;
+    let isProAdmin = false;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+      if (token) {
+        try {
+          const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+          const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+          const { createClient } = await import('@supabase/supabase-js');
+          const supabase = createClient(supabaseUrl, supabaseAnonKey);
+          const { data } = await supabase.auth.getUser(token);
+          if (data?.user) {
+            authUser = data.user;
+            const userEmail = (authUser.email || '').toLowerCase().trim();
+            isProAdmin = userEmail === 'reachtoayush25@gmail.com' || userEmail === 'sharma25ayush@gmail.com' || authUser.id === 'f58676e8-e373-4c97-803b-57451272154c' || !!authUser.is_admin;
+          }
+        } catch (e) {}
+      }
+    }
+
+    let isFreeAudit = false;
+    let remainingAudits = 0;
+    let adminClient: any = null;
+
+    if (authUser) {
+      if (!isProAdmin) {
+        adminClient = await getAdminSupabaseClient();
+        const { data: creditsData } = await adminClient
+          .from('user_credits')
+          .select('current_balance')
+          .eq('user_id', authUser.id)
+          .maybeSingle();
+
+        const currentBalance = creditsData?.current_balance ?? 0;
+
+        if (currentBalance < 1) {
+          return res.status(402).json({
+            success: false,
+            requiresPurchase: true,
+            error: "You have used your free audits! Unlock 10 full reports for just ₹50.",
+            message: "You have used your free audits! Unlock 10 full reports for just ₹50."
+          });
+        }
+
+        // Deduct 1 credit atomically
+        const newBalance = Math.max(0, currentBalance - 1);
+        await adminClient
+          .from('user_credits')
+          .update({
+            current_balance: newBalance,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', authUser.id);
+
+        remainingAudits = newBalance;
+      } else {
+        remainingAudits = 999;
+      }
+    } else {
+      // Guest User Flow: 1 free generation allowed per guest IP
+      const clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || req.socket.remoteAddress || 'guest';
+      const guestUsage = guestLocalSeoUsage.get(clientIp) || 0;
+
+      if (guestUsage >= 1) {
+        return res.status(402).json({
+          success: false,
+          requiresAuth: true,
+          requiresPurchase: true,
+          error: "You've completed your 1 free Local SEO audit! Log in or unlock 10 reports for just ₹50 to continue.",
+          message: "You've completed your 1 free Local SEO audit! Log in or unlock 10 reports for just ₹50 to continue."
+        });
+      }
+
+      // Mark free generation used
+      guestLocalSeoUsage.set(clientIp, guestUsage + 1);
+      isFreeAudit = true;
+      remainingAudits = 0;
     }
 
     const explicitDetails = [
@@ -3917,6 +4068,8 @@ You must format your entire response exactly as follows, using these exact markd
           'Publish 3+ customer reviews containing geo-modified keyword phrases.'
         ]
       },
+      remainingAudits,
+      isFreeAudit,
       timestamp: new Date().toISOString()
     });
   }));

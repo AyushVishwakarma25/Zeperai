@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   MapPin, 
@@ -12,15 +12,28 @@ import {
   FileText, 
   Download, 
   Calendar, 
-  Layers, 
   Camera, 
   Globe, 
   ExternalLink,
   RefreshCw,
   Zap,
-  ListTodo
+  ListTodo,
+  Lock,
+  ArrowRight,
+  ShieldCheck,
+  CreditCard,
+  X
 } from 'lucide-react';
-import { runLocalSeoAudit, LocalSeoAuditResult, LocalSeoAuditInput } from '../../services/localSeoAuditService.js';
+import { 
+  runLocalSeoAudit, 
+  getLocalSeoQuota, 
+  LocalSeoAuditResult, 
+  LocalSeoAuditInput,
+  LocalSeoQuotaInfo,
+  LocalSeoAuditError
+} from '../../services/localSeoAuditService.js';
+import { openCheckout, loadRazorpayScript } from '../../services/razorpayService.js';
+import { supabase } from '../../services/supabaseClient.js';
 
 interface Props {
   user?: any;
@@ -53,7 +66,7 @@ const PRESET_EXAMPLES: Array<{
   }
 ];
 
-export const LocalSeoAuditTool: React.FC<Props> = () => {
+export const LocalSeoAuditTool: React.FC<Props> = ({ user }) => {
   const [businessDescription, setBusinessDescription] = useState('');
   const [location, setLocation] = useState('');
   const [businessName, setBusinessName] = useState('');
@@ -62,13 +75,34 @@ export const LocalSeoAuditTool: React.FC<Props> = () => {
   const [showAdvancedInputs, setShowAdvancedInputs] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'interactive' | 'markdown' | 'schema'>('interactive');
+  const [activeTab, setActiveTab] = useState<'overview' | 'gbp' | 'keywords' | 'schema' | 'calendar' | 'markdown'>('overview');
   const [result, setResult] = useState<LocalSeoAuditResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Quota & Purchase states
+  const [quota, setQuota] = useState<LocalSeoQuotaInfo | null>(null);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [purchaseSuccessMessage, setPurchaseSuccessMessage] = useState<string | null>(null);
 
   // Copy tracking states
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [checkedActions, setCheckedActions] = useState<Record<number, boolean>>({});
+
+  // Fetch user quota on mount
+  const refreshQuota = async () => {
+    try {
+      const q = await getLocalSeoQuota();
+      setQuota(q);
+    } catch (err) {
+      console.warn('Quota fetch error:', err);
+    }
+  };
+
+  useEffect(() => {
+    refreshQuota();
+    loadRazorpayScript().catch(console.warn);
+  }, [user]);
 
   const handleCopy = (text: string, sectionKey: string) => {
     navigator.clipboard.writeText(text);
@@ -84,6 +118,57 @@ export const LocalSeoAuditTool: React.FC<Props> = () => {
     setError(null);
   };
 
+  const handleBuyPlan = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    if (!token) {
+      // Save current input to session storage before redirecting to login
+      try {
+        sessionStorage.setItem('zeperai_local_seo_draft', JSON.stringify({
+          businessDescription,
+          location,
+          businessName,
+          phone,
+          address
+        }));
+      } catch (_) {}
+      window.location.href = '/login?returnTo=%2Ftools%2Flocal-seo-audit';
+      return;
+    }
+
+    setIsPurchasing(true);
+    setError(null);
+
+    try {
+      await openCheckout({
+        planId: 'local-seo-10',
+        planName: 'Local SEO Audit Pack',
+        amount: 50,
+        creditsText: '10 Full Reports',
+        userName: user?.name || user?.email || '',
+        userEmail: user?.email || '',
+        onSuccess: async () => {
+          setIsPurchasing(false);
+          setShowPurchaseModal(false);
+          setPurchaseSuccessMessage('Payment successful! 10 Local SEO audit reports added to your account.');
+          await refreshQuota();
+          setTimeout(() => setPurchaseSuccessMessage(null), 6000);
+        },
+        onError: (err) => {
+          setIsPurchasing(false);
+          setError(err.message || 'Payment failed or was cancelled. Please try again.');
+        },
+        onDismiss: () => {
+          setIsPurchasing(false);
+        }
+      });
+    } catch (err: any) {
+      setIsPurchasing(false);
+      setError(err.message || 'Unable to open checkout. Please try again.');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!businessDescription.trim()) {
@@ -92,6 +177,12 @@ export const LocalSeoAuditTool: React.FC<Props> = () => {
     }
     if (!location.trim()) {
       setError('Please enter a target city or locality.');
+      return;
+    }
+
+    // Check if quota allows generating
+    if (quota && !quota.canAudit && quota.remainingAudits <= 0) {
+      setShowPurchaseModal(true);
       return;
     }
 
@@ -110,6 +201,8 @@ export const LocalSeoAuditTool: React.FC<Props> = () => {
       const auditData = await runLocalSeoAudit(payload);
       setResult(auditData);
       setCheckedActions({});
+      await refreshQuota();
+
       // Scroll to results smoothly
       setTimeout(() => {
         const resultsEl = document.getElementById('audit-results-container');
@@ -119,7 +212,12 @@ export const LocalSeoAuditTool: React.FC<Props> = () => {
       }, 100);
     } catch (err: any) {
       console.error('Audit execution error:', err);
-      setError(err.message || 'Failed to complete Local SEO Audit. Please try again.');
+      if (err instanceof LocalSeoAuditError && err.requiresPurchase) {
+        setShowPurchaseModal(true);
+        setError(err.message || 'You have used your free audit. Unlock 10 full reports for ₹50.');
+      } else {
+        setError(err.message || 'Failed to complete Local SEO Audit. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -155,6 +253,22 @@ export const LocalSeoAuditTool: React.FC<Props> = () => {
 
   return (
     <div className="w-full space-y-8" id="local-seo-audit-app">
+      {/* Success Notification Banner */}
+      {purchaseSuccessMessage && (
+        <div className="max-w-4xl mx-auto p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span>{purchaseSuccessMessage}</span>
+          </div>
+          <button 
+            onClick={() => setPurchaseSuccessMessage(null)}
+            className="text-emerald-700 hover:text-emerald-900 text-xs font-bold"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Input Configuration Card */}
       <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/90 shadow-xl shadow-slate-200/60 max-w-4xl mx-auto text-left relative overflow-hidden">
         {/* Decorative subtle accent */}
@@ -164,27 +278,53 @@ export const LocalSeoAuditTool: React.FC<Props> = () => {
           <div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-50 text-[#4452FB] text-xs font-bold uppercase tracking-wider mb-1.5">
               <Sparkles className="w-3.5 h-3.5" />
-              Micro-SaaS Intelligence Engine
+              Instant Local Growth Engine
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Audit Raw Business Information
+              Audit & Rank Your Local Business
             </h2>
-            <p className="text-sm text-slate-500 font-normal">
-              Paste your raw business description or unstructured notes to extract local entities, generate GBP tactics, and build valid JSON-LD.
+            <p className="text-sm text-slate-500 font-normal mt-0.5">
+              Paste your business details to get your Google Profile bio, top local keywords, website code, and a 4-week growth roadmap.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200/70">
-              Phase 1 • 2 • 3 Complete
-            </span>
+          {/* Credits Badge / Buy CTA */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {quota ? (
+              quota.remainingAudits > 0 ? (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-2xs">
+                    <Zap className="w-3.5 h-3.5 fill-emerald-500 text-emerald-600" />
+                    <span>{quota.freeAuditAvailable ? '1 Free Audit Available' : `${quota.remainingAudits} Audits Available`}</span>
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowPurchaseModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-900 text-xs font-bold transition-all shadow-2xs"
+                >
+                  <Lock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>0 Left • Get 10 for ₹50</span>
+                </button>
+              )
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setShowPurchaseModal(true)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#4452FB] hover:bg-[#3641C9] text-white text-xs font-bold transition-all shadow-xs"
+            >
+              <Zap className="w-3 h-3" />
+              <span>Get 10 for ₹50</span>
+            </button>
           </div>
         </div>
 
-        {/* Preset Quick Fill Buttons */}
+        {/* Quick Example Presets */}
         <div className="mb-6">
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-            Quick Try Presets:
+          <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">
+            Try with an example business:
           </label>
           <div className="flex flex-wrap gap-2">
             {PRESET_EXAMPLES.map((preset, idx) => (
@@ -192,681 +332,634 @@ export const LocalSeoAuditTool: React.FC<Props> = () => {
                 key={idx}
                 type="button"
                 onClick={() => handleApplyPreset(preset)}
-                className="text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-100/90 hover:bg-indigo-50 text-slate-700 hover:text-[#4452FB] border border-slate-200/80 hover:border-indigo-200 transition-all text-left flex items-center gap-1.5"
+                className="text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 hover:text-[#4452FB] border border-slate-200 hover:border-indigo-200 text-slate-700 transition-all text-left"
               >
-                <Building2 className="w-3 h-3 text-slate-400" />
-                <span>{preset.label}</span>
+                {preset.label}
               </button>
             ))}
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Main Business Description Input */}
           <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <label htmlFor="business-description-input" className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                1. Business Description & Raw Details <span className="text-red-500">*</span>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Business Details & Services Offered *</span>
               </label>
-              <span className="text-[11px] text-slate-400 font-mono">
-                {businessDescription.length} characters
+              <span className="text-2xs text-slate-400 font-normal">
+                Include services, specialty, phone, or address if available
               </span>
             </div>
             <textarea
-              id="business-description-input"
-              rows={4}
               value={businessDescription}
               onChange={(e) => setBusinessDescription(e.target.value)}
-              placeholder="Paste raw business details: services provided, core offerings, working hours, phone number, address, customer pain points, target neighborhoods..."
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#4452FB] focus:outline-none focus:ring-4 focus:ring-[#4452FB]/10 transition-all font-sans"
+              placeholder="e.g., Apex 24/7 HVAC Solutions is a licensed repair service in Austin, TX. We offer same-day AC maintenance, emergency heating repairs, and commercial duct cleaning. Call (512) 555-0199. Located on South Congress Ave."
+              rows={4}
               required
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-[#4452FB] focus:ring-2 focus:ring-[#4452FB]/10 text-sm text-slate-900 placeholder:text-slate-400 transition-all font-sans resize-y"
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="location-input" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                2. Target Location / City / Locality <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  id="location-input"
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g. Austin, TX or Koramangala, Bangalore"
-                  className="w-full rounded-xl border border-slate-200 pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#4452FB] focus:outline-none focus:ring-4 focus:ring-[#4452FB]/10 transition-all"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col justify-end">
-              <button
-                type="button"
-                onClick={() => setShowAdvancedInputs(!showAdvancedInputs)}
-                className="text-xs text-[#4452FB] hover:text-[#3641C9] font-bold py-2.5 px-3 rounded-xl hover:bg-indigo-50/70 transition-colors flex items-center justify-between border border-dashed border-indigo-200"
-              >
-                <span>{showAdvancedInputs ? 'Hide Optional NAP Fields' : '+ Provide Explicit NAP Overrides'}</span>
-                <span className="text-[10px] uppercase font-extrabold bg-indigo-100/70 px-2 py-0.5 rounded text-indigo-700">Optional</span>
-              </button>
-            </div>
+          {/* Location / City Input */}
+          <div>
+            <label className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5 mb-1.5">
+              <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Target City or Locality *</span>
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g., Austin, Texas or Bandra West, Mumbai or Central London"
+              required
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-[#4452FB] focus:ring-2 focus:ring-[#4452FB]/10 text-sm text-slate-900 placeholder:text-slate-400 transition-all font-sans"
+            />
           </div>
 
-          {/* Optional Explicit NAP Overrides */}
-          {showAdvancedInputs && (
-            <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Business Name</label>
-                <input
-                  type="text"
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="Official registered name"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-900 bg-white"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Phone Number</label>
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. (512) 555-0199"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-900 bg-white"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Full Street Address</label>
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Street, City, State, Postal"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-900 bg-white"
-                />
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+          {/* Optional Direct Overrides Toggle */}
+          <div>
             <button
-              id="run-local-seo-audit-btn"
+              type="button"
+              onClick={() => setShowAdvancedInputs(!showAdvancedInputs)}
+              className="text-xs font-bold text-[#4452FB] hover:text-[#3641C9] flex items-center gap-1 transition-colors"
+            >
+              <span>{showAdvancedInputs ? '− Hide specific contact details' : '+ Add specific name, address, or phone (optional)'}</span>
+            </button>
+
+            {showAdvancedInputs && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mt-3 p-4 bg-slate-50/80 rounded-xl border border-slate-200">
+                <div>
+                  <label className="text-2xs font-bold uppercase tracking-wider text-slate-600 block mb-1">
+                    Business Name
+                  </label>
+                  <input
+                    type="text"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    placeholder="e.g. Apex 24/7 HVAC"
+                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-2xs font-bold uppercase tracking-wider text-slate-600 block mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="e.g. (512) 555-0199"
+                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-2xs font-bold uppercase tracking-wider text-slate-600 block mb-1">
+                    Street Address / Landmark
+                  </label>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="e.g. 4802 South Congress Ave"
+                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <span>{error}</span>
+                {error.includes('₹50') && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPurchaseModal(true)}
+                    className="block mt-1 font-bold text-[#4452FB] underline hover:text-[#3641C9]"
+                  >
+                    Click here to unlock 10 reports for ₹50
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Submit CTA */}
+          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="text-xs text-slate-500">
+              ⚡ Results generated in ~10 seconds • 100% actionable
+            </div>
+
+            <button
               type="submit"
               disabled={isLoading}
-              className="w-full sm:w-auto flex-1 bg-[#4452FB] hover:bg-[#3641C9] disabled:bg-slate-300 text-white py-3.5 px-8 rounded-xl font-bold text-sm transition-all shadow-md hover:shadow-indigo-500/25 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed group"
+              className="bg-[#4452FB] hover:bg-[#3641C9] disabled:opacity-60 text-white font-black text-sm px-6 py-3 rounded-xl transition-all shadow-md shadow-[#4452FB]/20 flex items-center justify-center gap-2 cursor-pointer"
             >
               {isLoading ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                  <span>Processing 3-Phase Local SEO Engine...</span>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Generating Audit Report...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4 text-indigo-200 group-hover:rotate-12 transition-transform" />
-                  <span>Execute Local SEO Audit & Strategy</span>
+                  <Sparkles className="w-4 h-4" />
+                  <span>Generate Local SEO Report</span>
                 </>
               )}
             </button>
-
-            {result && (
-              <button
-                type="button"
-                onClick={() => {
-                  setBusinessDescription('');
-                  setLocation('');
-                  setBusinessName('');
-                  setAddress('');
-                  setPhone('');
-                  setResult(null);
-                }}
-                className="text-xs text-slate-500 hover:text-slate-800 font-semibold py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors shrink-0"
-              >
-                Clear Results
-              </button>
-            )}
           </div>
         </form>
       </div>
 
-      {/* Results Container */}
+      {/* Audit Results Section */}
       {result && (
-        <div id="audit-results-container" className="bg-white rounded-2xl border border-slate-200/90 shadow-xl shadow-slate-200/60 max-w-4xl mx-auto overflow-hidden text-left animate-fade-in">
-          {/* Results Header with View Switcher */}
-          <div className="bg-slate-900 text-white p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div id="audit-results-container" className="space-y-6 max-w-4xl mx-auto text-left">
+          {/* Celebratory 1st Audit Upsell Banner */}
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white shadow-lg border border-indigo-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">
-                  Audit Generated Successfully
-                </span>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 text-xs font-bold uppercase tracking-wider mb-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Audit Generated Successfully</span>
               </div>
-              <h3 className="text-xl font-black text-white tracking-tight">
-                {result.entities?.businessName || 'Local Business'} SEO Action Plan
+              <h3 className="text-base sm:text-lg font-black tracking-tight text-white">
+                Need to audit more client locations or track competitors?
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Targeting <span className="text-slate-200 font-medium">{location}</span> • Category: <span className="text-slate-200 font-medium">{result.entities?.primaryCategory || 'Local Business'}</span>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Unlock <strong className="text-amber-300 font-bold">10 Full Local SEO Reports</strong> for just <strong className="text-white font-bold">₹50</strong>. Only ₹5 per report!
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowPurchaseModal(true)}
+              className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs px-5 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-1.5 shrink-0"
+            >
+              <Zap className="w-4 h-4 fill-white" />
+              <span>Get 10 Reports for ₹50</span>
+            </button>
+          </div>
 
-            <div className="flex items-center flex-wrap gap-2">
-              {/* Tab Selector */}
-              <div className="bg-slate-800 p-1 rounded-xl border border-slate-700/80 flex items-center text-xs">
+          {/* Results Navigation Bar */}
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-sm flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { id: 'overview', label: 'Overview & Action Plan' },
+                { id: 'gbp', label: 'Google Bio & Photos' },
+                { id: 'keywords', label: 'Keywords & Citations' },
+                { id: 'schema', label: 'Website Code (Schema)' },
+                { id: 'calendar', label: '4-Week Content Plan' },
+                { id: 'markdown', label: 'Full Markdown' }
+              ].map((tab) => (
                 <button
-                  type="button"
-                  onClick={() => setActiveTab('interactive')}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition-colors ${
-                    activeTab === 'interactive'
-                      ? 'bg-[#4452FB] text-white shadow-sm'
-                      : 'text-slate-300 hover:text-white'
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    activeTab === tab.id
+                      ? 'bg-[#4452FB] text-white shadow-xs'
+                      : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  Interactive UI
+                  {tab.label}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('markdown')}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition-colors ${
-                    activeTab === 'markdown'
-                      ? 'bg-[#4452FB] text-white shadow-sm'
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                >
-                  Strict Markdown
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('schema')}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition-colors ${
-                    activeTab === 'schema'
-                      ? 'bg-[#4452FB] text-white shadow-sm'
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                >
-                  JSON-LD
-                </button>
-              </div>
+              ))}
+            </div>
 
-              {/* Action Buttons */}
+            <div className="flex items-center gap-2">
               <button
-                type="button"
                 onClick={handleDownloadMarkdown}
+                className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all"
                 title="Download full Markdown report"
-                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white transition-colors"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-3.5 h-3.5" />
+                <span>Export Report</span>
               </button>
             </div>
           </div>
 
-          {/* TAB 1: INTERACTIVE DASHBOARD VIEW */}
-          {activeTab === 'interactive' && (
-            <div className="p-6 sm:p-8 space-y-10 divide-y divide-slate-100">
-              
-              {/* --- PHASE 1: ENTITIES & KEYWORDS --- */}
-              <div className="space-y-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-indigo-50 text-[#4452FB] font-black text-xs flex items-center justify-center border border-indigo-100">
-                      1
-                    </div>
-                    <div>
-                      <h4 className="text-base font-bold text-slate-900">
-                        Phase 1: Extracted Local Entities & Keywords
-                      </h4>
-                      <p className="text-xs text-slate-500 font-normal">
-                        Entity validation, NAP health diagnostics, and geo-modified search terms.
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(JSON.stringify(result.entities, null, 2), 'entities-json')}
-                    className="text-xs text-slate-600 hover:text-[#4452FB] font-semibold flex items-center gap-1 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 transition-colors"
-                  >
-                    {copiedSection === 'entities-json' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedSection === 'entities-json' ? 'Copied' : 'Copy JSON'}</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Primary Category & Business Name */}
-                  <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 space-y-3">
-                    <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                        Primary GBP Category
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#4452FB] text-white text-xs font-bold shadow-sm">
-                        <Building2 className="w-3.5 h-3.5" />
-                        {result.entities?.primaryCategory || 'Local Business'}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                        Identified Name
-                      </span>
-                      <p className="text-sm font-bold text-slate-800">
-                        {result.entities?.businessName || 'Not explicitly named'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* NAP Data Health */}
-                  <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 space-y-2.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                      NAP Consistency Status
-                    </span>
-
-                    <div className="space-y-1.5 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-600 font-medium">Name:</span>
-                        <span className={result.entities?.napData?.name && result.entities.napData.name !== 'MISSING' ? 'text-emerald-700 font-bold' : 'text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded'}>
-                          {result.entities?.napData?.name || 'MISSING'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-600 font-medium">Address:</span>
-                        <span className={result.entities?.napData?.address && result.entities.napData.address !== 'MISSING' ? 'text-emerald-700 font-bold truncate max-w-[160px]' : 'text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded'}>
-                          {result.entities?.napData?.address || 'MISSING'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-600 font-medium">Phone:</span>
-                        <span className={result.entities?.napData?.phone && result.entities.napData.phone !== 'MISSING' ? 'text-emerald-700 font-bold' : 'text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded'}>
-                          {result.entities?.napData?.phone || 'MISSING'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Missing Data Flags */}
-                  <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/80">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
-                      Missing NAP Elements
-                    </span>
-                    {result.entities?.missingData && result.entities.missingData.length > 0 ? (
-                      <ul className="space-y-1.5">
-                        {result.entities.missingData.map((item, idx) => (
-                          <li key={idx} className="text-xs text-amber-700 bg-amber-50/80 px-2.5 py-1 rounded-md border border-amber-200/60 flex items-center gap-1.5 font-medium">
-                            <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="text-xs text-emerald-700 bg-emerald-50 px-2.5 py-2 rounded-md border border-emerald-200 flex items-center gap-1.5 font-semibold">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>All core NAP elements present!</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 5 Geo-Modified Long-Tail Keywords */}
-                <div className="p-4 bg-indigo-50/40 rounded-xl border border-indigo-100/80">
-                  <div className="flex items-center justify-between mb-2.5">
-                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-900 flex items-center gap-1.5">
-                      <Search className="w-3.5 h-3.5 text-[#4452FB]" />
-                      5 High-Intent Geo Keywords
-                    </span>
-                    <span className="text-[11px] text-indigo-600 font-medium">Click any keyword to copy</span>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {result.entities?.targetKeywords?.map((kw, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleCopy(kw, `kw-${idx}`)}
-                        className="group text-xs font-semibold px-3 py-1.5 rounded-lg bg-white hover:bg-[#4452FB] text-slate-800 hover:text-white border border-indigo-200/70 hover:border-[#4452FB] transition-all shadow-xs flex items-center gap-1.5"
-                      >
-                        <span>{kw}</span>
-                        {copiedSection === `kw-${idx}` ? (
-                          <Check className="w-3 h-3 text-emerald-500 group-hover:text-white" />
-                        ) : (
-                          <Copy className="w-3 h-3 text-slate-400 group-hover:text-indigo-200" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* --- PHASE 2: TACTICAL LOCAL AUDIT ENGINE --- */}
-              <div className="pt-8 space-y-6">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-50 text-[#4452FB] font-black text-xs flex items-center justify-center border border-indigo-100">
-                    2
-                  </div>
+          {/* Tab 1: Overview & Action Plan */}
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              {/* Entity Summary Card */}
+              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
                   <div>
-                    <h4 className="text-base font-bold text-slate-900">
-                      Phase 2: Tactical Local Audit Strategy
-                    </h4>
-                    <p className="text-xs text-slate-500 font-normal">
-                      GBP profile optimization, high-converting photo blueprint, citations, and neighborhood relevance.
-                    </p>
-                  </div>
-                </div>
-
-                {/* 750-Char GBP Description */}
-                <div className="bg-slate-50/90 rounded-xl p-5 border border-slate-200/80 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-[#4452FB]" />
-                      Google Business Profile (GBP) Description Template
+                    <span className="text-2xs font-bold uppercase tracking-wider text-[#4452FB] block">
+                      Target Entity Identification
                     </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-slate-500 font-mono bg-white px-2 py-0.5 rounded border border-slate-200">
-                        {result.tactical?.gbpDescription?.length || 0} / 750 chars
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(result.tactical?.gbpDescription || '', 'gbp-desc')}
-                        className="text-xs text-[#4452FB] hover:text-[#3641C9] font-bold flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-slate-200 hover:border-indigo-200 transition-colors shadow-2xs"
-                      >
-                        {copiedSection === 'gbp-desc' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{copiedSection === 'gbp-desc' ? 'Copied' : 'Copy GBP Text'}</span>
-                      </button>
-                    </div>
+                    <h3 className="text-lg font-black text-slate-900">
+                      {result.entities?.businessName || 'Your Business'}
+                    </h3>
                   </div>
-
-                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-sans bg-white p-3.5 rounded-lg border border-slate-200/60 select-all whitespace-pre-wrap">
-                    {result.tactical?.gbpDescription}
-                  </p>
-                </div>
-
-                {/* 3 Photo Recommendations */}
-                <div className="space-y-3">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <Camera className="w-3.5 h-3.5 text-[#4452FB]" />
-                    3 Mandatory Photo Upload Recommendations
+                  <span className="px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-[#4452FB] text-xs font-bold">
+                    {result.entities?.primaryCategory || 'Local Business'}
                   </span>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {result.tactical?.photoRecommendations?.map((photoRec, idx) => (
-                      <div key={idx} className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs flex items-start gap-3">
-                        <div className="w-6 h-6 rounded-full bg-indigo-50 text-[#4452FB] font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
-                          {idx + 1}
-                        </div>
-                        <p className="text-xs text-slate-700 font-medium leading-normal">
-                          {photoRec}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
                 </div>
 
-                {/* Citations & Local Relevance Topics */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Industry Citations */}
-                  <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 space-y-2.5">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                      <Globe className="w-3.5 h-3.5 text-[#4452FB]" />
-                      Top 3 Industry-Specific Citations
+                {/* NAP Diagnostic Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-2xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Business Name
                     </span>
-                    <ul className="space-y-2">
-                      {result.tactical?.industryCitations?.map((cit, idx) => (
-                        <li key={idx} className="text-xs text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200/60 font-medium flex items-center justify-between">
-                          <span>{cit}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">Tier 1 Directory</span>
-                        </li>
-                      ))}
-                    </ul>
+                    <p className="text-xs font-bold text-slate-800">
+                      {result.entities?.napData?.name || 'Not detected'}
+                    </p>
                   </div>
 
-                  {/* Hyper-Local Topics */}
-                  <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 space-y-2.5">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5 text-[#4452FB]" />
-                      3 Hyper-Local Authority Content Topics
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-2xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Phone Number
                     </span>
-                    <ul className="space-y-2">
-                      {result.tactical?.localRelevanceTopics?.map((topic, idx) => (
-                        <li key={idx} className="text-xs text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200/60 font-medium flex items-start gap-2">
-                          <span className="text-[#4452FB] font-bold">•</span>
-                          <span>{topic}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    <p className={`text-xs font-bold ${result.entities?.napData?.phone === 'MISSING' ? 'text-amber-600' : 'text-slate-800'}`}>
+                      {result.entities?.napData?.phone || 'MISSING'}
+                    </p>
                   </div>
-                </div>
-              </div>
 
-              {/* --- PHASE 3: TECHNICAL DELIVERABLES --- */}
-              <div className="pt-8 space-y-6">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-50 text-[#4452FB] font-black text-xs flex items-center justify-center border border-indigo-100">
-                    3
-                  </div>
-                  <div>
-                    <h4 className="text-base font-bold text-slate-900">
-                      Phase 3: Technical Deliverables & Schema
-                    </h4>
-                    <p className="text-xs text-slate-500 font-normal">
-                      Valid LocalBusiness JSON-LD schema, 4-week execution calendar, and critical action plan.
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-2xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Physical Address
+                    </span>
+                    <p className={`text-xs font-bold ${result.entities?.napData?.address === 'MISSING' ? 'text-amber-600' : 'text-slate-800'}`}>
+                      {result.entities?.napData?.address || 'MISSING'}
                     </p>
                   </div>
                 </div>
 
-                {/* 4-Week Content Calendar Table */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-[#4452FB]" />
-                      4-Week Local Content Calendar
+                {/* Missing Elements Warning */}
+                {result.entities?.missingData && result.entities.missingData.length > 0 && (
+                  <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>
+                      <strong>Missing Contact Details:</strong> {result.entities.missingData.join(', ')}. Add these to your Google Profile to boost search ranking trust.
                     </span>
                   </div>
-
-                  <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-100 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
-                        <tr>
-                          <th className="p-3">Week</th>
-                          <th className="p-3">Topic / Headline</th>
-                          <th className="p-3">Target Keyword</th>
-                          <th className="p-3">Format</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 bg-white">
-                        {result.technical?.contentCalendar?.map((item, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="p-3 font-bold text-slate-900 whitespace-nowrap">
-                              {item.week}
-                            </td>
-                            <td className="p-3 font-medium text-slate-800">
-                              {item.topic}
-                            </td>
-                            <td className="p-3">
-                              <span className="bg-indigo-50 text-[#4452FB] px-2 py-0.5 rounded font-mono text-[11px] font-semibold">
-                                {item.targetKeyword}
-                              </span>
-                            </td>
-                            <td className="p-3 whitespace-nowrap">
-                              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold text-[11px]">
-                                {item.format}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Critical Immediate Action Plan Checklist */}
-                <div className="bg-amber-50/60 rounded-xl p-5 border border-amber-200/80 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-                      <ListTodo className="w-3.5 h-3.5 text-amber-600" />
-                      Critical Immediate Action Plan (Top 3 Glaring Gaps)
-                    </span>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    {result.technical?.criticalActionPlan?.map((action, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => toggleActionItem(idx)}
-                        className={`p-3 rounded-lg border text-xs flex items-start gap-3 cursor-pointer transition-all ${
-                          checkedActions[idx]
-                            ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900 line-through opacity-80'
-                            : 'bg-white border-amber-200 text-slate-800 shadow-2xs hover:border-amber-300'
-                        }`}
-                      >
-                        <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${
-                          checkedActions[idx] ? 'bg-emerald-600 text-white' : 'border border-slate-300 bg-white'
-                        }`}>
-                          {checkedActions[idx] && <Check className="w-3.5 h-3.5" />}
-                        </div>
-                        <span className="font-medium leading-relaxed">
-                          {action}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* LocalBusiness JSON-LD Schema Snippet */}
-                <div className="bg-slate-900 rounded-xl p-5 text-white space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 font-mono">
-                        &lt;script type="application/ld+json"&gt;
-                      </span>
-                      <span className="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-                        Schema.org / LocalBusiness
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleDownloadSchema}
-                        className="text-xs text-slate-300 hover:text-white flex items-center gap-1 bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-lg border border-slate-700 transition-colors"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>.json</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(
-                          result.technical?.schemaJsonLdRaw || 
-                          (typeof result.technical?.schemaJsonLd === 'string' ? result.technical.schemaJsonLd : JSON.stringify(result.technical?.schemaJsonLd, null, 2)),
-                          'schema-jsonld'
-                        )}
-                        className="text-xs text-white bg-[#4452FB] hover:bg-[#3641C9] font-bold flex items-center gap-1 px-3 py-1 rounded-lg transition-colors shadow-sm"
-                      >
-                        {copiedSection === 'schema-jsonld' ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{copiedSection === 'schema-jsonld' ? 'Copied' : 'Copy Schema'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <pre className="bg-slate-950 p-4 rounded-lg text-xs font-mono text-emerald-300 overflow-x-auto max-h-64 border border-slate-800">
-                    {result.technical?.schemaJsonLdRaw || 
-                     (typeof result.technical?.schemaJsonLd === 'string' ? result.technical.schemaJsonLd : JSON.stringify(result.technical?.schemaJsonLd, null, 2))}
-                  </pre>
-                </div>
+                )}
               </div>
 
+              {/* Critical 3-Step Immediate Action Plan */}
+              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h4 className="text-base font-black text-slate-900 flex items-center gap-2">
+                      <ListTodo className="w-4 h-4 text-[#4452FB]" />
+                      <span>3-Step Priority Action Checklist</span>
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Complete these 3 tasks first to see ranking improvements within 14–30 days.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {result.technical?.criticalActionPlan?.map((action, idx) => (
+                    <div 
+                      key={idx}
+                      onClick={() => toggleActionItem(idx)}
+                      className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+                        checkedActions[idx] 
+                          ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950' 
+                          : 'bg-slate-50 border-slate-200 hover:border-indigo-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!checkedActions[idx]}
+                        onChange={() => {}}
+                        className="w-4 h-4 mt-0.5 rounded text-[#4452FB] cursor-pointer"
+                      />
+                      <div className="flex-1 text-xs sm:text-sm font-medium leading-relaxed">
+                        {action}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
-          {/* TAB 2: STRICT MARKDOWN VIEW */}
-          {activeTab === 'markdown' && (
-            <div className="p-6 sm:p-8 space-y-4">
+          {/* Tab 2: Google Bio & Photos */}
+          {activeTab === 'gbp' && (
+            <div className="space-y-6">
+              {/* 750-Char Bio */}
+              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                  <div>
+                    <span className="text-2xs font-bold uppercase tracking-wider text-[#4452FB] block">
+                      Google Business Profile
+                    </span>
+                    <h3 className="text-base font-black text-slate-900">
+                      Optimized 750-Character Description
+                    </h3>
+                  </div>
+
+                  <button
+                    onClick={() => handleCopy(result.tactical?.gbpDescription || '', 'gbp')}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-[#4452FB] text-xs font-bold flex items-center gap-1.5 transition-all"
+                  >
+                    {copiedSection === 'gbp' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedSection === 'gbp' ? 'Copied Bio!' : 'Copy Bio'}</span>
+                  </button>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 font-sans text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line">
+                  {result.tactical?.gbpDescription}
+                </div>
+                <div className="mt-2 text-2xs text-slate-400 text-right">
+                  Length: {result.tactical?.gbpDescription?.length || 0} / 750 characters
+                </div>
+              </div>
+
+              {/* High-Value Photo Checklist */}
+              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                <h4 className="text-base font-black text-slate-900 flex items-center gap-2 mb-4">
+                  <Camera className="w-4 h-4 text-[#4452FB]" />
+                  <span>3 Must-Upload Photo Angles</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  {result.tactical?.photoRecommendations?.map((photo, idx) => (
+                    <div key={idx} className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                      <div className="w-7 h-7 rounded-lg bg-indigo-50 text-[#4452FB] font-bold text-xs flex items-center justify-center mb-2">
+                        #{idx + 1}
+                      </div>
+                      <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                        {photo}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 3: Keywords & Citations */}
+          {activeTab === 'keywords' && (
+            <div className="space-y-6">
+              {/* 5 High-Intent Keywords */}
+              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                      <Search className="w-4 h-4 text-[#4452FB]" />
+                      <span>5 High-Intent Local Keywords</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Target these search terms in your website headings, Google bio, and customer review requests.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleCopy(result.entities?.targetKeywords?.join('\n') || '', 'keywords')}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-[#4452FB] text-xs font-bold flex items-center gap-1.5"
+                  >
+                    {copiedSection === 'keywords' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedSection === 'keywords' ? 'Copied!' : 'Copy All'}</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {result.entities?.targetKeywords?.map((kw, idx) => (
+                    <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-[#4452FB]">#{idx + 1}</span>
+                        <span className="text-xs font-bold text-slate-800">{kw}</span>
+                      </div>
+                      <button
+                        onClick={() => handleCopy(kw, `kw-${idx}`)}
+                        className="text-slate-400 hover:text-slate-700"
+                        title="Copy keyword"
+                      >
+                        {copiedSection === `kw-${idx}` ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Top 3 Citations */}
+              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                <h4 className="text-base font-black text-slate-900 flex items-center gap-2 mb-2">
+                  <Globe className="w-4 h-4 text-[#4452FB]" />
+                  <span>Top Recommended Directory Citations</span>
+                </h4>
+                <p className="text-xs text-slate-500 mb-4">
+                  Claim your business profile on these authoritative local directories to build Google confidence.
+                </p>
+
+                <div className="space-y-2.5">
+                  {result.tactical?.industryCitations?.map((cit, idx) => (
+                    <div key={idx} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="text-xs font-bold text-slate-800">{cit}</span>
+                      </div>
+                      <span className="text-2xs font-semibold px-2 py-0.5 rounded bg-indigo-50 text-[#4452FB]">
+                        Recommended
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 4: Website Code (Schema) */}
+          {activeTab === 'schema' && (
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">
-                    Strict Micro-SaaS Markdown Output Format
-                  </h4>
-                  <p className="text-xs text-slate-500">
-                    Exact headings matching the required 3-phase schema structure.
+                  <h3 className="text-base font-black text-slate-900">
+                    Ready-to-Use LocalBusiness Website Code (JSON-LD)
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Paste this snippet directly into your website header (<code className="bg-slate-100 px-1 py-0.5 rounded">&lt;head&gt;</code>) to help Google verify your address and service area.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
-                    type="button"
-                    onClick={handleDownloadMarkdown}
-                    className="text-xs text-slate-700 hover:text-slate-900 font-semibold flex items-center gap-1 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+                    onClick={() => handleCopy(result.technical?.schemaJsonLdRaw || '', 'schema')}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-[#4452FB] text-xs font-bold flex items-center gap-1.5"
+                  >
+                    {copiedSection === 'schema' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedSection === 'schema' ? 'Copied Code!' : 'Copy Code'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleDownloadSchema}
+                    className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Download .md</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(result.rawMarkdown, 'raw-markdown')}
-                    className="text-xs text-white bg-[#4452FB] hover:bg-[#3641C9] font-bold flex items-center gap-1 px-3.5 py-1.5 rounded-lg transition-colors shadow-sm"
-                  >
-                    {copiedSection === 'raw-markdown' ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedSection === 'raw-markdown' ? 'Copied Full Report' : 'Copy Markdown'}</span>
+                    <span>.JSON</span>
                   </button>
                 </div>
               </div>
 
-              <div className="bg-slate-950 text-slate-200 p-5 rounded-xl text-xs font-mono whitespace-pre-wrap overflow-x-auto leading-relaxed max-h-[600px] border border-slate-800 select-all">
-                {result.rawMarkdown}
+              <div className="relative">
+                <pre className="p-4 rounded-xl bg-slate-900 text-slate-100 font-mono text-xs overflow-x-auto max-h-96">
+                  {result.technical?.schemaJsonLdRaw || JSON.stringify(result.technical?.schemaJsonLd, null, 2)}
+                </pre>
               </div>
             </div>
           )}
 
-          {/* TAB 3: DEDICATED JSON-LD SCHEMA VALIDATOR VIEW */}
-          {activeTab === 'schema' && (
-            <div className="p-6 sm:p-8 space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          {/* Tab 5: 4-Week Content Plan */}
+          {activeTab === 'calendar' && (
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">
-                    LocalBusiness JSON-LD Structured Data
-                  </h4>
-                  <p className="text-xs text-slate-500">
-                    Paste this directly into the <code className="bg-slate-100 px-1 py-0.5 rounded text-indigo-700">&lt;head&gt;</code> of your website or via Google Tag Manager.
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-[#4452FB]" />
+                    <span>4-Week Local Content Calendar</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Publish one update per week to keep your Google Business Profile active and authoritative.
                   </p>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <a
-                    href="https://search.google.com/test/rich-results"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-[#4452FB] hover:text-[#3641C9] font-bold flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200 transition-colors"
-                  >
-                    <span>Google Rich Results Test</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(
-                      result.technical?.schemaJsonLdRaw || 
-                      (typeof result.technical?.schemaJsonLd === 'string' ? result.technical.schemaJsonLd : JSON.stringify(result.technical?.schemaJsonLd, null, 2)),
-                      'tab-schema-jsonld'
-                    )}
-                    className="text-xs text-white bg-[#4452FB] hover:bg-[#3641C9] font-bold flex items-center gap-1 px-3.5 py-1.5 rounded-lg transition-colors shadow-sm"
-                  >
-                    {copiedSection === 'tab-schema-jsonld' ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedSection === 'tab-schema-jsonld' ? 'Copied' : 'Copy JSON-LD'}</span>
-                  </button>
-                </div>
               </div>
 
-              <div className="bg-slate-950 text-emerald-300 p-5 rounded-xl text-xs font-mono whitespace-pre-wrap overflow-x-auto leading-relaxed border border-slate-800 select-all">
-                {`<script type="application/ld+json">\n${
-                  result.technical?.schemaJsonLdRaw || 
-                  (typeof result.technical?.schemaJsonLd === 'string' ? result.technical.schemaJsonLd : JSON.stringify(result.technical?.schemaJsonLd, null, 2))
-                }\n</script>`}
+              <div className="space-y-3">
+                {result.technical?.contentCalendar?.map((item, idx) => (
+                  <div key={idx} className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-[#4452FB] bg-indigo-50 px-2.5 py-0.5 rounded-md">
+                          {item.week}
+                        </span>
+                        <span className="text-2xs font-semibold text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded">
+                          {item.format}
+                        </span>
+                      </div>
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                        {item.topic}
+                      </h4>
+                    </div>
+
+                    <div className="text-left sm:text-right shrink-0">
+                      <span className="text-2xs text-slate-400 block">Target Keyword:</span>
+                      <span className="text-xs font-bold text-indigo-700">{item.targetKeyword}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
+          {/* Tab 6: Raw Markdown */}
+          {activeTab === 'markdown' && (
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="text-base font-black text-slate-900">Full Markdown Audit Deliverable</h3>
+                <button
+                  onClick={() => handleCopy(result.rawMarkdown || '', 'markdown')}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-[#4452FB] text-xs font-bold flex items-center gap-1.5"
+                >
+                  {copiedSection === 'markdown' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedSection === 'markdown' ? 'Copied!' : 'Copy Markdown'}</span>
+                </button>
+              </div>
+              <pre className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-mono text-xs overflow-x-auto whitespace-pre-wrap max-h-96">
+                {result.rawMarkdown}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Purchase Modal (Razorpay) */}
+      {showPurchaseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 border border-slate-200 shadow-2xl relative text-left overflow-hidden">
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowPurchaseModal(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Modal Header */}
+            <div className="mb-6">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-[#4452FB] text-xs font-bold mb-3">
+                <Zap className="w-3.5 h-3.5 fill-current" />
+                <span>Special Micro-Pack</span>
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                Unlock 10 Full Reports for ₹50
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Run in-depth audits for multiple business locations, clients, or track monthly optimization progress.
+              </p>
+            </div>
+
+            {/* Price Highlight */}
+            <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100 mb-6 flex items-center justify-between">
+              <div>
+                <span className="text-2xs font-bold uppercase tracking-wider text-[#4452FB] block">
+                  10 Audit Reports Pack
+                </span>
+                <div className="text-2xl font-black text-slate-900">
+                  ₹50 <span className="text-xs font-semibold text-slate-500">only (₹5/report)</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-2xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Instant Activation
+                </span>
+              </div>
+            </div>
+
+            {/* Feature List */}
+            <ul className="space-y-2.5 text-xs text-slate-700 font-medium mb-6">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>10 Full Local SEO Audits & Strategy Reports</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>750-Char Bio & Photo Checklists for Google Profile</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>LocalBusiness JSON-LD Schema Generator</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Export to Markdown, Schema .json & Client Deliverables</span>
+              </li>
+            </ul>
+
+            {/* Pay Button */}
+            <button
+              type="button"
+              disabled={isPurchasing}
+              onClick={handleBuyPlan}
+              className="w-full bg-[#4452FB] hover:bg-[#3641C9] disabled:opacity-60 text-white font-black text-sm py-3.5 rounded-xl transition-all shadow-md shadow-[#4452FB]/20 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {isPurchasing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Opening Razorpay Checkout...</span>
+                </>
+              ) : (
+                <>
+                  <CreditCard className="w-4 h-4" />
+                  <span>Pay ₹50 via Razorpay</span>
+                </>
+              )}
+            </button>
+
+            <div className="mt-4 flex items-center justify-center gap-1.5 text-2xs text-slate-400">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Secure 256-bit encrypted payment via Razorpay UPI & Cards</span>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -16,7 +16,10 @@ import {
   TrendingUp,
   ShieldCheck,
   Target,
-  ArrowRight
+  ArrowRight,
+  Zap,
+  Star,
+  Users
 } from 'lucide-react';
 
 interface Props {
@@ -39,38 +42,38 @@ export const LocalSeoAuditLandingPage: React.FC<Props> = ({ user }) => {
 
   const faqs = [
     {
-      q: "What does the ZeperAi Local SEO Audit Engine do?",
-      a: "The Local SEO Audit Engine analyzes raw, unstructured business details to extract your primary Google Business Profile (GBP) category, verify NAP (Name, Address, Phone) consistency, uncover 5 geo-modified high-intent keywords, craft an optimized 750-character GBP description, suggest high-value photo uploads, recommend industry directories, and output valid LocalBusiness JSON-LD schema with a 4-week execution calendar."
+      q: "How does this tool help my local business rank higher on Google?",
+      a: "Google looks for 4 key things to rank a business locally: an optimized Google Business Profile, accurate contact details across the web, high-intent local search keywords, and clean website code (structured schema). Our audit generates all of these for your exact location in under 30 seconds."
     },
     {
-      q: "How does LocalBusiness JSON-LD schema help my rankings?",
-      a: "Google's search crawlers use structured data (JSON-LD) to unambiguously understand your business's physical address, operational coordinates, opening hours, accepted currencies, and service area. Having clean, error-free schema makes your entity eligible for Google Maps rich snippets and localized knowledge panels."
+      q: "Do I need any coding knowledge to use the results?",
+      a: "Not at all! Everything is ready to copy and paste. You can paste the 750-character bio directly into your Google Business Profile, use the keywords on your website, and hand the generated website code (JSON-LD) to your web designer or paste it directly into WordPress, Shopify, or Wix."
     },
     {
-      q: "What is NAP consistency and why is it critical?",
-      a: "NAP stands for Name, Address, and Phone number. Search engines compare your NAP across your website, Google Business Profile, Apple Maps, and industry directories. Even slight variations (like 'St.' vs 'Street' or missing phone digits) create entity ambiguity and lower your Google Local 3-Pack rankings."
+      q: "How does the pricing and free trial work?",
+      a: "You get 1 full audit report completely free! If you want to run more audits for other locations, client businesses, or track optimization progress over time, you can unlock a 10-report pack for just ₹50 (only ₹5 per report) via secure Razorpay checkout."
     },
     {
-      q: "Can I use this tool for multiple client locations or agency audits?",
-      a: "Yes! ZeperAi's Local SEO Audit micro-SaaS is designed for both local business owners and digital marketing agencies. You can run unlimited audits for any city, neighborhood, or industry niche and export both interactive dashboards and strict Markdown deliverables."
+      q: "Can marketing agencies use this for client audits?",
+      a: "Yes! Agencies and freelancers use this tool to deliver professional local SEO audits and actionable roadmaps to local business clients in minutes. You can export the results directly to clean Markdown or JSON deliverables."
     },
     {
-      q: "How fast will I see results in Google Maps / Local Pack?",
-      a: "Implementing the technical deliverables (adding the JSON-LD schema to your site header, claiming the recommended citations, and optimizing your GBP description) typically produces measurable ranking and impression improvements within 14 to 30 days as Google re-crawls and recalculates entity confidence."
+      q: "How quickly will I see ranking results?",
+      a: "Most local businesses see measurable ranking and call volume improvements within 2 to 4 weeks after updating their Google Business Profile description, uploading the recommended photos, and adding the website code snippet."
     }
   ];
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE] flex flex-col">
       <SEO 
-        title="Free Local SEO Audit & Strategy Generator | ZeperAi"
-        description="Extract local entities, audit NAP consistency, generate 750-char Google Business Profile descriptions, find geo-modified keywords, and build valid LocalBusiness JSON-LD schema."
+        title="Local SEO Audit & Google 3-Pack Growth Plan | ZeperAi"
+        description="Audit your local business, optimize your Google Business Profile, find high-intent local keywords, and generate ready-to-use website code in seconds."
         canonicalUrl="https://zeperai.in/tools/local-seo-audit"
       />
       <LocalSeoAuditProductSchema />
       <LandingHeader />
 
-      {/* Hero Section with Tool */}
+      {/* Hero Section with Interactive Tool */}
       <section id="local-seo-tool-section" className="relative pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
         {/* Glow Accent */}
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[650px] bg-[#4452FB]/5 blur-[140px] rounded-full pointer-events-none" />
@@ -78,18 +81,18 @@ export const LocalSeoAuditLandingPage: React.FC<Props> = ({ user }) => {
         <div className="relative z-10 text-center max-w-4xl mx-auto mb-10">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-[#4452FB] text-xs font-bold uppercase tracking-wider mb-5 shadow-2xs">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>ZeperAi Local SEO Micro-SaaS Engine</span>
+            <span>Try 1 Free Audit • 10 Reports for ₹50</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tight leading-[1.1] mb-5">
-            Raw Business Info in.<br />
+            Get Found on Google Maps.<br />
             <span className="bg-gradient-to-r from-[#3641C9] via-[#4452FB] to-indigo-500 bg-clip-text text-transparent">
-              Local Pack Dominance out.
+              Turn Nearby Searchers into Customers.
             </span>
           </h1>
 
           <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto font-normal leading-relaxed mb-8">
-            Extract Google Business Profile entities, verify NAP consistency, uncover high-intent geo keywords, and generate valid <code className="text-xs bg-slate-100 px-2 py-0.5 rounded font-mono text-indigo-700">LocalBusiness</code> JSON-LD schema in seconds.
+            Enter your business info to instantly get an optimized Google Profile bio, top 5 local search keywords, ready-to-paste website code, and a 4-week step-by-step ranking roadmap.
           </p>
 
           {/* Embedded Interactive Tool */}
@@ -97,159 +100,127 @@ export const LocalSeoAuditLandingPage: React.FC<Props> = ({ user }) => {
         </div>
       </section>
 
-      {/* 3-Phase Execution Workflow Breakdown */}
+      {/* 3 Core Value Pillars (User Friendly) */}
       <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full border-t border-slate-100">
         <div className="text-center max-w-3xl mx-auto mb-12">
           <h2 className="text-xs font-bold uppercase tracking-widest text-[#4452FB] mb-2">
-            Automated 3-Phase Engine
+            Everything You Need To Rank #1 Locally
           </h2>
           <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            How ZeperAi Audits & Optimizes Local Entities
+            Stop Guessing. Get A Proven Plan for Google Maps.
           </h3>
           <p className="text-sm text-slate-500 mt-2">
-            Built on Google Knowledge Graph entity mapping and modern local search ranking factors.
+            Built for local business owners, service professionals, doctors, clinics, and digital marketing agencies.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Phase 1 */}
+          {/* Pillar 1 */}
           <div className="bg-slate-50/70 p-6 rounded-2xl border border-slate-200/80 shadow-xs relative overflow-hidden text-left">
             <div className="w-10 h-10 rounded-xl bg-indigo-50 text-[#4452FB] flex items-center justify-center font-black text-base border border-indigo-100 mb-4">
-              1
+              <Sparkles className="w-5 h-5 text-[#4452FB]" />
             </div>
             <h4 className="text-lg font-bold text-slate-900 mb-2">
-              Entity Extraction & Keyword Mapping
+              Google Business Profile Optimization
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed mb-4">
-              Parses unstructured business text to isolate primary GBP categories, diagnostic NAP data with MISSING alerts, and 5 high-intent geo-modified long-tail keywords.
+              Get a compelling, keyword-rich 750-character bio crafted specifically for your services, plus a checklist of photos that boost customer inquiries.
             </p>
             <ul className="space-y-1.5 text-xs text-slate-700 font-medium">
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>Primary Category Identification</span>
+                <span>Ready-to-paste 750-char Google bio</span>
               </li>
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>NAP Integrity & Gap Flags</span>
+                <span>3 high-impact photo suggestions</span>
               </li>
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>5 Geo-Modified Keywords</span>
+                <span>Contact info consistency audit</span>
               </li>
             </ul>
           </div>
 
-          {/* Phase 2 */}
+          {/* Pillar 2 */}
           <div className="bg-slate-50/70 p-6 rounded-2xl border border-slate-200/80 shadow-xs relative overflow-hidden text-left">
             <div className="w-10 h-10 rounded-xl bg-indigo-50 text-[#4452FB] flex items-center justify-center font-black text-base border border-indigo-100 mb-4">
-              2
+              <Search className="w-5 h-5 text-[#4452FB]" />
             </div>
             <h4 className="text-lg font-bold text-slate-900 mb-2">
-              Tactical Local Audit Engine
+              Top 5 High-Intent Local Keywords
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed mb-4">
-              Synthesizes entity signals into a conversion-ready 750-character GBP bio, strategic photo upload checklists, directory citations, and hyper-local neighborhood topics.
+              Uncover the exact search queries nearby customers use when they are ready to book or buy, paired with top local directories to list your business.
             </p>
             <ul className="space-y-1.5 text-xs text-slate-700 font-medium">
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>750-Char Keyword-Rich Description</span>
+                <span>5 geo-targeted buyer keywords</span>
               </li>
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>3 Essential Photo Angles</span>
+                <span>Top 3 authoritative local directories</span>
               </li>
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>Top 3 Industry Directory Citations</span>
+                <span>Neighborhood relevance topics</span>
               </li>
             </ul>
           </div>
 
-          {/* Phase 3 */}
+          {/* Pillar 3 */}
           <div className="bg-slate-50/70 p-6 rounded-2xl border border-slate-200/80 shadow-xs relative overflow-hidden text-left">
             <div className="w-10 h-10 rounded-xl bg-indigo-50 text-[#4452FB] flex items-center justify-center font-black text-base border border-indigo-100 mb-4">
-              3
+              <Code className="w-5 h-5 text-[#4452FB]" />
             </div>
             <h4 className="text-lg font-bold text-slate-900 mb-2">
-              Technical Deliverables & Schema
+              Ready Website Code & 4-Week Plan
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed mb-4">
-              Generates production-grade assets: valid JSON-LD schema for search crawlers, a 4-week local content calendar, and a 3-step immediate triage fix.
+              Copy-paste Google Schema structured code for your website, plus a week-by-week content plan to maintain consistent ranking dominance.
             </p>
             <ul className="space-y-1.5 text-xs text-slate-700 font-medium">
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>Valid LocalBusiness JSON-LD</span>
+                <span>LocalBusiness website schema code</span>
               </li>
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>4-Week Content Execution Table</span>
+                <span>4-week social & blog posting calendar</span>
               </li>
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>3-Step Critical Gap Checklist</span>
+                <span>3-step immediate action checklist</span>
               </li>
             </ul>
           </div>
         </div>
       </section>
 
-      {/* Feature Highlights Bento Grid */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-        <div className="bg-slate-900 rounded-3xl p-8 sm:p-12 text-white text-left relative overflow-hidden">
-          <div className="absolute right-0 bottom-0 w-96 h-96 bg-[#4452FB]/20 rounded-full blur-3xl pointer-events-none" />
-          
-          <div className="max-w-2xl mb-10">
-            <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 block mb-2">
-              Built For Maximum Local Visibility
-            </span>
-            <h3 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
-              Rank in the Local 3-Pack and Turn Searchers into Walk-In Clients
+      {/* Pricing Callout Banner */}
+      <section className="py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full">
+        <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 rounded-3xl p-8 sm:p-10 text-white text-left relative overflow-hidden shadow-xl border border-indigo-500/20 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="max-w-xl">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-400/20 text-emerald-300 text-xs font-bold uppercase tracking-wider mb-3">
+              <Zap className="w-3.5 h-3.5 fill-current" />
+              <span>Transparent Pricing • No Subscriptions</span>
+            </div>
+            <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              1 Free Audit. Then 10 Full Reports for just ₹50.
             </h3>
-            <p className="text-sm text-slate-400 mt-3">
-              Over 46% of all Google searches have local intent. Our automated engine generates the technical assets and content roadmap required to outrank competitors.
+            <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
+              No hidden fees, no recurring commitments. Audit any local business or client location for only ₹5 per report.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
-            <div className="bg-slate-800/80 p-5 rounded-xl border border-slate-700/80">
-              <Compass className="w-6 h-6 text-[#4452FB] mb-3" />
-              <h4 className="text-sm font-bold text-white mb-1">Hyper-Local Relevance</h4>
-              <p className="text-xs text-slate-400">Target neighborhoods, sub-localities, and landmark-specific queries.</p>
-            </div>
-
-            <div className="bg-slate-800/80 p-5 rounded-xl border border-slate-700/80">
-              <Code className="w-6 h-6 text-emerald-400 mb-3" />
-              <h4 className="text-sm font-bold text-white mb-1">Rich Schema Markup</h4>
-              <p className="text-xs text-slate-400">LocalBusiness JSON-LD ready to embed directly in WordPress, Shopify, or Webflow.</p>
-            </div>
-
-            <div className="bg-slate-800/80 p-5 rounded-xl border border-slate-700/80">
-              <ShieldCheck className="w-6 h-6 text-indigo-400 mb-3" />
-              <h4 className="text-sm font-bold text-white mb-1">Citation Integrity</h4>
-              <p className="text-xs text-slate-400">Discover top directories to build authoritative, consistent local backlinks.</p>
-            </div>
-
-            <div className="bg-slate-800/80 p-5 rounded-xl border border-slate-700/80">
-              <TrendingUp className="w-6 h-6 text-amber-400 mb-3" />
-              <h4 className="text-sm font-bold text-white mb-1">Actionable Roadmap</h4>
-              <p className="text-xs text-slate-400">4-week calendar and immediate 3-step fixes eliminate analysis paralysis.</p>
-            </div>
-          </div>
-
-          <div className="mt-10 pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-xs text-slate-400">
-              Ready to generate your personalized Local SEO audit?
-            </div>
-            <button
-              onClick={scrollToTool}
-              className="bg-[#4452FB] hover:bg-[#3641C9] text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm hover:shadow-md flex items-center gap-1.5"
-            >
-              <span>Run Free Local Audit</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+          <button
+            onClick={scrollToTool}
+            className="bg-[#4452FB] hover:bg-[#3641C9] text-white px-6 py-3.5 rounded-xl text-xs sm:text-sm font-black transition-all shadow-md shadow-[#4452FB]/30 flex items-center gap-2 shrink-0 cursor-pointer"
+          >
+            <span>Start Your Free Audit</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
       </section>
 
@@ -260,7 +231,7 @@ export const LocalSeoAuditLandingPage: React.FC<Props> = ({ user }) => {
             Frequently Asked Questions
           </h2>
           <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Everything You Need to Know About Local SEO Audits
+            Simple Answers to Common Questions
           </h3>
         </div>
 
@@ -273,7 +244,7 @@ export const LocalSeoAuditLandingPage: React.FC<Props> = ({ user }) => {
               <button
                 type="button"
                 onClick={() => toggleFaq(idx)}
-                className="w-full p-4 sm:p-5 flex justify-between items-center text-left font-bold text-sm text-slate-900 hover:bg-slate-50 transition-colors"
+                className="w-full p-4 sm:p-5 flex justify-between items-center text-left font-bold text-sm text-slate-900 hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 <span>{faq.q}</span>
                 {openFaq === idx ? (
