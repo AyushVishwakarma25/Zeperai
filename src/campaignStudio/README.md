@@ -20,8 +20,8 @@ user approval; any step can be regenerated with written feedback.
   SELECT their own rows (RLS). The service-role client bypasses RLS, so every
   query in `server/db.ts` filters by `user_id` explicitly. The module reuses
   `getAdminSupabaseClient`, which is now fail-closed (no anon-key fallback).
-- **Credits are spent server-side** via `spend_credits()` / `refund_credits()`
-  (atomic, idempotent per reference, service_role only). Do not use the
+- **Credits are spent server-side** via `campaign_spend_credits()` / `campaign_refund_credits()`
+  (atomic, idempotent per reference, service_role only). Named `campaign_*` so they never collide with the app-wide `spend_credits`/`refund_credits`. Do not use the
   client-side `userService.deductCredits` for this feature.
 - **Review gates** are defined once in `types.ts` (`REVIEW_GATES`); market and
   competitor research share one gate.

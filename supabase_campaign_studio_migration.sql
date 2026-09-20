@@ -5,14 +5,14 @@
 --   1. campaign_runs    - one row per workflow run (brand input + goal + settings)
 --   2. campaign_steps   - one row per agent output VERSION (redo = new version)
 --   3. campaign_assets  - generated creatives (one row per creative version)
---   4. spend_credits()  - atomic, idempotent credit spend + ledger entry
---   5. refund_credits() - refunds exactly what a reference was charged, once
+--   4. campaign_spend_credits()  - atomic, idempotent credit spend + ledger entry
+--   5. campaign_refund_credits() - refunds exactly what a reference was charged, once
 --
 -- Security model:
 --   * Users can only SELECT their own rows (RLS). There are NO insert/update/
 --     delete policies, so all writes must go through the server using the
 --     service-role key. Users cannot tamper with step status or credits.
---   * spend_credits / refund_credits are SECURITY DEFINER and executable by
+--   * campaign_spend_credits / campaign_refund_credits are SECURITY DEFINER and executable by
 --     service_role ONLY (revoked from public/anon/authenticated).
 --
 -- Safe to re-run (idempotent). Only creates new objects, plus one additive
@@ -169,7 +169,7 @@ REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.campaign_runs, public.campaign
 CREATE INDEX IF NOT EXISTS idx_credit_transactions_reference
   ON public.credit_transactions(user_id, reference_type, reference_id);
 
-CREATE OR REPLACE FUNCTION public.spend_credits(
+CREATE OR REPLACE FUNCTION public.campaign_spend_credits(
   p_user_id uuid,
   p_amount numeric,
   p_reference_type text,
@@ -238,7 +238,7 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.refund_credits(
+CREATE OR REPLACE FUNCTION public.campaign_refund_credits(
   p_user_id uuid,
   p_reference_type text,
   p_reference_id text
@@ -309,7 +309,7 @@ END;
 $$;
 
 -- Lock both functions down: service role (server) only.
-REVOKE ALL ON FUNCTION public.spend_credits(uuid, numeric, text, text, text, text, jsonb) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.refund_credits(uuid, text, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.spend_credits(uuid, numeric, text, text, text, text, jsonb) TO service_role;
-GRANT EXECUTE ON FUNCTION public.refund_credits(uuid, text, text) TO service_role;
+REVOKE ALL ON FUNCTION public.campaign_spend_credits(uuid, numeric, text, text, text, text, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.campaign_refund_credits(uuid, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.campaign_spend_credits(uuid, numeric, text, text, text, text, jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION public.campaign_refund_credits(uuid, text, text) TO service_role;
