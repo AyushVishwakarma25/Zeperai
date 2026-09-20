@@ -275,6 +275,113 @@ export const getAdminSupabaseClient = async (_authHeader?: string) => {
   });
 };
 
+/**
+ * Deduct user credits atomically.
+ * Returns { success: true, remaining: number } or { success: false, current: number, required: number }
+ */
+export const spendUserCredits = async (
+  userId: string,
+  amount: number,
+  description: string = 'Service usage'
+): Promise<{ success: boolean; remaining: number; current: number; error?: string }> => {
+  if (amount <= 0) return { success: true, remaining: 0, current: 0 };
+  const adminClient = await getAdminSupabaseClient();
+
+  // Try RPC if configured in Supabase (spend_credits)
+  try {
+    const { data, error } = await adminClient.rpc('spend_credits', {
+      p_user_id: userId,
+      p_amount: amount,
+      p_description: description
+    });
+    if (!error && data) {
+      if (data.success === false) {
+        return { success: false, current: data.current_balance ?? 0, remaining: data.current_balance ?? 0, error: 'Insufficient credits' };
+      }
+      return { success: true, remaining: data.current_balance ?? 0, current: data.current_balance ?? 0 };
+    }
+  } catch (rpcErr) {
+    // Fall back to direct table update if RPC not created yet
+  }
+
+  // Fallback direct check and update
+  const { data: creditData, error: creditErr } = await adminClient
+    .from('user_credits')
+    .select('current_balance, total_quota')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (creditErr) {
+    throw new AppError('Failed to verify user credit balance.', 500);
+  }
+
+  const currentBalance = creditData?.current_balance ?? 0;
+  if (currentBalance < amount) {
+    return { success: false, current: currentBalance, remaining: currentBalance, error: 'Insufficient credits' };
+  }
+
+  const newBalance = Math.max(0, currentBalance - amount);
+  const { error: updateErr } = await adminClient
+    .from('user_credits')
+    .update({
+      current_balance: newBalance,
+      updated_at: new Date().toISOString()
+    })
+    .eq('user_id', userId);
+
+  if (updateErr) {
+    throw new AppError('Failed to deduct user credits.', 500);
+  }
+
+  return { success: true, remaining: newBalance, current: currentBalance };
+};
+
+/**
+ * Refund user credits atomically (e.g. on generation or service failure).
+ */
+export const refundUserCredits = async (
+  userId: string,
+  amount: number,
+  description: string = 'Service failure refund'
+): Promise<void> => {
+  if (amount <= 0) return;
+  try {
+    const adminClient = await getAdminSupabaseClient();
+    
+    // Try RPC if configured
+    try {
+      const { data, error } = await adminClient.rpc('refund_credits', {
+        p_user_id: userId,
+        p_amount: amount,
+        p_description: description
+      });
+      if (!error && data?.success) {
+        return;
+      }
+    } catch (_) {}
+
+    // Fallback: fetch current and increment by amount (not restoring stale balance!)
+    const { data: creditData } = await adminClient
+      .from('user_credits')
+      .select('current_balance')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (creditData) {
+      const restored = (creditData.current_balance || 0) + amount;
+      await adminClient
+        .from('user_credits')
+        .update({
+          current_balance: restored,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+    }
+  } catch (err) {
+    console.error('Failed to refund user credits:', err);
+  }
+};
+
 const isUuid = (str?: string) => {
   if (!str) return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
@@ -440,9 +547,23 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           if (!authError && authData?.user) {
             const userEmail = (authData.user.email || '').toLowerCase().trim();
             const allowedEmails = getAdminAllowedEmails();
-            const isAdmin =
-              (allowedEmails.length > 0 && allowedEmails.includes(userEmail)) ||
-              authData.user.user_metadata?.is_admin === true;
+            let isAdmin = allowedEmails.length > 0 && allowedEmails.includes(userEmail);
+
+            if (!isAdmin) {
+              try {
+                const adminClient = await getAdminSupabaseClient();
+                const { data: profileData } = await adminClient
+                  .from('profiles')
+                  .select('is_admin')
+                  .eq('id', authData.user.id)
+                  .maybeSingle();
+                if (profileData?.is_admin === true) {
+                  isAdmin = true;
+                }
+              } catch (profileCheckErr) {
+                console.warn('Admin profile check error:', profileCheckErr);
+              }
+            }
 
             if (isAdmin) {
               const token = generateAdminToken(userEmail);
@@ -3805,17 +3926,36 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
     // Admin & Tier authorization
     const userEmail = (req.user?.email || '').toLowerCase().trim();
-    const isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
+    let isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
+    let userTier = req.user?.user_metadata?.tier || 'Free';
+
+    // Verify admin status and tier from profiles table if needed
+    try {
+      const adminClient = await getAdminSupabaseClient();
+      const { data: profileData } = await adminClient
+        .from('profiles')
+        .select('is_admin, tier')
+        .eq('id', req.user.id)
+        .maybeSingle();
+
+      if (profileData) {
+        if (profileData.is_admin === true) {
+          isAdmin = true;
+        }
+        if (profileData.tier) {
+          userTier = profileData.tier;
+        }
+      }
+    } catch (_) {}
 
     if (resolvedModel === 'gemini-3-pro-image' && !isAdmin) {
-      const userTier = req.user?.user_metadata?.tier || 'Free';
-      const isPaid = userTier === 'Pro' || userTier === 'PayAsYouGo' || userTier === 'Agency';
+      const isPaid = userTier === 'Pro' || userTier === 'PayAsYouGo' || userTier === 'Agency' || userTier === 'Standard';
       if (!isPaid) {
         resolvedModel = 'gemini-2.5-flash-image';
       }
     }
 
-    // Determine credit cost for image generation
+    // Determine credit cost
     const isImageModel = resolvedModel === 'gemini-2.5-flash-image' || resolvedModel === 'gemini-3.1-flash-image' || resolvedModel === 'gemini-3-pro-image';
     let creditCost = 0;
     if (isImageModel) {
@@ -3823,48 +3963,31 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       if (sanitizedConfig.imageConfig?.imageSize === '2K') {
         creditCost += 1;
       }
+    } else {
+      // Text and reasoning models cost 1 credit
+      creditCost = 1;
     }
 
-    let adminClient: any = null;
-    let originalBalance = 0;
-    let newBalance = 0;
+    let didDeduct = false;
 
-    // Server-side credit check and atomic deduction
+    // Server-side atomic credit check and deduction
     if (!isAdmin && creditCost > 0) {
-      adminClient = await getAdminSupabaseClient();
-      const { data: creditData, error: creditErr } = await adminClient
-        .from('user_credits')
-        .select('current_balance, total_quota')
-        .eq('user_id', req.user.id)
-        .maybeSingle();
+      const deduction = await spendUserCredits(
+        req.user.id,
+        creditCost,
+        `AI Generation (${resolvedModel})`
+      );
 
-      if (creditErr) {
-        throw new AppError("Failed to verify user credit balance before generation.", 500);
-      }
-
-      originalBalance = creditData?.current_balance ?? 0;
-      if (originalBalance < creditCost) {
+      if (!deduction.success) {
         return res.status(402).json({
           success: false,
-          error: `Insufficient credits. You need ${creditCost} credit${creditCost > 1 ? 's' : ''}, but have ${originalBalance}. Please purchase credits or upgrade your plan.`,
+          error: `Insufficient credits. You need ${creditCost} credit${creditCost > 1 ? 's' : ''}, but have ${deduction.current}. Please purchase credits or upgrade your plan.`,
           requiredCredits: creditCost,
-          currentCredits: originalBalance,
+          currentCredits: deduction.current,
           requiresPurchase: true
         });
       }
-
-      newBalance = Math.max(0, originalBalance - creditCost);
-      const { error: deductErr } = await adminClient
-        .from('user_credits')
-        .update({
-          current_balance: newBalance,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', req.user.id);
-
-      if (deductErr) {
-        throw new AppError("Failed to securely deduct generation credits.", 500);
-      }
+      didDeduct = true;
     }
 
     try {
@@ -3877,16 +4000,12 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
       // Handle safety blocking
       if (response.candidates?.[0]?.finishReason === 'SAFETY') {
-        if (!isAdmin && creditCost > 0 && adminClient) {
-          await adminClient
-            .from('user_credits')
-            .update({ current_balance: originalBalance, updated_at: new Date().toISOString() })
-            .eq('user_id', req.user.id);
+        if (didDeduct) {
+          await refundUserCredits(req.user.id, creditCost, 'Refund for safety-filtered generation');
         }
         return res.status(400).json({
           success: false,
-          error: "Generation blocked by safety filters. Your credits have not been charged.",
-          remainingCredits: originalBalance
+          error: "Generation blocked by safety filters. Your credits have not been charged."
         });
       }
 
@@ -3907,120 +4026,14 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         candidates: response.candidates,
         usageMetadata: response.usageMetadata,
         modelVersion: response.modelVersion,
-        promptFeedback: response.promptFeedback,
-        remainingCredits: !isAdmin && creditCost > 0 ? newBalance : undefined
+        promptFeedback: response.promptFeedback
       });
     } catch (genErr: any) {
-      if (!isAdmin && creditCost > 0 && adminClient) {
-        try {
-          await adminClient
-            .from('user_credits')
-            .update({ current_balance: originalBalance, updated_at: new Date().toISOString() })
-            .eq('user_id', req.user.id);
-        } catch (refundErr) {
-          console.error('Failed to restore user credits following generation exception:', refundErr);
-        }
+      if (didDeduct) {
+        await refundUserCredits(req.user.id, creditCost, 'Refund for failed generation');
       }
       throw genErr;
     }
-  }));
-
-  // --- SECURE SERVER-SIDE CREDIT DEDUCTION & REFUND ENDPOINTS ---
-  app.post(['/api/user/credits/deduct', '/api/credits/deduct'], requireAuth, asyncHandler(async (req: any, res: any) => {
-    const { amount } = req.body;
-    const numAmount = parseInt(amount, 10);
-    if (isNaN(numAmount) || numAmount <= 0 || numAmount > 100) {
-      return res.status(400).json({ success: false, error: 'Invalid credit deduction amount.' });
-    }
-
-    const userEmail = (req.user?.email || '').toLowerCase().trim();
-    const isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
-    if (isAdmin) {
-      return res.json({ success: true, current_balance: 9999, total_quota: 9999, is_admin: true });
-    }
-
-    const adminClient = await getAdminSupabaseClient();
-    const { data: creditData, error: creditErr } = await adminClient
-      .from('user_credits')
-      .select('current_balance, total_quota')
-      .eq('user_id', req.user.id)
-      .single();
-
-    if (creditErr || !creditData) {
-      throw new AppError('Unable to retrieve user credit balance.', 500);
-    }
-
-    if (creditData.current_balance < numAmount) {
-      return res.status(402).json({
-        success: false,
-        error: 'Insufficient funds',
-        current_balance: creditData.current_balance,
-        required: numAmount
-      });
-    }
-
-    const updatedBalance = creditData.current_balance - numAmount;
-    const { error: updateErr } = await adminClient
-      .from('user_credits')
-      .update({
-        current_balance: updatedBalance,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', req.user.id);
-
-    if (updateErr) {
-      throw new AppError('Failed to update user credits.', 500);
-    }
-
-    return res.json({
-      success: true,
-      current_balance: updatedBalance,
-      total_quota: creditData.total_quota
-    });
-  }));
-
-  app.post(['/api/user/credits/refund', '/api/credits/refund'], requireAuth, asyncHandler(async (req: any, res: any) => {
-    const { amount } = req.body;
-    const numAmount = parseInt(amount, 10);
-    if (isNaN(numAmount) || numAmount <= 0 || numAmount > 100) {
-      return res.status(400).json({ success: false, error: 'Invalid credit refund amount.' });
-    }
-
-    const userEmail = (req.user?.email || '').toLowerCase().trim();
-    const isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
-    if (isAdmin) {
-      return res.json({ success: true, current_balance: 9999, total_quota: 9999, is_admin: true });
-    }
-
-    const adminClient = await getAdminSupabaseClient();
-    const { data: creditData, error: creditErr } = await adminClient
-      .from('user_credits')
-      .select('current_balance, total_quota')
-      .eq('user_id', req.user.id)
-      .single();
-
-    if (creditErr || !creditData) {
-      throw new AppError('Unable to retrieve user credit balance.', 500);
-    }
-
-    const updatedBalance = creditData.current_balance + numAmount;
-    const { error: updateErr } = await adminClient
-      .from('user_credits')
-      .update({
-        current_balance: updatedBalance,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', req.user.id);
-
-    if (updateErr) {
-      throw new AppError('Failed to update user credits.', 500);
-    }
-
-    return res.json({
-      success: true,
-      current_balance: updatedBalance,
-      total_quota: creditData.total_quota
-    });
   }));
 
   // Guest usage tracker for Local SEO Audit (1 free generation per IP)
@@ -4702,6 +4715,26 @@ You must format your entire response exactly as follows, using these exact markd
       return res.status(400).json({ success: false, error: 'No image source provided', message: 'No image source provided' });
     }
 
+    // Server-side credit check & deduction (2 credits for Pro Background Removal)
+    const userEmail = (req.user?.email || '').toLowerCase().trim();
+    const isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
+    const creditCost = 2;
+    let didDeduct = false;
+
+    if (!isAdmin) {
+      const deduction = await spendUserCredits(req.user.id, creditCost, 'Pro Background Removal');
+      if (!deduction.success) {
+        return res.status(402).json({
+          success: false,
+          error: `Insufficient credits. You need ${creditCost} credits, but have ${deduction.current}.`,
+          requiredCredits: creditCost,
+          currentCredits: deduction.current,
+          requiresPurchase: true
+        });
+      }
+      didDeduct = true;
+    }
+
     const FormData = (await import('form-data')).default;
     const axios = (await import('axios')).default;
 
@@ -4715,34 +4748,41 @@ You must format your entire response exactly as follows, using these exact markd
       formData.append('file', buffer, { filename: 'image.png' });
     }
 
-    let response;
-    if (proBgUrl) {
-        const headers: Record<string, string> = { ...formData.getHeaders() };
-        if (apiKey) {
-          headers['X-Internal-Key'] = apiKey;
-        }
-        response = await axios.post(`${proBgUrl}/remove-background`, formData, {
-          headers,
-          responseType: 'arraybuffer',
-        });
-    } else if (process.env.REMOVE_BG_API_KEY) {
-        formData.append('size', 'auto');
-        response = await axios.post('https://api.remove.bg/v1.0/removebg', formData, {
-          headers: {
-            ...formData.getHeaders(),
-            'X-API-Key': process.env.REMOVE_BG_API_KEY,
-          },
-          responseType: 'arraybuffer',
-        });
-    } else {
-        throw new AppError('Background removal service is not configured.', 500, 'Background removal service is not configured.');
-    }
+    try {
+      let response;
+      if (proBgUrl) {
+          const headers: Record<string, string> = { ...formData.getHeaders() };
+          if (apiKey) {
+            headers['X-Internal-Key'] = apiKey;
+          }
+          response = await axios.post(`${proBgUrl}/remove-background`, formData, {
+            headers,
+            responseType: 'arraybuffer',
+          });
+      } else if (process.env.REMOVE_BG_API_KEY) {
+          formData.append('size', 'auto');
+          response = await axios.post('https://api.remove.bg/v1.0/removebg', formData, {
+            headers: {
+              ...formData.getHeaders(),
+              'X-API-Key': process.env.REMOVE_BG_API_KEY,
+            },
+            responseType: 'arraybuffer',
+          });
+      } else {
+          throw new AppError('Background removal service is not configured.', 500, 'Background removal service is not configured.');
+      }
 
-    const base64Result = Buffer.from(response.data, 'binary').toString('base64');
-    res.json({ 
-      imageUrl: `data:image/png;base64,${base64Result}`,
-      success: true 
-    });
+      const base64Result = Buffer.from(response.data, 'binary').toString('base64');
+      res.json({ 
+        imageUrl: `data:image/png;base64,${base64Result}`,
+        success: true 
+      });
+    } catch (err: any) {
+      if (didDeduct) {
+        await refundUserCredits(req.user.id, creditCost, 'Refund for failed Pro Background Removal');
+      }
+      throw err;
+    }
   }));
 
   app.post(['/api/background-remover-pro'], requireAuth, aiLimiter, upload.single('image'), asyncHandler(async (req: any, res: any) => {
@@ -4765,6 +4805,26 @@ You must format your entire response exactly as follows, using these exact markd
 
     if (file.size > 15 * 1024 * 1024) {
       throw new AppError("Image is too large. Please upload an image under 15 MB.", 413, "Image is too large. Please upload an image under 15 MB.");
+    }
+
+    // Server-side credit check & deduction (2 credits for Pro Background Removal)
+    const userEmail = (req.user?.email || '').toLowerCase().trim();
+    const isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
+    const creditCost = 2;
+    let didDeduct = false;
+
+    if (!isAdmin) {
+      const deduction = await spendUserCredits(req.user.id, creditCost, 'Pro Background Removal File Upload');
+      if (!deduction.success) {
+        return res.status(402).json({
+          success: false,
+          error: `Insufficient credits. You need ${creditCost} credits, but have ${deduction.current}.`,
+          requiredCredits: creditCost,
+          currentCredits: deduction.current,
+          requiresPurchase: true
+        });
+      }
+      didDeduct = true;
     }
 
     const FormData = (await import('form-data')).default;
@@ -4818,6 +4878,9 @@ You must format your entire response exactly as follows, using these exact markd
         res.set('Cache-Control', 'no-store');
         res.send(Buffer.from(response.data, 'binary'));
     } catch (error: any) {
+        if (didDeduct) {
+          await refundUserCredits(req.user.id, creditCost, 'Refund for failed Pro Background Removal');
+        }
         if (error instanceof AppError) throw error;
         console.error("Pro bg-remover upstream error:", error.response?.status, error.message);
         
