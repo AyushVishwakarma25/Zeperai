@@ -17,9 +17,9 @@ user approval; any step can be regenerated with written feedback.
 - **Only approved outputs flow downstream.** Agents never see rejected drafts
   or raw chat history.
 - **All writes are server-side with the service-role key.** Clients only
-  SELECT their own rows (RLS). The server module must FAIL CLOSED if
-  `SUPABASE_SERVICE_ROLE_KEY` is missing (do not reuse
-  `getAdminSupabaseClient`, which falls back to the anon key).
+  SELECT their own rows (RLS). The service-role client bypasses RLS, so every
+  query in `server/db.ts` filters by `user_id` explicitly. The module reuses
+  `getAdminSupabaseClient`, which is now fail-closed (no anon-key fallback).
 - **Credits are spent server-side** via `spend_credits()` / `refund_credits()`
   (atomic, idempotent per reference, service_role only). Do not use the
   client-side `userService.deductCredits` for this feature.
@@ -40,10 +40,26 @@ user approval; any step can be regenerated with written feedback.
 | UI kit | `components/ui/*` |
 | "Add a feature" template | Local SEO Audit (`components/tools`, `services`, routes in `server.ts`, `App.tsx`) |
 
+## Server module layout (`src/campaignStudio/server/`)
+
+| File | Purpose |
+|---|---|
+| `config.ts` | Per-agent model/tool config, env-overridable model IDs, feature gate helpers |
+| `validation.ts` | Pure input validation (URL shape checks are NOT a substitute for DNS/IP checks at fetch time) |
+| `gemini.ts` | `generateStructured()`: JSON output, transient retry, one repair pass, timeouts, safety blocks |
+| `db.ts` | Service-role data access, always scoped by `user_id` |
+| `routes.ts` | Express routes + `campaignGate` (404 unless `CAMPAIGN_STUDIO_ENABLED=true`) |
+
+Dependencies (`requireAuth`, `aiLimiter`, admin client) are injected by `server.ts`
+to avoid a circular import. The route registration in `server.ts` must stay above
+the `/api/*all` 404 catch-all.
+
 ## Repo invariants (from AGENTS.md)
 
 - Every relative import ends in `.js`.
 - Surgical edits to existing files; no rewrites. Preserve auth/admin controls.
+- The repo tsconfig is NOT strict: discriminated-union narrowing on `ok: boolean` does not work,
+  so shared result types expose `.error` / `.value` on both variants. Check with `npm run lint`.
 - No hardcoded secrets or fallback credentials.
 - Any server-side URL fetch (brand website) must be SSRF-safe: block private /
   link-local / loopback ranges, cap redirects and response size.
@@ -51,8 +67,9 @@ user approval; any step can be regenerated with written feedback.
 ## Chunk roadmap
 
 - [x] 1. DB migration + shared types
-- [ ] 2. Server module skeleton (fail-closed service client, Gemini wrapper with
-      structured output + retries, routes: create/get run), one-line hook in `server.ts`
+- [x] 2. Server module skeleton: Gemini wrapper (structured output, retry, repair, timeout),
+      validation, data layer, routes (meta / create / list / get run), feature gate,
+      5-line hook in `server.ts` (`npm run test:campaign`)
 - [ ] 3. Brand Analyst agent + SSRF-safe fetcher + step engine (run / approve / regenerate / versions)
 - [ ] 4. Frontend shell: route, stepper, review card (approve / regenerate with note / edit)
 - [ ] 5. Market + competitor research (parallel, one gate) and Strategy

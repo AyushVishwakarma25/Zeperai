@@ -46,6 +46,7 @@ process.env.VITE_SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || proce
 
 import { getAI } from './config/ai.js';
 import { globalErrorHandler, asyncHandler, setupProcessLevelHandlers, AppError } from './utils/errorHandler.js';
+import { registerCampaignStudioRoutes } from './src/campaignStudio/server/index.js';
 
 // Initialize global process-level error handling for unhandled rejections and uncaught exceptions
 setupProcessLevelHandlers();
@@ -4855,6 +4856,10 @@ You must format your entire response exactly as follows, using these exact markd
         throw new AppError(upstreamDetail || "Something went wrong while processing your image. Please try again.", status || 500, upstreamDetail || "Something went wrong while processing your image. Please try again.");
     }
   }));
+
+  // --- CAMPAIGN STUDIO (multi-agent brand visuals). Disabled unless CAMPAIGN_STUDIO_ENABLED=true. ---
+  // Must stay above the /api/*all 404 catch-all below. See src/campaignStudio/README.md.
+  registerCampaignStudioRoutes(app, { requireAuth, aiLimiter, getAdminSupabaseClient, getAdminAllowedEmails });
 
   // PREVENT VITE FROM SWALLOWING UNHANDLED API CALLS WITH SPA FALLBACK
   app.all('/api/*all', (req, res) => {
