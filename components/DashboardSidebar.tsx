@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from './ui/Icon.js';
+import { useCampaignStudioAccess } from '../src/campaignStudio/client/useCampaignStudioAccess.js';
 import { BrandLogo } from './ui/BrandLogo.js';
 import { AppMode, View, GeneratedImage } from '../types.js';
 import { Toggle } from './ui/Toggle.js';
@@ -70,6 +71,7 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
     onShowDevMessage
 }) => {
   const navigate = useNavigate();
+  const campaignAccess = useCampaignStudioAccess();
   const [isModesOpen, setIsModesOpen] = useState(true);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [dragOverMode, setDragOverMode] = useState<AppMode | null>(null);
@@ -215,6 +217,9 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
             <NavItem icon="edit" label="AI Content Writer" onClick={() => { onOpenContentGenerator(); onClose(); }} isOpen={isOpen} />
             
             <NavItem icon="shopping-bag" label="Shopify Analyzer" active={currentView === View.ShopifyAnalytics} onClick={() => { onSetView(View.ShopifyAnalytics); onClose(); }} isOpen={isOpen} />
+            {campaignAccess.enabled && (
+                <NavItem icon="strategy" label="Campaign Studio" active={currentView === View.CampaignStudio} onClick={() => { onSetView(View.CampaignStudio); onClose(); }} isOpen={isOpen} />
+            )}
             <NavItem icon="image" label="BG Remover" active={window.location.pathname === '/tools/background-remover'} onClick={() => { navigate('/tools/background-remover'); onClose(); }} isOpen={isOpen} />
             <NavItem icon="folder" label="My Designs" active={currentView === View.MyDesigns} onClick={() => { onSetView(View.MyDesigns); onClose(); }} isOpen={isOpen} />
             <NavItem icon="lightbulb" label="Inspiration" active={currentView === View.Inspiration} onClick={() => { onSetView(View.Inspiration); onClose(); }} isOpen={isOpen} />

@@ -58,8 +58,8 @@ export const AGENT_RUNTIME: Record<TextAgent, AgentRuntimeConfig> = {
 /** Stops one user from creating unbounded runs. */
 export const MAX_ACTIVE_RUNS_PER_USER = 10;
 
-/** AI-generated redos allowed per step (manual edits do not count). Protects cost. */
-export const MAX_REGENERATIONS_PER_STEP = 5;
+/** AI-generated redos allowed per step. Defined in ../types.ts so the UI shows the same number. */
+export { MAX_REGENERATIONS_PER_STEP } from '../types.js';
 
 /** A step stuck in 'running' longer than this is assumed dead (function killed) and may be retried. */
 export const STALE_RUNNING_MS = 3 * 60_000;

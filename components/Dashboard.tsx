@@ -3,6 +3,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from './ui/Icon.js';
 import { AppMode, GeneratedImage } from '../types.js';
+import { useCampaignStudioAccess } from '../src/campaignStudio/client/useCampaignStudioAccess.js';
 
 interface ColorfulCardProps {
   title: string;
@@ -93,6 +94,7 @@ interface DashboardProps {
   floatingMode?: AppMode;
   onFloatingModeChange?: (mode: AppMode) => void;
   onShowDevMessage?: (feature: string) => void;
+  onOpenCampaignStudio?: () => void;
 }
 
 interface HeaderProps {
@@ -128,9 +130,12 @@ const DashboardHome: React.FC<DashboardProps> = ({
     userTier = 'Free', 
     onOpenPricingModal,
     userName = 'there',
-    onShowDevMessage
+    onShowDevMessage,
+    onOpenCampaignStudio
 }) => {
     const navigate = useNavigate();
+    // Campaign Studio is gated server-side; the card only shows when the server says it is enabled for this user.
+    const campaignAccess = useCampaignStudioAccess();
     const isProLocked = (userTier === 'Free');
 
     // Updated colors using the requested palette:
@@ -176,6 +181,14 @@ const DashboardHome: React.FC<DashboardProps> = ({
             iconName: 'megaphone',
             onClick: () => onSelectMode(AppMode.AdCreative)
         },
+        ...(campaignAccess.enabled && onOpenCampaignStudio ? [{
+            title: 'Campaign Studio',
+            description: 'From your website to ready-to-post ads: brand analysis, strategy and creatives, approved step by step.',
+            color: '#EAE3FD', // card-purple
+            accentColor: '#6A5AE0', // brand primary
+            iconName: 'strategy',
+            onClick: onOpenCampaignStudio
+        }] : []),
         {
             title: 'AI Content Writer',
             description: 'High-converting captions, ad copies, and blog posts generated in seconds.',

@@ -94,6 +94,9 @@ export const DEFAULT_CAMPAIGN_SETTINGS: CampaignSettings = {
 
 export const MAX_CREATIVES_PER_RUN = 10;
 
+/** AI-generated redos allowed per step (manual edits do not count). Enforced by the server, shown by the UI. */
+export const MAX_REGENERATIONS_PER_STEP = 5;
+
 // ---------------------------------------------------------------------------
 // DB rows (snake_case, as returned by Supabase)
 // ---------------------------------------------------------------------------

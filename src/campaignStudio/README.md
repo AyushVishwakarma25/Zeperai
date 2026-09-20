@@ -74,6 +74,24 @@ Dependencies (`requireAuth`, `aiLimiter`, admin client) are injected by `server.
 to avoid a circular import. The route registration in `server.ts` must stay above
 the `/api/*all` 404 catch-all.
 
+## Frontend (chunk 4)
+
+Mirrors the Shopify Analyzer pattern: a `View` in the dashboard shell, not a new route.
+
+| Where | What |
+|---|---|
+| `types.ts` | `View.CampaignStudio` |
+| `components/DashboardSidebar.tsx` | "Campaign Studio" nav item |
+| `components/Dashboard.tsx` | "Campaign Studio" card (new optional prop `onOpenCampaignStudio`) |
+| `components/AppMainView.tsx` | lazy-loads `components/campaign/CampaignStudio.tsx` |
+| `components/campaign/` | `CampaignStudio` (shell), `CampaignList`, `NewCampaignForm`, `CampaignRunView`, `Stepper`, `StepReviewCard`, `BrandContextView`, `BrandContextEditor`, `shared` |
+| `src/campaignStudio/client/` | `api.ts` (typed client), `defaultApi.ts` (Supabase token), `useCampaignStudioAccess.ts`, `viewModel.ts` (gate states, redo counts), `brandDraft.ts` (editor draft + validation) |
+
+Both entry points show ONLY when `GET /api/campaign-studio/meta` succeeds (the server's feature gate is the source of truth).
+When a step is generating server-side (page refreshed mid-run) the run view polls every 3s until it settles.
+Stages after Brand show "coming soon" until their agents are registered in `server/agents/index.ts`
+and added to `IMPLEMENTED_AGENTS` in `client/viewModel.ts`.
+
 ## Repo invariants (from AGENTS.md)
 
 - Every relative import ends in `.js`.
@@ -91,7 +109,7 @@ the `/api/*all` 404 catch-all.
       validation, data layer, routes (meta / create / list / get run), feature gate,
       5-line hook in `server.ts` (`npm run test:campaign`)
 - [x] 3. Brand Analyst agent + SSRF-safe fetcher + step engine (run / regenerate / edit / approve / cancel, versions)
-- [ ] 4. Frontend shell: route, stepper, review card (approve / regenerate with note / edit)
+- [x] 4. Frontend: dashboard entry, campaign list, new-campaign form, stepper, review card (approve / regenerate with note / edit / version browsing)
 - [ ] 5. Market + competitor research (parallel, one gate) and Strategy
 - [ ] 6. Creative Direction and Master Prompts
 - [ ] 7. Bulk creative generation, overlay, per-creative redo, save to My Designs

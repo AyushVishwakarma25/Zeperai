@@ -48,6 +48,7 @@ export enum View {
   Profile = 'Profile',
   Analytics = 'Analytics',
   ShopifyAnalytics = 'ShopifyAnalytics',
+  CampaignStudio = 'CampaignStudio',
   Inspiration = 'Inspiration',
 }
 
