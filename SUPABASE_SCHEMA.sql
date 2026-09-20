@@ -265,6 +265,88 @@ begin
 end;
 $$ language plpgsql security definer;
 
+-- Atomic spend_credits function
+create or replace function public.spend_credits(
+  p_user_id uuid,
+  p_amount numeric,
+  p_description text default 'Service usage'
+)
+returns jsonb as $$
+declare
+  v_balance numeric(10,2);
+  v_new_balance numeric(10,2);
+begin
+  -- Lock row exclusively for atomic deduction
+  select current_balance into v_balance
+  from public.user_credits
+  where user_id = p_user_id
+  for update;
+
+  if not found then
+    return jsonb_build_object('success', false, 'error', 'User credits not found', 'current_balance', 0);
+  end if;
+
+  if v_balance < p_amount then
+    return jsonb_build_object('success', false, 'error', 'Insufficient credits', 'current_balance', v_balance);
+  end if;
+
+  v_new_balance := v_balance - p_amount;
+
+  update public.user_credits
+  set current_balance = v_new_balance,
+      updated_at = timezone('utc'::text, now())
+  where user_id = p_user_id;
+
+  -- Optional ledger logging if credit_transactions table exists
+  insert into public.credit_transactions (
+    user_id, transaction_type, amount, balance_before, balance_after, reference_type, metadata
+  ) values (
+    p_user_id, 'generation', -p_amount, v_balance, v_new_balance, 'generation',
+    jsonb_build_object('description', p_description)
+  );
+
+  return jsonb_build_object('success', true, 'current_balance', v_new_balance, 'previous_balance', v_balance);
+end;
+$$ language plpgsql security definer;
+
+-- Atomic refund_credits function
+create or replace function public.refund_credits(
+  p_user_id uuid,
+  p_amount numeric,
+  p_description text default 'Service failure refund'
+)
+returns jsonb as $$
+declare
+  v_balance numeric(10,2);
+  v_new_balance numeric(10,2);
+begin
+  select current_balance into v_balance
+  from public.user_credits
+  where user_id = p_user_id
+  for update;
+
+  if not found then
+    return jsonb_build_object('success', false, 'error', 'User credits not found');
+  end if;
+
+  v_new_balance := v_balance + p_amount;
+
+  update public.user_credits
+  set current_balance = v_new_balance,
+      updated_at = timezone('utc'::text, now())
+  where user_id = p_user_id;
+
+  insert into public.credit_transactions (
+    user_id, transaction_type, amount, balance_before, balance_after, reference_type, metadata
+  ) values (
+    p_user_id, 'generation_refund', p_amount, v_balance, v_new_balance, 'refund',
+    jsonb_build_object('description', p_description)
+  );
+
+  return jsonb_build_object('success', true, 'current_balance', v_new_balance);
+end;
+$$ language plpgsql security definer;
+
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users

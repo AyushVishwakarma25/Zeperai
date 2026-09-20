@@ -40,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = userData.user;
     const userId = user.id;
     const userEmail = (user.email || '').toLowerCase();
-    const isProAdmin = userEmail === 'reachtoayush25@gmail.com' || userEmail === 'sharma25ayush@gmail.com' || userId === 'f58676e8-e373-4c97-803b-57451272154c' || user.user_metadata?.is_admin === true;
+    const isProAdmin = userEmail === 'reachtoayush25@gmail.com' || userEmail === 'sharma25ayush@gmail.com' || userId === 'f58676e8-e373-4c97-803b-57451272154c';
 
     if (req.method === 'GET') {
       let profile: any = null;

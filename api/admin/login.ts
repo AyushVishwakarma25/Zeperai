@@ -141,9 +141,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!authError && authData?.user) {
           const userEmail = (authData.user.email || '').toLowerCase().trim();
           const allowedEmails = getAdminAllowedEmails();
-          const isAdmin =
-            (allowedEmails.length > 0 && allowedEmails.includes(userEmail)) ||
-            authData.user.user_metadata?.is_admin === true;
+          let isAdmin = allowedEmails.length > 0 && allowedEmails.includes(userEmail);
+
+          if (!isAdmin) {
+            try {
+              const serviceRoleKey = sanitize(process.env.SUPABASE_SERVICE_ROLE_KEY) || 
+                                     sanitize(process.env.SUPABASE_SERVICE_KEY) || 
+                                     sanitize(process.env.SUPABASE_SECRET_KEY);
+              if (serviceRoleKey) {
+                const adminSupabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+                const { data: profile } = await adminSupabase
+                  .from('profiles')
+                  .select('is_admin')
+                  .eq('id', authData.user.id)
+                  .maybeSingle();
+                if (profile?.is_admin === true) {
+                  isAdmin = true;
+                }
+              }
+            } catch (profileErr) {
+              console.error('Profile admin check error in admin login:', profileErr);
+            }
+          }
 
           if (isAdmin) {
             const token = generateAdminToken(userEmail);

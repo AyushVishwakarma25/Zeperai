@@ -181,40 +181,6 @@ export const userService = {
     }
   },
 
-  // Deduct Credits securely via server-side endpoint (eliminates client-side read-then-write)
-  async deductCredits(amount: number): Promise<CreditBalance> {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    if (!token) throw new Error("No authenticated user session");
-
-    const endpoint = amount >= 0 ? '/api/user/credits/deduct' : '/api/user/credits/refund';
-    const payload = { amount: Math.abs(amount) };
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      let errMsg = 'Could not process credit transaction';
-      try {
-        const errJson = await response.json();
-        errMsg = errJson.error || errJson.message || errMsg;
-      } catch (e) {}
-      throw new Error(errMsg);
-    }
-
-    const data = await response.json();
-    return {
-      current: data.current_balance ?? 0,
-      total: data.total_quota ?? 0
-    };
-  },
-
   // Mock Check (Internal use, real check is via authService.getSession)
   async checkSession(): Promise<boolean> {
     const { data } = await supabase.auth.getSession();
