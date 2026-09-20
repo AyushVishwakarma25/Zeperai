@@ -11,6 +11,7 @@ import { AppMode, View } from '../types.js';
 // Lazy load larger views
 const AnalyticsDashboard = lazy(() => import('./AnalyticsDashboard.js').then(module => ({ default: module.AnalyticsDashboard })));
 const ShopifyDashboard = lazy(() => import('./ShopifyDashboard.js'));
+const CampaignStudio = lazy(() => import('./campaign/CampaignStudio.js'));
 const ProfilePage = lazy(() => import('./ProfilePage.js'));
 const InspirationPage = lazy(() => import('./InspirationPage.js'));
 
@@ -126,6 +127,7 @@ export const AppMainView: React.FC<AppMainViewProps> = (props) => {
                 floatingMode={props.floatingMode}
                 onFloatingModeChange={props.setFloatingMode}
                 onShowDevMessage={props.onShowDevMessage}
+                onOpenCampaignStudio={() => props.onSetView(View.CampaignStudio)}
             />
         );
     }
@@ -144,6 +146,10 @@ export const AppMainView: React.FC<AppMainViewProps> = (props) => {
                     onReportUpdate={props.onReportUpdate}
                     onDeductCredits={props.onDeductCredits}
                 />
+            )}
+            
+            {props.currentView === View.CampaignStudio && (
+                <CampaignStudio onToggleSidebar={props.onToggleSidebar} onSetView={props.onSetView} />
             )}
             
             {props.currentView === View.MyDesigns && (
