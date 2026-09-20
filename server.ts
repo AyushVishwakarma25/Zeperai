@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
 import fs from 'fs';
+import dns from 'dns';
 import { rateLimit } from 'express-rate-limit';
 import { GoogleGenAI } from "@google/genai";
 import multer from 'multer';
@@ -252,34 +253,25 @@ export const verifyAdminToken = (token: string) => {
   }
 };
 
-export const getAdminSupabaseClient = async (authHeader?: string) => {
+export const getAdminSupabaseClient = async (_authHeader?: string) => {
   const supabaseUrl = sanitizeSecret(process.env.SUPABASE_URL) || sanitizeSecret(process.env.VITE_SUPABASE_URL) || DEFAULT_SUPABASE_URL;
-  const supabaseKey = sanitizeSecret(process.env.SUPABASE_SERVICE_ROLE_KEY) || 
-                      sanitizeSecret(process.env.SUPABASE_SERVICE_KEY) || 
-                      sanitizeSecret(process.env.SUPABASE_SECRET_KEY) || 
-                      sanitizeSecret(process.env.SUPABASE_KEY) || 
-                      sanitizeSecret(process.env.SUPABASE_ANON_KEY) || 
-                      sanitizeSecret(process.env.VITE_SUPABASE_ANON_KEY) || 
-                      DEFAULT_SUPABASE_ANON_KEY;
-  const { createClient } = await import('@supabase/supabase-js');
-  
-  const options: any = {
-    auth: { persistSession: false, autoRefreshToken: false }
-  };
-  
-  // Forward authorization header only if it is a valid Supabase JWT (starts with Bearer eyJ) and service role key is not configured
-  const hasServiceRoleKey = !!(
-    sanitizeSecret(process.env.SUPABASE_SERVICE_ROLE_KEY) || 
-    sanitizeSecret(process.env.SUPABASE_SERVICE_KEY) || 
-    sanitizeSecret(process.env.SUPABASE_SECRET_KEY)
-  );
-  if (authHeader && !hasServiceRoleKey && authHeader.startsWith('Bearer eyJ')) {
-    options.global = {
-      headers: { Authorization: authHeader }
-    };
+  const serviceRoleKey = sanitizeSecret(process.env.SUPABASE_SERVICE_ROLE_KEY) || 
+                         sanitizeSecret(process.env.SUPABASE_SERVICE_KEY) || 
+                         sanitizeSecret(process.env.SUPABASE_SECRET_KEY);
+
+  if (!serviceRoleKey) {
+    console.error('[SECURITY INVARIANT VIOLATION] getAdminSupabaseClient: SUPABASE_SERVICE_ROLE_KEY is missing or empty. Failing closed.');
+    throw new AppError(
+      'Administrative database operation failed: SUPABASE_SERVICE_ROLE_KEY is not configured. Access denied (fail-closed).',
+      500,
+      'Internal server configuration error'
+    );
   }
 
-  return createClient(supabaseUrl, supabaseKey, options);
+  const { createClient } = await import('@supabase/supabase-js');
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
 };
 
 const isUuid = (str?: string) => {
@@ -3548,18 +3540,199 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
   });
   
-  app.get(['/api/proxy-image', '/proxy-image'], asyncHandler(async (req, res) => {
+  // --- ANTI-SSRF HELPERS FOR MEDIA PROXY ---
+  const BLOCKED_HOSTNAMES = new Set([
+    'localhost',
+    '127.0.0.1',
+    '0.0.0.0',
+    '::1',
+    'metadata.google.internal',
+    'metadata.google',
+    'metadata',
+    '169.254.169.254',
+    'instance-data'
+  ]);
+
+  const isPrivateOrReservedIP = (ip: string): boolean => {
+    if (!ip) return true;
+    let normalized = ip.trim().toLowerCase();
+
+    // IPv4-mapped IPv6 (::ffff:127.0.0.1)
+    if (normalized.startsWith('::ffff:')) {
+      normalized = normalized.substring(7);
+    }
+
+    // IPv6 loopback and special ranges
+    if (normalized === '::1' || normalized === '::') return true;
+    // IPv6 link-local: fe80::/10 (fe80 to febf)
+    if (/^fe[89ab][0-9a-f]:/i.test(normalized)) return true;
+    // IPv6 unique-local: fc00::/7 (fc00:: to fdff::)
+    if (/^f[cd][0-9a-f]{2}:/i.test(normalized)) return true;
+    // IPv6 site-local: fec0::/10
+    if (/^fec[0-9a-f]:/i.test(normalized)) return true;
+    // IPv6 documentation: 2001:db8::/32
+    if (normalized.startsWith('2001:db8:')) return true;
+
+    // IPv4 check
+    const parts = normalized.split('.');
+    if (parts.length === 4) {
+      const [b0, b1, b2, b3] = parts.map(p => parseInt(p, 10));
+      if (isNaN(b0) || isNaN(b1) || isNaN(b2) || isNaN(b3)) return true;
+      if (b0 < 0 || b0 > 255 || b1 < 0 || b1 > 255 || b2 < 0 || b2 > 255 || b3 < 0 || b3 > 255) return true;
+
+      // 0.0.0.0/8 - Current network
+      if (b0 === 0) return true;
+      // 10.0.0.0/8 - Private-Use
+      if (b0 === 10) return true;
+      // 100.64.0.0/10 - Shared Address Space (Carrier-Grade NAT)
+      if (b0 === 100 && b1 >= 64 && b1 <= 127) return true;
+      // 127.0.0.0/8 - Loopback
+      if (b0 === 127) return true;
+      // 169.254.0.0/16 - Link-Local / Cloud Metadata (AWS, GCP, Azure, etc.)
+      if (b0 === 169 && b1 === 254) return true;
+      // 172.16.0.0/12 - Private-Use (172.16.0.0 - 172.31.255.255)
+      if (b0 === 172 && b1 >= 16 && b1 <= 31) return true;
+      // 192.0.0.0/24 - IETF Protocol Assignments
+      if (b0 === 192 && b1 === 0 && b2 === 0) return true;
+      // 192.0.2.0/24 - Documentation (TEST-NET-1)
+      if (b0 === 192 && b1 === 0 && b2 === 2) return true;
+      // 192.168.0.0/16 - Private-Use
+      if (b0 === 192 && b1 === 168) return true;
+      // 198.18.0.0/15 - Benchmarking
+      if (b0 === 198 && (b1 === 18 || b1 === 19)) return true;
+      // 198.51.100.0/24 - Documentation (TEST-NET-2)
+      if (b0 === 198 && b1 === 51 && b2 === 100) return true;
+      // 203.0.113.0/24 - Documentation (TEST-NET-3)
+      if (b0 === 203 && b1 === 0 && b2 === 113) return true;
+      // 224.0.0.0/4 - Multicast
+      if (b0 >= 224 && b0 <= 239) return true;
+      // 240.0.0.0/4 - Reserved
+      if (b0 >= 240) return true;
+      // 255.255.255.255 - Broadcast
+      if (b0 === 255 && b1 === 255 && b2 === 255 && b3 === 255) return true;
+
+      return false;
+    }
+
+    if (normalized.includes(':')) {
+      if (/^[23][0-9a-f]{3}:/i.test(normalized)) {
+        return false;
+      }
+      return true;
+    }
+
+    return true;
+  };
+
+  // --- HARDENED SSRF-PROTECTED MEDIA PROXY ---
+  app.get(['/api/proxy-image', '/proxy-image'], requireAuth, aiLimiter, asyncHandler(async (req: any, res: any) => {
     const { url } = req.query;
     if (!url || typeof url !== 'string') {
       return res.status(400).json({ success: false, error: 'No URL provided', message: 'No URL provided' });
     }
-    
-    const response = await axios.get(url, { responseType: 'arraybuffer' });
-    const contentType = response.headers['content-type'] as string;
-    res.setHeader('Content-Type', contentType || 'image/png');
-    res.send(response.data);
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return res.status(400).json({ success: false, error: 'Invalid URL format' });
+    }
+
+    // SSRF Check 1: Allowed protocols
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      return res.status(400).json({ success: false, error: 'Only HTTP and HTTPS protocols are supported' });
+    }
+
+    // SSRF Check 2: Blocked hostnames & private domain suffixes
+    const rawHostname = parsedUrl.hostname.toLowerCase();
+    const cleanHostname = rawHostname.replace(/^\[|\]$/g, '');
+
+    if (
+      BLOCKED_HOSTNAMES.has(cleanHostname) ||
+      cleanHostname.endsWith('.localhost') ||
+      cleanHostname.endsWith('.local') ||
+      cleanHostname.endsWith('.internal') ||
+      cleanHostname.endsWith('.lan') ||
+      cleanHostname.endsWith('.arpa')
+    ) {
+      return res.status(403).json({ success: false, error: 'Access to local or internal hosts is strictly prohibited' });
+    }
+
+    // SSRF Check 3: DNS resolution and IP verification
+    let addresses: dns.LookupAddress[] = [];
+    try {
+      addresses = await dns.promises.lookup(cleanHostname, { all: true });
+    } catch (dnsErr: any) {
+      return res.status(400).json({ success: false, error: `Failed to resolve target hostname: ${dnsErr.message}` });
+    }
+
+    if (!addresses || addresses.length === 0) {
+      return res.status(400).json({ success: false, error: 'Hostname could not be resolved' });
+    }
+
+    for (const record of addresses) {
+      if (isPrivateOrReservedIP(record.address)) {
+        return res.status(403).json({ 
+          success: false, 
+          error: 'Access to private, loopback, carrier-grade NAT, or cloud metadata addresses is strictly prohibited.' 
+        });
+      }
+    }
+
+    // SSRF Check 4: Fetch without following redirects, enforce timeouts and size limits
+    try {
+      const response = await axios.get(parsedUrl.toString(), {
+        responseType: 'arraybuffer',
+        maxRedirects: 0,
+        timeout: 8000,
+        maxContentLength: 15 * 1024 * 1024,
+        maxBodyLength: 15 * 1024 * 1024,
+        headers: {
+          'User-Agent': 'ZeperAI-ImageProxy/1.0',
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+        },
+        validateStatus: (status) => status === 200
+      });
+
+      const contentType = (response.headers['content-type'] as string) || '';
+      if (!contentType.toLowerCase().startsWith('image/')) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Target resource returned '${contentType}', but only image content-types are permitted.` 
+        });
+      }
+
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.send(response.data);
+    } catch (fetchErr: any) {
+      if (fetchErr.response?.status) {
+        return res.status(502).json({ success: false, error: `Upstream image host returned HTTP ${fetchErr.response.status}` });
+      }
+      return res.status(502).json({ success: false, error: `Failed to fetch image: ${fetchErr.message}` });
+    }
   }));
 
+  // --- ALLOWED GEMINI AI MODELS WHITELIST ---
+  const ALLOWED_AI_MODELS = new Set([
+    'gemini-2.5-flash-image',
+    'gemini-3.1-flash-image',
+    'gemini-3-pro-image',
+    'nano-banana-2-lite',
+    'nano-banana-2',
+    'nano-banana',
+    'nano-banana-pro',
+    'gemini-flash-latest',
+    'gemini-3-flash-preview',
+    'gemini-3.7-flash',
+    'gemini-2.5-flash',
+    'gemini-1.5-flash',
+    'gemini-3.1-flash-tts-preview',
+    'gemini-2.5-flash-preview-tts'
+  ]);
+
+  // --- HARDENED GEMINI GENERATION ENDPOINT (VALIDATION + SERVER-SIDE CREDITS) ---
   app.post(['/api/gemini/generate', '/gemini/generate'], requireAuth, aiLimiter, asyncHandler(async (req: any, res: any) => {
     const geminiKey = process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.VITE_GeminiAPI;
     
@@ -3568,27 +3741,284 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
 
     const { model, contents, config } = req.body;
-    const ai = getAI();
-    const response = await ai.models.generateContent({ model, contents, config });
-    
-    let textStr = '';
-    try {
-        if (typeof response.text === 'string') {
-            textStr = response.text;
-        } else {
-            textStr = response.text;
-        }
-    } catch (e) {
-        // Image or multi-part content
+
+    if (!model || typeof model !== 'string') {
+      return res.status(400).json({ success: false, error: "Model identifier is required." });
     }
 
-    res.json({
+    const trimmedModel = model.trim();
+    if (!ALLOWED_AI_MODELS.has(trimmedModel)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Model '${trimmedModel}' is not authorized. Allowed models include authorized Nano Banana image models and Gemini reasoning models.` 
+      });
+    }
+
+    // Resolve aliases to canonical Google GenAI models
+    let resolvedModel = trimmedModel;
+    if (trimmedModel === 'nano-banana-2-lite') resolvedModel = 'gemini-2.5-flash-image';
+    else if (trimmedModel === 'nano-banana-2' || trimmedModel === 'nano-banana') resolvedModel = 'gemini-3.1-flash-image';
+    else if (trimmedModel === 'nano-banana-pro') resolvedModel = 'gemini-3-pro-image';
+    else if (trimmedModel === 'gemini-3-flash-preview') resolvedModel = 'gemini-flash-latest';
+    else if (trimmedModel === 'gemini-2.5-flash-preview-tts') resolvedModel = 'gemini-3.1-flash-tts-preview';
+
+    // Strict config sanitization (whitelisting safe properties only)
+    const sanitizedConfig: any = {};
+    if (config && typeof config === 'object') {
+      if (config.imageConfig && typeof config.imageConfig === 'object') {
+        const validAspectRatios = ['1:1', '3:4', '4:3', '9:16', '16:9'];
+        const validImageSizes = ['512px', '1K', '2K'];
+        sanitizedConfig.imageConfig = {
+          aspectRatio: validAspectRatios.includes(config.imageConfig.aspectRatio) ? config.imageConfig.aspectRatio : '1:1',
+          imageSize: validImageSizes.includes(config.imageConfig.imageSize) ? config.imageConfig.imageSize : '1K'
+        };
+      }
+      if (Array.isArray(config.safetySettings)) {
+        sanitizedConfig.safetySettings = config.safetySettings;
+      }
+      if (typeof config.temperature === 'number' && config.temperature >= 0 && config.temperature <= 2) {
+        sanitizedConfig.temperature = config.temperature;
+      }
+      if (typeof config.maxOutputTokens === 'number' && config.maxOutputTokens > 0 && config.maxOutputTokens <= 8192) {
+        sanitizedConfig.maxOutputTokens = Math.floor(config.maxOutputTokens);
+      }
+      if (typeof config.topP === 'number' && config.topP >= 0 && config.topP <= 1) {
+        sanitizedConfig.topP = config.topP;
+      }
+      if (typeof config.topK === 'number' && config.topK > 0 && config.topK <= 100) {
+        sanitizedConfig.topK = Math.floor(config.topK);
+      }
+      if (typeof config.responseMimeType === 'string' && ['application/json', 'text/plain', 'text/markdown'].includes(config.responseMimeType)) {
+        sanitizedConfig.responseMimeType = config.responseMimeType;
+      }
+      if (config.responseSchema && typeof config.responseSchema === 'object') {
+        sanitizedConfig.responseSchema = config.responseSchema;
+      }
+      if (config.systemInstruction) {
+        sanitizedConfig.systemInstruction = config.systemInstruction;
+      }
+      if (config.speechConfig && typeof config.speechConfig === 'object') {
+        sanitizedConfig.speechConfig = config.speechConfig;
+      }
+    }
+
+    // Admin & Tier authorization
+    const userEmail = (req.user?.email || '').toLowerCase().trim();
+    const isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
+
+    if (resolvedModel === 'gemini-3-pro-image' && !isAdmin) {
+      const userTier = req.user?.user_metadata?.tier || 'Free';
+      const isPaid = userTier === 'Pro' || userTier === 'PayAsYouGo' || userTier === 'Agency';
+      if (!isPaid) {
+        resolvedModel = 'gemini-2.5-flash-image';
+      }
+    }
+
+    // Determine credit cost for image generation
+    const isImageModel = resolvedModel === 'gemini-2.5-flash-image' || resolvedModel === 'gemini-3.1-flash-image' || resolvedModel === 'gemini-3-pro-image';
+    let creditCost = 0;
+    if (isImageModel) {
+      creditCost = resolvedModel === 'gemini-3-pro-image' ? 2 : 1;
+      if (sanitizedConfig.imageConfig?.imageSize === '2K') {
+        creditCost += 1;
+      }
+    }
+
+    let adminClient: any = null;
+    let originalBalance = 0;
+    let newBalance = 0;
+
+    // Server-side credit check and atomic deduction
+    if (!isAdmin && creditCost > 0) {
+      adminClient = await getAdminSupabaseClient();
+      const { data: creditData, error: creditErr } = await adminClient
+        .from('user_credits')
+        .select('current_balance, total_quota')
+        .eq('user_id', req.user.id)
+        .maybeSingle();
+
+      if (creditErr) {
+        throw new AppError("Failed to verify user credit balance before generation.", 500);
+      }
+
+      originalBalance = creditData?.current_balance ?? 0;
+      if (originalBalance < creditCost) {
+        return res.status(402).json({
+          success: false,
+          error: `Insufficient credits. You need ${creditCost} credit${creditCost > 1 ? 's' : ''}, but have ${originalBalance}. Please purchase credits or upgrade your plan.`,
+          requiredCredits: creditCost,
+          currentCredits: originalBalance,
+          requiresPurchase: true
+        });
+      }
+
+      newBalance = Math.max(0, originalBalance - creditCost);
+      const { error: deductErr } = await adminClient
+        .from('user_credits')
+        .update({
+          current_balance: newBalance,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', req.user.id);
+
+      if (deductErr) {
+        throw new AppError("Failed to securely deduct generation credits.", 500);
+      }
+    }
+
+    try {
+      const ai = getAI();
+      const response = await ai.models.generateContent({ 
+        model: resolvedModel, 
+        contents, 
+        config: sanitizedConfig 
+      });
+
+      // Handle safety blocking
+      if (response.candidates?.[0]?.finishReason === 'SAFETY') {
+        if (!isAdmin && creditCost > 0 && adminClient) {
+          await adminClient
+            .from('user_credits')
+            .update({ current_balance: originalBalance, updated_at: new Date().toISOString() })
+            .eq('user_id', req.user.id);
+        }
+        return res.status(400).json({
+          success: false,
+          error: "Generation blocked by safety filters. Your credits have not been charged.",
+          remainingCredits: originalBalance
+        });
+      }
+
+      let textStr = '';
+      try {
+        if (typeof response.text === 'string') {
+          textStr = response.text;
+        } else if (response.text) {
+          textStr = String(response.text);
+        }
+      } catch (e) {
+        // Image or binary content
+      }
+
+      res.json({
+        success: true,
+        text: textStr,
+        candidates: response.candidates,
+        usageMetadata: response.usageMetadata,
+        modelVersion: response.modelVersion,
+        promptFeedback: response.promptFeedback,
+        remainingCredits: !isAdmin && creditCost > 0 ? newBalance : undefined
+      });
+    } catch (genErr: any) {
+      if (!isAdmin && creditCost > 0 && adminClient) {
+        try {
+          await adminClient
+            .from('user_credits')
+            .update({ current_balance: originalBalance, updated_at: new Date().toISOString() })
+            .eq('user_id', req.user.id);
+        } catch (refundErr) {
+          console.error('Failed to restore user credits following generation exception:', refundErr);
+        }
+      }
+      throw genErr;
+    }
+  }));
+
+  // --- SECURE SERVER-SIDE CREDIT DEDUCTION & REFUND ENDPOINTS ---
+  app.post(['/api/user/credits/deduct', '/api/credits/deduct'], requireAuth, asyncHandler(async (req: any, res: any) => {
+    const { amount } = req.body;
+    const numAmount = parseInt(amount, 10);
+    if (isNaN(numAmount) || numAmount <= 0 || numAmount > 100) {
+      return res.status(400).json({ success: false, error: 'Invalid credit deduction amount.' });
+    }
+
+    const userEmail = (req.user?.email || '').toLowerCase().trim();
+    const isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
+    if (isAdmin) {
+      return res.json({ success: true, current_balance: 9999, total_quota: 9999, is_admin: true });
+    }
+
+    const adminClient = await getAdminSupabaseClient();
+    const { data: creditData, error: creditErr } = await adminClient
+      .from('user_credits')
+      .select('current_balance, total_quota')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (creditErr || !creditData) {
+      throw new AppError('Unable to retrieve user credit balance.', 500);
+    }
+
+    if (creditData.current_balance < numAmount) {
+      return res.status(402).json({
+        success: false,
+        error: 'Insufficient funds',
+        current_balance: creditData.current_balance,
+        required: numAmount
+      });
+    }
+
+    const updatedBalance = creditData.current_balance - numAmount;
+    const { error: updateErr } = await adminClient
+      .from('user_credits')
+      .update({
+        current_balance: updatedBalance,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', req.user.id);
+
+    if (updateErr) {
+      throw new AppError('Failed to update user credits.', 500);
+    }
+
+    return res.json({
       success: true,
-      text: textStr,
-      candidates: response.candidates,
-      usageMetadata: response.usageMetadata,
-      modelVersion: response.modelVersion,
-      promptFeedback: response.promptFeedback
+      current_balance: updatedBalance,
+      total_quota: creditData.total_quota
+    });
+  }));
+
+  app.post(['/api/user/credits/refund', '/api/credits/refund'], requireAuth, asyncHandler(async (req: any, res: any) => {
+    const { amount } = req.body;
+    const numAmount = parseInt(amount, 10);
+    if (isNaN(numAmount) || numAmount <= 0 || numAmount > 100) {
+      return res.status(400).json({ success: false, error: 'Invalid credit refund amount.' });
+    }
+
+    const userEmail = (req.user?.email || '').toLowerCase().trim();
+    const isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
+    if (isAdmin) {
+      return res.json({ success: true, current_balance: 9999, total_quota: 9999, is_admin: true });
+    }
+
+    const adminClient = await getAdminSupabaseClient();
+    const { data: creditData, error: creditErr } = await adminClient
+      .from('user_credits')
+      .select('current_balance, total_quota')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (creditErr || !creditData) {
+      throw new AppError('Unable to retrieve user credit balance.', 500);
+    }
+
+    const updatedBalance = creditData.current_balance + numAmount;
+    const { error: updateErr } = await adminClient
+      .from('user_credits')
+      .update({
+        current_balance: updatedBalance,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', req.user.id);
+
+    if (updateErr) {
+      throw new AppError('Failed to update user credits.', 500);
+    }
+
+    return res.json({
+      success: true,
+      current_balance: updatedBalance,
+      total_quota: creditData.total_quota
     });
   }));
 

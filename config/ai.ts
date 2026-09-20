@@ -81,7 +81,13 @@ export const getAI = () => {
                         const text = await response.text();
                         throw new Error(`Invalid server response format. Expected JSON but received: ${text.substring(0, 100)}`);
                     }
-                    return await response.json();
+                    const data = await response.json();
+                    if (typeof window !== 'undefined' && typeof data.remainingCredits === 'number') {
+                        window.dispatchEvent(new CustomEvent('credits-updated', { 
+                            detail: { remainingCredits: data.remainingCredits } 
+                        }));
+                    }
+                    return data;
                 }
             }
         };

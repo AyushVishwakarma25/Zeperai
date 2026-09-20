@@ -181,37 +181,37 @@ export const userService = {
     }
   },
 
-  // Deduct Credits
+  // Deduct Credits securely via server-side endpoint (eliminates client-side read-then-write)
   async deductCredits(amount: number): Promise<CreditBalance> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("No authenticated user");
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error("No authenticated user session");
 
-    // 1. Get current
-    const { data: currentData, error: fetchError } = await supabase
-        .from('user_credits')
-        .select('current_balance, total_quota')
-        .eq('user_id', user.id)
-        .single();
-    
-    if (fetchError || !currentData) throw new Error("Could not fetch credits");
+    const endpoint = amount >= 0 ? '/api/user/credits/deduct' : '/api/user/credits/refund';
+    const payload = { amount: Math.abs(amount) };
 
-    if (currentData.current_balance < amount) {
-        throw new Error("Insufficient funds");
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      let errMsg = 'Could not process credit transaction';
+      try {
+        const errJson = await response.json();
+        errMsg = errJson.error || errJson.message || errMsg;
+      } catch (e) {}
+      throw new Error(errMsg);
     }
 
-    const newBalance = currentData.current_balance - amount;
-
-    // 2. Update
-    const { error: updateError } = await supabase
-        .from('user_credits')
-        .update({ current_balance: newBalance, updated_at: new Date().toISOString() })
-        .eq('user_id', user.id);
-
-    if (updateError) throw updateError;
-
+    const data = await response.json();
     return {
-        current: newBalance,
-        total: currentData.total_quota
+      current: data.current_balance ?? 0,
+      total: data.total_quota ?? 0
     };
   },
 
