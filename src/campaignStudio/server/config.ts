@@ -58,6 +58,21 @@ export const AGENT_RUNTIME: Record<TextAgent, AgentRuntimeConfig> = {
 /** Stops one user from creating unbounded runs. */
 export const MAX_ACTIVE_RUNS_PER_USER = 10;
 
+/** AI-generated redos allowed per step (manual edits do not count). Protects cost. */
+export const MAX_REGENERATIONS_PER_STEP = 5;
+
+/** A step stuck in 'running' longer than this is assumed dead (function killed) and may be retried. */
+export const STALE_RUNNING_MS = 3 * 60_000;
+
+/**
+ * Wall-clock budget for ONE agent request, including site fetching and retries.
+ * Keep it below the hosting function limit (vercel.json maxDuration = 60s -> default 55s).
+ */
+export function getStepDeadlineMs(): number {
+  const n = Number(process.env.CAMPAIGN_STEP_DEADLINE_MS);
+  return Number.isFinite(n) && n >= 20_000 && n <= 280_000 ? n : 55_000;
+}
+
 // ---------------------------------------------------------------------------
 // Feature gate (fail closed)
 // ---------------------------------------------------------------------------

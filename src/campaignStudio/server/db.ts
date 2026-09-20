@@ -10,7 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { AppError } from '../../../utils/errorHandler.js';
 import { MAX_ACTIVE_RUNS_PER_USER } from './config.js';
 import type { CreateRunInput } from './validation.js';
-import type { CampaignAsset, CampaignRun, CampaignStep } from '../types.js';
+import type { CampaignAgent, CampaignAsset, CampaignRun, CampaignStep, RunStatus, StepStatus } from '../types.js';
 
 /** Columns returned to the client for a run list (no heavy jsonb). */
 const RUN_LIST_COLUMNS = 'id, title, input_type, website_url, goal, status, current_step, credits_spent, created_at, updated_at';
@@ -129,4 +129,127 @@ export async function getRunDetail(client: SupabaseClient, userId: string, runId
     steps: (stepsRes.data ?? []) as unknown as CampaignStep[],
     assets: (assetsRes.data ?? []) as unknown as CampaignAsset[],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Step + run mutations (used by the step engine). All scoped by user_id.
+// ---------------------------------------------------------------------------
+
+/** Every step column except the large input_snapshot. */
+const STEP_LIGHT = STEP_COLUMNS;
+
+/** All step versions of a run WITHOUT input_snapshot (cheap). */
+export async function listStepsLight(client: SupabaseClient, userId: string, runId: string): Promise<CampaignStep[]> {
+  const { data, error } = await client
+    .from('campaign_steps')
+    .select(STEP_LIGHT)
+    .eq('run_id', runId)
+    .eq('user_id', userId)
+    .order('agent', { ascending: true })
+    .order('version', { ascending: true });
+  if (error) fail('list steps', error, 'Could not load this campaign. Please try again.');
+  return (data ?? []) as unknown as CampaignStep[];
+}
+
+/** One step INCLUDING input_snapshot (needed to reuse work on a redo). */
+export async function getStepFull(client: SupabaseClient, userId: string, stepId: string): Promise<CampaignStep | null> {
+  const { data, error } = await client.from('campaign_steps').select('*').eq('id', stepId).eq('user_id', userId).maybeSingle();
+  if (error) fail('get step', error, 'Could not load this campaign. Please try again.');
+  return (data as CampaignStep | null) ?? null;
+}
+
+export interface NewStep {
+  run_id: string;
+  agent: CampaignAgent;
+  version: number;
+  status: StepStatus;
+  input_snapshot?: Record<string, unknown>;
+  user_feedback?: string | null;
+  output?: unknown;
+  model?: string | null;
+  usage?: Record<string, unknown>;
+}
+
+/** Inserts a step version. A duplicate (run, agent, version) means a concurrent request won: 409. */
+export async function insertStep(client: SupabaseClient, userId: string, step: NewStep): Promise<CampaignStep> {
+  const { data, error } = await client
+    .from('campaign_steps')
+    .insert({ ...step, user_id: userId })
+    .select(STEP_LIGHT)
+    .single();
+  if (error) {
+    if (error.code === '23505') {
+      throw new AppError('Concurrent step request', 409, 'This step is already being worked on. Please wait a moment.');
+    }
+    fail('insert step', error, 'Could not save this step. Please try again.');
+  }
+  return data as unknown as CampaignStep;
+}
+
+export type StepPatch = Partial<{
+  status: StepStatus;
+  output: unknown;
+  model: string | null;
+  usage: Record<string, unknown>;
+  input_snapshot: Record<string, unknown>;
+  error: string | null;
+  approved_at: string | null;
+}>;
+
+/** Updates one step; with onlyIfStatus it is a compare-and-set. Returns null when nothing matched. */
+export async function updateStep(
+  client: SupabaseClient,
+  userId: string,
+  stepId: string,
+  patch: StepPatch,
+  onlyIfStatus?: StepStatus[],
+): Promise<CampaignStep | null> {
+  let q = client.from('campaign_steps').update(patch).eq('id', stepId).eq('user_id', userId);
+  if (onlyIfStatus) q = q.in('status', onlyIfStatus);
+  const { data, error } = await q.select(STEP_LIGHT);
+  if (error) fail('update step', error, 'Could not save this step. Please try again.');
+  return ((data ?? [])[0] as unknown as CampaignStep) ?? null;
+}
+
+/** Bulk status change over agents/versions of one run. Returns the rows that changed. */
+export async function updateStepsWhere(
+  client: SupabaseClient,
+  userId: string,
+  runId: string,
+  filter: { agents: CampaignAgent[]; fromStatuses: StepStatus[]; versionBelow?: number },
+  patch: StepPatch,
+): Promise<CampaignStep[]> {
+  if (filter.agents.length === 0) return [];
+  let q = client
+    .from('campaign_steps')
+    .update(patch)
+    .eq('run_id', runId)
+    .eq('user_id', userId)
+    .in('agent', filter.agents)
+    .in('status', filter.fromStatuses);
+  if (filter.versionBelow !== undefined) q = q.lt('version', filter.versionBelow);
+  const { data, error } = await q.select(STEP_LIGHT);
+  if (error) fail('update steps', error, 'Could not save this step. Please try again.');
+  return (data ?? []) as unknown as CampaignStep[];
+}
+
+export type RunPatch = Partial<{
+  status: RunStatus;
+  current_step: CampaignAgent;
+  brand_context: unknown;
+  title: string;
+}>;
+
+export async function updateRun(
+  client: SupabaseClient,
+  userId: string,
+  runId: string,
+  patch: RunPatch,
+  onlyIfStatus?: RunStatus,
+): Promise<CampaignRun | null> {
+  let q = client.from('campaign_runs').update(patch).eq('id', runId).eq('user_id', userId);
+  if (onlyIfStatus) q = q.eq('status', onlyIfStatus);
+  const { data, error } = await q.select('*');
+  if (error) fail('update run', error, 'Could not save your campaign. Please try again.');
+  return ((data ?? [])[0] as CampaignRun) ?? null;
 }

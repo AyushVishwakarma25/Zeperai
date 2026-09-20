@@ -49,6 +49,26 @@ user approval; any step can be regenerated with written feedback.
 | `gemini.ts` | `generateStructured()`: JSON output, transient retry, one repair pass, timeouts, safety blocks |
 | `db.ts` | Service-role data access, always scoped by `user_id` |
 | `routes.ts` | Express routes + `campaignGate` (404 unless `CAMPAIGN_STUDIO_ENABLED=true`) |
+| `engine.ts` | Step state machine: run / regenerate / edit / approve / cancel |
+| `safeFetch.ts`, `ipRanges.ts` | SSRF-safe fetcher: DNS + IP checks, connection pinned to the validated IP, redirects re-validated |
+| `siteReader.ts` | Reads a brand site (home + 2 pages) into brand signals; no HTML-parser dependency |
+| `agents/` | One file per agent + registry. Chunk 3: `brandAnalysis.ts` |
+
+### Step API (all under `/api/campaign-studio`, auth + feature gate required)
+
+| Route | Purpose |
+|---|---|
+| `POST /runs/:id/steps/:agent/run` | First generation (AI-rate-limited) |
+| `POST /runs/:id/steps/:agent/regenerate` `{feedback}` | Redo with the user's note (max 5 per step) |
+| `PUT  /runs/:id/steps/:agent/output` `{output}` | Hand edit while awaiting review (new version, no AI) |
+| `POST /runs/:id/steps/:agent/approve` | Approve the whole gate, advance the run (idempotent) |
+| `POST /runs/:id/cancel` | Cancel the campaign |
+
+Redoing an already-approved step rewinds the run to that gate and supersedes every later step.
+A failed regeneration never replaces the last good version. `input_snapshot` (site text, prompt inputs) is
+stored per version and reused on redo so the website is fetched once.
+
+Each agent request must finish within `CAMPAIGN_STEP_DEADLINE_MS` (default 55s; `vercel.json` sets `maxDuration` 60).
 
 Dependencies (`requireAuth`, `aiLimiter`, admin client) are injected by `server.ts`
 to avoid a circular import. The route registration in `server.ts` must stay above
@@ -70,7 +90,7 @@ the `/api/*all` 404 catch-all.
 - [x] 2. Server module skeleton: Gemini wrapper (structured output, retry, repair, timeout),
       validation, data layer, routes (meta / create / list / get run), feature gate,
       5-line hook in `server.ts` (`npm run test:campaign`)
-- [ ] 3. Brand Analyst agent + SSRF-safe fetcher + step engine (run / approve / regenerate / versions)
+- [x] 3. Brand Analyst agent + SSRF-safe fetcher + step engine (run / regenerate / edit / approve / cancel, versions)
 - [ ] 4. Frontend shell: route, stepper, review card (approve / regenerate with note / edit)
 - [ ] 5. Market + competitor research (parallel, one gate) and Strategy
 - [ ] 6. Creative Direction and Master Prompts

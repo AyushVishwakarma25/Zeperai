@@ -197,6 +197,8 @@ export interface BrandContext {
   };
   /** Geographies the brand sells/advertises in, e.g. ['India']. */
   markets: string[];
-  /** URLs actually read while building this context. */
+  /** URLs actually read while building this context. Set by the server, never by the model. */
   sources: string[];
+  /** Things the analyst could not determine. Shown at review so the user can fill them in. */
+  gaps?: string[];
 }

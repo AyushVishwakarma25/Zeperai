@@ -9,8 +9,10 @@
  */
 
 import {
+  CAMPAIGN_AGENTS,
   DEFAULT_CAMPAIGN_SETTINGS,
   MAX_CREATIVES_PER_RUN,
+  type CampaignAgent,
   type CampaignGoal,
   type CampaignInputType,
   type CampaignSettings,
@@ -224,4 +226,27 @@ export function validateCreateRunInput(body: unknown): ValidationResult<CreateRu
       settings: settings.value as CampaignSettings,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Step routes
+// ---------------------------------------------------------------------------
+
+export function parseAgentParam(value: unknown): CampaignAgent | null {
+  return typeof value === 'string' && (CAMPAIGN_AGENTS as readonly string[]).includes(value) ? (value as CampaignAgent) : null;
+}
+
+export const MIN_FEEDBACK_CHARS = 5;
+export const MAX_FEEDBACK_CHARS = 2000;
+
+/** The user's redo note ("try a more premium angle"). */
+export function validateFeedback(body: unknown): ValidationResult<string> {
+  const raw = body && typeof body === 'object' ? (body as Record<string, unknown>).feedback : undefined;
+  if (typeof raw !== 'string') return { ok: false, error: 'Tell us what you would like changed.' };
+  const text = cleanText(raw, MAX_FEEDBACK_CHARS);
+  if (text === null) {
+    return { ok: false, error: raw.trim() ? `Feedback must be at most ${MAX_FEEDBACK_CHARS} characters.` : 'Tell us what you would like changed.' };
+  }
+  if (text.length < MIN_FEEDBACK_CHARS) return { ok: false, error: 'Please add a little more detail about what to change.' };
+  return { ok: true, value: text };
 }
