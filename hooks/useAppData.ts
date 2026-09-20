@@ -45,25 +45,29 @@ export const useAppData = () => {
         loadData();
     }, [loadData]);
 
+    useEffect(() => {
+        const handleCreditsUpdated = (e: any) => {
+            if (typeof e.detail?.remainingCredits === 'number') {
+                setCredits(e.detail.remainingCredits);
+            }
+        };
+        window.addEventListener('credits-updated', handleCreditsUpdated);
+        return () => window.removeEventListener('credits-updated', handleCreditsUpdated);
+    }, []);
+
     const checkAndDeductCredits = useCallback((cost: number, isAdmin: boolean): boolean => {
         if (isAdmin) return true;
         if (credits >= cost) {
-            setCredits(prev => prev - cost);
-            if (user) {
-                userService.deductCredits(cost).catch(e => console.error("Credit sync failed", e));
-            }
+            setCredits(prev => Math.max(0, prev - cost));
             return true;
         }
         return false;
-    }, [credits, user]);
+    }, [credits]);
 
     const refundCredits = useCallback((amount: number, isAdmin: boolean) => {
         if (isAdmin) return;
         setCredits(prev => prev + amount);
-        if (user) {
-            userService.deductCredits(-amount).catch(e => console.error("Refund failed", e));
-        }
-    }, [user]);
+    }, []);
 
     return {
         credits,

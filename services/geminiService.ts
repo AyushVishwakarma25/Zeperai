@@ -102,7 +102,16 @@ const urlToBase64 = async (url: string): Promise<string> => {
             ? url 
             : `/api/proxy-image?url=${encodeURIComponent(url)}`;
             
-        const response = await fetch(proxyUrl);
+        let token = '';
+        try {
+            const { data } = await supabase.auth.getSession();
+            token = data?.session?.access_token || '';
+        } catch (e) {}
+
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const response = await fetch(proxyUrl, { headers });
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const blob = await response.blob();
         return new Promise((resolve, reject) => {
