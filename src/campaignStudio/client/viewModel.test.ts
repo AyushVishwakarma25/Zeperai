@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { CampaignAgent, CampaignRun, CampaignStep, StepStatus } from '../types.js';
-import { agentView, deriveGates, goalLabel, hasInFlight, hostnameOf, isHttpUrl, progressLabel, timeAgo } from './viewModel.js';
+import { AGENT_IMPLS } from '../server/agents/index.js';
+import { EDITABLE_AGENTS, IMPLEMENTED_AGENTS, agentView, deriveGates, goalLabel, hasInFlight, hostnameOf, isHttpUrl, progressLabel, timeAgo } from './viewModel.js';
 
 let n = 0;
 const step = (agent: CampaignAgent, version: number, status: StepStatus, extra: Partial<CampaignStep> = {}): CampaignStep => ({
@@ -11,10 +12,10 @@ const step = (agent: CampaignAgent, version: number, status: StepStatus, extra: 
 const run = (over: Partial<CampaignRun> = {}) => ({ current_step: 'brand_analysis', status: 'active', ...over }) as Pick<CampaignRun, 'current_step' | 'status'>;
 const statuses = (g: ReturnType<typeof deriveGates>) => g.map((x) => x.status);
 
-test('fresh run: first gate ready, the rest locked, only the brand gate implemented', () => {
+test('fresh run: first gate ready, the rest locked, stages up to strategy implemented', () => {
   const g = deriveGates(run(), []);
   assert.deepEqual(statuses(g), ['ready', 'locked', 'locked', 'locked', 'locked', 'locked']);
-  assert.deepEqual(g.map((x) => x.implemented), [true, false, false, false, false, false]);
+  assert.deepEqual(g.map((x) => x.implemented), [true, true, true, false, false, false]);
   assert.equal(g[1].agents.length, 2, 'research gate holds both research agents');
   assert.equal(g[0].isCurrent, true);
 });
@@ -51,11 +52,27 @@ test('redo accounting counts only successful AI regenerations (not failures or h
   assert.equal(v.redosLeft, 3);
 });
 
-test('after approving the brand gate the run moves on: gate 0 approved, gate 1 ready but not implemented', () => {
+test('after approving the brand gate the run moves on: gate 0 approved, research gate ready', () => {
   const g = deriveGates(run({ current_step: 'market_research' }), [step('brand_analysis', 1, 'approved', { model: 'm' })]);
   assert.deepEqual(statuses(g).slice(0, 3), ['approved', 'ready', 'locked']);
-  assert.equal(g[1].implemented, false);
+  assert.equal(g[1].implemented, true);
   assert.equal(g[1].isCurrent, true);
+});
+
+test('CONTRACT: the UI treats exactly the agents the server can run as implemented', () => {
+  assert.deepEqual([...IMPLEMENTED_AGENTS].sort(), Object.keys(AGENT_IMPLS).sort());
+  // and hand-editing is offered exactly where the server has an editor
+  const editable = Object.entries(AGENT_IMPLS).filter(([, impl]) => typeof impl!.parseEdited === 'function').map(([a]) => a);
+  assert.deepEqual([...EDITABLE_AGENTS].sort(), editable.sort());
+});
+
+test('research gate: partial progress is "ready", both done is "review", one running is "running"', () => {
+  const r = run({ current_step: 'market_research' });
+  const done = (agent: CampaignAgent) => step(agent, 1, 'awaiting_review', { model: 'm' });
+  assert.equal(deriveGates(r, [done('market_research')])[1].status, 'ready');
+  assert.equal(deriveGates(r, [done('market_research'), done('competitor_research')])[1].status, 'review');
+  assert.equal(deriveGates(r, [done('market_research'), step('competitor_research', 1, 'running')])[1].status, 'running');
+  assert.equal(deriveGates(r, [done('market_research'), step('competitor_research', 1, 'failed', { error: 'x' })])[1].status, 'failed');
 });
 
 test('redo of an approved step rewinds: current gate goes back to review, later gates lock', () => {

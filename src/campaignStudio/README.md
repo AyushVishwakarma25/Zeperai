@@ -52,7 +52,7 @@ user approval; any step can be regenerated with written feedback.
 | `engine.ts` | Step state machine: run / regenerate / edit / approve / cancel |
 | `safeFetch.ts`, `ipRanges.ts` | SSRF-safe fetcher: DNS + IP checks, connection pinned to the validated IP, redirects re-validated |
 | `siteReader.ts` | Reads a brand site (home + 2 pages) into brand signals; no HTML-parser dependency |
-| `agents/` | One file per agent + registry. Chunk 3: `brandAnalysis.ts` |
+| `agents/` | One file per agent + registry: `brandAnalysis`, `marketResearch`, `competitorResearch`, `strategy`. Shared: `normalize.ts` (cleaning/caps/URL rules), `promptUtils.ts` (fences + defuse), `context.ts` (approved upstream outputs) |
 
 ### Step API (all under `/api/campaign-studio`, auth + feature gate required)
 
@@ -89,8 +89,18 @@ Mirrors the Shopify Analyzer pattern: a `View` in the dashboard shell, not a new
 
 Both entry points show ONLY when `GET /api/campaign-studio/meta` succeeds (the server's feature gate is the source of truth).
 When a step is generating server-side (page refreshed mid-run) the run view polls every 3s until it settles.
-Stages after Brand show "coming soon" until their agents are registered in `server/agents/index.ts`
-and added to `IMPLEMENTED_AGENTS` in `client/viewModel.ts`.
+Stages without an agent show "coming soon" until they are registered in `server/agents/index.ts` and added to
+`IMPLEMENTED_AGENTS` in `client/viewModel.ts` (a unit test fails if the two lists drift apart).
+
+### Research and strategy (chunk 5)
+
+- Research is ONE review gate with TWO agents. The UI starts both in parallel (two requests) and offers a single
+  "Approve research and continue" once both are ready. Redoing either report after approval reopens the gate,
+  supersedes the strategy and rewinds the run.
+- Both research agents are grounded with Google Search (billed per query on Gemini 3). `sources` and `grounded`
+  come from grounding metadata, never from the model; the UI warns when `grounded` is false.
+- Strategy uses the Pro model. Its `creativeMix` must add up to the run's `creativeCount` (validated, then repaired once).
+- Research and strategy have no hand editor (`EDITABLE_AGENTS`); users change them with Regenerate + a note.
 
 ## Repo invariants (from AGENTS.md)
 
@@ -110,7 +120,7 @@ and added to `IMPLEMENTED_AGENTS` in `client/viewModel.ts`.
       5-line hook in `server.ts` (`npm run test:campaign`)
 - [x] 3. Brand Analyst agent + SSRF-safe fetcher + step engine (run / regenerate / edit / approve / cancel, versions)
 - [x] 4. Frontend: dashboard entry, campaign list, new-campaign form, stepper, review card (approve / regenerate with note / edit / version browsing)
-- [ ] 5. Market + competitor research (parallel, one gate) and Strategy
+- [x] 5. Market + competitor research (parallel, one gate) and Strategy
 - [ ] 6. Creative Direction and Master Prompts
 - [ ] 7. Bulk creative generation, overlay, per-creative redo, save to My Designs
 - [ ] 8. Credit pricing, redo caps, admin monitoring, QA agent

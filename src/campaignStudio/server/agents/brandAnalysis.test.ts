@@ -159,7 +159,7 @@ test('parseBrandContext: required fields, hex normalisation, caps, dedupe', () =
 
 test('parseEdited: user edits may keep or clear existing URLs but cannot add new ones', () => {
   const prev = parseBrandContext(JSON.parse(modelJson()), { logo: new Set(['https://prustlr.com/logo.svg']), images: new Set(['https://prustlr.com/bowl.jpg']) }, { sources: ['https://prustlr.com/'] });
-  const edited = brandAnalysisAgent.parseEdited(
+  const edited = brandAnalysisAgent.parseEdited!(
     { ...prev, brandName: 'Prustlr Oats', sources: ['https://attacker.test/'], visualIdentity: { ...prev.visualIdentity, logoUrl: 'https://attacker.test/logo.png' },
       products: [{ name: 'Choco', imageUrls: ['https://prustlr.com/bowl.jpg', 'http://169.254.169.254/x'] }] },
     { run: baseRun, previousOutput: prev },

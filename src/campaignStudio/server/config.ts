@@ -45,7 +45,7 @@ export type TextAgent = Exclude<CampaignAgent, 'creatives'>;
 export const AGENT_RUNTIME: Record<TextAgent, AgentRuntimeConfig> = {
   brand_analysis:      { tier: 'flash', googleSearch: false, urlContext: true,  temperature: 0.4, timeoutMs: 45_000 },
   market_research:     { tier: 'flash', googleSearch: true,  urlContext: false, temperature: 0.4, timeoutMs: 60_000 },
-  competitor_research: { tier: 'flash', googleSearch: true,  urlContext: true,  temperature: 0.4, timeoutMs: 60_000 },
+  competitor_research: { tier: 'flash', googleSearch: true,  urlContext: false, temperature: 0.4, timeoutMs: 60_000 },
   strategy:            { tier: 'pro',   googleSearch: false, urlContext: false, thinkingLevel: 'high', temperature: 0.7, timeoutMs: 60_000 },
   creative_direction:  { tier: 'pro',   googleSearch: false, urlContext: false, thinkingLevel: 'medium', temperature: 0.9, timeoutMs: 60_000 },
   master_prompts:      { tier: 'flash', googleSearch: false, urlContext: false, temperature: 0.7, timeoutMs: 45_000 },
