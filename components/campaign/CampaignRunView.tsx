@@ -22,8 +22,9 @@ export const CampaignRunView: React.FC<Props> = ({ runId, onBack, notify }) => {
   const [detail, setDetail] = useState<RunDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
-  const [busy, setBusy] = useState<{ agent: CampaignAgent; kind: BusyKind } | null>(null);
-  const [actionError, setActionError] = useState<{ agent: CampaignAgent; message: string } | null>(null);
+  // Per-agent, because the two research agents run at the same time.
+  const [busy, setBusy] = useState<Partial<Record<CampaignAgent, Exclude<BusyKind, null>>>>({});
+  const [actionErrors, setActionErrors] = useState<Partial<Record<CampaignAgent, string>>>({});
   const [confirmCancel, setConfirmCancel] = useState(false);
   const alive = useRef(true);
 
@@ -55,26 +56,31 @@ export const CampaignRunView: React.FC<Props> = ({ runId, onBack, notify }) => {
 
   // If a step is generating on the server (page refreshed mid-run), poll until it settles.
   const inFlight = detail ? hasInFlight(detail.steps) : false;
+  const anyBusy = Object.keys(busy).length > 0;
   useEffect(() => {
-    if (!inFlight || busy) return;
+    if (!inFlight || anyBusy) return;
     const t = setTimeout(() => load(true), 3000);
     return () => clearTimeout(t);
-  }, [inFlight, busy, detail, load]);
+  }, [inFlight, anyBusy, detail, load]);
 
   const perform = async (agent: CampaignAgent, kind: Exclude<BusyKind, null>, fn: () => Promise<unknown>, success?: string): Promise<boolean> => {
-    setBusy({ agent, kind });
-    setActionError(null);
+    setBusy((b) => ({ ...b, [agent]: kind }));
+    setActionErrors((e) => ({ ...e, [agent]: undefined }));
     try {
       await fn();
       await load(true);
       if (success) notify(success);
       return true;
     } catch (e) {
-      setActionError({ agent, message: messageOf(e) });
+      setActionErrors((prev) => ({ ...prev, [agent]: messageOf(e) }));
       await load(true); // the server records failed attempts; show the true state
       return false;
     } finally {
-      if (alive.current) setBusy(null);
+      if (alive.current)
+        setBusy((b) => {
+          const { [agent]: _done, ...rest } = b;
+          return rest;
+        });
     }
   };
 
@@ -103,6 +109,14 @@ export const CampaignRunView: React.FC<Props> = ({ runId, onBack, notify }) => {
   const selIdx = selected !== null && gates[selected]?.status !== 'locked' ? selected : cur;
   const gate = gates[selIdx];
   const active = run.status === 'active';
+
+  const approveGate = async () => {
+    const first = gate.agents[0].agent;
+    const ok = await perform(first, 'approve', () => campaignApi.approveStep(run.id, first), `${gate.label} approved`);
+    if (ok) setSelected(null);
+  };
+  const startAll = () =>
+    Promise.all(gate.agents.filter((a) => !a.current && !a.inFlight).map((a) => perform(a.agent, 'run', () => campaignApi.runStep(run.id, a.agent))));
 
   const doCancel = async () => {
     try {
@@ -154,24 +168,66 @@ export const CampaignRunView: React.FC<Props> = ({ runId, onBack, notify }) => {
 
       <SectionCard className="!p-4 sm:!p-6">
         {gate.implemented ? (
-          gate.agents.map((agent) => (
-            <StepReviewCard
-              key={agent.agent}
-              gate={gate}
-              agent={agent}
-              readOnly={!active}
-              busy={busy && busy.agent === agent.agent ? busy.kind : null}
-              error={actionError && actionError.agent === agent.agent ? actionError.message : null}
-              onDismissError={() => setActionError(null)}
-              onRun={() => perform(agent.agent, 'run', () => campaignApi.runStep(run.id, agent.agent))}
-              onRegenerate={(feedback) => perform(agent.agent, 'regenerate', () => campaignApi.regenerateStep(run.id, agent.agent, feedback))}
-              onEdit={(output) => perform(agent.agent, 'edit', () => campaignApi.editStep(run.id, agent.agent, output), 'Saved as a new version')}
-              onApprove={async () => {
-                const ok = await perform(agent.agent, 'approve', () => campaignApi.approveStep(run.id, agent.agent), `${gate.label} approved`);
-                if (ok) setSelected(null);
-              }}
-            />
-          ))
+          gate.agents.length === 1 ? (
+            gate.agents.map((agent) => (
+              <StepReviewCard
+                key={agent.agent}
+                gate={gate}
+                agent={agent}
+                readOnly={!active}
+                busy={busy[agent.agent] ?? null}
+                error={actionErrors[agent.agent] ?? null}
+                onDismissError={() => setActionErrors((e) => ({ ...e, [agent.agent]: undefined }))}
+                onRun={() => perform(agent.agent, 'run', () => campaignApi.runStep(run.id, agent.agent))}
+                onRegenerate={(feedback) => perform(agent.agent, 'regenerate', () => campaignApi.regenerateStep(run.id, agent.agent, feedback))}
+                onEdit={(output) => perform(agent.agent, 'edit', () => campaignApi.editStep(run.id, agent.agent, output), 'Saved as a new version')}
+                onApprove={approveGate}
+              />
+            ))
+          ) : (
+            <div className="space-y-6" data-testid="multi-agent-gate">
+              {gate.agents.every((a) => !a.current && !a.inFlight && !busy[a.agent] && !a.failedAfterCurrent) && active ? (
+                <div className="text-center py-10 px-4">
+                  <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-3">
+                    <Icon name="sparkles" className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-bold text-text-primary">{gate.label}</h3>
+                  <p className="text-sm text-text-secondary max-w-md mx-auto mt-1">{gate.blurb} Both reports run at the same time.</p>
+                  <Button onClick={startAll} className="mt-5 mx-auto">Start research</Button>
+                </div>
+              ) : (
+                <>
+                  {gate.agents.map((agent) => (
+                    <div key={agent.agent} className="border-b border-border-light pb-6 last:border-b-0 last:pb-0">
+                      <StepReviewCard
+                        gate={gate}
+                        agent={agent}
+                        title={agent.label}
+                        showApprove={false}
+                        readOnly={!active}
+                        busy={busy[agent.agent] ?? null}
+                        error={actionErrors[agent.agent] ?? null}
+                        onDismissError={() => setActionErrors((e) => ({ ...e, [agent.agent]: undefined }))}
+                        onRun={() => perform(agent.agent, 'run', () => campaignApi.runStep(run.id, agent.agent))}
+                        onRegenerate={(feedback) => perform(agent.agent, 'regenerate', () => campaignApi.regenerateStep(run.id, agent.agent, feedback))}
+                        onEdit={() => undefined}
+                        onApprove={() => undefined}
+                      />
+                    </div>
+                  ))}
+                  {active && gate.status !== 'approved' && (
+                    <div className="sticky bottom-0 -mx-1 px-1 py-3 bg-gradient-to-t from-white via-white to-transparent flex flex-wrap items-center gap-3">
+                      <Button onClick={approveGate} disabled={gate.status !== 'review' || anyBusy} isLoading={busy[gate.agents[0].agent] === 'approve'} className="">
+                        <Icon name="check" className="w-4 h-4 mr-1.5" />
+                        Approve research and continue
+                      </Button>
+                      {gate.status !== 'review' && <span className="text-xs text-slate-500">{anyBusy || gate.status === 'running' ? 'Waiting for both reports to finish…' : 'Both reports are needed before you can continue.'}</span>}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )
         ) : (
           <div className="text-center py-10 px-4">
             <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mb-3">

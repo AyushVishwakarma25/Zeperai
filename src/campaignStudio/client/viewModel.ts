@@ -15,7 +15,22 @@ import {
 } from '../types.js';
 
 /** Agents the server can run today. Keep in sync with server/agents/index.ts. */
-export const IMPLEMENTED_AGENTS: readonly CampaignAgent[] = ['brand_analysis'];
+export const IMPLEMENTED_AGENTS: readonly CampaignAgent[] = ['brand_analysis', 'market_research', 'competitor_research', 'strategy'];
+
+/** Agents whose output has a hand editor. Others are changed with "Regenerate" + a note. */
+export const EDITABLE_AGENTS: readonly CampaignAgent[] = ['brand_analysis'];
+
+export const AGENT_START_LABELS: Partial<Record<CampaignAgent, string>> = {
+  brand_analysis: 'Analyse my brand',
+  market_research: 'Research my market',
+  competitor_research: 'Research my competitors',
+  strategy: 'Build my strategy',
+};
+
+export const AGENT_BLURBS: Partial<Record<CampaignAgent, string>> = {
+  market_research: 'Trends, buyer insights, seasonal moments and channel behaviour, backed by live search.',
+  competitor_research: 'Who you compete with, how they market, and the space you can own.',
+};
 
 export const GATE_LABELS = ['Brand', 'Research', 'Strategy', 'Creative direction', 'Prompts', 'Creatives'] as const;
 
@@ -133,6 +148,9 @@ export const goalLabel = (goal: string): string => (goal in GOAL_INFO ? GOAL_INF
 // ---------------------------------------------------------------------------
 
 export const FEEDBACK_SUGGESTIONS: Partial<Record<CampaignAgent, string[]>> = {
+  market_research: ['Focus more on tier-2 and tier-3 cities', 'Look deeper at festive-season demand', 'Include price sensitivity and discounts'],
+  competitor_research: ['Focus on D2C brands only', 'Include larger established brands', 'Look at how their Instagram ads look'],
+  strategy: ['Try a completely different angle', 'Make it more focused on offers and conversion', 'Lean into festive and seasonal moments', 'Target a younger, Instagram-first audience'],
   brand_analysis: [
     'Make the tone more premium',
     'Focus on a younger audience',

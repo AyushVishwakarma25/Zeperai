@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import type { BrandContext, CampaignStep } from '../../src/campaignStudio/types.js';
+import type { BrandContext, CampaignStep, CampaignStrategy, CompetitorResearch, MarketResearch } from '../../src/campaignStudio/types.js';
 import { MAX_REGENERATIONS_PER_STEP } from '../../src/campaignStudio/types.js';
-import { FEEDBACK_SUGGESTIONS, type AgentView, type GateView } from '../../src/campaignStudio/client/viewModel.js';
+import { AGENT_BLURBS, AGENT_START_LABELS, EDITABLE_AGENTS, FEEDBACK_SUGGESTIONS, type AgentView, type GateView } from '../../src/campaignStudio/client/viewModel.js';
 import { Button } from '../ui/Button.js';
 import { Icon } from '../ui/Icon.js';
 import { BrandContextEditor } from './BrandContextEditor.js';
 import { BrandContextView } from './BrandContextView.js';
+import { CompetitorResearchView, MarketResearchView } from './ResearchViews.js';
 import { Chip, GeneratingPanel, Notice, inputClass } from './shared.js';
+import { StrategyView } from './StrategyView.js';
 
 export type BusyKind = 'run' | 'regenerate' | 'edit' | 'approve' | null;
 
@@ -18,6 +20,10 @@ interface Props {
   error: string | null;
   /** Cancelled/completed campaigns are read-only. */
   readOnly?: boolean;
+  /** Heading for this card. Defaults to the gate label (use the agent label inside multi-agent gates). */
+  title?: string;
+  /** False inside multi-agent gates, where one gate-level button approves everything together. */
+  showApprove?: boolean;
   onRun: () => void;
   onRegenerate: (feedback: string) => void;
   onEdit: (output: unknown) => void;
@@ -27,19 +33,27 @@ interface Props {
 
 const GENERATING_HINTS: Record<string, string[]> = {
   brand_analysis: ['Reading your website…', 'Finding your products and brand colours…', 'Working out your audience and tone…', 'Writing your brand profile…'],
+  market_research: ['Searching for category trends…', 'Looking at what buyers say and ask…', 'Checking seasonal and festive demand…', 'Writing up the market picture…'],
+  competitor_research: ['Finding your closest competitors…', 'Reading how they position and price…', 'Looking at the ads and content they run…', 'Spotting the space you can own…'],
+  strategy: ['Weighing the research against your goal…', 'Choosing one big idea…', 'Planning your content pillars…', 'Splitting your creatives across the pillars…'],
 };
 
 /** Renders a step's output. Only the brand analysis has a dedicated view so far. */
 const OutputView: React.FC<{ agent: string; output: unknown }> = ({ agent, output }) => {
   if (agent === 'brand_analysis' && output) return <BrandContextView brand={output as BrandContext} />;
+  if (agent === 'market_research' && output) return <MarketResearchView data={output as MarketResearch} />;
+  if (agent === 'competitor_research' && output) return <CompetitorResearchView data={output as CompetitorResearch} />;
+  if (agent === 'strategy' && output) return <StrategyView data={output as CampaignStrategy} />;
   return <pre className="text-xs bg-slate-50 rounded-xl p-3 overflow-auto max-h-96">{JSON.stringify(output, null, 2)}</pre>;
 };
 
-export const StepReviewCard: React.FC<Props> = ({ gate, agent, busy, error, readOnly, onRun, onRegenerate, onEdit, onApprove, onDismissError }) => {
+export const StepReviewCard: React.FC<Props> = ({ gate, agent, busy, error, readOnly, title: titleProp, showApprove = true, onRun, onRegenerate, onEdit, onApprove, onDismissError }) => {
   const [mode, setMode] = useState<'view' | 'regenerate' | 'edit'>('view');
   const [feedback, setFeedback] = useState('');
   const [viewVersion, setViewVersion] = useState<number | null>(null); // null = live version
 
+  const title = titleProp ?? gate.label;
+  const canEdit = EDITABLE_AGENTS.includes(agent.agent);
   const current = agent.current;
   const usable = agent.versions.filter((v) => v.output && v.status !== 'failed');
   const shown: CampaignStep | null = viewVersion !== null ? usable.find((v) => v.version === viewVersion) ?? current : current;
@@ -54,7 +68,7 @@ export const StepReviewCard: React.FC<Props> = ({ gate, agent, busy, error, read
   }, [current?.id]);
 
   if (working) {
-    return <GeneratingPanel title={busy === 'regenerate' || (agent.inFlight?.user_feedback ?? '') ? 'Applying your feedback…' : `Working on ${gate.label.toLowerCase()}…`} hints={GENERATING_HINTS[agent.agent] ?? []} />;
+    return <GeneratingPanel title={busy === 'regenerate' || (agent.inFlight?.user_feedback ?? '') ? 'Applying your feedback…' : `Working on ${title.toLowerCase()}…`} hints={GENERATING_HINTS[agent.agent] ?? []} />;
   }
 
   // ---- Not generated yet (or first attempt failed) ----
@@ -64,8 +78,8 @@ export const StepReviewCard: React.FC<Props> = ({ gate, agent, busy, error, read
         <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-3">
           <Icon name="sparkles" className="w-6 h-6" />
         </div>
-        <h3 className="text-lg font-bold text-text-primary">{gate.label}</h3>
-        <p className="text-sm text-text-secondary max-w-md mx-auto mt-1">{gate.blurb}</p>
+        <h3 className="text-lg font-bold text-text-primary">{title}</h3>
+        <p className="text-sm text-text-secondary max-w-md mx-auto mt-1">{AGENT_BLURBS[agent.agent] ?? gate.blurb}</p>
         {(error || agent.failedAfterCurrent) && (
           <div className="max-w-md mx-auto mt-4 text-left">
             <Notice tone="error" onDismiss={error ? onDismissError : undefined}>
@@ -75,7 +89,7 @@ export const StepReviewCard: React.FC<Props> = ({ gate, agent, busy, error, read
         )}
         {!readOnly && (
           <Button onClick={onRun} className="mt-5 mx-auto">
-            {agent.failedAfterCurrent || error ? 'Try again' : 'Analyse my brand'}
+            {agent.failedAfterCurrent || error ? 'Try again' : AGENT_START_LABELS[agent.agent] ?? 'Start'}
           </Button>
         )}
       </div>
@@ -94,7 +108,7 @@ export const StepReviewCard: React.FC<Props> = ({ gate, agent, busy, error, read
     <div>
       {/* Header row */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <h3 className="text-lg font-bold text-text-primary mr-1">{gate.label}</h3>
+        <h3 className="text-lg font-bold text-text-primary mr-1">{title}</h3>
         <Chip tone={isApproved ? 'good' : 'warn'}>{isApproved ? 'Approved' : 'Waiting for your review'}</Chip>
         {usable.length > 1 && (
           <div className="ml-auto flex items-center gap-1 text-xs text-slate-500" aria-label="Versions">
@@ -138,7 +152,7 @@ export const StepReviewCard: React.FC<Props> = ({ gate, agent, busy, error, read
       )}
 
       {/* Body */}
-      {mode === 'edit' && current.output ? (
+      {mode === 'edit' && canEdit && current.output ? (
         <BrandContextEditor
           initial={current.output as BrandContext}
           saving={busy === 'edit'}
@@ -188,7 +202,7 @@ export const StepReviewCard: React.FC<Props> = ({ gate, agent, busy, error, read
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
-                  {!isApproved && (
+                  {!isApproved && showApprove && (
                     <Button onClick={onApprove} isLoading={busy === 'approve'} className="">
                       <Icon name="check" className="w-4 h-4 mr-1.5" />
                       Approve and continue
@@ -198,7 +212,7 @@ export const StepReviewCard: React.FC<Props> = ({ gate, agent, busy, error, read
                     <Icon name="refresh-cw" className="w-4 h-4 mr-1.5" />
                     {isApproved ? 'Redo this step' : 'Regenerate'}
                   </Button>
-                  {!isApproved && (
+                  {!isApproved && canEdit && (
                     <Button variant="secondary" onClick={() => setMode('edit')} disabled={busy === 'approve'} className="">
                       <Icon name="edit" className="w-4 h-4 mr-1.5" />
                       Edit
