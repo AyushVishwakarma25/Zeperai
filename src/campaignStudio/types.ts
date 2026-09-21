@@ -205,3 +205,74 @@ export interface BrandContext {
   /** Things the analyst could not determine. Shown at review so the user can fill them in. */
   gaps?: string[];
 }
+
+// ---------------------------------------------------------------------------
+// Agents 2-4 output: research and strategy
+// ---------------------------------------------------------------------------
+
+export interface SourceLink {
+  title: string;
+  url: string;
+}
+
+/** Agent 2 (market_research). Sources are set by the server from Google Search grounding, never by the model. */
+export interface MarketResearch {
+  category: string;
+  marketSummary: string;
+  trends: { trend: string; whyItMatters: string }[];
+  customerInsights: { insight: string; evidence?: string }[];
+  seasonalMoments: { moment: string; timing?: string; angle: string }[];
+  channelInsights: { channel: string; insight: string }[];
+  opportunities: string[];
+  risks: string[];
+  /** What could not be verified. */
+  gaps: string[];
+  sources: SourceLink[];
+  /** False when Google Search returned no sources for this answer (treat with extra caution). */
+  grounded: boolean;
+}
+
+export interface CompetitorProfile {
+  name: string;
+  website?: string;
+  positioning: string;
+  strengths: string[];
+  weaknesses: string[];
+  pricePoint?: string;
+  adAngles: string[];
+  audienceFocus?: string;
+}
+
+/** Agent 3 (competitor_research). */
+export interface CompetitorResearch {
+  competitors: CompetitorProfile[];
+  /** Positioning gaps the brand can own. */
+  whiteSpace: string[];
+  differentiators: string[];
+  messagingToAvoid: string[];
+  adPatterns: string[];
+  gaps: string[];
+  sources: SourceLink[];
+  grounded: boolean;
+}
+
+export type FunnelStage = 'awareness' | 'consideration' | 'conversion' | 'retention';
+
+/** Agent 4 (strategy). `creativeMix` counts add up to the run's creativeCount. */
+export interface CampaignStrategy {
+  objective: string;
+  bigIdea: string;
+  positioningStatement: string;
+  audience: { primary: string; insight: string; mindset: string };
+  keyMessages: { message: string; proof: string }[];
+  funnelStage: FunnelStage;
+  offer?: string;
+  cta: string;
+  tone: string[];
+  contentPillars: { name: string; description: string; exampleAd: string }[];
+  creativeMix: { pillar: string; count: number }[];
+  creativeFormats: { format: string; why: string }[];
+  successMetrics: string[];
+  guardrails: string[];
+  rationale: string;
+}

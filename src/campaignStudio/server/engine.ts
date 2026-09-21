@@ -274,6 +274,7 @@ const MAX_EDIT_BYTES = 100_000;
 
 export async function editAgentOutput(ctx: EngineContext, runId: string, agent: CampaignAgent, rawOutput: unknown): Promise<StepResult> {
   const impl = requireImpl(agent);
+  if (!impl.parseEdited) throw new AppError('Edit unsupported', 400, "This step can't be edited by hand. Use Regenerate to tell us what to change.");
   const { run, steps } = await loadRunAndSteps(ctx, runId);
 
   const latest = currentOf(steps, agent);
@@ -288,7 +289,7 @@ export async function editAgentOutput(ctx: EngineContext, runId: string, agent: 
   const previousFull = await getStepFull(ctx.client, ctx.userId, latest.id);
   let normalized: unknown;
   try {
-    normalized = impl.parseEdited(rawOutput, { run, previousOutput: previousFull?.output });
+    normalized = impl.parseEdited!(rawOutput, { run, previousOutput: previousFull?.output });
   } catch (err) {
     throw new AppError('Invalid edit', 400, `That edit isn't valid: ${(err as Error).message}`);
   }

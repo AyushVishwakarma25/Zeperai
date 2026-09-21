@@ -33,6 +33,9 @@ export interface AgentRunResult {
 
 export interface AgentImpl {
   run(ctx: AgentRunContext): Promise<AgentRunResult>;
-  /** Validates a user-edited output. Must throw a plain Error with a user-safe message when invalid. */
-  parseEdited(raw: unknown, ctx: { run: CampaignRun; previousOutput: unknown }): unknown;
+  /**
+   * Validates a user-edited output. Must throw a plain Error with a user-safe message when invalid.
+   * Omit for agents whose output cannot be edited by hand (the engine then refuses edits).
+   */
+  parseEdited?(raw: unknown, ctx: { run: CampaignRun; previousOutput: unknown }): unknown;
 }

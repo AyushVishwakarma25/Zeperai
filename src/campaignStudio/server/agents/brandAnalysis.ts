@@ -16,7 +16,12 @@ import { AGENT_RUNTIME, resolveTextModel } from '../config.js';
 import { generateStructured, type GroundingSource } from '../gemini.js';
 import { SiteReadError, readSite, type SiteSnapshot } from '../siteReader.js';
 import type { BrandContext } from '../../types.js';
+import { str, strList } from './normalize.js';
+import { defuse } from './promptUtils.js';
 import type { AgentImpl, AgentRunContext, AgentRunResult } from './types.js';
+
+// Kept exported here for existing callers/tests.
+export { defuse };
 
 // ---------------------------------------------------------------------------
 // Response schema (Gemini OpenAPI subset)
@@ -70,22 +75,6 @@ export const BRAND_CONTEXT_SCHEMA = {
 // ---------------------------------------------------------------------------
 // Normalisation / validation of model output
 // ---------------------------------------------------------------------------
-
-function str(v: unknown, max: number): string {
-  // eslint-disable-next-line no-control-regex
-  return typeof v === 'string' ? v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').replace(/\s+/g, ' ').trim().slice(0, max) : '';
-}
-
-function strList(v: unknown, maxItems: number, maxLen: number): string[] {
-  if (!Array.isArray(v)) return [];
-  const out: string[] = [];
-  for (const item of v) {
-    const s = str(item, maxLen);
-    if (s && !out.some((o) => o.toLowerCase() === s.toLowerCase())) out.push(s);
-    if (out.length >= maxItems) break;
-  }
-  return out;
-}
 
 function normalizeHex(v: unknown): string | null {
   if (typeof v !== 'string') return null;
@@ -187,10 +176,6 @@ Rules:
 8. "logoUrl" and each product "imageUrls" entry must be copied exactly from the candidate lists, or omitted.
 9. "markets" are countries/regions the brand sells to, from evidence such as currency, shipping text or user details. Leave empty if unclear.
 10. Keep every field concise. Output must match the requested JSON structure exactly.`;
-
-const FENCE_TAGS = /<\/?\s*(site_content|user_details|previous_analysis|user_feedback|candidates|campaign_goal|task)\b[^>]*>/gi;
-/** Prevents untrusted text from closing/opening our prompt fences. */
-export const defuse = (text: string) => text.replace(FENCE_TAGS, '[tag removed]');
 
 function renderSite(snapshot: SiteSnapshot): string {
   return snapshot.pages
