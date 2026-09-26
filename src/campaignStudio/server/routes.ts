@@ -10,7 +10,7 @@ import type { Express, NextFunction, Request, RequestHandler, Response } from 'e
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { AppError, asyncHandler } from '../../../utils/errorHandler.js';
 import { createRun, getRunDetail, listRuns } from './db.js';
-import { approveGate, cancelRun, editAgentOutput, regenerateAgentStep, runAgentStep, type EngineContext } from './engine.js';
+import { approveGate, cancelRun, editAgentOutput, regenerateAgentStep, regenerateSingleCreativeStep, runAgentStep, type EngineContext } from './engine.js';
 import type { GenAIClientLike } from './gemini.js';
 import type { SafeFetcher } from './safeFetch.js';
 import { getCampaignStudioAllowedEmails, isCampaignStudioEnabled } from './config.js';
@@ -176,6 +176,25 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
       if (!feedback.ok) return res.status(400).json({ success: false, error: feedback.error });
       const result = await regenerateAgentStep(await engineCtx(req), runIdOf(req), agentOf(req), feedback.value as string);
       return res.status(201).json({ success: true, ...result });
+    }),
+  );
+
+  // Redo one creative concept individually ("regenerate this one").
+  app.post(
+    `${BASE}/runs/:runId/creatives/:creativeIndex/regenerate`,
+    deps.requireAuth,
+    campaignGate,
+    deps.aiLimiter,
+    asyncHandler(async (req: Request, res: Response) => {
+      const creativeIndex = parseInt(String(req.params.creativeIndex || ''), 10);
+      if (isNaN(creativeIndex) || creativeIndex < 1 || creativeIndex > MAX_CREATIVES_PER_RUN) {
+        throw new AppError('Invalid creative index', 400, 'Invalid creative index.');
+      }
+      const feedback = typeof req.body?.feedback === 'string' && req.body.feedback.trim().length > 0
+        ? req.body.feedback.trim().slice(0, 2000)
+        : null;
+      const asset = await regenerateSingleCreativeStep(await engineCtx(req), runIdOf(req), creativeIndex, feedback);
+      return res.status(201).json({ success: true, asset });
     }),
   );
 

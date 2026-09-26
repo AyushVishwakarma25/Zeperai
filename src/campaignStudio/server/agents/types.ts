@@ -4,6 +4,7 @@
  * It never touches the database or credits; the step engine does.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CampaignAgent, CampaignRun } from '../../types.js';
 import type { GenAIClientLike, TokenUsage } from '../gemini.js';
 import type { SafeFetcher } from '../safeFetch.js';
@@ -21,6 +22,10 @@ export interface AgentRunContext {
   /** Test hooks; production leaves both undefined. */
   geminiClient?: GenAIClientLike;
   fetcher?: SafeFetcher;
+  /** Supabase service client and user context for creative asset generation and credit RPCs. */
+  client?: SupabaseClient;
+  userId?: string;
+  imageClient?: GenAIClientLike;
 }
 
 export interface AgentRunResult {

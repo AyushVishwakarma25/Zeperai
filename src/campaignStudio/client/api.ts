@@ -118,6 +118,8 @@ export function createCampaignApi(deps: CampaignApiDeps) {
     runStep: (runId: string, agent: CampaignAgent) => request<StepResult>('POST', `/runs/${enc(runId)}/steps/${enc(agent)}/run`),
     regenerateStep: (runId: string, agent: CampaignAgent, feedback: string) =>
       request<StepResult>('POST', `/runs/${enc(runId)}/steps/${enc(agent)}/regenerate`, { feedback }),
+    regenerateCreative: (runId: string, creativeIndex: number, feedback?: string) =>
+      request<{ success: true; asset: CampaignAsset }>('POST', `/runs/${enc(runId)}/creatives/${creativeIndex}/regenerate`, { feedback }),
     editStep: (runId: string, agent: CampaignAgent, output: unknown) =>
       request<StepResult>('PUT', `/runs/${enc(runId)}/steps/${enc(agent)}/output`, { output }),
     approveStep: (runId: string, agent: CampaignAgent) => request<ApproveResult>('POST', `/runs/${enc(runId)}/steps/${enc(agent)}/approve`),

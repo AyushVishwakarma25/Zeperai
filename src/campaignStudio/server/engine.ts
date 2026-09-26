@@ -30,6 +30,8 @@ import { getRun, getStepFull, insertStep, listStepsLight, updateRun, updateStep,
 import { GeminiCallError, type GenAIClientLike } from './gemini.js';
 import type { SafeFetcher } from './safeFetch.js';
 import { SiteReadError } from './siteReader.js';
+import { generateSingleCreative } from './agents/creatives.js';
+import type { CampaignAsset, MasterPrompts } from '../types.js';
 
 export interface EngineContext {
   client: SupabaseClient;
@@ -37,6 +39,7 @@ export interface EngineContext {
   /** Test hooks only. */
   geminiClient?: GenAIClientLike;
   fetcher?: SafeFetcher;
+  imageClient?: GenAIClientLike;
 }
 
 // ---------------------------------------------------------------------------
@@ -213,6 +216,9 @@ async function executeAgent(
       deadlineAt: Date.now() + getStepDeadlineMs(),
       geminiClient: ctx.geminiClient,
       fetcher: ctx.fetcher,
+      client: ctx.client,
+      userId: ctx.userId,
+      imageClient: ctx.imageClient,
     });
   } catch (err) {
     const mapped = mapAgentError(err);
@@ -264,6 +270,41 @@ export async function regenerateAgentStep(ctx: EngineContext, runId: string, age
   requireImpl(agent);
   const { run, steps } = await loadRunAndSteps(ctx, runId);
   return executeAgent(ctx, run, steps, agent, 'regenerate', feedback);
+}
+
+export async function regenerateSingleCreativeStep(
+  ctx: EngineContext,
+  runId: string,
+  creativeIndex: number,
+  feedback?: string | null,
+): Promise<CampaignAsset> {
+  const { run, steps } = await loadRunAndSteps(ctx, runId);
+  const gateIdx = gateIndexOf('creatives');
+  const upstream = collectUpstream(steps, gateIdx);
+  if (!upstream) {
+    throw new AppError('Upstream not approved', 409, 'Approve the earlier steps first.');
+  }
+
+  const masterPrompts = upstream.master_prompts as MasterPrompts | undefined;
+  if (!masterPrompts || !Array.isArray(masterPrompts.prompts)) {
+    throw new AppError('Master prompts missing', 400, 'Approved master prompts are required.');
+  }
+
+  if (creativeIndex < 1 || creativeIndex > masterPrompts.prompts.length) {
+    throw new AppError('Invalid creative index', 400, `Creative index must be between 1 and ${masterPrompts.prompts.length}.`);
+  }
+
+  const prompt = masterPrompts.prompts[creativeIndex - 1];
+  return generateSingleCreative({
+    runId: run.id,
+    userId: ctx.userId,
+    creativeIndex,
+    prompt,
+    quality: run.settings?.quality || 'Standard',
+    client: ctx.client,
+    imageClient: ctx.imageClient || ctx.geminiClient,
+    feedback,
+  });
 }
 
 // ---------------------------------------------------------------------------

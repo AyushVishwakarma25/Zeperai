@@ -396,3 +396,12 @@ drop policy if exists "Authenticated Users can Upload Landing Assets" on storage
 create policy "Authenticated Users can Upload Landing Assets"
   on storage.objects for insert
   with check ( bucket_id = 'landing-assets' and auth.role() = 'authenticated' );
+
+-- Lock down the SECURITY DEFINER credit functions: server (service_role) only.
+-- See supabase_credit_functions_lockdown_migration.sql for the rationale.
+ALTER FUNCTION public.spend_credits(uuid, numeric, text)  SET search_path = public;
+ALTER FUNCTION public.refund_credits(uuid, numeric, text) SET search_path = public;
+REVOKE ALL ON FUNCTION public.spend_credits(uuid, numeric, text)  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.refund_credits(uuid, numeric, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.spend_credits(uuid, numeric, text)  TO service_role;
+GRANT EXECUTE ON FUNCTION public.refund_credits(uuid, numeric, text) TO service_role;
