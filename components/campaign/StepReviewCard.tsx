@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import type { BrandContext, CampaignStep, CampaignStrategy, CompetitorResearch, MarketResearch } from '../../src/campaignStudio/types.js';
+import type { BrandContext, CampaignStep, CampaignStrategy, CompetitorResearch, CreativeDirection, MarketResearch, MasterPrompts } from '../../src/campaignStudio/types.js';
 import { MAX_REGENERATIONS_PER_STEP } from '../../src/campaignStudio/types.js';
 import { AGENT_BLURBS, AGENT_START_LABELS, EDITABLE_AGENTS, FEEDBACK_SUGGESTIONS, type AgentView, type GateView } from '../../src/campaignStudio/client/viewModel.js';
 import { Button } from '../ui/Button.js';
 import { Icon } from '../ui/Icon.js';
 import { BrandContextEditor } from './BrandContextEditor.js';
 import { BrandContextView } from './BrandContextView.js';
+import { CreativeDirectionView } from './CreativeDirectionView.js';
+import { MasterPromptsView } from './MasterPromptsView.js';
 import { CompetitorResearchView, MarketResearchView } from './ResearchViews.js';
 import { Chip, GeneratingPanel, Notice, inputClass } from './shared.js';
 import { StrategyView } from './StrategyView.js';
@@ -44,6 +46,8 @@ const OutputView: React.FC<{ agent: string; output: unknown }> = ({ agent, outpu
   if (agent === 'market_research' && output) return <MarketResearchView data={output as MarketResearch} />;
   if (agent === 'competitor_research' && output) return <CompetitorResearchView data={output as CompetitorResearch} />;
   if (agent === 'strategy' && output) return <StrategyView data={output as CampaignStrategy} />;
+  if (agent === 'creative_direction' && output) return <CreativeDirectionView data={output as CreativeDirection} />;
+  if (agent === 'master_prompts' && output) return <MasterPromptsView data={output as MasterPrompts} />;
   return <pre className="text-xs bg-slate-50 rounded-xl p-3 overflow-auto max-h-96">{JSON.stringify(output, null, 2)}</pre>;
 };
 

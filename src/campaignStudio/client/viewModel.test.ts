@@ -12,10 +12,10 @@ const step = (agent: CampaignAgent, version: number, status: StepStatus, extra: 
 const run = (over: Partial<CampaignRun> = {}) => ({ current_step: 'brand_analysis', status: 'active', ...over }) as Pick<CampaignRun, 'current_step' | 'status'>;
 const statuses = (g: ReturnType<typeof deriveGates>) => g.map((x) => x.status);
 
-test('fresh run: first gate ready, the rest locked, stages up to strategy implemented', () => {
+test('fresh run: first gate ready, the rest locked, all stages up to master prompts implemented', () => {
   const g = deriveGates(run(), []);
   assert.deepEqual(statuses(g), ['ready', 'locked', 'locked', 'locked', 'locked', 'locked']);
-  assert.deepEqual(g.map((x) => x.implemented), [true, true, true, false, false, false]);
+  assert.deepEqual(g.map((x) => x.implemented), [true, true, true, true, true, false]);
   assert.equal(g[1].agents.length, 2, 'research gate holds both research agents');
   assert.equal(g[0].isCurrent, true);
 });

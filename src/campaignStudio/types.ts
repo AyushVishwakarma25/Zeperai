@@ -276,3 +276,50 @@ export interface CampaignStrategy {
   guardrails: string[];
   rationale: string;
 }
+
+// ---------------------------------------------------------------------------
+// Agents 5-6 output: creative direction and master prompts
+// ---------------------------------------------------------------------------
+
+/** One creative concept within a content pillar. */
+export interface CreativeConcept {
+  /** Stable slug used to link this concept to its master prompts, e.g. "speed-1". */
+  id: string;
+  pillar: string;
+  headline: string;
+  subheadline?: string;
+  visualIdea: string;
+  storyline: string;
+  cta: string;
+  composition: string;
+}
+
+/** Agent 5 (creative_direction). Concepts must cover the strategy's creativeMix exactly (validated). */
+export interface CreativeDirection {
+  visualTheme: string;
+  moodKeywords: string[];
+  colorGuidance: string;
+  typographyGuidance: string;
+  photographyStyle: string;
+  concepts: CreativeConcept[];
+  thingsToAvoid: string[];
+}
+
+/** Agent 6 (master_prompts). One prompt per concept, ready for the image model. */
+export interface MasterPrompt {
+  /** Matches a CreativeConcept.id. */
+  conceptId: string;
+  pillar: string;
+  headline: string;
+  subheadline?: string;
+  cta: string;
+  /** Full image-generation prompt: subject, composition, lighting, style, colours; no text-in-image instructions. */
+  imagePrompt: string;
+  /** Short negative cues (e.g. "no clutter, no extra text"). */
+  negativePrompt?: string;
+  aspectRatio: string;
+}
+
+export interface MasterPrompts {
+  prompts: MasterPrompt[];
+}

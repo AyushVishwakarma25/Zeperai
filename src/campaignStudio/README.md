@@ -121,6 +121,6 @@ Stages without an agent show "coming soon" until they are registered in `server/
 - [x] 3. Brand Analyst agent + SSRF-safe fetcher + step engine (run / regenerate / edit / approve / cancel, versions)
 - [x] 4. Frontend: dashboard entry, campaign list, new-campaign form, stepper, review card (approve / regenerate with note / edit / version browsing)
 - [x] 5. Market + competitor research (parallel, one gate) and Strategy
-- [ ] 6. Creative Direction and Master Prompts
+- [x] 6. Creative Direction and Master Prompts
 - [ ] 7. Bulk creative generation, overlay, per-creative redo, save to My Designs
 - [ ] 8. Credit pricing, redo caps, admin monitoring, QA agent

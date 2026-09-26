@@ -1,5 +1,5 @@
-/** Test fixtures shared by the research and strategy agent tests. */
-import type { BrandContext, CampaignRun, CompetitorResearch, MarketResearch } from '../../types.js';
+/** Test fixtures shared by the research, strategy, creative direction and master prompts agent tests. */
+import type { BrandContext, CampaignRun, CampaignStrategy, CompetitorResearch, MarketResearch } from '../../types.js';
 import type { GenAIClientLike } from '../gemini.js';
 
 export const BRAND: BrandContext = {
@@ -43,6 +43,34 @@ export const STRATEGY_JSON = {
   creativeMix: [{ pillar: 'Speed', count: 3 }, { pillar: 'Protein proof', count: 2 }],
   creativeFormats: [{ format: 'Product hero with timer', why: 'Makes the speed claim visual' }],
   successMetrics: ['Cost per purchase', 'Add-to-cart rate'], guardrails: ['No medical claims'], rationale: 'Speed is the white space competitors do not own.',
+};
+
+export const STRATEGY: CampaignStrategy = JSON.parse(JSON.stringify(STRATEGY_JSON));
+
+export const CREATIVE_DIRECTION_JSON = {
+  visualTheme: 'Bright morning kitchens, real bowls, no stock-photo gloss',
+  moodKeywords: ['fresh', 'fast', 'honest'],
+  colorGuidance: 'Lean on the brand orange as an accent against warm neutrals.',
+  typographyGuidance: 'Bold, rounded sans-serif for headlines.',
+  photographyStyle: 'Natural light, slightly overhead angle, real kitchen textures.',
+  concepts: [
+    { pillar: 'Speed', headline: 'Ready before the kettle', subheadline: 'Two minutes, done', visualIdea: 'A steaming bowl next to a kitchen timer at 0:02', storyline: 'Someone about to leave for work grabs breakfast without slowing down.', cta: 'Order your first box', composition: 'Overhead shot, bowl centered, timer in soft focus foreground' },
+    { pillar: 'Speed', headline: 'Breakfast, solved', visualIdea: 'Hands pouring hot water into the bowl', storyline: 'The whole prep in one motion.', cta: 'Order your first box', composition: 'Close crop on hands and bowl, steam visible' },
+    { pillar: 'Speed', headline: 'No time, no problem', visualIdea: 'A commuter eating from the bowl on a train seat', storyline: 'Breakfast fits into a rushed morning commute.', cta: 'Order your first box', composition: 'Side angle, shallow depth of field, train window blur behind' },
+    { pillar: 'Protein proof', headline: '20g protein, one bowl', visualIdea: 'Close-up of the nutrition label protein line highlighted', storyline: 'The number that matters, front and center.', cta: 'Order your first box', composition: 'Macro shot of label with bowl blurred behind' },
+    { pillar: 'Protein proof', headline: 'Real fuel, real fast', visualIdea: 'Ingredients (oats, whey) arranged around the bowl', storyline: 'Transparency about what is actually inside.', cta: 'Order your first box', composition: 'Flat lay, ingredients radiating from the bowl' },
+  ],
+  thingsToAvoid: ['Gym clichés', 'Overly staged stock-photo breakfasts'],
+};
+
+export const MASTER_PROMPTS_JSON = {
+  prompts: [
+    { conceptId: 'speed-1', headline: 'Ready before the kettle boils', cta: 'Order now', imagePrompt: 'Overhead photo of a steaming bowl of chocolate oats next to a kitchen timer showing 0:02, warm morning light, wooden table, orange accent napkin' },
+    { conceptId: 'speed-2', headline: 'Breakfast, solved in one pour', cta: 'Order now', imagePrompt: 'Close-up of hands pouring hot water into a bowl of oats, steam rising, soft natural light, shallow depth of field' },
+    { conceptId: 'speed-3', headline: 'Breakfast that keeps up with you', cta: 'Order now', imagePrompt: 'Person eating from a bowl while seated on a train, motion blur through the window, warm tones' },
+    { conceptId: 'protein-proof-1', headline: '20 grams of protein, zero effort', cta: 'Order now', imagePrompt: 'Macro shot of a nutrition label highlighting 20g protein, blurred bowl of oats in the background, clean lighting' },
+    { conceptId: 'protein-proof-2', headline: 'Real ingredients, real fuel', cta: 'Order now', imagePrompt: 'Flat lay of oats, whey powder and a finished bowl arranged on a wooden surface, overhead natural light' },
+  ],
 };
 
 export const okReply = (obj: unknown, extra: Record<string, unknown> = {}) => ({

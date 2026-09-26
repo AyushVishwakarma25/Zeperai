@@ -1,6 +1,6 @@
 /** CAMPAIGN STUDIO - helpers for reading approved upstream outputs inside agents. */
 
-import type { BrandContext, CampaignRun, CompetitorResearch, MarketResearch } from '../../types.js';
+import type { BrandContext, CampaignRun, CampaignStrategy, CompetitorResearch, CreativeDirection, MarketResearch } from '../../types.js';
 import { defuse } from './promptUtils.js';
 import type { AgentRunContext } from './types.js';
 
@@ -23,6 +23,18 @@ export function requireCompetitors(ctx: AgentRunContext): CompetitorResearch {
   return c;
 }
 
+export function requireStrategy(ctx: AgentRunContext): CampaignStrategy {
+  const s = ctx.upstream.strategy as CampaignStrategy | undefined;
+  if (!s || typeof s !== 'object' || !s.bigIdea) throw new Error('The approved campaign strategy is missing.');
+  return s;
+}
+
+export function requireCreativeDirection(ctx: AgentRunContext): CreativeDirection {
+  const c = ctx.upstream.creative_direction as CreativeDirection | undefined;
+  if (!c || typeof c !== 'object' || !Array.isArray(c.concepts)) throw new Error('The approved creative direction is missing.');
+  return c;
+}
+
 /** Compact brand facts for prompts (drops images, sources and other bulk). */
 export function brandForPrompt(b: BrandContext): Record<string, unknown> {
   return {
@@ -42,4 +54,22 @@ export function brandForPrompt(b: BrandContext): Record<string, unknown> {
 
 export function goalLine(run: Pick<CampaignRun, 'goal' | 'goal_notes'>): string {
   return `${run.goal}${run.goal_notes ? ` - ${defuse(run.goal_notes)}` : ''}`;
+}
+
+/** Compact strategy facts for prompts (drops nothing important, but keeps it small). */
+export function strategyForPrompt(s: CampaignStrategy): Record<string, unknown> {
+  return {
+    bigIdea: s.bigIdea,
+    positioningStatement: s.positioningStatement,
+    audience: s.audience,
+    keyMessages: s.keyMessages,
+    funnelStage: s.funnelStage,
+    offer: s.offer,
+    cta: s.cta,
+    tone: s.tone,
+    contentPillars: s.contentPillars,
+    creativeMix: s.creativeMix,
+    creativeFormats: s.creativeFormats,
+    guardrails: s.guardrails,
+  };
 }
