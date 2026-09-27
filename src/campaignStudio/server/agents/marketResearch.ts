@@ -29,9 +29,10 @@ export const MARKET_RESEARCH_SCHEMA = {
     channelInsights: { type: 'ARRAY', items: { type: 'OBJECT', properties: { channel: S, insight: S }, required: ['channel', 'insight'] } },
     opportunities: strings,
     risks: strings,
-    gaps: strings,
+    searchGaps: strings,
+    askUserGaps: strings,
   },
-  required: ['category', 'marketSummary', 'trends', 'customerInsights', 'seasonalMoments', 'channelInsights', 'opportunities', 'risks', 'gaps'],
+  required: ['category', 'marketSummary', 'trends', 'customerInsights', 'seasonalMoments', 'channelInsights', 'opportunities', 'risks', 'searchGaps', 'askUserGaps'],
 } as const;
 
 const JSON_SHAPE = `{
@@ -43,27 +44,36 @@ const JSON_SHAPE = `{
   "channelInsights": [{"channel": "e.g. Instagram, Meta ads, marketplaces", "insight": "how buyers behave there"}],
   "opportunities": ["gaps or openings for this brand"],
   "risks": ["things that could hurt the campaign"],
-  "gaps": ["things you could not verify"]
+  "searchGaps": ["facts worth searching again for that search didn't verify"],
+  "askUserGaps": ["private business data no search will ever find (CAC, ROAS, AOV, exact distribution/listing status, internal formulation history, unpublished offers)"]
 }`;
 
 export const SYSTEM_INSTRUCTION = `You are a market research analyst at a creative studio that makes ads for D2C and e-commerce brands. Your research decides the campaign strategy, so it must be accurate and useful for advertising.
 
 Rules:
-1. Ground everything in Google Search results. State only what the results support. NEVER invent statistics, market sizes, percentages, brand names or quotes. If you cannot verify a number, leave it out and add it to "gaps".
-2. Prefer recent sources (last 12-18 months). When you cite a figure, include its year.
-3. Default to the brand's own markets (India when none are given). Use local context: festivals, price sensitivity, platforms people actually use.
-4. Focus on what changes ad creative and strategy: buyer motivations and objections, trends, seasonal moments, channel behaviour, pricing expectations. Skip generic industry filler.
-5. Be specific and concise. Every item must be something a strategist could act on.
-6. ${UNTRUSTED_DATA_RULE}
-7. Reply with ONLY the requested JSON object.`;
+1. Ground everything in Google Search results. State only what the results support. NEVER invent statistics, market sizes, percentages, brand names or quotes. If you cannot verify a number, leave it out.
+2. Classify anything you cannot verify into exactly one of two buckets: searchGaps (a search-findable fact you didn't confirm — will be retried) or askUserGaps (private business data no search will ever find — CAC, ROAS, AOV, exact distribution/listing status, internal formulation history, unpublished offers). Never put a private-data item in searchGaps.
+3. If <known_facts> is present and already answers one of the askUserGaps items, the agent should not list it as a gap at all.
+4. Prefer recent sources (last 12-18 months). When you cite a figure, include its year.
+5. Default to the brand's own markets (India when none are given). Use local context: festivals, price sensitivity, platforms people actually use.
+6. Focus on what changes ad creative and strategy: buyer motivations and objections, trends, seasonal moments, channel behaviour, pricing expectations. Skip generic industry filler.
+7. Be specific and concise. Every item must be something a strategist could act on.
+8. ${UNTRUSTED_DATA_RULE}
+9. If <known_facts> conflicts with or adds to public information, ALWAYS trust <known_facts> — it comes directly from the brand, not from search. Never contradict it. Use it to fill gaps that search cannot answer (internal metrics, unpublished changes, business specifics).
+10. Reply with ONLY the requested JSON object.`;
 
 export function buildPrompt(ctx: AgentRunContext): string {
   const brand = requireBrand(ctx);
   const parts = [
     `<task>Research the market for this brand so the campaign strategy is grounded in evidence. Campaign goal (for emphasis): ${goalLine(ctx.run)}.\nRun several targeted searches: category trends, buyer needs and objections, seasonal and festive demand in the brand's markets, social and paid-ads behaviour, and price expectations.</task>`,
+  ];
+  if (ctx.run.known_facts) {
+    parts.push(fence('known_facts', ctx.run.known_facts));
+  }
+  parts.push(
     fence('brand_context', JSON.stringify(brandForPrompt(brand))),
     `Return exactly this JSON structure (3-6 trends, 3-6 customer insights, up to 5 seasonal moments, up to 5 channel insights):\n${JSON_SHAPE}`,
-  ];
+  );
   const redo = feedbackBlock(ctx.feedback, ctx.previous?.output);
   if (redo) parts.push(redo);
   return parts.join('\n\n');
@@ -105,7 +115,8 @@ export function parseMarketResearch(raw: unknown, fallbackCategory: string): Mar
     }),
     opportunities,
     risks: strList(r.risks, 5, 250),
-    gaps: strList(r.gaps, 6, 200),
+    searchGaps: strList(r.searchGaps ?? r.gaps, 6, 200),
+    askUserGaps: strList(r.askUserGaps, 6, 200),
     sources: [],
     grounded: false,
   };

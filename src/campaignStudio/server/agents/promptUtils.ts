@@ -16,10 +16,13 @@ export const FENCE_TAG_NAMES = [
   'candidates',
   'previous_analysis',
   'previous_output',
+  'known_facts',
   'brand_context',
   'market_research',
   'competitor_research',
   'strategy_inputs',
+  'platforms',
+  'product_images',
 ] as const;
 
 const FENCE_TAGS = new RegExp(`<\\/?\\s*(${FENCE_TAG_NAMES.join('|')})\\b[^>]*>`, 'gi');

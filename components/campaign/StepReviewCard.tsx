@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import type { BrandContext, CampaignStep, CampaignStrategy, CompetitorResearch, MarketResearch } from '../../src/campaignStudio/types.js';
+import type { BrandContext, CampaignAsset, CampaignStep, CampaignStrategy, CompetitorResearch, CreativeDirection, MarketResearch, MasterPrompts } from '../../src/campaignStudio/types.js';
 import { MAX_REGENERATIONS_PER_STEP } from '../../src/campaignStudio/types.js';
 import { AGENT_BLURBS, AGENT_START_LABELS, EDITABLE_AGENTS, FEEDBACK_SUGGESTIONS, type AgentView, type GateView } from '../../src/campaignStudio/client/viewModel.js';
 import { Button } from '../ui/Button.js';
 import { Icon } from '../ui/Icon.js';
 import { BrandContextEditor } from './BrandContextEditor.js';
 import { BrandContextView } from './BrandContextView.js';
+import { CreativeDirectionView } from './CreativeDirectionView.js';
+import { CreativesView } from './CreativesView.js';
+import { MasterPromptsView } from './MasterPromptsView.js';
 import { CompetitorResearchView, MarketResearchView } from './ResearchViews.js';
 import { Chip, GeneratingPanel, Notice, inputClass } from './shared.js';
 import { StrategyView } from './StrategyView.js';
@@ -24,6 +27,11 @@ interface Props {
   title?: string;
   /** False inside multi-agent gates, where one gate-level button approves everything together. */
   showApprove?: boolean;
+  runId?: string;
+  assets?: CampaignAsset[];
+  onOpenKnownFacts?: () => void;
+  onRefresh?: () => Promise<void> | void;
+  notify?: (message: string, type?: 'success' | 'error') => void;
   onRun: () => void;
   onRegenerate: (feedback: string) => void;
   onEdit: (output: unknown) => void;
@@ -36,18 +44,43 @@ const GENERATING_HINTS: Record<string, string[]> = {
   market_research: ['Searching for category trends…', 'Looking at what buyers say and ask…', 'Checking seasonal and festive demand…', 'Writing up the market picture…'],
   competitor_research: ['Finding your closest competitors…', 'Reading how they position and price…', 'Looking at the ads and content they run…', 'Spotting the space you can own…'],
   strategy: ['Weighing the research against your goal…', 'Choosing one big idea…', 'Planning your content pillars…', 'Splitting your creatives across the pillars…'],
+  creative_direction: ['Turning pillars into creative concepts…', 'Planning photographic style and lighting…', 'Drafting storylines and compositions…', 'Refining visual ideas…'],
+  master_prompts: ['Crafting ad headlines and CTAs…', 'Writing visual background prompts…', 'Applying negative prompts and aspect ratios…', 'Checking concept coverage…'],
+  creatives: ['Resolving image model and credits…', 'Generating visual background for each concept…', 'Compositing headline and CTA overlays…', 'Finalising static creatives…'],
 };
 
-/** Renders a step's output. Only the brand analysis has a dedicated view so far. */
-const OutputView: React.FC<{ agent: string; output: unknown }> = ({ agent, output }) => {
+/** Renders a step's output. */
+const OutputView: React.FC<{
+  agent: string;
+  output: unknown;
+  runId?: string;
+  assets?: CampaignAsset[];
+  readOnly?: boolean;
+  onOpenKnownFacts?: () => void;
+  onRefresh?: () => Promise<void> | void;
+  notify?: (message: string, type?: 'success' | 'error') => void;
+}> = ({ agent, output, runId, assets = [], readOnly, onOpenKnownFacts, onRefresh, notify }) => {
   if (agent === 'brand_analysis' && output) return <BrandContextView brand={output as BrandContext} />;
-  if (agent === 'market_research' && output) return <MarketResearchView data={output as MarketResearch} />;
-  if (agent === 'competitor_research' && output) return <CompetitorResearchView data={output as CompetitorResearch} />;
+  if (agent === 'market_research' && output) return <MarketResearchView data={output as MarketResearch} onOpenKnownFacts={onOpenKnownFacts} />;
+  if (agent === 'competitor_research' && output) return <CompetitorResearchView data={output as CompetitorResearch} onOpenKnownFacts={onOpenKnownFacts} />;
   if (agent === 'strategy' && output) return <StrategyView data={output as CampaignStrategy} />;
+  if (agent === 'creative_direction' && output) return <CreativeDirectionView data={output as CreativeDirection} />;
+  if (agent === 'master_prompts' && output) return <MasterPromptsView data={output as MasterPrompts} />;
+  if (agent === 'creatives') {
+    return (
+      <CreativesView
+        runId={runId || ''}
+        assets={assets}
+        readOnly={readOnly}
+        onRefresh={onRefresh}
+        notify={notify}
+      />
+    );
+  }
   return <pre className="text-xs bg-slate-50 rounded-xl p-3 overflow-auto max-h-96">{JSON.stringify(output, null, 2)}</pre>;
 };
 
-export const StepReviewCard: React.FC<Props> = ({ gate, agent, busy, error, readOnly, title: titleProp, showApprove = true, onRun, onRegenerate, onEdit, onApprove, onDismissError }) => {
+export const StepReviewCard: React.FC<Props> = ({ gate, agent, busy, error, readOnly, title: titleProp, showApprove = true, runId, assets, onOpenKnownFacts, onRefresh, notify, onRun, onRegenerate, onEdit, onApprove, onDismissError }) => {
   const [mode, setMode] = useState<'view' | 'regenerate' | 'edit'>('view');
   const [feedback, setFeedback] = useState('');
   const [viewVersion, setViewVersion] = useState<number | null>(null); // null = live version
@@ -161,7 +194,16 @@ export const StepReviewCard: React.FC<Props> = ({ gate, agent, busy, error, read
         />
       ) : (
         <>
-          <OutputView agent={agent.agent} output={shown?.output} />
+          <OutputView
+            agent={agent.agent}
+            output={shown?.output}
+            runId={runId}
+            assets={assets}
+            readOnly={readOnly}
+            onOpenKnownFacts={onOpenKnownFacts}
+            onRefresh={onRefresh}
+            notify={notify}
+          />
 
           {!readOnly && !viewingOld && (
             <div className="mt-5">

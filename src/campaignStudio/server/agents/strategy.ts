@@ -49,23 +49,32 @@ Rules:
 3. Respect the brand voice (its "doSay"/"dontSay") and use the competitor "whiteSpace" and "messagingToAvoid" to differentiate, not imitate.
 4. The campaign goal decides the funnel stage, offer and call to action. Stay consistent with it.
 5. "contentPillars" are 2-4 distinct themes the creatives will explore. "creativeMix" assigns EVERY creative to a pillar, and its counts MUST add up to exactly the number of creatives requested. Use pillar names exactly as written in "contentPillars".
-6. "guardrails" lists claims or approaches to avoid (health, finance, comparative or regulated claims, tone risks) so nobody creates a non-compliant ad.
-7. "rationale" explains in 2-4 sentences why this strategy fits the evidence. When the user asked for changes, say what changed and why.
-8. ${UNTRUSTED_DATA_RULE}
-9. Reply with ONLY the requested JSON object.`;
+6. creativeFormats must be appropriate to the selected platforms (e.g. Meta ads favour single-image or carousel; quick-commerce platforms like Blinkit/Zepto favour simple high-contrast product-forward tiles with minimal text since they render small; marketplace platforms like Amazon/Flipkart favour clean catalog-style hero shots).
+7. "guardrails" lists claims or approaches to avoid (health, finance, comparative or regulated claims, tone risks) so nobody creates a non-compliant ad.
+8. "rationale" explains in 2-4 sentences why this strategy fits the evidence. When the user asked for changes, say what changed and why.
+9. ${UNTRUSTED_DATA_RULE}
+10. If <known_facts> conflicts with or adds to public information, ALWAYS trust <known_facts> — it comes directly from the brand, not from search. Never contradict it. Use it to fill gaps that search cannot answer (internal metrics, unpublished changes, business specifics).
+11. Reply with ONLY the requested JSON object.`;
 
 export function buildPrompt(ctx: AgentRunContext): string {
   const brand = requireBrand(ctx);
   const market = requireMarket(ctx);
   const competitors = requireCompetitors(ctx);
   const count = ctx.run.settings?.creativeCount ?? 5;
+  const platforms = ctx.run.settings?.platforms ?? ['meta_ads'];
 
   const parts = [
     `<task>Create the campaign strategy. Goal: ${goalLine(ctx.run)}.\nNumber of static creatives to be produced: ${count}. Aspect ratio: ${ctx.run.settings?.aspectRatio ?? '1:1'}.\nThe creativeMix counts must add up to exactly ${count}.</task>`,
+  ];
+  if (ctx.run.known_facts) {
+    parts.push(fence('known_facts', ctx.run.known_facts));
+  }
+  parts.push(
     fence('brand_context', JSON.stringify(brandForPrompt(brand))),
+    fence('platforms', JSON.stringify(platforms)),
     fence('market_research', JSON.stringify({ ...market, sources: undefined })),
     fence('competitor_research', JSON.stringify({ ...competitors, sources: undefined })),
-  ];
+  );
 
   if (ctx.previous?.output) {
     parts.push(fence('previous_output', JSON.stringify(ctx.previous.output)));

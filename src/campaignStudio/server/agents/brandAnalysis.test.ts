@@ -16,8 +16,8 @@ const okFetch: SafeFetcher = async (url) => ({ url, status: 200, contentType: 't
 const failFetch: SafeFetcher = async () => { throw new SafeFetchError('http_error', 'HTTP 403', 403); };
 
 const baseRun: CampaignRun = {
-  id: 'r1', user_id: 'u1', title: 'x', input_type: 'website', website_url: 'https://prustlr.com/', brand_details: null,
-  goal: 'sales', goal_notes: null, status: 'active', current_step: 'brand_analysis', brand_context: {}, settings: { creativeCount: 5, quality: 'Standard', aspectRatio: '1:1' },
+  id: 'r1', user_id: 'u1', title: 'x', input_type: 'website', website_url: 'https://prustlr.com/', brand_details: null, known_facts: null,
+  goal: 'sales', goal_notes: null, status: 'active', current_step: 'brand_analysis', brand_context: {}, settings: { creativeCount: 5, quality: 'Standard', aspectRatio: '1:1', platforms: ['meta_ads'] },
   credits_spent: 0, created_at: '', updated_at: '',
 };
 

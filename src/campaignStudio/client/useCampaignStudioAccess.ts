@@ -24,7 +24,17 @@ async function resolveAccess(): Promise<AccessState> {
 
   const pending = campaignApi
     .getMeta()
-    .then((m): AccessState => ({ status: 'enabled', enabled: true, meta: { goals: m.goals, aspectRatios: m.aspectRatios, maxCreatives: m.maxCreatives, defaults: m.defaults } }))
+    .then((m): AccessState => ({
+      status: 'enabled',
+      enabled: true,
+      meta: {
+        goals: m.goals,
+        platforms: m.platforms,
+        aspectRatios: m.aspectRatios,
+        maxCreatives: m.maxCreatives,
+        defaults: m.defaults,
+      },
+    }))
     .catch((err: any): AccessState => {
       // 404 (feature off / not on the beta list) and 403 are definitive. Anything else may be transient: don't cache it.
       if (!(err && (err.status === 404 || err.status === 403))) cache.delete(userId);

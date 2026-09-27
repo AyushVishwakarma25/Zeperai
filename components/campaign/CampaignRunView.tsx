@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { CampaignAgent } from '../../src/campaignStudio/types.js';
 import { CampaignApiError, type RunDetail } from '../../src/campaignStudio/client/api.js';
 import { campaignApi } from '../../src/campaignStudio/client/defaultApi.js';
-import { currentGateIndex, deriveGates, goalLabel, hasInFlight, hostnameOf, progressLabel } from '../../src/campaignStudio/client/viewModel.js';
+import { currentGateIndex, deriveGates, goalLabel, hasInFlight, hostnameOf, platformLabel, progressLabel } from '../../src/campaignStudio/client/viewModel.js';
 import { Button } from '../ui/Button.js';
 import { Icon } from '../ui/Icon.js';
 import { Spinner } from '../ui/Spinner.js';
-import { Chip, Notice, SectionCard } from './shared.js';
+import { Chip, Notice, SectionCard, inputClass } from './shared.js';
+import { ProductImagesUploader } from './ProductImagesUploader.js';
 import { StepReviewCard, type BusyKind } from './StepReviewCard.js';
 import { Stepper } from './Stepper.js';
 
@@ -26,7 +27,22 @@ export const CampaignRunView: React.FC<Props> = ({ runId, onBack, notify }) => {
   const [busy, setBusy] = useState<Partial<Record<CampaignAgent, Exclude<BusyKind, null>>>>({});
   const [actionErrors, setActionErrors] = useState<Partial<Record<CampaignAgent, string>>>({});
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [editingFacts, setEditingFacts] = useState(false);
+  const [factsDraft, setFactsDraft] = useState('');
+  const [savingFacts, setSavingFacts] = useState(false);
   const alive = useRef(true);
+
+  useEffect(() => {
+    const handler = () => {
+      setFactsDraft(detail?.run.known_facts || '');
+      setEditingFacts(true);
+      setTimeout(() => {
+        document.getElementById('campaign-known-facts-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+    };
+    window.addEventListener('campaign:open-known-facts', handler);
+    return () => window.removeEventListener('campaign:open-known-facts', handler);
+  }, [detail?.run.known_facts]);
 
   useEffect(() => {
     alive.current = true;
@@ -129,6 +145,28 @@ export const CampaignRunView: React.FC<Props> = ({ runId, onBack, notify }) => {
     }
   };
 
+  const handleOpenKnownFacts = () => {
+    setFactsDraft(run.known_facts || '');
+    setEditingFacts(true);
+    setTimeout(() => {
+      document.getElementById('campaign-known-facts-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+  };
+
+  const handleSaveFacts = async () => {
+    setSavingFacts(true);
+    try {
+      const res = await campaignApi.updateKnownFacts(run.id, factsDraft.trim() || null);
+      setDetail((prev) => (prev ? { ...prev, run: res.run } : prev));
+      setEditingFacts(false);
+      notify('Known facts updated. You can regenerate any step to apply them.', 'success');
+    } catch (e) {
+      notify(messageOf(e), 'error');
+    } finally {
+      if (alive.current) setSavingFacts(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto w-full space-y-5">
       {/* Title row */}
@@ -153,13 +191,82 @@ export const CampaignRunView: React.FC<Props> = ({ runId, onBack, notify }) => {
         </div>
       </div>
 
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold text-text-primary">{run.title || 'Untitled campaign'}</h2>
+      <div id="campaign-known-facts-section">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xl sm:text-2xl font-bold text-text-primary">{run.title || 'Untitled campaign'}</h2>
+          {active && !editingFacts && (
+            <button
+              type="button"
+              onClick={handleOpenKnownFacts}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+            >
+              <Icon name="edit" className="w-3.5 h-3.5" />
+              {run.known_facts ? 'Edit context' : 'Add more context'}
+            </button>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-2 mt-2">
           <Chip>{goalLabel(String(run.goal))}</Chip>
+          {run.settings?.platforms?.map((p) => (
+            <Chip key={p}>{platformLabel(p)}</Chip>
+          ))}
           {run.website_url && <Chip>{hostnameOf(run.website_url)}</Chip>}
           <Chip tone={run.status === 'active' ? 'default' : run.status === 'completed' ? 'good' : 'bad'}>{progressLabel(run)}</Chip>
         </div>
+
+        {/* Known facts inline editor */}
+        {editingFacts && (
+          <div className="mt-3 bg-white border border-primary/20 rounded-xl p-3.5 shadow-sm space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-700">Known facts &amp; internal metrics (trusted above search)</span>
+              <span className="text-[11px] text-slate-400">Available on next run / regenerate</span>
+            </div>
+            <textarea
+              className={inputClass}
+              rows={3}
+              maxLength={4000}
+              placeholder="e.g. we changed the recipe from 24g to 27g protein in March 2026; our blended CAC is around ₹450; we're live on Blinkit in Delhi NCR only; average ROAS on Meta is 3.2x."
+              value={factsDraft}
+              onChange={(e) => setFactsDraft(e.target.value)}
+            />
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => setEditingFacts(false)}
+                disabled={savingFacts}
+                className="!py-1 !px-3 !text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveFacts}
+                isLoading={savingFacts}
+                className="!py-1 !px-3 !text-xs"
+              >
+                Save context
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Existing known facts summary badge if present and not editing */}
+        {run.known_facts && !editingFacts && (
+          <div className="mt-2.5 text-xs bg-slate-50 border border-slate-200/80 text-slate-700 rounded-lg px-3 py-2 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <span className="font-semibold text-slate-800">Known context: </span>
+              <span className="text-slate-600 line-clamp-2">{run.known_facts}</span>
+            </div>
+            {active && (
+              <button
+                type="button"
+                onClick={handleOpenKnownFacts}
+                className="text-primary hover:underline font-medium shrink-0"
+              >
+                Edit
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {run.status === 'cancelled' && <Notice tone="warning">This campaign was cancelled, so it is read-only.</Notice>}
@@ -169,21 +276,38 @@ export const CampaignRunView: React.FC<Props> = ({ runId, onBack, notify }) => {
       <SectionCard className="!p-4 sm:!p-6">
         {gate.implemented ? (
           gate.agents.length === 1 ? (
-            gate.agents.map((agent) => (
-              <StepReviewCard
-                key={agent.agent}
-                gate={gate}
-                agent={agent}
-                readOnly={!active}
-                busy={busy[agent.agent] ?? null}
-                error={actionErrors[agent.agent] ?? null}
-                onDismissError={() => setActionErrors((e) => ({ ...e, [agent.agent]: undefined }))}
-                onRun={() => perform(agent.agent, 'run', () => campaignApi.runStep(run.id, agent.agent))}
-                onRegenerate={(feedback) => perform(agent.agent, 'regenerate', () => campaignApi.regenerateStep(run.id, agent.agent, feedback))}
-                onEdit={(output) => perform(agent.agent, 'edit', () => campaignApi.editStep(run.id, agent.agent, output), 'Saved as a new version')}
-                onApprove={approveGate}
-              />
-            ))
+            gate.agents.map((agent) =>
+              agent.agent === 'master_prompts' && !agent.current && !agent.inFlight && !busy['master_prompts'] ? (
+                <ProductImagesUploader
+                  key={agent.agent}
+                  runId={run.id}
+                  images={detail.productImages || []}
+                  onImagesChanged={() => load(true)}
+                  onContinue={() => perform(agent.agent, 'run', () => campaignApi.runStep(run.id, agent.agent))}
+                  isGenerating={busy[agent.agent] === 'run'}
+                  readOnly={!active}
+                />
+              ) : (
+                <StepReviewCard
+                  key={agent.agent}
+                  gate={gate}
+                  agent={agent}
+                  readOnly={!active}
+                  busy={busy[agent.agent] ?? null}
+                  error={actionErrors[agent.agent] ?? null}
+                  runId={run.id}
+                  assets={detail.assets}
+                  onOpenKnownFacts={handleOpenKnownFacts}
+                  onRefresh={() => load(true)}
+                  notify={notify}
+                  onDismissError={() => setActionErrors((e) => ({ ...e, [agent.agent]: undefined }))}
+                  onRun={() => perform(agent.agent, 'run', () => campaignApi.runStep(run.id, agent.agent))}
+                  onRegenerate={(feedback) => perform(agent.agent, 'regenerate', () => campaignApi.regenerateStep(run.id, agent.agent, feedback))}
+                  onEdit={(output) => perform(agent.agent, 'edit', () => campaignApi.editStep(run.id, agent.agent, output), 'Saved as a new version')}
+                  onApprove={approveGate}
+                />
+              ),
+            )
           ) : (
             <div className="space-y-6" data-testid="multi-agent-gate">
               {gate.agents.every((a) => !a.current && !a.inFlight && !busy[a.agent] && !a.failedAfterCurrent) && active ? (
@@ -207,6 +331,7 @@ export const CampaignRunView: React.FC<Props> = ({ runId, onBack, notify }) => {
                         readOnly={!active}
                         busy={busy[agent.agent] ?? null}
                         error={actionErrors[agent.agent] ?? null}
+                        onOpenKnownFacts={handleOpenKnownFacts}
                         onDismissError={() => setActionErrors((e) => ({ ...e, [agent.agent]: undefined }))}
                         onRun={() => perform(agent.agent, 'run', () => campaignApi.runStep(run.id, agent.agent))}
                         onRegenerate={(feedback) => perform(agent.agent, 'regenerate', () => campaignApi.regenerateStep(run.id, agent.agent, feedback))}

@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS public.campaign_runs (
   input_type text NOT NULL CHECK (input_type IN ('website', 'details')),
   website_url text CHECK (website_url IS NULL OR char_length(website_url) <= 2048),
   brand_details text CHECK (brand_details IS NULL OR char_length(brand_details) <= 8000),
+  known_facts text CHECK (known_facts IS NULL OR char_length(known_facts) <= 4000),
   goal text NOT NULL,                       -- sales | awareness | engagement | leads | launch | retention | custom
   goal_notes text CHECK (goal_notes IS NULL OR char_length(goal_notes) <= 2000),
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'cancelled')),
@@ -138,11 +139,30 @@ CREATE TRIGGER trg_campaign_assets_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.campaign_touch_updated_at();
 
 -- --------------------------------------------------------------------
+-- 3b. Product Reference Images: optional real product photos for reference
+-- --------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.campaign_product_images (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_id uuid NOT NULL REFERENCES public.campaign_runs(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  storage_path text NOT NULL,
+  image_url text NOT NULL,
+  label text,
+  created_at timestamptz NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_product_images_run
+  ON public.campaign_product_images(run_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_campaign_product_images_user
+  ON public.campaign_product_images(user_id, created_at DESC);
+
+-- --------------------------------------------------------------------
 -- 4. Row Level Security: read-own only. Writes = service role (server) only.
 -- --------------------------------------------------------------------
-ALTER TABLE public.campaign_runs   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.campaign_steps  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.campaign_assets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.campaign_runs            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.campaign_steps           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.campaign_assets          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.campaign_product_images  ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view own campaign runs" ON public.campaign_runs;
 CREATE POLICY "Users can view own campaign runs"
@@ -156,10 +176,14 @@ DROP POLICY IF EXISTS "Users can view own campaign assets" ON public.campaign_as
 CREATE POLICY "Users can view own campaign assets"
   ON public.campaign_assets FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view own campaign product images" ON public.campaign_product_images;
+CREATE POLICY "Users can view own campaign product images"
+  ON public.campaign_product_images FOR SELECT USING (auth.uid() = user_id);
+
 -- Defense in depth: even if a permissive policy is added by mistake later,
 -- client roles still hold no write privileges on these tables.
-REVOKE ALL ON public.campaign_runs, public.campaign_steps, public.campaign_assets FROM anon;
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.campaign_runs, public.campaign_steps, public.campaign_assets FROM authenticated;
+REVOKE ALL ON public.campaign_runs, public.campaign_steps, public.campaign_assets, public.campaign_product_images FROM anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.campaign_runs, public.campaign_steps, public.campaign_assets, public.campaign_product_images FROM authenticated;
 
 -- --------------------------------------------------------------------
 -- 5. Credits: atomic + idempotent spend, and one-shot refund

@@ -26,7 +26,7 @@ import { REVIEW_GATES, type CampaignAgent, type CampaignRun, type CampaignStep }
 import { AGENT_IMPLS } from './agents/index.js';
 import type { AgentImpl } from './agents/types.js';
 import { MAX_REGENERATIONS_PER_STEP, STALE_RUNNING_MS, getStepDeadlineMs } from './config.js';
-import { getRun, getStepFull, insertStep, listStepsLight, updateRun, updateStep, updateStepsWhere } from './db.js';
+import { getRun, getStepFull, insertStep, listProductImages, listStepsLight, updateRun, updateStep, updateStepsWhere } from './db.js';
 import { GeminiCallError, type GenAIClientLike } from './gemini.js';
 import type { SafeFetcher } from './safeFetch.js';
 import { SiteReadError } from './siteReader.js';
@@ -206,6 +206,21 @@ async function executeAgent(
     user_feedback: feedback,
   });
 
+  let productImages: { url: string; label?: string }[] | undefined;
+  if (agent === 'master_prompts') {
+    try {
+      const images = await listProductImages(ctx.client, ctx.userId, run.id);
+      if (images && images.length > 0) {
+        productImages = images.map((img) => ({
+          url: img.image_url,
+          label: img.label || undefined,
+        }));
+      }
+    } catch (err) {
+      console.warn('[campaign-studio] Could not load product images for run:', err);
+    }
+  }
+
   let result;
   try {
     result = await impl.run({
@@ -219,6 +234,7 @@ async function executeAgent(
       client: ctx.client,
       userId: ctx.userId,
       imageClient: ctx.imageClient,
+      productImages,
     });
   } catch (err) {
     const mapped = mapAgentError(err);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isUuid, normalizeWebsiteUrl, validateCreateRunInput } from './validation.js';
+import { isUuid, normalizeWebsiteUrl, validateAddProductImageInput, validateCreateRunInput, validateKnownFacts } from './validation.js';
 
 const okWebsite = { inputType: 'website', websiteUrl: 'example.com', goal: 'sales' };
 
@@ -51,7 +51,7 @@ test('validateCreateRunInput: website run gets defaults and a derived title', ()
   assert.equal(r.value.inputType, 'website');
   assert.equal(r.value.websiteUrl, 'https://example.com/');
   assert.equal(r.value.title, 'example.com');
-  assert.deepEqual(r.value.settings, { creativeCount: 5, quality: 'Standard', aspectRatio: '1:1' });
+  assert.deepEqual(r.value.settings, { creativeCount: 5, quality: 'Standard', aspectRatio: '1:1', platforms: ['meta_ads'] });
 });
 
 test('validateCreateRunInput: details run needs a real description', () => {
@@ -85,7 +85,23 @@ test('validateCreateRunInput: settings bounds and normalisation', () => {
 
   const r = withSettings({ creativeCount: '3', quality: 'pro', aspectRatio: '9:16' });
   assert.ok(r.ok);
-  assert.deepEqual(r.value.settings, { creativeCount: 3, quality: 'Pro', aspectRatio: '9:16' });
+  assert.deepEqual(r.value.settings, { creativeCount: 3, quality: 'Pro', aspectRatio: '9:16', platforms: ['meta_ads'] });
+});
+
+test('validateCreateRunInput: platforms validation and bounds', () => {
+  const withSettings = (settings: unknown) => validateCreateRunInput({ ...okWebsite, settings });
+  // empty list rejected
+  assert.equal(withSettings({ platforms: [] }).ok, false);
+  assert.equal(withSettings({ platforms: 'not-an-array' }).ok, false);
+  // unknown platform rejected
+  assert.equal(withSettings({ platforms: ['myspace'] }).ok, false);
+  // over cap (max 4) rejected
+  assert.equal(withSettings({ platforms: ['meta_ads', 'amazon', 'blinkit', 'zepto', 'flipkart'] }).ok, false);
+
+  // valid platforms, deduped
+  const r = withSettings({ platforms: ['meta_ads', 'blinkit', 'meta_ads', 'zepto'] });
+  assert.ok(r.ok);
+  assert.deepEqual(r.value.settings.platforms, ['meta_ads', 'blinkit', 'zepto']);
 });
 
 test('validateCreateRunInput: rejects non-object bodies and bad input types', () => {
@@ -116,3 +132,78 @@ test('isUuid', () => {
   assert.equal(isUuid(undefined), false);
   assert.equal(isUuid("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; drop table x;--"), false);
 });
+
+test('validateCreateRunInput: handles optional knownFacts with length limit and sanitization', () => {
+  const r = validateCreateRunInput({
+    ...okWebsite,
+    knownFacts: 'Current blended CAC is \u0000₹450 on Meta; 27g protein in recipe.',
+  });
+  assert.ok(r.ok);
+  assert.equal(r.value.knownFacts, 'Current blended CAC is ₹450 on Meta; 27g protein in recipe.');
+
+  const empty = validateCreateRunInput({ ...okWebsite, knownFacts: '   ' });
+  assert.ok(empty.ok);
+  assert.equal(empty.value.knownFacts, undefined);
+
+  assert.equal(validateCreateRunInput({ ...okWebsite, knownFacts: 'x'.repeat(4001) }).ok, false);
+});
+
+test('validateKnownFacts: validates string, null, empty and length limit', () => {
+  assert.deepEqual(validateKnownFacts(null), { ok: false, error: 'Invalid request body.' });
+  assert.deepEqual(validateKnownFacts('string'), { ok: false, error: 'Invalid request body.' });
+  assert.deepEqual(validateKnownFacts({}), { ok: true, value: null });
+  assert.deepEqual(validateKnownFacts({ knownFacts: '' }), { ok: true, value: null });
+  assert.deepEqual(validateKnownFacts({ knownFacts: null }), { ok: true, value: null });
+  assert.deepEqual(validateKnownFacts({ knownFacts: 123 }), { ok: false, error: 'Known facts must be text.' });
+
+  const valid = validateKnownFacts({ knownFacts: 'Recipe changed to 27g protein in March \u00002026.' });
+  assert.ok(valid.ok);
+  assert.equal(valid.value, 'Recipe changed to 27g protein in March 2026.');
+
+  const tooLong = validateKnownFacts({ knownFacts: 'a'.repeat(4001) });
+  assert.equal(tooLong.ok, false);
+});
+
+test('validateAddProductImageInput: validates storagePath, imageUrl, label, and bounds', () => {
+  const validWithStorage = validateAddProductImageInput({
+    storagePath: 'campaign-products/r1/front.png',
+    label: 'Choco Oats front',
+  });
+  assert.ok(validWithStorage.ok);
+  assert.equal(validWithStorage.value.storagePath, 'campaign-products/r1/front.png');
+  assert.equal(validWithStorage.value.imageUrl, 'campaign-products/r1/front.png');
+  assert.equal(validWithStorage.value.label, 'Choco Oats front');
+
+  const validWithHttpUrl = validateAddProductImageInput({
+    storagePath: 'campaign-products/r1/front.jpg',
+    imageUrl: 'https://example.com/storage/v1/object/public/designs/campaign-products/r1/front.jpg',
+    label: 'Berry Oats angle',
+  });
+  assert.ok(validWithHttpUrl.ok);
+  assert.equal(validWithHttpUrl.value.label, 'Berry Oats angle');
+
+  // Rejects bad input / missing path & url
+  assert.equal(validateAddProductImageInput(null).ok, false);
+  assert.equal(validateAddProductImageInput({}).ok, false);
+  assert.equal(validateAddProductImageInput({ storagePath: '   ' }).ok, false);
+
+  // Rejects invalid file extension
+  assert.equal(validateAddProductImageInput({ storagePath: 'evil.exe' }).ok, false);
+  assert.equal(validateAddProductImageInput({ storagePath: 'image.svg' }).ok, false);
+
+  // Rejects path traversal
+  assert.equal(validateAddProductImageInput({ storagePath: '../etc/passwd.png' }).ok, false);
+
+  // Rejects non-http(s) urls
+  assert.equal(validateAddProductImageInput({ imageUrl: 'javascript:alert(1).png' }).ok, false);
+  assert.equal(validateAddProductImageInput({ imageUrl: 'file:///secret.png' }).ok, false);
+
+  // Cleans label
+  const sanitized = validateAddProductImageInput({
+    storagePath: 'test.webp',
+    label: 'Front \u0000angle',
+  });
+  assert.ok(sanitized.ok);
+  assert.equal(sanitized.value.label, 'Front angle');
+});
+

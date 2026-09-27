@@ -37,24 +37,69 @@ export const ChipList: React.FC<{ items: string[]; tone?: 'default' | 'good' | '
     <Empty />
   );
 
-/** "We could not verify these" callout shared by the research views. */
-export const GapsNotice: React.FC<{ gaps: string[] }> = ({ gaps }) =>
+/** "Worth double-checking" callout for facts web search didn't confirm this time. */
+export const SearchGapsNotice: React.FC<{ gaps: string[] }> = ({ gaps }) =>
   gaps.length ? (
     <Notice tone="warning">
-      <p className="font-semibold mb-1">Not verified</p>
-      <ul className="list-disc pl-5 space-y-0.5">
+      <p className="font-semibold mb-1">Worth double-checking</p>
+      <ul className="list-disc pl-5 space-y-0.5 mb-1.5">
         {gaps.map((g) => (
           <li key={g}>{g}</li>
         ))}
       </ul>
+      <p className="text-xs text-slate-600">Regenerate to search again.</p>
     </Notice>
   ) : null;
 
-/** Warns when the answer was not backed by search results. */
+/** "Only you know this" callout for business data no search will find. */
+export const AskUserGapsNotice: React.FC<{
+  gaps: string[];
+  onOpenKnownFacts?: () => void;
+}> = ({ gaps, onOpenKnownFacts }) => {
+  if (!gaps.length) return null;
+
+  const handleClick = () => {
+    if (onOpenKnownFacts) {
+      onOpenKnownFacts();
+    } else {
+      window.dispatchEvent(new CustomEvent('campaign:open-known-facts'));
+      const el = document.getElementById('campaign-known-facts-section');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  return (
+    <Notice tone="info">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold mb-1 text-slate-800">Only you know this</p>
+          <ul className="list-disc pl-5 space-y-0.5 mb-2">
+            {gaps.map((g) => (
+              <li key={g}>{g}</li>
+            ))}
+          </ul>
+          <p className="text-xs text-slate-600">
+            These are business details no search can find. Add them under &ldquo;Anything we should know?&rdquo; when you regenerate, so every later step can use them.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleClick}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline shrink-0 mt-1 sm:mt-0"
+        >
+          <Icon name="edit" className="w-3.5 h-3.5" />
+          Add to context
+        </button>
+      </div>
+    </Notice>
+  );
+};
+
+/** Informs when the answer was not backed by live search results this time. */
 export const GroundingNotice: React.FC<{ grounded: boolean }> = ({ grounded }) =>
   grounded ? null : (
     <Notice tone="warning">
-      This wasn’t backed by live search results, so treat any figures with caution. Regenerate to try again.
+      This answer used general knowledge rather than a live search this time — regenerate if you want it to search again.
     </Notice>
   );
 

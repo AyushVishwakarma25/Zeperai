@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import type { CampaignGoal, CampaignInputType } from '../../src/campaignStudio/types.js';
+import type { CampaignGoal, CampaignInputType, CampaignPlatform } from '../../src/campaignStudio/types.js';
 import { CampaignApiError, type CampaignMeta, type CreateRunPayload } from '../../src/campaignStudio/client/api.js';
 import { campaignApi } from '../../src/campaignStudio/client/defaultApi.js';
-import { GOAL_INFO } from '../../src/campaignStudio/client/viewModel.js';
+import { GOAL_INFO, PLATFORM_INFO } from '../../src/campaignStudio/client/viewModel.js';
 import { Button } from '../ui/Button.js';
 import { Icon } from '../ui/Icon.js';
 import { Field, Notice, inputClass } from './shared.js';
@@ -14,11 +14,19 @@ interface Props {
 }
 
 /** Client-side checks mirror the server so the user gets instant feedback; the server remains the authority. */
-export function validateNewCampaign(v: { inputType: CampaignInputType; url: string; details: string; goal: CampaignGoal | ''; goalNotes: string }): string | null {
+export function validateNewCampaign(v: {
+  inputType: CampaignInputType;
+  url: string;
+  details: string;
+  goal: CampaignGoal | '';
+  goalNotes: string;
+  platforms?: CampaignPlatform[];
+}): string | null {
   if (v.inputType === 'website' && !v.url.trim()) return 'Enter your website address.';
   if (v.inputType === 'details' && v.details.trim().length < 20) return 'Describe your brand in a couple of sentences (at least 20 characters).';
   if (!v.goal) return 'Choose what this campaign should achieve.';
   if (v.goal === 'custom' && v.goalNotes.trim().length < 5) return 'Tell us about your goal.';
+  if (v.platforms && v.platforms.length === 0) return 'Choose at least one platform for your creatives.';
   return null;
 }
 
@@ -28,6 +36,9 @@ export const NewCampaignForm: React.FC<Props> = ({ meta, onCreated, onCancel }) 
   const [details, setDetails] = useState('');
   const [goal, setGoal] = useState<CampaignGoal | ''>('');
   const [goalNotes, setGoalNotes] = useState('');
+  const [platforms, setPlatforms] = useState<CampaignPlatform[]>(meta.defaults.platforms || ['meta_ads']);
+  const [showKnownFacts, setShowKnownFacts] = useState(false);
+  const [knownFacts, setKnownFacts] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [creativeCount, setCreativeCount] = useState(meta.defaults.creativeCount);
   const [aspectRatio, setAspectRatio] = useState(meta.defaults.aspectRatio);
@@ -35,9 +46,20 @@ export const NewCampaignForm: React.FC<Props> = ({ meta, onCreated, onCancel }) 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const togglePlatform = (p: CampaignPlatform) => {
+    setPlatforms((prev) => {
+      if (prev.includes(p)) {
+        if (prev.length === 1) return prev;
+        return prev.filter((item) => item !== p);
+      }
+      if (prev.length >= 4) return prev;
+      return [...prev, p];
+    });
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const problem = validateNewCampaign({ inputType, url, details, goal, goalNotes });
+    const problem = validateNewCampaign({ inputType, url, details, goal, goalNotes, platforms });
     if (problem) return setError(problem);
 
     const payload: CreateRunPayload = {
@@ -46,7 +68,8 @@ export const NewCampaignForm: React.FC<Props> = ({ meta, onCreated, onCancel }) 
       goalNotes: goalNotes.trim() || undefined,
       brandDetails: details.trim() || undefined,
       websiteUrl: inputType === 'website' ? url.trim() : undefined,
-      settings: { creativeCount, aspectRatio, quality },
+      knownFacts: knownFacts.trim() || undefined,
+      settings: { creativeCount, aspectRatio, quality, platforms },
     };
     setSubmitting(true);
     setError(null);
@@ -125,6 +148,66 @@ export const NewCampaignForm: React.FC<Props> = ({ meta, onCreated, onCancel }) 
           <textarea className={inputClass} rows={2} maxLength={2000} value={goalNotes} onChange={(e) => setGoalNotes(e.target.value)} />
         </Field>
       </fieldset>
+
+      {/* Target Platforms */}
+      <fieldset>
+        <div className="flex items-center justify-between mb-2">
+          <legend className="text-sm font-semibold text-text-primary">Where will these creatives run?</legend>
+          <span className="text-xs text-text-secondary">Pick 1 to 4 platforms</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2" role="group" aria-label="Target platforms">
+          {(meta.platforms || (Object.keys(PLATFORM_INFO) as CampaignPlatform[])).map((p) => {
+            const isSelected = platforms.includes(p);
+            const info = PLATFORM_INFO[p];
+            return (
+              <button
+                key={p}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => togglePlatform(p)}
+                className={`text-left rounded-xl border px-3 py-2.5 transition-colors ${
+                  isSelected ? 'border-primary bg-primary/5' : 'border-border-light bg-white hover:border-primary/50'
+                }`}
+              >
+                <span className={`block text-xs sm:text-sm font-semibold ${isSelected ? 'text-primary' : 'text-text-primary'}`}>
+                  {info?.label || p}
+                </span>
+                <span className="block text-[11px] text-text-secondary line-clamp-1">{info?.hint}</span>
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      {/* Known facts & internal metrics */}
+      <div>
+        <button
+          type="button"
+          aria-expanded={showKnownFacts}
+          onClick={() => setShowKnownFacts((s) => !s)}
+          className="inline-flex items-center text-sm font-semibold text-slate-600 hover:text-primary"
+        >
+          <Icon name={showKnownFacts ? 'chevron-up' : 'chevron-down'} className="w-4 h-4 mr-1" />
+          Known facts &amp; internal metrics (optional)
+        </button>
+        {showKnownFacts && (
+          <div className="mt-3">
+            <Field
+              label="Anything we should know that Google won't find? (optional)"
+              hint="Business-internal data (margins, CAC, live offers, unannounced changes) trusted above search."
+            >
+              <textarea
+                className={inputClass}
+                rows={3}
+                maxLength={4000}
+                placeholder="e.g. we changed the recipe from 24g to 27g protein in March 2026; our blended CAC is around ₹450; we're live on Blinkit in Delhi NCR only; average ROAS on Meta is 3.2x."
+                value={knownFacts}
+                onChange={(e) => setKnownFacts(e.target.value)}
+              />
+            </Field>
+          </div>
+        )}
+      </div>
 
       {/* Advanced */}
       <div>

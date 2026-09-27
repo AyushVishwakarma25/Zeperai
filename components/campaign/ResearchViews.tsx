@@ -2,9 +2,9 @@ import React from 'react';
 import type { CompetitorResearch, MarketResearch } from '../../src/campaignStudio/types.js';
 import { hostnameOf, isHttpUrl } from '../../src/campaignStudio/client/viewModel.js';
 import { Chip, SectionCard } from './shared.js';
-import { Bullets, ChipList, Empty, GapsNotice, GroundingNotice, Row, Sources } from './viewParts.js';
+import { AskUserGapsNotice, Bullets, ChipList, Empty, GroundingNotice, Row, SearchGapsNotice, Sources } from './viewParts.js';
 
-export const MarketResearchView: React.FC<{ data: MarketResearch }> = ({ data }) => (
+export const MarketResearchView: React.FC<{ data: MarketResearch; onOpenKnownFacts?: () => void }> = ({ data, onOpenKnownFacts }) => (
   <div className="space-y-4">
     <GroundingNotice grounded={data.grounded} />
     <SectionCard title="The market" icon="trending-up">
@@ -78,12 +78,13 @@ export const MarketResearchView: React.FC<{ data: MarketResearch }> = ({ data })
       </SectionCard>
     </div>
 
-    <GapsNotice gaps={data.gaps} />
+    <SearchGapsNotice gaps={data.searchGaps || []} />
+    <AskUserGapsNotice gaps={data.askUserGaps || []} onOpenKnownFacts={onOpenKnownFacts} />
     <Sources sources={data.sources} />
   </div>
 );
 
-export const CompetitorResearchView: React.FC<{ data: CompetitorResearch }> = ({ data }) => (
+export const CompetitorResearchView: React.FC<{ data: CompetitorResearch; onOpenKnownFacts?: () => void }> = ({ data, onOpenKnownFacts }) => (
   <div className="space-y-4">
     <GroundingNotice grounded={data.grounded} />
 
@@ -141,7 +142,8 @@ export const CompetitorResearchView: React.FC<{ data: CompetitorResearch }> = ({
       </SectionCard>
     </div>
 
-    <GapsNotice gaps={data.gaps} />
+    <SearchGapsNotice gaps={data.searchGaps || []} />
+    <AskUserGapsNotice gaps={data.askUserGaps || []} onOpenKnownFacts={onOpenKnownFacts} />
     <Sources sources={data.sources} />
   </div>
 );

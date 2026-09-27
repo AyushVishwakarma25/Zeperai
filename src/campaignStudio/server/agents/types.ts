@@ -26,6 +26,8 @@ export interface AgentRunContext {
   client?: SupabaseClient;
   userId?: string;
   imageClient?: GenAIClientLike;
+  /** Optional reference product photos for this run. */
+  productImages?: { url: string; label?: string }[];
 }
 
 export interface AgentRunResult {

@@ -31,9 +31,10 @@ export const COMPETITOR_RESEARCH_SCHEMA = {
     differentiators: strings,
     messagingToAvoid: strings,
     adPatterns: strings,
-    gaps: strings,
+    searchGaps: strings,
+    askUserGaps: strings,
   },
-  required: ['competitors', 'whiteSpace', 'differentiators', 'messagingToAvoid', 'adPatterns', 'gaps'],
+  required: ['competitors', 'whiteSpace', 'differentiators', 'messagingToAvoid', 'adPatterns', 'searchGaps', 'askUserGaps'],
 } as const;
 
 const JSON_SHAPE = `{
@@ -51,26 +52,35 @@ const JSON_SHAPE = `{
   "differentiators": ["specific ways this brand can stand apart"],
   "messagingToAvoid": ["overused claims and clichés in this category"],
   "adPatterns": ["common creative formats and hooks in the category's ads"],
-  "gaps": ["things you could not verify"]
+  "searchGaps": ["facts worth searching again for that search didn't verify"],
+  "askUserGaps": ["private business data no search will ever find (CAC, ROAS, AOV, exact distribution/listing status, internal formulation history, unpublished offers)"]
 }`;
 
 export const SYSTEM_INSTRUCTION = `You are a competitive intelligence analyst at a creative studio that makes ads for D2C and e-commerce brands. Your findings shape positioning and creative direction.
 
 Rules:
-1. Ground everything in Google Search results. Only report competitors, prices and claims you actually found. NEVER invent brands, prices, quotes or ad copy. Unverifiable items go in "gaps".
-2. Choose 3-5 DIRECT competitors: same category, same buyers, sold in the brand's markets (India when none are given). Include at least one large incumbent and one similar-sized D2C brand when they exist. Never list the brand itself.
-3. Describe what competitors' marketing actually does (hooks, claims, formats) so the studio can differentiate. Do not suggest copying anyone.
-4. Be specific and concise. "whiteSpace" and "differentiators" must be things this brand can credibly claim given its own facts.
-5. ${UNTRUSTED_DATA_RULE}
-6. Reply with ONLY the requested JSON object.`;
+1. Ground everything in Google Search results. Only report competitors, prices and claims you actually found. NEVER invent brands, prices, quotes or ad copy.
+2. Classify anything you cannot verify into exactly one of two buckets: searchGaps (a search-findable fact you didn't confirm — will be retried) or askUserGaps (private business data no search will ever find — CAC, ROAS, AOV, exact distribution/listing status, internal formulation history, unpublished offers). Never put a private-data item in searchGaps.
+3. If <known_facts> is present and already answers one of the askUserGaps items, the agent should not list it as a gap at all.
+4. Choose 3-5 DIRECT competitors: same category, same buyers, sold in the brand's markets (India when none are given). Include at least one large incumbent and one similar-sized D2C brand when they exist. Never list the brand itself.
+5. Describe what competitors' marketing actually does (hooks, claims, formats) so the studio can differentiate. Do not suggest copying anyone.
+6. Be specific and concise. "whiteSpace" and "differentiators" must be things this brand can credibly claim given its own facts.
+7. ${UNTRUSTED_DATA_RULE}
+8. If <known_facts> conflicts with or adds to public information, ALWAYS trust <known_facts> — it comes directly from the brand, not from search. Never contradict it. Use it to fill gaps that search cannot answer (internal metrics, unpublished changes, business specifics).
+9. Reply with ONLY the requested JSON object.`;
 
 export function buildPrompt(ctx: AgentRunContext): string {
   const brand = requireBrand(ctx);
   const parts = [
     `<task>Research this brand's direct competitors and how they market. Campaign goal (for emphasis): ${goalLine(ctx.run)}.\nSearch for the leading brands in the category and market, their positioning, pricing, and the ads and social content they run.</task>`,
+  ];
+  if (ctx.run.known_facts) {
+    parts.push(fence('known_facts', ctx.run.known_facts));
+  }
+  parts.push(
     fence('brand_context', JSON.stringify(brandForPrompt(brand))),
     `Return exactly this JSON structure:\n${JSON_SHAPE}`,
-  ];
+  );
   const redo = feedbackBlock(ctx.feedback, ctx.previous?.output);
   if (redo) parts.push(redo);
   return parts.join('\n\n');
@@ -99,9 +109,10 @@ export function parseCompetitorResearch(raw: unknown, brandName: string): Compet
       audienceFocus: str(c.audienceFocus, 200) || undefined,
     };
   });
-  const gaps = strList(r.gaps, 6, 200);
-  if (competitors.length === 0 && gaps.length === 0) {
-    throw new Error('Provide at least one competitor, or explain in "gaps" why none could be found.');
+  const searchGaps = strList(r.searchGaps ?? r.gaps, 6, 200);
+  const askUserGaps = strList(r.askUserGaps, 6, 200);
+  if (competitors.length === 0 && searchGaps.length === 0 && askUserGaps.length === 0) {
+    throw new Error('Provide at least one competitor, or explain in "searchGaps" or "askUserGaps" why none could be found.');
   }
 
   return {
@@ -110,7 +121,8 @@ export function parseCompetitorResearch(raw: unknown, brandName: string): Compet
     differentiators: strList(r.differentiators, 5, 250),
     messagingToAvoid: strList(r.messagingToAvoid, 5, 200),
     adPatterns: strList(r.adPatterns, 5, 250),
-    gaps,
+    searchGaps,
+    askUserGaps,
     sources: [],
     grounded: false,
   };

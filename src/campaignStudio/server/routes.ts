@@ -9,13 +9,33 @@
 import type { Express, NextFunction, Request, RequestHandler, Response } from 'express';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { AppError, asyncHandler } from '../../../utils/errorHandler.js';
-import { createRun, getRunDetail, listRuns } from './db.js';
+import {
+  countProductImages,
+  createProductImage,
+  createRun,
+  deleteProductImage,
+  getRun,
+  getRunDetail,
+  listProductImages,
+  listRuns,
+  updateRunKnownFacts,
+} from './db.js';
 import { approveGate, cancelRun, editAgentOutput, regenerateAgentStep, regenerateSingleCreativeStep, runAgentStep, type EngineContext } from './engine.js';
 import type { GenAIClientLike } from './gemini.js';
 import type { SafeFetcher } from './safeFetch.js';
 import { getCampaignStudioAllowedEmails, isCampaignStudioEnabled } from './config.js';
-import { ALLOWED_ASPECT_RATIOS, CAMPAIGN_GOALS, isUuid, parseAgentParam, validateCreateRunInput, validateFeedback } from './validation.js';
-import { DEFAULT_CAMPAIGN_SETTINGS, MAX_CREATIVES_PER_RUN } from '../types.js';
+import {
+  ALLOWED_ASPECT_RATIOS,
+  ALLOWED_PLATFORMS,
+  CAMPAIGN_GOALS,
+  isUuid,
+  parseAgentParam,
+  validateAddProductImageInput,
+  validateCreateRunInput,
+  validateFeedback,
+  validateKnownFacts,
+} from './validation.js';
+import { DEFAULT_CAMPAIGN_SETTINGS, MAX_CREATIVES_PER_RUN, MAX_PRODUCT_IMAGES_PER_RUN } from '../types.js';
 
 export interface CampaignStudioDeps {
   /** server.ts requireAuth: sets req.user (Supabase user, or the master-admin stub). */
@@ -76,6 +96,7 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
       res.json({
         success: true,
         goals: CAMPAIGN_GOALS,
+        platforms: ALLOWED_PLATFORMS,
         aspectRatios: ALLOWED_ASPECT_RATIOS,
         maxCreatives: MAX_CREATIVES_PER_RUN,
         defaults: DEFAULT_CAMPAIGN_SETTINGS,
@@ -131,6 +152,92 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
     }),
   );
 
+  const runIdOf = (req: Request): string => {
+    const id = String(req.params.runId || '');
+    if (!isUuid(id)) throw new AppError('Invalid run id', 400, 'Invalid campaign id.');
+    return id;
+  };
+
+  // --- Update known facts for a run without restarting ---
+  app.post(
+    `${BASE}/runs/:runId/known-facts`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const parsed = validateKnownFacts(req.body);
+      if (!parsed.ok) {
+        return res.status(400).json({ success: false, error: parsed.error });
+      }
+      const client = await deps.getAdminSupabaseClient();
+      const run = await updateRunKnownFacts(client, userId(req), runIdOf(req), parsed.value);
+      return res.json({ success: true, run });
+    }),
+  );
+
+  // --- Product reference images routes ---
+  app.post(
+    `${BASE}/runs/:runId/product-images`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const runId = runIdOf(req);
+      const parsed = validateAddProductImageInput(req.body);
+      if (!parsed.ok) {
+        return res.status(400).json({ success: false, error: parsed.error });
+      }
+      const client = await deps.getAdminSupabaseClient();
+      const run = await getRun(client, userId(req), runId);
+      if (!run) {
+        throw new AppError('Run not found', 404, 'Campaign not found.');
+      }
+      const currentCount = await countProductImages(client, userId(req), runId);
+      if (currentCount >= MAX_PRODUCT_IMAGES_PER_RUN) {
+        return res.status(400).json({
+          success: false,
+          error: `You can upload at most ${MAX_PRODUCT_IMAGES_PER_RUN} product photos per campaign.`,
+        });
+      }
+      const image = await createProductImage(client, userId(req), runId, parsed.value);
+      return res.status(201).json({ success: true, image });
+    }),
+  );
+
+  app.get(
+    `${BASE}/runs/:runId/product-images`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const runId = runIdOf(req);
+      const client = await deps.getAdminSupabaseClient();
+      const run = await getRun(client, userId(req), runId);
+      if (!run) {
+        throw new AppError('Run not found', 404, 'Campaign not found.');
+      }
+      const images = await listProductImages(client, userId(req), runId);
+      return res.json({ success: true, images });
+    }),
+  );
+
+  app.delete(
+    `${BASE}/runs/:runId/product-images/:imageId`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const runId = runIdOf(req);
+      const imageId = String(req.params.imageId || '');
+      if (!isUuid(imageId)) {
+        throw new AppError('Invalid image id', 400, 'Invalid image id.');
+      }
+      const client = await deps.getAdminSupabaseClient();
+      const run = await getRun(client, userId(req), runId);
+      if (!run) {
+        throw new AppError('Run not found', 404, 'Campaign not found.');
+      }
+      await deleteProductImage(client, userId(req), runId, imageId);
+      return res.json({ success: true });
+    }),
+  );
+
   // ---------------------------------------------------------------------------
   // Step engine routes (chunk 3)
   // ---------------------------------------------------------------------------
@@ -141,12 +248,6 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
     geminiClient: deps.overrides?.geminiClient,
     fetcher: deps.overrides?.fetcher,
   });
-
-  const runIdOf = (req: Request): string => {
-    const id = String(req.params.runId || '');
-    if (!isUuid(id)) throw new AppError('Invalid run id', 400, 'Invalid campaign id.');
-    return id;
-  };
   const agentOf = (req: Request) => {
     const agent = parseAgentParam(req.params.agent);
     if (!agent) throw new AppError('Unknown agent', 400, 'Unknown step.');

@@ -6,7 +6,10 @@
 import type { CampaignAgent } from '../../types.js';
 import { brandAnalysisAgent } from './brandAnalysis.js';
 import { competitorResearchAgent } from './competitorResearch.js';
+import { creativeDirectionAgent } from './creativeDirection.js';
 import { marketResearchAgent } from './marketResearch.js';
+import { masterPromptsAgent } from './masterPrompts.js';
+import { creativesAgent } from './creatives.js';
 import { strategyAgent } from './strategy.js';
 import type { AgentImpl } from './types.js';
 
@@ -15,6 +18,9 @@ export const AGENT_IMPLS: Partial<Record<CampaignAgent, AgentImpl>> = {
   market_research: marketResearchAgent,
   competitor_research: competitorResearchAgent,
   strategy: strategyAgent,
+  creative_direction: creativeDirectionAgent,
+  master_prompts: masterPromptsAgent,
+  creatives: creativesAgent,
 };
 
 export type { AgentImpl, AgentRunContext, AgentRunResult } from './types.js';

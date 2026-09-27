@@ -77,6 +77,18 @@ export type CampaignGoal =
 
 export type CampaignInputType = 'website' | 'details';
 
+export type CampaignPlatform =
+  | 'meta_ads'
+  | 'instagram_organic'
+  | 'google_display'
+  | 'amazon'
+  | 'flipkart'
+  | 'blinkit'
+  | 'zepto'
+  | 'swiggy_instamart'
+  | 'whatsapp'
+  | 'other';
+
 export interface CampaignSettings {
   /** Number of creatives to generate in the final step. Default 5, max 10. */
   creativeCount: number;
@@ -84,12 +96,15 @@ export interface CampaignSettings {
   quality: GenerationQuality | 'Standard' | 'Pro';
   /** e.g. '1:1', '4:5', '9:16'. */
   aspectRatio: string;
+  /** Target platforms for the campaign creatives. Default ['meta_ads']. */
+  platforms: CampaignPlatform[];
 }
 
 export const DEFAULT_CAMPAIGN_SETTINGS: CampaignSettings = {
   creativeCount: 5,
   quality: 'Standard',
   aspectRatio: '1:1',
+  platforms: ['meta_ads'],
 };
 
 export const MAX_CREATIVES_PER_RUN = 10;
@@ -108,6 +123,7 @@ export interface CampaignRun {
   input_type: CampaignInputType;
   website_url: string | null;
   brand_details: string | null;
+  known_facts: string | null;
   goal: CampaignGoal | string;
   goal_notes: string | null;
   status: RunStatus;
@@ -156,12 +172,25 @@ export interface CampaignAsset {
   updated_at: string;
 }
 
+export interface CampaignProductImage {
+  id: string;
+  run_id: string;
+  user_id: string;
+  storage_path: string;
+  image_url: string;
+  label: string | null;
+  created_at: string;
+}
+
+export const MAX_PRODUCT_IMAGES_PER_RUN = 8;
+
 /** Text/logo layer composited on top of a generated image (applied client-side). */
 export interface CreativeOverlay {
   headline?: string;
   subheading?: string;
   cta?: string;
   logoPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
+  textPlacement?: 'top' | 'bottom' | 'center' | 'clean_overlay';
 }
 
 // ---------------------------------------------------------------------------
@@ -225,8 +254,10 @@ export interface MarketResearch {
   channelInsights: { channel: string; insight: string }[];
   opportunities: string[];
   risks: string[];
-  /** What could not be verified. */
-  gaps: string[];
+  /** Facts worth searching again for that search didn't verify this time. */
+  searchGaps: string[];
+  /** Private business data no search will ever find (CAC, ROAS, internal metrics, unpublished changes) that only the brand owner can supply. */
+  askUserGaps: string[];
   sources: SourceLink[];
   /** False when Google Search returned no sources for this answer (treat with extra caution). */
   grounded: boolean;
@@ -251,7 +282,10 @@ export interface CompetitorResearch {
   differentiators: string[];
   messagingToAvoid: string[];
   adPatterns: string[];
-  gaps: string[];
+  /** Facts worth searching again for that search didn't verify this time. */
+  searchGaps: string[];
+  /** Private business data no search will ever find (CAC, ROAS, internal metrics, unpublished changes) that only the brand owner can supply. */
+  askUserGaps: string[];
   sources: SourceLink[];
   grounded: boolean;
 }
@@ -275,4 +309,53 @@ export interface CampaignStrategy {
   successMetrics: string[];
   guardrails: string[];
   rationale: string;
+}
+
+// ---------------------------------------------------------------------------
+// Agents 5-6 output: creative direction and master prompts
+// ---------------------------------------------------------------------------
+
+/** One creative concept within a content pillar. */
+export interface CreativeConcept {
+  /** Stable slug used to link this concept to its master prompts, e.g. "speed-1". */
+  id: string;
+  pillar: string;
+  headline: string;
+  subheadline?: string;
+  visualIdea: string;
+  storyline: string;
+  cta: string;
+  composition: string;
+}
+
+/** Agent 5 (creative_direction). Concepts must cover the strategy's creativeMix exactly (validated). */
+export interface CreativeDirection {
+  visualTheme: string;
+  moodKeywords: string[];
+  colorGuidance: string;
+  typographyGuidance: string;
+  photographyStyle: string;
+  concepts: CreativeConcept[];
+  thingsToAvoid: string[];
+}
+
+/** Agent 6 (master_prompts). One prompt per concept, ready for the image model. */
+export interface MasterPrompt {
+  /** Matches a CreativeConcept.id. */
+  conceptId: string;
+  pillar: string;
+  headline: string;
+  subheadline?: string;
+  cta: string;
+  /** Full image-generation prompt: subject, composition, lighting, style, colours; no text-in-image instructions. */
+  imagePrompt: string;
+  /** Short negative cues (e.g. "no clutter, no extra text"). */
+  negativePrompt?: string;
+  aspectRatio: string;
+  /** URLs of product reference photos to pass to the image generator. */
+  referenceImageUrls?: string[];
+}
+
+export interface MasterPrompts {
+  prompts: MasterPrompt[];
 }

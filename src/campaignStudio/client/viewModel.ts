@@ -10,12 +10,21 @@ import {
   REVIEW_GATES,
   type CampaignAgent,
   type CampaignGoal,
+  type CampaignPlatform,
   type CampaignRun,
   type CampaignStep,
 } from '../types.js';
 
 /** Agents the server can run today. Keep in sync with server/agents/index.ts. */
-export const IMPLEMENTED_AGENTS: readonly CampaignAgent[] = ['brand_analysis', 'market_research', 'competitor_research', 'strategy'];
+export const IMPLEMENTED_AGENTS: readonly CampaignAgent[] = [
+  'brand_analysis',
+  'market_research',
+  'competitor_research',
+  'strategy',
+  'creative_direction',
+  'master_prompts',
+  'creatives',
+];
 
 /** Agents whose output has a hand editor. Others are changed with "Regenerate" + a note. */
 export const EDITABLE_AGENTS: readonly CampaignAgent[] = ['brand_analysis'];
@@ -25,11 +34,17 @@ export const AGENT_START_LABELS: Partial<Record<CampaignAgent, string>> = {
   market_research: 'Research my market',
   competitor_research: 'Research my competitors',
   strategy: 'Build my strategy',
+  creative_direction: 'Create my concepts',
+  master_prompts: 'Write my prompts',
+  creatives: 'Generate my creatives',
 };
 
 export const AGENT_BLURBS: Partial<Record<CampaignAgent, string>> = {
   market_research: 'Trends, buyer insights, seasonal moments and channel behaviour, backed by live search.',
   competitor_research: 'Who you compete with, how they market, and the space you can own.',
+  creative_direction: 'Concrete creative concepts for every creative in your strategy, ready to shoot or generate.',
+  master_prompts: 'Final ad copy and image-generation prompts for every concept, ready for the image model.',
+  creatives: 'Bulk background image generation with typography and CTA text overlays.',
 };
 
 export const GATE_LABELS = ['Brand', 'Research', 'Strategy', 'Creative direction', 'Prompts', 'Creatives'] as const;
@@ -142,6 +157,26 @@ export const GOAL_INFO: Record<CampaignGoal, { label: string; hint: string }> = 
 };
 
 export const goalLabel = (goal: string): string => (goal in GOAL_INFO ? GOAL_INFO[goal as CampaignGoal].label : goal);
+
+// ---------------------------------------------------------------------------
+// Platforms
+// ---------------------------------------------------------------------------
+
+export const PLATFORM_INFO: Record<CampaignPlatform, { label: string; hint: string }> = {
+  meta_ads: { label: 'Meta Ads', hint: 'Feed & story ads (Facebook, Instagram)' },
+  instagram_organic: { label: 'Instagram Organic', hint: 'Feed posts & reels' },
+  google_display: { label: 'Google Display', hint: 'Banners & responsive display ads' },
+  amazon: { label: 'Amazon', hint: 'Product listing & sponsored ads' },
+  flipkart: { label: 'Flipkart', hint: 'Marketplace product tiles' },
+  blinkit: { label: 'Blinkit', hint: 'Quick-commerce product tile' },
+  zepto: { label: 'Zepto', hint: 'Quick-commerce product tile' },
+  swiggy_instamart: { label: 'Instamart', hint: 'Quick-commerce product tile' },
+  whatsapp: { label: 'WhatsApp', hint: 'Catalog & broadcast creatives' },
+  other: { label: 'Other', hint: 'Multi-use creative' },
+};
+
+export const platformLabel = (platform: string): string =>
+  platform in PLATFORM_INFO ? PLATFORM_INFO[platform as CampaignPlatform].label : platform;
 
 // ---------------------------------------------------------------------------
 // Redo suggestions shown as one-tap chips

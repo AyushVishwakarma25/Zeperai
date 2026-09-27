@@ -1,5 +1,5 @@
-/** Test fixtures shared by the research and strategy agent tests. */
-import type { BrandContext, CampaignRun, CompetitorResearch, MarketResearch } from '../../types.js';
+/** Test fixtures shared by the research, strategy, creative direction and master prompts agent tests. */
+import type { BrandContext, CampaignRun, CampaignStrategy, CompetitorResearch, MarketResearch } from '../../types.js';
 import type { GenAIClientLike } from '../gemini.js';
 
 export const BRAND: BrandContext = {
@@ -12,8 +12,8 @@ export const BRAND: BrandContext = {
 };
 
 export const RUN: CampaignRun = {
-  id: 'r1', user_id: 'u1', title: 'prustlr.com', input_type: 'website', website_url: 'https://prustlr.com/', brand_details: null, goal: 'sales', goal_notes: null,
-  status: 'active', current_step: 'market_research', brand_context: BRAND, settings: { creativeCount: 5, quality: 'Standard', aspectRatio: '1:1' },
+  id: 'r1', user_id: 'u1', title: 'prustlr.com', input_type: 'website', website_url: 'https://prustlr.com/', brand_details: null, known_facts: null, goal: 'sales', goal_notes: null,
+  status: 'active', current_step: 'market_research', brand_context: BRAND, settings: { creativeCount: 5, quality: 'Standard', aspectRatio: '1:1', platforms: ['meta_ads'] },
   credits_spent: 0, created_at: '', updated_at: '',
 };
 
@@ -22,13 +22,13 @@ export const MARKET: MarketResearch = {
   trends: [{ trend: 'Protein-forward breakfasts', whyItMatters: 'Buyers look for protein on the label first.' }],
   customerInsights: [{ insight: 'Mornings are rushed', evidence: 'Forums and reviews mention 5-minute breakfasts.' }],
   seasonalMoments: [{ moment: 'New Year resolutions', timing: 'January', angle: 'Easy healthy habit' }],
-  channelInsights: [{ channel: 'Instagram', insight: 'Short recipe reels convert.' }], opportunities: ['Own "2-minute protein"'], risks: ['Health-claim scrutiny'], gaps: [],
+  channelInsights: [{ channel: 'Instagram', insight: 'Short recipe reels convert.' }], opportunities: ['Own "2-minute protein"'], risks: ['Health-claim scrutiny'], searchGaps: [], askUserGaps: [],
   sources: [{ title: 'example.com', url: 'https://example.com/a' }], grounded: true,
 };
 
 export const COMPETITORS: CompetitorResearch = {
   competitors: [{ name: 'Yoga Bar', website: 'https://yogabars.in/', positioning: 'Wholesome snacks for fitness lovers', strengths: ['Distribution'], weaknesses: ['Sugar concerns'], pricePoint: 'INR 250-400', adAngles: ['Clean label'], audienceFocus: 'Gym-goers' }],
-  whiteSpace: ['Speed of preparation'], differentiators: ['20g protein in 2 minutes'], messagingToAvoid: ['guilt-free'], adPatterns: ['Ingredient close-ups'], gaps: [],
+  whiteSpace: ['Speed of preparation'], differentiators: ['20g protein in 2 minutes'], messagingToAvoid: ['guilt-free'], adPatterns: ['Ingredient close-ups'], searchGaps: [], askUserGaps: [],
   sources: [{ title: 'example.org', url: 'https://example.org/b' }], grounded: true,
 };
 
@@ -43,6 +43,59 @@ export const STRATEGY_JSON = {
   creativeMix: [{ pillar: 'Speed', count: 3 }, { pillar: 'Protein proof', count: 2 }],
   creativeFormats: [{ format: 'Product hero with timer', why: 'Makes the speed claim visual' }],
   successMetrics: ['Cost per purchase', 'Add-to-cart rate'], guardrails: ['No medical claims'], rationale: 'Speed is the white space competitors do not own.',
+};
+
+export const STRATEGY: CampaignStrategy = JSON.parse(JSON.stringify(STRATEGY_JSON));
+
+export const CREATIVE_DIRECTION_JSON = {
+  visualTheme: 'Bright morning kitchens, real bowls, no stock-photo gloss',
+  moodKeywords: ['fresh', 'fast', 'honest'],
+  colorGuidance: 'Lean on the brand orange as an accent against warm neutrals.',
+  typographyGuidance: 'Bold, rounded sans-serif for headlines.',
+  photographyStyle: 'Natural light, slightly overhead angle, real kitchen textures.',
+  concepts: [
+    { pillar: 'Speed', headline: 'Ready before the kettle', subheadline: 'Two minutes, done', visualIdea: 'A steaming bowl next to a kitchen timer at 0:02', storyline: 'Someone about to leave for work grabs breakfast without slowing down.', cta: 'Order your first box', composition: 'Overhead shot, bowl centered, timer in soft focus foreground' },
+    { pillar: 'Speed', headline: 'Breakfast, solved', visualIdea: 'Hands pouring hot water into the bowl', storyline: 'The whole prep in one motion.', cta: 'Order your first box', composition: 'Close crop on hands and bowl, steam visible' },
+    { pillar: 'Speed', headline: 'No time, no problem', visualIdea: 'A commuter eating from the bowl on a train seat', storyline: 'Breakfast fits into a rushed morning commute.', cta: 'Order your first box', composition: 'Side angle, shallow depth of field, train window blur behind' },
+    { pillar: 'Protein proof', headline: '20g protein, one bowl', visualIdea: 'Close-up of the nutrition label protein line highlighted', storyline: 'The number that matters, front and center.', cta: 'Order your first box', composition: 'Macro shot of label with bowl blurred behind' },
+    { pillar: 'Protein proof', headline: 'Real fuel, real fast', visualIdea: 'Ingredients (oats, whey) arranged around the bowl', storyline: 'Transparency about what is actually inside.', cta: 'Order your first box', composition: 'Flat lay, ingredients radiating from the bowl' },
+  ],
+  thingsToAvoid: ['Gym clichés', 'Overly staged stock-photo breakfasts'],
+};
+
+export const MASTER_PROMPTS_JSON = {
+  prompts: [
+    {
+      conceptId: 'speed-1',
+      headline: 'Ready before the kettle boils',
+      cta: 'Order now',
+      imagePrompt: 'ACT AS A COMMERCIAL PRODUCT PHOTOGRAPHER shooting for a premium editorial Pinterest-style campaign. Maintain exact product identity, label, color, shape and materials from the provided reference image. Scene shows an overhead view of a steaming bowl of chocolate oats on a rustic wooden breakfast table with morning light, kitchen timer at 0:02 in soft focus, and negative space above for text. Shot in the style of high-end Pinterest editorial product photography with soft golden morning illumination. NO text, words, letters, numbers, logos, or watermarks anywhere in the image.',
+    },
+    {
+      conceptId: 'speed-2',
+      headline: 'Breakfast, solved in one pour',
+      cta: 'Order now',
+      imagePrompt: 'ACT AS A COMMERCIAL PRODUCT PHOTOGRAPHER shooting for a premium editorial Pinterest-style campaign. Maintain exact product identity and packaging finish from reference. Hands pouring hot water into a ceramic bowl of oats with aromatic steam rising, shallow depth of field, balanced side lighting. Shot in the style of high-end Pinterest editorial product photography. NO text, words, letters, numbers, logos, or watermarks anywhere in the image.',
+    },
+    {
+      conceptId: 'speed-3',
+      headline: 'Breakfast that keeps up with you',
+      cta: 'Order now',
+      imagePrompt: 'ACT AS A COMMERCIAL PRODUCT PHOTOGRAPHER shooting for a premium editorial Pinterest-style campaign. Describe the chocolate oat bowl held by a commuter seated near a train window with soft natural daylight and subtle motion blur in the background. Shot in the style of high-end Pinterest editorial product photography with clean magazine quality. NO text, words, letters, numbers, logos, or watermarks anywhere in the image.',
+    },
+    {
+      conceptId: 'protein-proof-1',
+      headline: '20 grams of protein, zero effort',
+      cta: 'Order now',
+      imagePrompt: 'ACT AS A COMMERCIAL PRODUCT PHOTOGRAPHER shooting for a premium editorial Pinterest-style campaign. Macro composition focusing on clean nutrition facts and texture of protein oats with a warm blurred bowl background and crisp studio lighting. Shot in the style of high-end Pinterest editorial product photography. NO text, words, letters, numbers, logos, or watermarks anywhere in the image.',
+    },
+    {
+      conceptId: 'protein-proof-2',
+      headline: 'Real ingredients, real fuel',
+      cta: 'Order now',
+      imagePrompt: 'ACT AS A COMMERCIAL PRODUCT PHOTOGRAPHER shooting for a premium editorial Pinterest-style campaign. Flat lay composition of raw oats and whey powder arranged naturally around the finished bowl on a white oak surface with soft diffused natural light. Shot in the style of high-end Pinterest editorial product photography. NO text, words, letters, numbers, logos, or watermarks anywhere in the image.',
+    },
+  ],
 };
 
 export const okReply = (obj: unknown, extra: Record<string, unknown> = {}) => ({

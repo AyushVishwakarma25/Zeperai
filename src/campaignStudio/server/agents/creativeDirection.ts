@@ -44,13 +44,14 @@ export const SYSTEM_INSTRUCTION = `You are an art director at a creative studio 
 Rules:
 1. Produce EXACTLY the number of concepts requested for EACH content pillar (given in <required_mix>). Use the pillar names exactly as written there.
 2. Each concept must clearly execute its pillar's idea from the strategy, not repeat the same visual across concepts. Vary composition, setting and framing across concepts in the same pillar.
-3. "visualIdea" is a one-sentence description of what the image shows. "storyline" is 1-2 sentences on the narrative or feeling. "composition" gives concrete art-direction: framing, camera angle, focal point, background - enough for someone to shoot or generate it.
+3. "visualIdea" is a one-sentence description of what the image shows. "storyline" is 1-2 sentences on the narrative or feeling. "composition" gives concrete art-direction: framing, camera angle, focal point, background - enough for someone to shoot or generate it. Composition guidance should reflect the selected platforms in <platforms> (e.g. quick-commerce = tight product-forward crop, thumb-stopping in a small tile; Meta = lifestyle/story-driven framing with room for text overlay).
 4. "headline" and "subheadline" are short ad copy ideas (headline under 8 words). "cta" matches the strategy's call to action unless the concept needs a small variant.
 5. Base every claim on the brand facts and strategy given. Never invent product features, prices or claims.
 6. "colorGuidance" and "typographyGuidance" translate the brand's visual identity into direction for these creatives. "photographyStyle" describes the overall look (lighting, texture, realism vs illustration).
 7. "thingsToAvoid" lists visual or messaging mistakes to avoid for this brand and category (clichés, competitor look-alikes, claims the guardrails forbid).
 8. ${UNTRUSTED_DATA_RULE}
-9. Reply with ONLY the requested JSON object.`;
+9. If <known_facts> conflicts with or adds to public information, ALWAYS trust <known_facts> — it comes directly from the brand, not from search. Never contradict it. Use it to fill gaps that search cannot answer (internal metrics, unpublished changes, business specifics).
+10. Reply with ONLY the requested JSON object.`;
 
 function slugify(pillar: string): string {
   const s = pillar
@@ -70,12 +71,19 @@ export function buildPrompt(ctx: AgentRunContext): string {
   const brand = requireBrand(ctx);
   const strategy = requireStrategy(ctx);
   const total = strategy.creativeMix.reduce((n, m) => n + m.count, 0);
+  const platforms = ctx.run.settings?.platforms ?? ['meta_ads'];
 
   const parts = [
     `<task>Create the creative concepts for this campaign. Produce exactly ${total} concepts in total, split across pillars exactly as follows:\n<required_mix>\n${requiredMixLine(strategy.creativeMix)}\n</required_mix></task>`,
-    fence('brand_context', JSON.stringify(brandForPrompt(brand))),
-    fence('strategy_inputs', JSON.stringify(strategyForPrompt(strategy))),
   ];
+  if (ctx.run.known_facts) {
+    parts.push(fence('known_facts', ctx.run.known_facts));
+  }
+  parts.push(
+    fence('brand_context', JSON.stringify(brandForPrompt(brand))),
+    fence('platforms', JSON.stringify(platforms)),
+    fence('strategy_inputs', JSON.stringify(strategyForPrompt(strategy))),
+  );
   const redo = feedbackBlock(ctx.feedback, ctx.previous?.output);
   if (redo) parts.push(redo);
   return parts.join('\n\n');

@@ -12,9 +12,11 @@ import {
   CAMPAIGN_AGENTS,
   DEFAULT_CAMPAIGN_SETTINGS,
   MAX_CREATIVES_PER_RUN,
+  MAX_PRODUCT_IMAGES_PER_RUN,
   type CampaignAgent,
   type CampaignGoal,
   type CampaignInputType,
+  type CampaignPlatform,
   type CampaignSettings,
 } from '../types.js';
 
@@ -28,17 +30,35 @@ export const CAMPAIGN_GOALS: readonly CampaignGoal[] = [
   'custom',
 ];
 
+export const ALLOWED_PLATFORMS: readonly CampaignPlatform[] = [
+  'meta_ads',
+  'instagram_organic',
+  'google_display',
+  'amazon',
+  'flipkart',
+  'blinkit',
+  'zepto',
+  'swiggy_instamart',
+  'whatsapp',
+  'other',
+] as const;
+
+export const MAX_PLATFORMS_PER_RUN = 4;
+
 /** Same aspect ratios the hardened Gemini proxy accepts. */
 export const ALLOWED_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'] as const;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid = (value: unknown): value is string => typeof value === 'string' && UUID_RE.test(value);
 
+export const MAX_KNOWN_FACTS_CHARS = 4000;
+
 export interface CreateRunInput {
   title: string;
   inputType: CampaignInputType;
   websiteUrl: string | null;
   brandDetails: string | null;
+  knownFacts?: string;
   goal: CampaignGoal;
   goalNotes: string | null;
   settings: CampaignSettings;
@@ -154,7 +174,30 @@ function normalizeSettings(raw: unknown): ValidationResult<CampaignSettings> {
     aspectRatio = s.aspectRatio;
   }
 
-  return { ok: true, value: { creativeCount, quality, aspectRatio } };
+  let platforms: CampaignPlatform[] = DEFAULT_CAMPAIGN_SETTINGS.platforms ?? ['meta_ads'];
+  if (s.platforms !== undefined) {
+    if (!Array.isArray(s.platforms) || s.platforms.length === 0) {
+      return { ok: false, error: 'Platforms must be a non-empty list of selected platforms.' };
+    }
+    if (s.platforms.length > MAX_PLATFORMS_PER_RUN) {
+      return { ok: false, error: `You can select at most ${MAX_PLATFORMS_PER_RUN} platforms.` };
+    }
+    const deduped: CampaignPlatform[] = [];
+    for (const p of s.platforms) {
+      if (typeof p !== 'string' || !(ALLOWED_PLATFORMS as readonly string[]).includes(p as any)) {
+        return { ok: false, error: `Invalid platform "${p}". Allowed platforms: ${ALLOWED_PLATFORMS.join(', ')}.` };
+      }
+      if (!deduped.includes(p as CampaignPlatform)) {
+        deduped.push(p as CampaignPlatform);
+      }
+    }
+    if (deduped.length === 0) {
+      return { ok: false, error: 'Platforms must be a non-empty list of selected platforms.' };
+    }
+    platforms = deduped;
+  }
+
+  return { ok: true, value: { creativeCount, quality, aspectRatio, platforms } };
 }
 
 // ---------------------------------------------------------------------------
@@ -191,6 +234,22 @@ export function validateCreateRunInput(body: unknown): ValidationResult<CreateRu
   }
   const brandDetails = cleanText(detailsRaw, 8000);
 
+  // Known facts & business metrics (optional, trusted user input)
+  const knownFactsRaw = b.knownFacts;
+  let knownFacts: string | undefined;
+  if (knownFactsRaw !== undefined && knownFactsRaw !== null) {
+    if (typeof knownFactsRaw !== 'string') {
+      return { ok: false, error: 'Known facts must be text.' };
+    }
+    if (knownFactsRaw.trim() !== '') {
+      const cleaned = cleanText(knownFactsRaw, MAX_KNOWN_FACTS_CHARS);
+      if (cleaned === null) {
+        return { ok: false, error: `Known facts must be text of at most ${MAX_KNOWN_FACTS_CHARS} characters.` };
+      }
+      knownFacts = cleaned;
+    }
+  }
+
   // Website
   let websiteUrl: string | null = null;
   if (inputType === 'website') {
@@ -221,11 +280,30 @@ export function validateCreateRunInput(body: unknown): ValidationResult<CreateRu
       inputType,
       websiteUrl,
       brandDetails,
+      knownFacts,
       goal: goal as CampaignGoal,
       goalNotes,
       settings: settings.value as CampaignSettings,
     },
   };
+}
+
+/** Validates the body of POST /runs/:runId/known-facts ({ knownFacts: string | null }). */
+export function validateKnownFacts(body: unknown): ValidationResult<string | null> {
+  if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid request body.' };
+  const raw = (body as Record<string, unknown>).knownFacts;
+  if (raw === undefined || raw === null) {
+    return { ok: true, value: null };
+  }
+  if (typeof raw !== 'string') return { ok: false, error: 'Known facts must be text.' };
+  if (!raw.trim()) {
+    return { ok: true, value: null };
+  }
+  const cleaned = cleanText(raw, MAX_KNOWN_FACTS_CHARS);
+  if (cleaned === null) {
+    return { ok: false, error: `Known facts must be text of at most ${MAX_KNOWN_FACTS_CHARS} characters.` };
+  }
+  return { ok: true, value: cleaned };
 }
 
 // ---------------------------------------------------------------------------
@@ -250,3 +328,88 @@ export function validateFeedback(body: unknown): ValidationResult<string> {
   if (text.length < MIN_FEEDBACK_CHARS) return { ok: false, error: 'Please add a little more detail about what to change.' };
   return { ok: true, value: text };
 }
+
+// ---------------------------------------------------------------------------
+// Product images validation
+// ---------------------------------------------------------------------------
+
+export const MAX_IMAGE_LABEL_CHARS = 100;
+const STORAGE_PATH_RE = /^[a-zA-Z0-9_\-\.\/]+$/;
+const IMAGE_EXT_RE = /\.(png|jpe?g|webp)$/i;
+
+export interface AddProductImageInput {
+  storagePath: string;
+  imageUrl: string;
+  label: string | null;
+}
+
+export function validateAddProductImageInput(body: unknown): ValidationResult<AddProductImageInput> {
+  if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid request body.' };
+  const b = body as Record<string, unknown>;
+
+  const rawPath = typeof b.storagePath === 'string' ? b.storagePath.trim() : '';
+  const rawUrl = typeof b.imageUrl === 'string' ? b.imageUrl.trim() : '';
+
+  if (!rawPath && !rawUrl) {
+    return { ok: false, error: 'storagePath or imageUrl is required.' };
+  }
+
+  let storagePath = rawPath;
+  if (storagePath) {
+    if (storagePath.length > 500) {
+      return { ok: false, error: 'storagePath is too long.' };
+    }
+    if (storagePath.includes('..') || !STORAGE_PATH_RE.test(storagePath)) {
+      return { ok: false, error: 'storagePath contains invalid characters.' };
+    }
+    if (!IMAGE_EXT_RE.test(storagePath)) {
+      return { ok: false, error: 'Only PNG, JPEG, and WebP images are supported.' };
+    }
+  }
+
+  let imageUrl = rawUrl;
+  if (imageUrl) {
+    if (imageUrl.length > 2048) {
+      return { ok: false, error: 'imageUrl is too long.' };
+    }
+    try {
+      const u = new URL(imageUrl);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+        return { ok: false, error: 'imageUrl must be http or https.' };
+      }
+      if (!IMAGE_EXT_RE.test(u.pathname)) {
+        return { ok: false, error: 'Only PNG, JPEG, and WebP images are supported.' };
+      }
+    } catch {
+      return { ok: false, error: 'imageUrl is not a valid URL.' };
+    }
+  } else if (storagePath) {
+    imageUrl = storagePath;
+  }
+
+  if (!storagePath && imageUrl) {
+    storagePath = imageUrl;
+  }
+
+  let label: string | null = null;
+  if (b.label !== undefined && b.label !== null && b.label !== '') {
+    if (typeof b.label !== 'string') {
+      return { ok: false, error: 'label must be text.' };
+    }
+    const cleaned = cleanText(b.label, MAX_IMAGE_LABEL_CHARS);
+    if (cleaned === null) {
+      return { ok: false, error: `label must be at most ${MAX_IMAGE_LABEL_CHARS} characters.` };
+    }
+    label = cleaned;
+  }
+
+  return {
+    ok: true,
+    value: {
+      storagePath,
+      imageUrl,
+      label,
+    },
+  };
+}
+

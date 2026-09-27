@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CampaignApiError, type RunSummary } from '../../src/campaignStudio/client/api.js';
 import { campaignApi } from '../../src/campaignStudio/client/defaultApi.js';
-import { goalLabel, hostnameOf, progressLabel, timeAgo } from '../../src/campaignStudio/client/viewModel.js';
+import { goalLabel, hostnameOf, platformLabel, progressLabel, timeAgo } from '../../src/campaignStudio/client/viewModel.js';
 import { Button } from '../ui/Button.js';
 import { Icon } from '../ui/Icon.js';
 import { Spinner } from '../ui/Spinner.js';
@@ -93,6 +93,9 @@ export const CampaignList: React.FC<Props> = ({ onOpen, onNew, notify }) => {
               <p className="text-sm font-semibold text-text-primary truncate">{r.title || 'Untitled campaign'}</p>
               <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                 <Chip>{goalLabel(String(r.goal))}</Chip>
+                {r.settings?.platforms?.map((p) => (
+                  <Chip key={p}>{platformLabel(p)}</Chip>
+                ))}
                 {r.website_url && <span className="text-xs text-text-secondary">{hostnameOf(r.website_url)}</span>}
                 <span className="text-xs text-slate-400">· {progressLabel(r)} · {timeAgo(r.updated_at)}</span>
               </div>

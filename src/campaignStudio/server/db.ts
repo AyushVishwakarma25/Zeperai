@@ -10,10 +10,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { AppError } from '../../../utils/errorHandler.js';
 import { MAX_ACTIVE_RUNS_PER_USER } from './config.js';
 import type { CreateRunInput } from './validation.js';
-import type { AssetStatus, CampaignAgent, CampaignAsset, CampaignRun, CampaignStep, RunStatus, StepStatus } from '../types.js';
+import type { AssetStatus, CampaignAgent, CampaignAsset, CampaignProductImage, CampaignRun, CampaignStep, RunStatus, StepStatus } from '../types.js';
 
 /** Columns returned to the client for a run list (no heavy jsonb). */
-const RUN_LIST_COLUMNS = 'id, title, input_type, website_url, goal, status, current_step, credits_spent, created_at, updated_at';
+const RUN_LIST_COLUMNS = 'id, title, input_type, website_url, goal, status, current_step, settings, credits_spent, created_at, updated_at';
 
 /** Step columns returned to the client. input_snapshot is intentionally excluded (large, internal). */
 const STEP_COLUMNS =
@@ -56,6 +56,7 @@ export async function createRun(client: SupabaseClient, userId: string, input: C
       input_type: input.inputType,
       website_url: input.websiteUrl,
       brand_details: input.brandDetails,
+      known_facts: input.knownFacts ?? null,
       goal: input.goal,
       goal_notes: input.goalNotes,
       settings: input.settings,
@@ -64,6 +65,25 @@ export async function createRun(client: SupabaseClient, userId: string, input: C
     .single();
 
   if (error || !data) fail('create run', error, 'Could not start your campaign. Please try again.');
+  return data as CampaignRun;
+}
+
+/** Updates the known_facts field on a run (scoped by user_id). */
+export async function updateRunKnownFacts(
+  client: SupabaseClient,
+  userId: string,
+  runId: string,
+  knownFacts: string | null,
+): Promise<CampaignRun> {
+  const { data, error } = await client
+    .from('campaign_runs')
+    .update({ known_facts: knownFacts })
+    .eq('id', runId)
+    .eq('user_id', userId)
+    .select('*')
+    .single();
+
+  if (error || !data) fail('update known facts', error, 'Could not update campaign context. Please try again.');
   return data as CampaignRun;
 }
 
@@ -97,14 +117,15 @@ export interface RunDetail {
   run: CampaignRun;
   steps: CampaignStep[];
   assets: CampaignAsset[];
+  productImages?: CampaignProductImage[];
 }
 
-/** Run + all step versions + all assets, or null if the run is not the user's. */
+/** Run + all step versions + all assets + product images, or null if the run is not the user's. */
 export async function getRunDetail(client: SupabaseClient, userId: string, runId: string): Promise<RunDetail | null> {
   const run = await getRun(client, userId, runId);
   if (!run) return null;
 
-  const [stepsRes, assetsRes] = await Promise.all([
+  const [stepsRes, assetsRes, productImagesRes] = await Promise.all([
     client
       .from('campaign_steps')
       .select(STEP_COLUMNS)
@@ -119,15 +140,24 @@ export async function getRunDetail(client: SupabaseClient, userId: string, runId
       .eq('user_id', userId)
       .order('creative_index', { ascending: true })
       .order('version', { ascending: true }),
+    client
+      .from('campaign_product_images')
+      .select('*')
+      .eq('run_id', runId)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true }),
   ]);
 
   if (stepsRes.error) fail('get steps', stepsRes.error, 'Could not load this campaign. Please try again.');
   if (assetsRes.error) fail('get assets', assetsRes.error, 'Could not load this campaign. Please try again.');
+  // product images shouldn't fail the whole run if the table is freshly migrating
+  const productImages = (productImagesRes.data ?? []) as unknown as CampaignProductImage[];
 
   return {
     run,
     steps: (stepsRes.data ?? []) as unknown as CampaignStep[],
     assets: (assetsRes.data ?? []) as unknown as CampaignAsset[],
+    productImages,
   };
 }
 
@@ -407,4 +437,79 @@ export async function refundCampaignCredits(
   }
   return Number(data);
 }
+
+// ---------------------------------------------------------------------------
+// Product reference images
+// ---------------------------------------------------------------------------
+
+export async function createProductImage(
+  client: SupabaseClient,
+  userId: string,
+  runId: string,
+  image: { storagePath: string; imageUrl: string; label?: string | null },
+): Promise<CampaignProductImage> {
+  const { data, error } = await client
+    .from('campaign_product_images')
+    .insert({
+      run_id: runId,
+      user_id: userId,
+      storage_path: image.storagePath,
+      image_url: image.imageUrl,
+      label: image.label ?? null,
+    })
+    .select('*')
+    .single();
+
+  if (error || !data) fail('create product image', error, 'Could not save product photo.');
+  return data as CampaignProductImage;
+}
+
+export async function listProductImages(
+  client: SupabaseClient,
+  userId: string,
+  runId: string,
+): Promise<CampaignProductImage[]> {
+  const { data, error } = await client
+    .from('campaign_product_images')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('run_id', runId)
+    .order('created_at', { ascending: true });
+
+  if (error) fail('list product images', error, 'Could not load product photos.');
+  return (data || []) as CampaignProductImage[];
+}
+
+export async function deleteProductImage(
+  client: SupabaseClient,
+  userId: string,
+  runId: string,
+  imageId: string,
+): Promise<boolean> {
+  const { error } = await client
+    .from('campaign_product_images')
+    .delete()
+    .eq('id', imageId)
+    .eq('run_id', runId)
+    .eq('user_id', userId);
+
+  if (error) fail('delete product image', error, 'Could not delete product photo.');
+  return true;
+}
+
+export async function countProductImages(
+  client: SupabaseClient,
+  userId: string,
+  runId: string,
+): Promise<number> {
+  const { count, error } = await client
+    .from('campaign_product_images')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('run_id', runId);
+
+  if (error) fail('count product images', error, 'Could not count product photos.');
+  return count ?? 0;
+}
+
 

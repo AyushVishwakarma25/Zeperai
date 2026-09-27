@@ -11,6 +11,8 @@ import type {
   CampaignAsset,
   CampaignGoal,
   CampaignInputType,
+  CampaignPlatform,
+  CampaignProductImage,
   CampaignRun,
   CampaignSettings,
   CampaignStep,
@@ -28,6 +30,7 @@ export class CampaignApiError extends Error {
 
 export interface CampaignMeta {
   goals: CampaignGoal[];
+  platforms: CampaignPlatform[];
   aspectRatios: string[];
   maxCreatives: number;
   defaults: CampaignSettings;
@@ -37,6 +40,7 @@ export interface CreateRunPayload {
   inputType: CampaignInputType;
   websiteUrl?: string;
   brandDetails?: string;
+  knownFacts?: string;
   goal: CampaignGoal;
   goalNotes?: string;
   title?: string;
@@ -45,13 +49,14 @@ export interface CreateRunPayload {
 
 export type RunSummary = Pick<
   CampaignRun,
-  'id' | 'title' | 'input_type' | 'website_url' | 'goal' | 'status' | 'current_step' | 'credits_spent' | 'created_at' | 'updated_at'
+  'id' | 'title' | 'input_type' | 'website_url' | 'goal' | 'status' | 'current_step' | 'settings' | 'credits_spent' | 'created_at' | 'updated_at'
 >;
 
 export interface RunDetail {
   run: CampaignRun;
   steps: CampaignStep[];
   assets: CampaignAsset[];
+  productImages?: CampaignProductImage[];
 }
 
 export interface StepResult {
@@ -115,6 +120,14 @@ export function createCampaignApi(deps: CampaignApiDeps) {
     listRuns: async () => (await request<{ runs: RunSummary[] }>('GET', '/runs')).runs,
     createRun: async (payload: CreateRunPayload) => (await request<{ run: CampaignRun }>('POST', '/runs', payload)).run,
     getRun: (runId: string) => request<RunDetail>('GET', `/runs/${enc(runId)}`),
+    updateKnownFacts: (runId: string, knownFacts: string | null) =>
+      request<{ success: true; run: CampaignRun }>('POST', `/runs/${enc(runId)}/known-facts`, { knownFacts }),
+    getProductImages: async (runId: string) =>
+      (await request<{ success: true; images: CampaignProductImage[] }>('GET', `/runs/${enc(runId)}/product-images`)).images,
+    addProductImage: async (runId: string, payload: { storagePath: string; imageUrl?: string; label?: string }) =>
+      (await request<{ success: true; image: CampaignProductImage }>('POST', `/runs/${enc(runId)}/product-images`, payload)).image,
+    deleteProductImage: async (runId: string, imageId: string) =>
+      request<{ success: true }>('DELETE', `/runs/${enc(runId)}/product-images/${enc(imageId)}`).then(() => undefined),
     runStep: (runId: string, agent: CampaignAgent) => request<StepResult>('POST', `/runs/${enc(runId)}/steps/${enc(agent)}/run`),
     regenerateStep: (runId: string, agent: CampaignAgent, feedback: string) =>
       request<StepResult>('POST', `/runs/${enc(runId)}/steps/${enc(agent)}/regenerate`, { feedback }),

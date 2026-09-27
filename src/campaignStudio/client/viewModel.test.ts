@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import React from 'react';
 import type { CampaignAgent, CampaignRun, CampaignStep, StepStatus } from '../types.js';
 import { AGENT_IMPLS } from '../server/agents/index.js';
-import { EDITABLE_AGENTS, IMPLEMENTED_AGENTS, agentView, deriveGates, goalLabel, hasInFlight, hostnameOf, isHttpUrl, progressLabel, timeAgo } from './viewModel.js';
+import { EDITABLE_AGENTS, IMPLEMENTED_AGENTS, PLATFORM_INFO, agentView, deriveGates, goalLabel, hasInFlight, hostnameOf, isHttpUrl, platformLabel, progressLabel, timeAgo } from './viewModel.js';
+import { AskUserGapsNotice, GroundingNotice, SearchGapsNotice } from '../../../components/campaign/viewParts.js';
+import { validateNewCampaign } from '../../../components/campaign/NewCampaignForm.js';
 
 let n = 0;
 const step = (agent: CampaignAgent, version: number, status: StepStatus, extra: Partial<CampaignStep> = {}): CampaignStep => ({
@@ -12,10 +15,10 @@ const step = (agent: CampaignAgent, version: number, status: StepStatus, extra: 
 const run = (over: Partial<CampaignRun> = {}) => ({ current_step: 'brand_analysis', status: 'active', ...over }) as Pick<CampaignRun, 'current_step' | 'status'>;
 const statuses = (g: ReturnType<typeof deriveGates>) => g.map((x) => x.status);
 
-test('fresh run: first gate ready, the rest locked, stages up to strategy implemented', () => {
+test('fresh run: first gate ready, the rest locked, all stages implemented', () => {
   const g = deriveGates(run(), []);
   assert.deepEqual(statuses(g), ['ready', 'locked', 'locked', 'locked', 'locked', 'locked']);
-  assert.deepEqual(g.map((x) => x.implemented), [true, true, true, false, false, false]);
+  assert.deepEqual(g.map((x) => x.implemented), [true, true, true, true, true, true]);
   assert.equal(g[1].agents.length, 2, 'research gate holds both research agents');
   assert.equal(g[0].isCurrent, true);
 });
@@ -109,4 +112,96 @@ test('timeAgo / isHttpUrl / hostnameOf', () => {
   for (const bad of ['javascript:alert(1)', 'data:text/html,x', 'file:///etc/passwd', 'not a url', '', undefined, 5]) assert.equal(isHttpUrl(bad as any), false);
   assert.equal(hostnameOf('https://www.prustlr.com/x'), 'prustlr.com');
   assert.equal(hostnameOf(null), '');
+});
+
+test('SearchGapsNotice: returns null when empty, tone=warning with copy when populated', () => {
+  assert.equal(SearchGapsNotice({ gaps: [] }), null);
+
+  const el = SearchGapsNotice({ gaps: ['Market sizing in India'] }) as React.ReactElement<any>;
+  assert.ok(el);
+  assert.equal(el.props.tone, 'warning');
+  const str = JSON.stringify(el);
+  assert.match(str, /Worth double-checking/);
+  assert.match(str, /Market sizing in India/);
+  assert.match(str, /Regenerate to search again/);
+});
+
+test('AskUserGapsNotice: returns null when empty, tone=info with button and copy when populated', () => {
+  assert.equal(AskUserGapsNotice({ gaps: [] }), null);
+
+  let opened = false;
+  const el = AskUserGapsNotice({
+    gaps: ['Blended CAC on Meta is unknown'],
+    onOpenKnownFacts: () => { opened = true; },
+  }) as React.ReactElement<any>;
+
+  assert.ok(el);
+  assert.equal(el.props.tone, 'info');
+  const str = JSON.stringify(el);
+  assert.match(str, /Only you know this/);
+  assert.match(str, /Blended CAC on Meta is unknown/);
+  assert.match(str, /These are business details no search can find/);
+  assert.match(str, /Add to context/);
+});
+
+test('GroundingNotice: returns null when grounded, non-alarming notice when ungrounded', () => {
+  assert.equal(GroundingNotice({ grounded: true }), null);
+
+  const ungrounded = GroundingNotice({ grounded: false }) as React.ReactElement<any>;
+  assert.ok(ungrounded);
+  assert.equal(ungrounded.props.tone, 'warning');
+  const str = JSON.stringify(ungrounded);
+  assert.match(str, /This answer used general knowledge rather than a live search this time — regenerate if you want it to search again/);
+  assert.doesNotMatch(str, /treat any figures with caution/);
+});
+
+test('platformLabel: resolves known platform labels and falls back to key for unknown', () => {
+  assert.equal(platformLabel('meta_ads'), 'Meta Ads');
+  assert.equal(platformLabel('instagram_organic'), 'Instagram Organic');
+  assert.equal(platformLabel('blinkit'), 'Blinkit');
+  assert.equal(platformLabel('zepto'), 'Zepto');
+  assert.equal(platformLabel('swiggy_instamart'), 'Instamart');
+  assert.equal(platformLabel('custom_platform'), 'custom_platform');
+  assert.ok(PLATFORM_INFO.meta_ads.label && PLATFORM_INFO.meta_ads.hint);
+});
+
+test('validateNewCampaign: validates inputs including platform selection', () => {
+  const baseValid = {
+    inputType: 'website' as const,
+    url: 'example.com',
+    details: '',
+    goal: 'sales' as const,
+    goalNotes: '',
+    platforms: ['meta_ads' as const],
+  };
+
+  // Valid input
+  assert.equal(validateNewCampaign(baseValid), null);
+
+  // Missing website url
+  assert.equal(validateNewCampaign({ ...baseValid, url: '  ' }), 'Enter your website address.');
+
+  // Details too short when details inputType
+  assert.equal(
+    validateNewCampaign({ ...baseValid, inputType: 'details', details: 'Too short' }),
+    'Describe your brand in a couple of sentences (at least 20 characters).',
+  );
+
+  // Missing goal
+  assert.equal(validateNewCampaign({ ...baseValid, goal: '' }), 'Choose what this campaign should achieve.');
+
+  // Custom goal without notes
+  assert.equal(validateNewCampaign({ ...baseValid, goal: 'custom', goalNotes: ' ' }), 'Tell us about your goal.');
+
+  // Empty platforms rejected
+  assert.equal(
+    validateNewCampaign({ ...baseValid, platforms: [] }),
+    'Choose at least one platform for your creatives.',
+  );
+
+  // Multiple valid platforms accepted
+  assert.equal(
+    validateNewCampaign({ ...baseValid, platforms: ['meta_ads', 'blinkit', 'zepto'] }),
+    null,
+  );
 });
