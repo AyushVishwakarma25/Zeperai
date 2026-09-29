@@ -93,7 +93,29 @@ export const getAI = () => {
         };
     }
 
-    const apiKey = typeof process !== 'undefined' && process.env 
+    const project = typeof process !== 'undefined' && process.env
+        ? (process.env.GOOGLE_CLOUD_PROJECT || process.env.VERTEX_PROJECT_ID || '')
+        : '';
+    const location = typeof process !== 'undefined' && process.env
+        ? (process.env.GOOGLE_CLOUD_LOCATION || process.env.VERTEX_LOCATION || 'us-central1')
+        : 'us-central1';
+    const vertexApiKey = typeof process !== 'undefined' && process.env
+        ? (process.env.VERTEX_API_KEY || '')
+        : '';
+    const saJson = typeof process !== 'undefined' && process.env
+        ? (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || '')
+        : '';
+
+    // Post-pay Vertex AI mode: used when a GCP project is configured. Billed through Cloud
+    // Billing (invoiced) instead of the prepaid AI Studio key. Two ways to authenticate:
+    //   1. VERTEX_API_KEY - a Vertex AI Studio API key (simplest, no service account needed)
+    //   2. GOOGLE_APPLICATION_CREDENTIALS_JSON - a full service-account JSON, passed inline
+    //      (never written to disk - Vercel's filesystem is read-only/ephemeral)
+    // Falls back to the legacy AI Studio key below if neither is configured, so existing
+    // deployments keep working with no env changes required.
+    const useVertex = !!project && (!!vertexApiKey || !!saJson);
+
+    const apiKey = typeof process !== 'undefined' && process.env
         ? (process.env.GEMINI_API_KEY || 
            process.env.GeminiAPI || 
            process.env.API_KEY || 
@@ -101,15 +123,37 @@ export const getAI = () => {
            process.env.GOOGLE_GENAI_API_KEY ||
            '') 
         : '';
-        
-    if (!apiKey) {
+
+    if (!useVertex && !apiKey) {
         console.error("Missing Gemini API Key in environment variables!");
-        throw new Error("Missing GEMINI_API_KEY / GeminiAPI. Please configure your API key in Settings > Secrets and do a hard refresh of your browser tab.");
+        throw new Error("Missing GEMINI_API_KEY / GeminiAPI, or GOOGLE_CLOUD_PROJECT + VERTEX_API_KEY for Vertex AI. Please configure your API key in Settings > Secrets and do a hard refresh of your browser tab.");
     }
 
-    if (!genAIInstance || currentApiKey !== apiKey) {
-        currentApiKey = apiKey;
-        genAIInstance = new GoogleGenAI({ apiKey: apiKey || '' });
+    // Cache key covers every field that changes which client gets built, so credential
+    // rotation or an env change picks up a fresh instance instead of reusing a stale one.
+    const cacheKey = useVertex ? `vertex:${project}:${location}:${vertexApiKey || 'sa'}` : `studio:${apiKey}`;
+
+    if (!genAIInstance || currentApiKey !== cacheKey) {
+        currentApiKey = cacheKey;
+        if (useVertex) {
+            let googleAuthOptions: any;
+            if (saJson) {
+                try {
+                    googleAuthOptions = { credentials: JSON.parse(saJson) };
+                } catch {
+                    throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON is not valid JSON. Paste the full service-account key file contents.");
+                }
+            }
+            genAIInstance = new GoogleGenAI({
+                vertexai: true,
+                project,
+                location,
+                ...(vertexApiKey ? { apiKey: vertexApiKey } : {}),
+                ...(googleAuthOptions ? { googleAuthOptions } : {}),
+            });
+        } else {
+            genAIInstance = new GoogleGenAI({ apiKey: apiKey || '' });
+        }
     }
 
     const ai: any = genAIInstance;
@@ -128,6 +172,9 @@ export const getAI = () => {
                 if (modelName === 'nano-banana-2-lite') realModelName = 'gemini-2.5-flash-image';
                 if (modelName === 'nano-banana-2' || modelName === 'nano-banana') realModelName = 'gemini-2.5-flash-image';
                 if (modelName === 'nano-banana-pro') realModelName = 'gemini-3-pro-image';
+                // Vertex AI does not support AI Studio's rolling "-latest" alias convention;
+                // it needs a concrete, versioned publisher model id.
+                if (useVertex && realModelName === 'gemini-flash-latest') realModelName = 'gemini-2.5-flash';
                 // Discontinued Imagen aliases fallback cleanly to Nano Banana models
                 if (modelName && (modelName.includes('imagen') || modelName.includes('dall-e'))) {
                     realModelName = 'gemini-2.5-flash-image';
