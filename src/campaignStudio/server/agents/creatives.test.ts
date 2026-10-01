@@ -309,7 +309,7 @@ test('generateSingleCreative: retries just one concept without touching others',
   assert.equal(asset.creative_index, 2);
   assert.equal(asset.version, 1);
   assert.equal(asset.credits_charged, 1);
-  assert.match(asset.prompt, /Make it warmer with morning sun/);
+  assert.match(asset.prompt ?? '', /Make it warmer with morning sun/);
   assert.equal(db._creditSpends.length, 1);
 });
 
