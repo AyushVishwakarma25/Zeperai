@@ -40,11 +40,11 @@ export interface CreativesStepOutput {
   assetIds: string[];
 }
 
-/** Max product reference photos attached to one generation call (cost/token budget). */
-const MAX_REFERENCE_IMAGES = 4;
-/** Per-image byte cap when fetching an uploaded reference photo. */
-const REFERENCE_IMAGE_MAX_BYTES = 8_000_000;
-const IMAGE_CONTENT_TYPES = /^image\//i;
+/** Max product reference photos attached to one generation call (gemini-2.5-flash-image hard limit is 3). */
+export const MAX_REFERENCE_IMAGES = 3;
+/** Per-image byte cap when fetching an uploaded reference photo (Gemini image models cap inline images at 7MB). */
+export const REFERENCE_IMAGE_MAX_BYTES = 7_000_000;
+export const IMAGE_CONTENT_TYPES = /^image\//i;
 
 export interface InlineImagePart {
   inlineData: { mimeType: string; data: string };
@@ -147,6 +147,7 @@ export async function callImageModel(params: {
   const response = await ai.models.generateContent({
     model: params.model,
     contents: {
+      role: 'user',
       parts: [...referenceParts, { text: fullPrompt }],
     },
     config: {

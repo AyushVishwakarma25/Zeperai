@@ -3850,6 +3850,9 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     'gemini-3.7-flash',
     'gemini-2.5-flash',
     'gemini-1.5-flash',
+    'gemini-2.5-pro',
+    'gemini-1.5-pro',
+    'gemini-3.1-pro-preview',
     'gemini-3.1-flash-tts-preview',
     'gemini-2.5-flash-preview-tts'
   ]);
@@ -3883,6 +3886,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     else if (trimmedModel === 'nano-banana-pro') resolvedModel = 'gemini-3-pro-image';
     else if (trimmedModel === 'gemini-3-flash-preview') resolvedModel = 'gemini-flash-latest';
     else if (trimmedModel === 'gemini-2.5-flash-preview-tts') resolvedModel = 'gemini-3.1-flash-tts-preview';
+    else if (trimmedModel === 'gemini-3.1-pro-preview') resolvedModel = 'gemini-2.5-pro';
 
     // Strict config sanitization (whitelisting safe properties only)
     const sanitizedConfig: any = {};

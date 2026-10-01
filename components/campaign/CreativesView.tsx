@@ -110,6 +110,7 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {displayAssets.map((asset) => {
           const overlay = (asset.overlay || {}) as CreativeOverlay;
+          const refCount = overlay.referenceImageCount ?? 0;
           const isBusy = busyIndex === asset.creative_index;
           const isRedoing = redoIndex === asset.creative_index;
 
@@ -144,6 +145,27 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
                     </span>
                   )}
                 </div>
+              </div>
+
+              {/* Reference Photo Status Badge */}
+              <div className="px-4 py-2 bg-slate-50/60 border-b border-border-light flex items-center justify-between text-[11px]">
+                {refCount > 0 ? (
+                  <span
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80"
+                    title={`${refCount} real product reference photo(s) were attached to guide generation for this creative.`}
+                  >
+                    <Icon name="camera" className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{refCount} {refCount === 1 ? 'reference photo' : 'reference photos'} used</span>
+                  </span>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-medium bg-amber-50/80 text-amber-800 border border-amber-200/70"
+                    title="No uploaded product reference photos were attached — the model approximated the product appearance from prompt descriptions alone."
+                  >
+                    <Icon name="sparkles" className="w-3.5 h-3.5 text-amber-600" />
+                    <span>no reference photo — AI approximated the product</span>
+                  </span>
+                )}
               </div>
 
               {/* Visual Preview Container */}
@@ -377,9 +399,25 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
               )}
             </div>
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
-              <span className="text-xs text-slate-400">
-                Creative #{expandedAsset.creative_index}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-400">
+                  Creative #{expandedAsset.creative_index}
+                </span>
+                {((expandedAsset.overlay as CreativeOverlay)?.referenceImageCount ?? 0) > 0 ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-medium bg-emerald-950/80 text-emerald-300 border border-emerald-800/80 text-[10px]">
+                    <Icon name="camera" className="w-3 h-3 text-emerald-400" />
+                    <span>
+                      {(expandedAsset.overlay as CreativeOverlay).referenceImageCount}{' '}
+                      {(expandedAsset.overlay as CreativeOverlay).referenceImageCount === 1 ? 'reference photo' : 'reference photos'} used
+                    </span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-medium bg-amber-950/80 text-amber-300 border border-amber-800/80 text-[10px]">
+                    <Icon name="sparkles" className="w-3 h-3 text-amber-400" />
+                    <span>no reference photo — AI approximated the product</span>
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="secondary"

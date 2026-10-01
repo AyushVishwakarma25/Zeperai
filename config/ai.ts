@@ -93,6 +93,23 @@ export const getAI = () => {
         };
     }
 
+    const project = typeof process !== 'undefined' && process.env
+        ? (process.env.GOOGLE_CLOUD_PROJECT || process.env.VERTEX_PROJECT_ID || '')
+        : '';
+    const location = typeof process !== 'undefined' && process.env
+        ? (process.env.GOOGLE_CLOUD_LOCATION || process.env.VERTEX_LOCATION || 'us-central1')
+        : 'us-central1';
+    const vertexApiKey = typeof process !== 'undefined' && process.env
+        ? (process.env.VERTEX_API_KEY || '')
+        : '';
+    const saJson = typeof process !== 'undefined' && process.env
+        ? (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || '')
+        : '';
+
+    // Post-pay Vertex AI mode: used when a GCP project is configured. Billed through Cloud
+    // Billing (invoiced) instead of the prepaid AI Studio key.
+    const useVertex = !!project;
+
     const apiKey = typeof process !== 'undefined' && process.env 
         ? (process.env.GEMINI_API_KEY || 
            process.env.GeminiAPI || 
@@ -102,14 +119,34 @@ export const getAI = () => {
            '') 
         : '';
         
-    if (!apiKey) {
+    if (!useVertex && !apiKey) {
         console.error("Missing Gemini API Key in environment variables!");
-        throw new Error("Missing GEMINI_API_KEY / GeminiAPI. Please configure your API key in Settings > Secrets and do a hard refresh of your browser tab.");
+        throw new Error("Missing GEMINI_API_KEY / GeminiAPI, or GOOGLE_CLOUD_PROJECT for Vertex AI. Please configure your API key in Settings > Secrets and do a hard refresh of your browser tab.");
     }
 
-    if (!genAIInstance || currentApiKey !== apiKey) {
-        currentApiKey = apiKey;
-        genAIInstance = new GoogleGenAI({ apiKey: apiKey || '' });
+    const cacheKey = useVertex ? `vertex:${project}:${location}:${vertexApiKey || (saJson ? 'sa' : 'adc')}` : `studio:${apiKey}`;
+
+    if (!genAIInstance || currentApiKey !== cacheKey) {
+        currentApiKey = cacheKey;
+        if (useVertex) {
+            let googleAuthOptions: any;
+            if (saJson) {
+                try {
+                    googleAuthOptions = { credentials: JSON.parse(saJson) };
+                } catch {
+                    throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON is not valid JSON. Paste the full service-account key file contents.");
+                }
+            }
+            genAIInstance = new GoogleGenAI({
+                vertexai: true,
+                project,
+                location,
+                ...(vertexApiKey ? { apiKey: vertexApiKey } : {}),
+                ...(googleAuthOptions ? { googleAuthOptions } : {}),
+            });
+        } else {
+            genAIInstance = new GoogleGenAI({ apiKey: apiKey || '' });
+        }
     }
 
     const ai: any = genAIInstance;
@@ -128,9 +165,34 @@ export const getAI = () => {
                 if (modelName === 'nano-banana-2-lite') realModelName = 'gemini-2.5-flash-image';
                 if (modelName === 'nano-banana-2' || modelName === 'nano-banana') realModelName = 'gemini-2.5-flash-image';
                 if (modelName === 'nano-banana-pro') realModelName = 'gemini-3-pro-image';
+                if (modelName === 'gemini-3.1-pro-preview' || modelName === 'gemini-3-pro-preview' || modelName === 'gemini-pro-latest' || modelName === 'gemini-pro') {
+                    realModelName = 'gemini-2.5-pro';
+                }
+                // Vertex AI does not support AI Studio's rolling "-latest" alias convention;
+                // it needs a concrete, versioned publisher model id.
+                if (useVertex) {
+                    if (realModelName === 'gemini-flash-latest' || realModelName === 'gemini-3.7-flash') realModelName = 'gemini-2.5-flash';
+                    if (realModelName === 'gemini-3.1-pro-preview' || realModelName === 'gemini-3-pro-preview' || realModelName === 'gemini-pro-latest' || realModelName === 'gemini-pro') realModelName = 'gemini-2.5-pro';
+                    if (realModelName === 'gemini-3.1-flash-image' || realModelName === 'gemini-3-pro-image') realModelName = 'gemini-2.5-flash-image';
+                }
                 // Discontinued Imagen aliases fallback cleanly to Nano Banana models
                 if (modelName && (modelName.includes('imagen') || modelName.includes('dall-e'))) {
                     realModelName = 'gemini-2.5-flash-image';
+                }
+
+                // Normalize contents roles if passed as structured messages
+                let normalizedContents = contents;
+                if (Array.isArray(contents)) {
+                    normalizedContents = contents.map((c: any) => {
+                        if (c && typeof c === 'object' && c.role) {
+                            let role = c.role;
+                            if (role === 'assistant' || role === 'bot' || role === 'system_response') role = 'model';
+                            else if (role === 'system') role = 'user';
+                            else if (role !== 'user' && role !== 'model') role = 'user';
+                            return { ...c, role };
+                        }
+                        return c;
+                    });
                 }
 
                 // Ensure config has safetySettings if not provided
@@ -142,7 +204,7 @@ export const getAI = () => {
                 // Use the modern models.generateContent API
                 return await ai.models.generateContent({ 
                     model: realModelName || 'gemini-2.5-flash-image',
-                    contents,
+                    contents: normalizedContents,
                     config: finalConfig 
                 });
             }

@@ -320,6 +320,7 @@ export async function regenerateSingleCreativeStep(
     client: ctx.client,
     imageClient: ctx.imageClient || ctx.geminiClient,
     feedback,
+    fetcher: ctx.fetcher,
   });
 }
 

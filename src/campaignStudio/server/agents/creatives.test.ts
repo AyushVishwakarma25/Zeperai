@@ -1,7 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MASTER_PROMPTS_JSON, RUN, deadline } from './fixtures.js';
-import { creativesAgent, generateSingleCreative, normalizeAspectRatio } from './creatives.js';
+import {
+  MAX_REFERENCE_IMAGES,
+  REFERENCE_IMAGE_MAX_BYTES,
+  buildReferenceImageParts,
+  creativesAgent,
+  fetchReferenceImagePart,
+  generateSingleCreative,
+  normalizeAspectRatio,
+} from './creatives.js';
 import type { MasterPrompts } from '../../types.js';
 import type { GenAIClientLike } from '../gemini.js';
 
@@ -321,3 +329,82 @@ test('normalizeAspectRatio handles standard formats cleanly', () => {
   assert.equal(normalizeAspectRatio('unknown'), '1:1');
   assert.equal(normalizeAspectRatio(null), '1:1');
 });
+
+test('creatives constants match Gemini image model limits', () => {
+  // gemini-2.5-flash-image input limit is 3 images per request
+  assert.equal(MAX_REFERENCE_IMAGES, 3);
+  // Gemini image models cap inline images at 7MB (7_000_000 bytes)
+  assert.equal(REFERENCE_IMAGE_MAX_BYTES, 7_000_000);
+});
+
+test('buildReferenceImageParts: caps URLs at MAX_REFERENCE_IMAGES and drops failed fetches', async () => {
+  const fakeFetcher: any = async (url: string) => {
+    if (url.includes('fail')) throw new Error('Unreachable');
+    return {
+      body: Buffer.from('fake-image-bytes'),
+      contentType: 'image/png',
+      status: 200,
+      url,
+      redirects: [],
+    };
+  };
+
+  const urls = [
+    'https://example.com/img1.png',
+    'https://example.com/fail.png',
+    'https://example.com/img2.png',
+    'https://example.com/img3.png',
+    'https://example.com/img4.png',
+  ];
+  // 5 URLs provided, but capped at MAX_REFERENCE_IMAGES (3), and 1 fails -> 2 parts
+  const parts = await buildReferenceImageParts(urls, fakeFetcher);
+  assert.equal(parts.length, 2);
+  assert.equal(parts[0].inlineData.mimeType, 'image/png');
+  assert.equal(parts[0].inlineData.data, Buffer.from('fake-image-bytes').toString('base64'));
+});
+
+test('generateSingleCreative: records referenceImageCount in overlay and passes referenceParts to model', async () => {
+  const db = createMockSupabase();
+  let receivedCall: any = null;
+  const fakeImageClient: GenAIClientLike = {
+    models: {
+      async generateContent(args: any) {
+        receivedCall = args;
+        return okImageReply();
+      },
+    },
+  };
+  const fakeFetcher: any = async (url: string) => ({
+    body: Buffer.from('product-photo-bytes'),
+    contentType: 'image/jpeg',
+    status: 200,
+    url,
+    redirects: [],
+  });
+
+  const promptWithPhotos = {
+    ...MASTER_PROMPTS.prompts[0],
+    referenceImageUrls: ['https://example.com/bottle-front.jpg', 'https://example.com/bottle-side.jpg'],
+  };
+
+  const asset = await generateSingleCreative({
+    runId: 'r-ref-1',
+    userId: 'u1',
+    creativeIndex: 1,
+    prompt: promptWithPhotos,
+    quality: 'Standard',
+    client: db,
+    imageClient: fakeImageClient,
+    fetcher: fakeFetcher,
+  });
+
+  assert.equal(asset.status, 'ready');
+  assert.equal(asset.overlay.referenceImageCount, 2);
+  assert.ok(receivedCall);
+  // Parts sent to Gemini: 2 image parts before the text prompt
+  assert.equal(receivedCall.contents.parts.length, 3);
+  assert.equal(receivedCall.contents.parts[0].inlineData.mimeType, 'image/jpeg');
+  assert.equal(receivedCall.contents.parts[1].inlineData.mimeType, 'image/jpeg');
+  assert.match(receivedCall.contents.parts[2].text, /FIXED IDENTITY PROTOCOL: 2 real product reference photo\(s\)/);
+});
+
