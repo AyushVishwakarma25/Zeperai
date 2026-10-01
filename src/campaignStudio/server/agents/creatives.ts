@@ -30,6 +30,7 @@ import {
   updateAssetsWhere,
 } from '../db.js';
 import type { GenAIClientLike } from '../gemini.js';
+import { safeFetch as defaultSafeFetch, type SafeFetcher } from '../safeFetch.js';
 import type { AgentImpl, AgentRunContext, AgentRunResult } from './types.js';
 
 export interface CreativesStepOutput {
@@ -37,6 +38,46 @@ export interface CreativesStepOutput {
   readyCount: number;
   failedCount: number;
   assetIds: string[];
+}
+
+/** Max product reference photos attached to one generation call (cost/token budget). */
+const MAX_REFERENCE_IMAGES = 4;
+/** Per-image byte cap when fetching an uploaded reference photo. */
+const REFERENCE_IMAGE_MAX_BYTES = 8_000_000;
+const IMAGE_CONTENT_TYPES = /^image\//i;
+
+export interface InlineImagePart {
+  inlineData: { mimeType: string; data: string };
+}
+
+/**
+ * Fetches one reference image through the SSRF-safe fetcher and returns it as an inline
+ * (base64) part the image model can read. Returns null on any failure - a missing or
+ * unreachable reference photo must never fail the whole creative, since the generator can
+ * still produce a (lower-fidelity) result from the text prompt alone.
+ */
+export async function fetchReferenceImagePart(url: string, fetcher: SafeFetcher = defaultSafeFetch): Promise<InlineImagePart | null> {
+  try {
+    const res = await fetcher(url, {
+      maxBytes: REFERENCE_IMAGE_MAX_BYTES,
+      allowedContentTypes: IMAGE_CONTENT_TYPES,
+      accept: 'image/*',
+      timeoutMs: 8_000,
+    });
+    const mimeType = IMAGE_CONTENT_TYPES.test(res.contentType) ? res.contentType.split(';')[0].trim() : 'image/jpeg';
+    return { inlineData: { mimeType, data: res.body.toString('base64') } };
+  } catch (err) {
+    console.warn(`[campaign-studio] could not fetch reference image (continuing without it): ${url.slice(0, 120)} - ${(err as Error)?.message || err}`);
+    return null;
+  }
+}
+
+/** Fetches up to MAX_REFERENCE_IMAGES reference photos in parallel; failures are dropped, not fatal. */
+export async function buildReferenceImageParts(urls: string[] | undefined, fetcher: SafeFetcher = defaultSafeFetch): Promise<InlineImagePart[]> {
+  if (!urls || urls.length === 0) return [];
+  const capped = urls.slice(0, MAX_REFERENCE_IMAGES);
+  const results = await Promise.all(capped.map((u) => fetchReferenceImagePart(u, fetcher)));
+  return results.filter((p): p is InlineImagePart => p !== null);
 }
 
 export function normalizeAspectRatio(ratio?: string | null): '1:1' | '3:4' | '4:3' | '9:16' | '16:9' {
@@ -85,9 +126,11 @@ export async function callImageModel(params: {
   aspectRatio: string;
   model: string;
   client?: GenAIClientLike;
+  referenceParts?: InlineImagePart[];
 }): Promise<string> {
   const ai = params.client ?? getAI();
   const aspectRatioConfig = normalizeAspectRatio(params.aspectRatio);
+  const referenceParts = params.referenceParts ?? [];
 
   let fullPrompt = params.prompt;
   if (params.negativePrompt) {
@@ -95,11 +138,16 @@ export async function callImageModel(params: {
   }
   // Enforce invariant: NO text baked into background image
   fullPrompt += `\nImportant: Clean background visual only. Do not render any typography, text, letters, numbers, watermarks, or logos in the image.`;
+  if (referenceParts.length > 0) {
+    fullPrompt += `\nFIXED IDENTITY PROTOCOL: ${referenceParts.length} real product reference photo(s) are attached above this instruction. Maintain the exact product identity shown in them - its label text, logo, colors, shape, materials and proportions - completely unchanged. Do not redesign, restyle, or invent a different-looking product. Only the surrounding scene, background, lighting, angle and composition may be created or changed as described in the prompt.`;
+  }
 
+  // Image parts are placed before the text instruction, matching the convention used
+  // elsewhere in this app (see services/geminiService.ts) for image-conditioned prompts.
   const response = await ai.models.generateContent({
     model: params.model,
     contents: {
-      parts: [{ text: fullPrompt }],
+      parts: [...referenceParts, { text: fullPrompt }],
     },
     config: {
       imageConfig: {
@@ -120,10 +168,15 @@ export interface GenerateSingleCreativeParams {
   client: any;
   imageClient?: GenAIClientLike;
   feedback?: string | null;
+  fetcher?: SafeFetcher;
 }
 
 export async function generateSingleCreative(params: GenerateSingleCreativeParams): Promise<CampaignAsset> {
-  const { runId, userId, creativeIndex, prompt, quality, client, imageClient, feedback } = params;
+  const { runId, userId, creativeIndex, prompt, quality, client, imageClient, feedback, fetcher } = params;
+
+  // Fetch product reference photos (if any) once up front, so their count is known for the
+  // stored overlay and the same fetched bytes are reused in the actual generation call below.
+  const referenceParts = await buildReferenceImageParts(prompt.referenceImageUrls, fetcher);
 
   // 1. Resolve model & credit cost
   let userTier = 'Free';
@@ -172,6 +225,7 @@ export async function generateSingleCreative(params: GenerateSingleCreativeParam
       headline: prompt.headline,
       subheading: prompt.subheadline,
       cta: prompt.cta,
+      referenceImageCount: referenceParts.length,
     },
     credits_charged: creditCost,
     error: null,
@@ -231,6 +285,7 @@ export async function generateSingleCreative(params: GenerateSingleCreativeParam
       aspectRatio: prompt.aspectRatio,
       model: modelDef.apiModel,
       client: imageClient,
+      referenceParts,
     });
 
     // Success! Update asset to ready
@@ -310,6 +365,7 @@ export const creativesAgent: AgentImpl = {
         client,
         imageClient: ctx.imageClient || ctx.geminiClient,
         feedback: ctx.feedback,
+        fetcher: ctx.fetcher,
       });
 
       assetResults.push(asset);

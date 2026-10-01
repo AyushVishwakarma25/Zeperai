@@ -191,6 +191,8 @@ export interface CreativeOverlay {
   cta?: string;
   logoPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
   textPlacement?: 'top' | 'bottom' | 'center' | 'clean_overlay';
+  /** How many uploaded product reference photos were actually attached when this image was generated. */
+  referenceImageCount?: number;
 }
 
 // ---------------------------------------------------------------------------
