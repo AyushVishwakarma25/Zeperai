@@ -9,6 +9,7 @@ import { CreativitySection } from './CreativitySection.js';
 import { Footer } from './Footer.js';
 import { BeforeAfterSlider } from './BeforeAfterSlider.js';
 import { landingAssets } from './landingAssets.js';
+import { Hero10, type Hero10Props } from '../../components/ui/hero-10.js';
 import { SEO } from '../../components/SEO.js';
 import { ProductSchema, OrganizationSchema, SoftwareAppSchema, FAQSchema } from '../../components/StructuredData.js';
 
@@ -59,6 +60,39 @@ export const LandingPage: React.FC = () => {
     }
   }, [location]);
 
+  const heroValues: Hero10Props = {
+    title: 'Stop Prompting.',
+    titleLine2Prefix: 'Start',
+    titleHighlight: 'Launching Winning Ads',
+    description:
+      'ZeperAI gives D2C brands, Shopify stores, and marketing teams autonomous AI campaign engines, studio product visuals, and high-CTR creatives in minutes.',
+    socialProof: 'Trusted by 2k+ D2C brands & growth teams',
+    badgeText: 'Built for Indian D2C Brands & E-Commerce',
+    images: [
+      landingAssets.hero2,
+      'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/Prustlr%20landing%20page%20image.webp',
+      landingAssets.hero6,
+    ],
+    imageAlts: [
+      'UGC Influencer Creative',
+      'Winning E-Commerce Product Visual',
+      'Commercial Studio Product Shoot',
+    ],
+    animation: 'subtle',
+    primaryCTA: {
+      ctaEnabled: true,
+      text: 'Get Free Credits',
+      variant: 'default',
+      size: 'default',
+    },
+    secondaryCTA: {
+      ctaEnabled: true,
+      text: 'Explore Studios',
+      variant: 'outline',
+      size: 'default',
+    },
+  };
+
   return (
     <>
       <SEO
@@ -106,101 +140,14 @@ export const LandingPage: React.FC = () => {
       <LandingHeader />
 
       <main id="main-content" role="main">
-      <section className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto relative overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[#4452FB]/5 blur-[120px] rounded-full pointer-events-none"></div>
-        
-        {/* Top Headline */}
-        <div className="text-center mb-12 relative z-10">
-          <div className="inline-flex items-center text-[#3641C9] text-sm font-extrabold tracking-widest uppercase mb-6">
-            Built for Indian D2C Brands
-          </div>
-          <h1 className="text-5xl md:text-7xl font-black tracking-tight text-slate-900 mx-auto leading-[1.1] max-w-5xl relative mb-6">
-            <Icon name="sparkles" className="absolute -top-6 -left-8 w-10 h-10 text-yellow-400 hidden md:block" />
-            Stop Prompting<br />
-            Start Launching
-            <Icon name="sparkles" className="absolute -bottom-4 -right-8 w-8 h-8 text-yellow-400 hidden md:block" />
-          </h1>
-          <p className="text-xl md:text-2xl text-slate-600 mb-10 max-w-3xl mx-auto leading-relaxed relative z-10 font-light">
-            ZeperAI gives D2C brands, Shopify stores, and marketing agencies 100+ battle-tested, high-CTR creative templates — plus AI tools to generate product visuals, UGC content, and fashion shoots in seconds.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
-            <button 
-              onClick={() => navigate('/login')}
-              className="w-full sm:w-auto bg-[#4452FB] hover:bg-[#3641C9] text-white px-6 py-3 md:px-8 md:py-4 rounded-xl text-base md:text-lg font-bold transition-all shadow-lg shadow-[#C8CEFE] transform hover:-translate-y-1 flex items-center justify-center gap-2"
-            >
-              Get Free Credits <Icon name="arrow-right" className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Collage Area */}
-        <div className="relative flex flex-col items-center justify-center mb-16 z-10">
-          
-          {/* Desktop Floating Elements */}
-          <div className="hidden lg:flex absolute left-0 top-1/4 flex-col items-start w-48">
-             <div className="flex items-center gap-2 mb-2">
-               <span className="text-lg font-black uppercase tracking-wider transform -rotate-12">NEW!</span>
-               <Icon name="arrow-down-right" className="w-5 h-5" />
-             </div>
-             <p className="text-sm text-slate-500 font-medium leading-relaxed">Stop guessing what works. Instantly generate high-converting ad creatives.</p>
-          </div>
-
-          <div className="hidden lg:flex absolute right-0 top-1/4 flex-col items-end w-48 text-right">
-             <h3 className="text-sm font-black uppercase tracking-widest mb-2 border-b-2 border-slate-900 pb-1">THE CREATIVE INTELLIGENCE</h3>
-             <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">YOU NEED TO DRIVE REAL ROAS</p>
-          </div>
-
-          {/* Image Collage */}
-          <div className="flex items-center justify-center gap-3 md:gap-5 h-[350px] md:h-[450px]">
-            {/* Column 1 */}
-            <div className="flex flex-col gap-4 mt-16 hidden md:flex">
-              <div className="w-28 h-28 md:w-36 md:h-36 rounded-2xl bg-slate-100 overflow-hidden shadow-sm">
-                <img src={landingAssets.hero1} alt="Placeholder" className="w-full h-full object-cover" />
-              </div>
-            </div>
-
-            {/* Column 2 */}
-            <div className="flex flex-col gap-3 md:gap-5 mb-12">
-              <div className="w-28 h-36 md:w-40 md:h-48 rounded-2xl bg-slate-100 overflow-hidden shadow-sm">
-                <img src={landingAssets.hero2} alt="Placeholder" className="w-full h-full object-cover" />
-              </div>
-              <div className="w-28 h-36 md:w-40 md:h-48 rounded-2xl bg-slate-100 overflow-hidden shadow-sm">
-                <img src={landingAssets.hero3} alt="Placeholder" className="w-full h-full object-cover" />
-              </div>
-            </div>
-
-            {/* Column 3 (Center Large) */}
-            <div className="flex flex-col gap-4 z-10">
-              <div className="w-44 h-60 md:w-64 md:h-[380px] rounded-2xl bg-slate-100 overflow-hidden shadow-2xl ring-4 ring-white relative group cursor-pointer">
-                <img 
-                  src="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/Prustlr%20landing%20page%20image.webp" 
-                  alt="Product" 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-                />
-              </div>
-            </div>
-
-            {/* Column 4 */}
-            <div className="flex flex-col gap-3 md:gap-5 mt-12">
-              <div className="w-28 h-36 md:w-40 md:h-48 rounded-2xl bg-slate-100 overflow-hidden shadow-sm">
-                <img src={landingAssets.hero5} alt="Placeholder" className="w-full h-full object-cover" />
-              </div>
-              <div className="w-28 h-36 md:w-40 md:h-48 rounded-2xl bg-slate-100 overflow-hidden shadow-sm">
-                <img src={landingAssets.hero6} alt="Placeholder" className="w-full h-full object-cover" />
-              </div>
-            </div>
-
-            {/* Column 5 */}
-            <div className="flex flex-col gap-4 mb-16 hidden md:flex">
-              <div className="w-28 h-28 md:w-36 md:h-36 rounded-2xl bg-slate-100 overflow-hidden shadow-sm">
-                <img src={landingAssets.hero7} alt="Placeholder" className="w-full h-full object-cover" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-
-      </section>
+        <Hero10
+          {...heroValues}
+          onPrimaryClick={() => navigate('/login')}
+          onSecondaryClick={() => {
+            const el = document.getElementById('creativity');
+            el?.scrollIntoView({ behavior: 'smooth' });
+          }}
+        />
 
       {/* STATS CARD BELOW HERO */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto mb-24">
