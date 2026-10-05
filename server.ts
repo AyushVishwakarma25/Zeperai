@@ -4473,9 +4473,9 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       },
       entries: [
         {
-          identifier: "urn:ard:zeperai.in:tool:campaign-studio",
+          identifier: "urn:air:zeperai.in:tool:campaign-studio",
           displayName: "Campaign Studio",
-          type: "application/json",
+          type: "application/agent-card+json",
           url: "https://zeperai.in/api/campaign-studio/docs",
           description: "Autonomous multi-agent campaign strategist and high-converting ad visual generation engine for D2C brands, social media ads, and performance media buyers.",
           representativeQueries: [
@@ -4486,9 +4486,9 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           tags: ["marketing", "ad-creatives", "creative-strategy", "ai-agents"]
         },
         {
-          identifier: "urn:ard:zeperai.in:tool:product-studio",
+          identifier: "urn:air:zeperai.in:tool:product-studio",
           displayName: "Product Studio",
-          type: "application/json",
+          type: "application/agent-card+json",
           url: "https://zeperai.in/",
           description: "AI-powered commercial product photography and studio background generation.",
           representativeQueries: [
@@ -4499,9 +4499,9 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           tags: ["product-photography", "ecommerce", "image-generation"]
         },
         {
-          identifier: "urn:ard:zeperai.in:tool:background-remover",
+          identifier: "urn:air:zeperai.in:tool:background-remover",
           displayName: "AI Background Remover Pro",
-          type: "application/json",
+          type: "application/agent-card+json",
           url: "https://zeperai.in/tools/background-remover",
           description: "Instant pixel-perfect background cutout and transparent PNG extraction preserving fine edges and packaging detail.",
           representativeQueries: [
@@ -4512,9 +4512,9 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           tags: ["background-removal", "image-editing", "transparent-png"]
         },
         {
-          identifier: "urn:ard:zeperai.in:tool:ugc-influencer-studio",
+          identifier: "urn:air:zeperai.in:tool:ugc-influencer-studio",
           displayName: "AI UGC Influencer Studio",
-          type: "application/json",
+          type: "application/agent-card+json",
           url: "https://zeperai.in/",
           description: "Generate relatable Indian and global influencer UGC model photos showcasing products in authentic everyday settings.",
           representativeQueries: [
