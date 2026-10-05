@@ -81,7 +81,6 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
         { label: 'AI UGC Influencer', mode: AppMode.Influencer },
         { label: 'Product Photoshoot', mode: AppMode.Product },
         { label: 'Fashion Photoshoot', mode: AppMode.Fashion },
-        { label: 'Ad Creative', mode: AppMode.AdCreative },
         { label: 'Festival Shoot', mode: AppMode.Festival },
         { label: 'Remix', mode: AppMode.Remix },
     ];

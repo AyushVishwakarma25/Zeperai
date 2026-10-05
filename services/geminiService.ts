@@ -657,6 +657,9 @@ async function generateSingleImage(params: GenerateImageParams, aspectRatio: Asp
 }
 
 export const generateImages = async (params: GenerateImageParams, userTier: 'Free' | 'PayAsYouGo', brandKit?: BrandKit | null, sourceProductImageUrl?: string, onProgress?: (current: number, total: number) => void, modelSeedUrl?: string): Promise<GeneratedImage[]> => {
+    if (params.appMode === AppMode.AdCreative) {
+        throw new Error("Ad Creative generator is currently inactive.");
+    }
     const aspectRatios = params.aspectRatios?.length ? params.aspectRatios : [AspectRatio.PortraitPost];
     const allResults: GeneratedImage[] = [];
     let completedJobs = 0;
@@ -818,25 +821,6 @@ export const generateImages = async (params: GenerateImageParams, userTier: 'Fre
         results.push(...await Promise.all(promises));
     }
     
-    // Auto-generate Ad Copy if left blank
-    if (params.appMode === AppMode.AdCreative && !params.adTitle && !params.adSubheading && !params.adCta) {
-        try {
-            let vibe = undefined;
-            if (params.adTemplateId) {
-                const template = AD_TEMPLATES.find(t => t.id === params.adTemplateId);
-                if (template) vibe = template.copywritingVibe;
-            }
-            const adCopy = await generateAdCopy(params.productDescription || 'A product', params.adStylePreset || 'Modern', vibe);
-            for (const result of results) {
-                result.params.adTitle = adCopy.title;
-                result.params.adSubheading = adCopy.subheading;
-                result.params.adCta = adCopy.cta;
-            }
-        } catch (e) {
-            console.error("Auto-generation of ad copy failed", e);
-        }
-    }
-
     allResults.push(...results);
     
     return allResults;
@@ -1019,42 +1003,10 @@ export const analyzeBrandLogo = async (base64: string, mimeType: string): Promis
     return parseGeminiJson(response.text, { colors: [], typography: '', vibe: [] });
 };
 
-export const generateAdCopy = async (productDescription: string, adStyle: string, copywritingVibe?: string): Promise<{ title: string, subheading: string, cta: string }> => {
-    const ai = getAI();
-    const vibeInstruction = copywritingVibe ? `The tone and vibe of the copy MUST be: ${copywritingVibe}.` : `The tone should match the visual style: ${adStyle}.`;
-    
-    const prompt = `You are an expert copywriter. Generate ad copy for a product described as: "${productDescription}".
-    The ad style/vibe is: "${adStyle}".
-    ${vibeInstruction}
-    
-    Provide a short, catchy Headline (max 5 words).
-    Provide a compelling Subheading (max 10 words).
-    Provide a strong Call to Action (max 3 words).
-    
-    Return ONLY JSON format.`;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        title: { type: Type.STRING },
-                        subheading: { type: Type.STRING },
-                        cta: { type: Type.STRING }
-                    },
-                    required: ['title', 'subheading', 'cta']
-                }
-            }
-        });
-        return parseGeminiJson(response.text, { title: "Special Offer", subheading: "Get yours today", cta: "Shop Now" });
-    } catch (e) {
-        console.error("Failed to generate ad copy", e);
-        return { title: "Special Offer", subheading: "Get yours today", cta: "Shop Now" };
-    }
+export const generateAdCopy = async (_productDescription: string, _adStyle: string, _copywritingVibe?: string): Promise<{ title: string, subheading: string, cta: string }> => {
+    // Ad Creative is currently inactive; avoid invoking Gemini API
+    console.warn("Ad Creative copy generation is currently inactive.");
+    return { title: "", subheading: "", cta: "" };
 };
 
 export const analyzeProductContext = async (file: File): Promise<{ 

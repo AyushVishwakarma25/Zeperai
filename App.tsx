@@ -377,18 +377,9 @@ const AppInternal: React.FC = () => {
       }
   }, [creative]);
 
-  const handleGenerateAdFromShopify = useCallback((productName: string) => {
-      creative.setLastActiveMode(AppMode.AdCreative);
-      creative.setParams(prev => ({
-          ...prev,
-          ...getModeDefaults(AppMode.AdCreative, prev),
-          appMode: AppMode.AdCreative,
-          adTitle: `Special Offer: ${productName}`,
-          productDescription: productName
-      }));
-      creative.setActiveMode(AppMode.AdCreative);
-      setCurrentView(View.Dashboard);
-  }, [creative]);
+  const handleGenerateAdFromShopify = useCallback((_productName: string) => {
+      setToast({ message: "Ad Creative generator is currently inactive.", type: 'error' });
+  }, []);
 
   const handleSaveModel = useCallback(async (image: GeneratedImage) => {
       const modelName = `Model #${Math.floor(1000 + Math.random() * 9000)}`;

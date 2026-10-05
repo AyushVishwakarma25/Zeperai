@@ -136,8 +136,7 @@ export const FloatingActionBar: React.FC<FloatingActionBarProps> = ({
           {[
               { value: AppMode.Influencer, label: 'AI UGC Influencer' },
               { value: AppMode.Product, label: 'Product' },
-              { value: AppMode.Fashion, label: 'Fashion' },
-              { value: AppMode.AdCreative, label: 'Ad Creative' }
+              { value: AppMode.Fashion, label: 'Fashion' }
           ].map((opt) => (
               <button
                 key={opt.value}

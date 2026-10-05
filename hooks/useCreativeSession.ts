@@ -80,6 +80,10 @@ export const useCreativeSession = (
     // --- Actions ---
 
     const handleSelectMode = useCallback((tool: AppMode) => {
+        if (tool === AppMode.AdCreative) {
+            console.warn("Ad Creative generator is currently inactive.");
+            return;
+        }
         setLastActiveMode(tool);
         setParams(prev => ({ ...prev, ...getModeDefaults(tool, prev) }));
         setActiveMode(tool);
@@ -169,6 +173,12 @@ export const useCreativeSession = (
             } catch (e) {
                 console.warn("Failed to sync file from preview", e);
             }
+        }
+
+        if (finalParams.appMode === AppMode.AdCreative) {
+            setError("Ad Creative generator is currently inactive.");
+            isGeneratingRef.current = false;
+            return;
         }
 
         const cost = calculateGenerationCost(finalParams, userTier);

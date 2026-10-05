@@ -173,14 +173,6 @@ const DashboardHome: React.FC<DashboardProps> = ({
             thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/Fashion%20Studio.webp',
             onClick: () => onSelectMode(AppMode.Fashion)
         },
-        {
-            title: 'Ad Creative Generator',
-            description: 'Predictive creative analytics paired with automated high-converting ad layouts.',
-            color: '#E1D9CC', // card-tan
-            accentColor: '#C2410C', // orange-700
-            iconName: 'megaphone',
-            onClick: () => onSelectMode(AppMode.AdCreative)
-        },
         ...(onOpenCampaignStudio ? [{
             title: 'Campaign Studio',
             description: 'From your website to ready-to-post ads: brand analysis, strategy and creatives, approved step by step.',

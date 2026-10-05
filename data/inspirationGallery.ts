@@ -52,15 +52,12 @@ export const INSPIRATION_GALLERY: InspirationItem[] = [
   {
     id: 'insp-ad-tech',
     imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80',
-    title: 'Premium Audio Ad',
+    title: 'Premium Audio Tech',
     category: 'Tech',
-    appMode: AppMode.AdCreative,
+    appMode: AppMode.Product,
     isRemixable: true,
     remixParams: {
-        adLayout: AdLayout.TextLeftImageRight,
-        adTitle: 'Sound Redefined.',
-        adSubheading: 'Noise cancelling perfection.',
-        adCta: 'Shop Now',
+        productStylePreset: 'Studio Clean',
         backgroundStyle: 'Minimalist studio grey with soft lighting',
         productDescription: 'High-end wireless headphones.'
     }
