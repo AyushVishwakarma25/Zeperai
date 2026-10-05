@@ -10,8 +10,6 @@ import { getActionLabel } from './utils/helpers.js';
 import { getModeDefaults } from './utils/configLogic.js'; 
 import { CreativeModal } from './components/CreativeModal.js';
 import { Toast } from './components/ui/Toast.js';
-import { LoginPage } from './components/LoginPage.js';
-import { SignupPage } from './components/SignupPage.js';
 import { useNetworkStatus } from './hooks/useNetworkStatus.js';
 import { useAuth } from './contexts/AuthContext.js';
 import { useDesigns } from './contexts/DesignsContext.js';
@@ -27,17 +25,21 @@ import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { ChatBot } from './components/ChatBot.js';
 
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import AdminDashboard from './components/admin/AdminDashboard.js';
-import { AdminLoginPage } from './components/admin/AdminLoginPage.js';
 import { LandingPage } from './src/landing/LandingPage.js';
-import { BackgroundRemoverLandingPage } from './src/landing/BackgroundRemoverLandingPage.js';
-import { PrivacyPolicyPage } from './src/landing/PrivacyPolicyPage.js';
-import { TermsPage } from './src/landing/TermsPage.js';
-import { CookiePolicyPage } from './src/landing/CookiePolicyPage.js';
-import { PricingPage } from './src/landing/PricingPage.js';
-import { AboutUsPage } from './src/landing/AboutUsPage.js';
-import { ContactPage } from './src/landing/ContactPage.js';
-import { BlogPage } from './src/landing/BlogPage.js';
+
+// Lazy load secondary routes & admin suite to drastically reduce initial landing bundle size
+const LoginPage = React.lazy(() => import('./components/LoginPage.js').then(m => ({ default: m.LoginPage })));
+const SignupPage = React.lazy(() => import('./components/SignupPage.js').then(m => ({ default: m.SignupPage })));
+const AdminDashboard = React.lazy(() => import('./components/admin/AdminDashboard.js'));
+const AdminLoginPage = React.lazy(() => import('./components/admin/AdminLoginPage.js').then(m => ({ default: m.AdminLoginPage })));
+const BackgroundRemoverLandingPage = React.lazy(() => import('./src/landing/BackgroundRemoverLandingPage.js').then(m => ({ default: m.BackgroundRemoverLandingPage })));
+const PrivacyPolicyPage = React.lazy(() => import('./src/landing/PrivacyPolicyPage.js').then(m => ({ default: m.PrivacyPolicyPage })));
+const TermsPage = React.lazy(() => import('./src/landing/TermsPage.js').then(m => ({ default: m.TermsPage })));
+const CookiePolicyPage = React.lazy(() => import('./src/landing/CookiePolicyPage.js').then(m => ({ default: m.CookiePolicyPage })));
+const PricingPage = React.lazy(() => import('./src/landing/PricingPage.js').then(m => ({ default: m.PricingPage })));
+const AboutUsPage = React.lazy(() => import('./src/landing/AboutUsPage.js').then(m => ({ default: m.AboutUsPage })));
+const ContactPage = React.lazy(() => import('./src/landing/ContactPage.js').then(m => ({ default: m.ContactPage })));
+const BlogPage = React.lazy(() => import('./src/landing/BlogPage.js').then(m => ({ default: m.BlogPage })));
 
 const dataURLToParts = (dataURL: string) => {
     const parts = dataURL.split(',');
@@ -440,6 +442,11 @@ const AppInternal: React.FC = () => {
   };
 
   return (
+    <React.Suspense fallback={
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <Spinner className="w-8 h-8 text-[#4452FB]" />
+      </div>
+    }>
     <Routes>
       <Route path="/" element={!user ? <LandingPage /> : <Navigate to="/dashboard" replace />} />
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
@@ -631,6 +638,7 @@ const AppInternal: React.FC = () => {
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </React.Suspense>
   );
 };
 

@@ -19,6 +19,7 @@ export const Footer: React.FC = () => {
               href="https://www.linkedin.com/company/zeperai/" 
               target="_blank" 
               rel="noopener noreferrer" 
+              title="LinkedIn"
               aria-label="Visit ZeperAI on LinkedIn"
               className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center hover:bg-[#4452FB] hover:text-white transition-colors"
             >
@@ -29,6 +30,7 @@ export const Footer: React.FC = () => {
               href="https://www.instagram.com/zeperai/" 
               target="_blank" 
               rel="noopener noreferrer" 
+              title="Instagram"
               aria-label="Visit ZeperAI on Instagram"
               className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center hover:bg-[#4452FB] hover:text-white transition-colors"
             >

@@ -47,18 +47,26 @@
     },
     {
       "source": "/ai-catalog.json",
-      "destination": "/ai-catalog.json"
+      "destination": "/api"
     },
     {
       "source": "/.well-known/ai-catalog.json",
-      "destination": "/.well-known/ai-catalog.json"
+      "destination": "/api"
     },
     {
       "source": "/.well-known/ard.json",
-      "destination": "/.well-known/ard.json"
+      "destination": "/api"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/llms.txt",
+      "destination": "/api"
+    },
+    {
+      "source": "/.well-known/llms.txt",
+      "destination": "/api"
+    },
+    {
+      "source": "/((?!api/|ai-catalog\\.json|\\.well-known/|llms\\.txt|robots\\.txt|sitemap\\.xml|.*\\.[a-zA-Z0-9]+).*)",
       "destination": "/index.html"
     }
   ]

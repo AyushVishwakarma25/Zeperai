@@ -105,7 +105,7 @@ export const LandingPage: React.FC = () => {
       `}</style>
       <LandingHeader />
 
-      {/* SECTION 2 — HERO (Revamped) */}
+      <main id="main-content" role="main">
       <section className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto relative overflow-hidden">
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[#4452FB]/5 blur-[120px] rounded-full pointer-events-none"></div>
         
@@ -1112,6 +1112,7 @@ export const LandingPage: React.FC = () => {
           </div>
         </div>
       </section>
+      </main>
 
       {/* FOOTER */}
       <Footer />
