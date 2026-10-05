@@ -93,8 +93,11 @@ export const getAI = () => {
         };
     }
 
-    const project = typeof process !== 'undefined' && process.env
-        ? (process.env.GOOGLE_CLOUD_PROJECT || process.env.VERTEX_PROJECT_ID || '')
+    const vertexProjectId = typeof process !== 'undefined' && process.env
+        ? (process.env.VERTEX_PROJECT_ID || '')
+        : '';
+    const gcpProject = typeof process !== 'undefined' && process.env
+        ? (process.env.GOOGLE_CLOUD_PROJECT || '')
         : '';
     const location = typeof process !== 'undefined' && process.env
         ? (process.env.GOOGLE_CLOUD_LOCATION || process.env.VERTEX_LOCATION || 'us-central1')
@@ -106,10 +109,6 @@ export const getAI = () => {
         ? (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || '')
         : '';
 
-    // Post-pay Vertex AI mode: used when a GCP project is configured. Billed through Cloud
-    // Billing (invoiced) instead of the prepaid AI Studio key.
-    const useVertex = !!project;
-
     const apiKey = typeof process !== 'undefined' && process.env 
         ? (process.env.GEMINI_API_KEY || 
            process.env.GeminiAPI || 
@@ -118,6 +117,18 @@ export const getAI = () => {
            process.env.GOOGLE_GENAI_API_KEY ||
            '') 
         : '';
+
+    // Post-pay Vertex AI mode: used when explicitly requested via USE_VERTEX_AI='true',
+    // or when VERTEX_PROJECT_ID is provided, or when no Gemini API key exists but a GCP project is set.
+    // NOTE: Cloud Run / App Engine environments automatically inject GOOGLE_CLOUD_PROJECT with an
+    // internal project number; we must not default to Vertex AI if a valid AI Studio GEMINI_API_KEY
+    // is available unless explicitly opted in.
+    const useVertex = Boolean(
+        process.env.USE_VERTEX_AI === 'true' ||
+        vertexProjectId ||
+        (!apiKey && gcpProject)
+    );
+    const project = vertexProjectId || (useVertex ? gcpProject : '');
         
     if (!useVertex && !apiKey) {
         console.error("Missing Gemini API Key in environment variables!");
