@@ -93,9 +93,10 @@ export function mapAgentError(err: unknown): { status: number; message: string }
   }
   if (err instanceof GeminiCallError) {
     if (err.status === 402 || err.message?.toLowerCase().includes('prepayment credits') || err.message?.toLowerCase().includes('depleted')) {
+      console.error('[CRITICAL][AI Billing/Quota Alert] Google Gemini / Vertex API billing or quota issue:', err.message);
       return {
-        status: 402,
-        message: 'Google Gemini API prepayment credits are depleted. Please check your Google AI Studio billing balance or API key.',
+        status: 503,
+        message: 'The AI generation service is temporarily undergoing maintenance. Please try again in a moment or contact support.',
       };
     }
     switch (err.kind) {
