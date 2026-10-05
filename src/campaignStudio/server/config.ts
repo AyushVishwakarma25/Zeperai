@@ -77,18 +77,20 @@ export function getStepDeadlineMs(): number {
 // Feature gate (fail closed)
 // ---------------------------------------------------------------------------
 
-/** Campaign Studio is OFF unless CAMPAIGN_STUDIO_ENABLED === 'true'. */
+/** Campaign Studio is a global dashboard feature (enabled by default unless explicitly disabled via CAMPAIGN_STUDIO_ENABLED === 'false'). */
 export function isCampaignStudioEnabled(): boolean {
-  return (process.env.CAMPAIGN_STUDIO_ENABLED || '').trim().toLowerCase() === 'true';
+  const envVal = (process.env.CAMPAIGN_STUDIO_ENABLED || '').trim().toLowerCase();
+  return envVal !== 'false';
 }
 
 /**
  * Optional beta allowlist. When CAMPAIGN_STUDIO_ALLOWED_EMAILS is set
  * (comma-separated), only those emails (and admins) can use the feature.
- * Returns null when no allowlist is configured (= everyone signed in).
+ * Returns null when no allowlist is configured (= everyone signed in has access).
  */
 export function getCampaignStudioAllowedEmails(): string[] | null {
   const raw = (process.env.CAMPAIGN_STUDIO_ALLOWED_EMAILS || '').trim();
-  if (!raw) return null;
-  return raw.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  if (!raw || raw === '*' || raw === 'all') return null;
+  const list = raw.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  return list.length > 0 ? list : null;
 }

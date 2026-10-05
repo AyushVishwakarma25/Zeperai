@@ -181,7 +181,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             iconName: 'megaphone',
             onClick: () => onSelectMode(AppMode.AdCreative)
         },
-        ...(campaignAccess.enabled && onOpenCampaignStudio ? [{
+        ...(onOpenCampaignStudio ? [{
             title: 'Campaign Studio',
             description: 'From your website to ready-to-post ads: brand analysis, strategy and creatives, approved step by step.',
             color: '#EAE3FD', // card-purple
