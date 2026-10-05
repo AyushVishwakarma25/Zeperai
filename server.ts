@@ -4451,6 +4451,87 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   // Must stay above the /api/*all 404 catch-all below. See src/campaignStudio/README.md.
   registerCampaignStudioRoutes(app, { requireAuth, aiLimiter, getAdminSupabaseClient, getAdminAllowedEmails });
 
+  // --- AGENTIC RESOURCE DISCOVERY (ARD) MANIFEST ---
+  const handleAiCatalog = (_req: express.Request, res: express.Response) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    const catalogPath = path.join(process.cwd(), 'public', 'ai-catalog.json');
+    if (fs.existsSync(catalogPath)) {
+      return res.sendFile(catalogPath);
+    }
+    const distCatalogPath = path.join(process.cwd(), 'dist', 'ai-catalog.json');
+    if (fs.existsSync(distCatalogPath)) {
+      return res.sendFile(distCatalogPath);
+    }
+    return res.json({
+      specVersion: "1.0",
+      host: {
+        displayName: "ZeperAI",
+        documentationUrl: "https://zeperai.in/about",
+        logoUrl: "https://zeperai.in/favicon.ico"
+      },
+      entries: [
+        {
+          identifier: "urn:ard:zeperai.in:tool:campaign-studio",
+          displayName: "Campaign Studio",
+          type: "application/json",
+          url: "https://zeperai.in/api/campaign-studio/docs",
+          description: "Autonomous multi-agent campaign strategist and high-converting ad visual generation engine for D2C brands, social media ads, and performance media buyers.",
+          representativeQueries: [
+            "Generate a complete marketing campaign from a website URL",
+            "Create advertising creatives and market strategy for D2C brand",
+            "Generate high-converting social media ads"
+          ],
+          tags: ["marketing", "ad-creatives", "creative-strategy", "ai-agents"]
+        },
+        {
+          identifier: "urn:ard:zeperai.in:tool:product-studio",
+          displayName: "Product Studio",
+          type: "application/json",
+          url: "https://zeperai.in/",
+          description: "AI-powered commercial product photography and studio background generation.",
+          representativeQueries: [
+            "Generate studio product photos",
+            "Create professional e-commerce product imagery",
+            "Transform raw product photo into studio backdrop"
+          ],
+          tags: ["product-photography", "ecommerce", "image-generation"]
+        },
+        {
+          identifier: "urn:ard:zeperai.in:tool:background-remover",
+          displayName: "AI Background Remover Pro",
+          type: "application/json",
+          url: "https://zeperai.in/tools/background-remover",
+          description: "Instant pixel-perfect background cutout and transparent PNG extraction preserving fine edges and packaging detail.",
+          representativeQueries: [
+            "Remove background from product photo",
+            "Make product background transparent",
+            "Clean cutout for e-commerce catalog"
+          ],
+          tags: ["background-removal", "image-editing", "transparent-png"]
+        },
+        {
+          identifier: "urn:ard:zeperai.in:tool:ugc-influencer-studio",
+          displayName: "AI UGC Influencer Studio",
+          type: "application/json",
+          url: "https://zeperai.in/",
+          description: "Generate relatable Indian and global influencer UGC model photos showcasing products in authentic everyday settings.",
+          representativeQueries: [
+            "Create influencer UGC photos for product",
+            "Generate model showcasing skincare product",
+            "AI fashion shoot with virtual model"
+          ],
+          tags: ["ugc", "influencer", "fashion", "ai-models"]
+        }
+      ]
+    });
+  };
+
+  app.get('/ai-catalog.json', handleAiCatalog);
+  app.get('/.well-known/ai-catalog.json', handleAiCatalog);
+  app.get('/.well-known/ard.json', handleAiCatalog);
+
   // PREVENT VITE FROM SWALLOWING UNHANDLED API CALLS WITH SPA FALLBACK
   app.all('/api/*all', (req, res) => {
     res.status(404).json({ error: `API Route not found: ${req.method} ${req.path}` });

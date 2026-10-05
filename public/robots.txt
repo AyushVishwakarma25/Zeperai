@@ -10,6 +10,8 @@ Allow: /privacy
 Allow: /terms
 Allow: /cookies
 Allow: /llms.txt
+Allow: /ai-catalog.json
+Allow: /.well-known/
 Disallow: /dashboard
 Disallow: /api/
 Disallow: /admin

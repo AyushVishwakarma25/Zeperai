@@ -15,10 +15,24 @@ export const Footer: React.FC = () => {
             ZeperAi is the ultimate Pinterest for ads. Instantly generate high-converting ad creatives, product visuals, and campaigns that drive real ROAS.
           </p>
           <div className="flex gap-4">
-            <a href="https://www.linkedin.com/company/zeperai/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center hover:bg-[#4452FB] hover:text-white transition-colors">
+            <a 
+              href="https://www.linkedin.com/company/zeperai/" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              aria-label="Visit ZeperAI on LinkedIn"
+              className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center hover:bg-[#4452FB] hover:text-white transition-colors"
+            >
+              <span className="sr-only">LinkedIn</span>
               <Icon name="linkedin" className="w-5 h-5" />
             </a>
-            <a href="https://www.instagram.com/zeperai/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center hover:bg-[#4452FB] hover:text-white transition-colors">
+            <a 
+              href="https://www.instagram.com/zeperai/" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              aria-label="Visit ZeperAI on Instagram"
+              className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center hover:bg-[#4452FB] hover:text-white transition-colors"
+            >
+              <span className="sr-only">Instagram</span>
               <Icon name="instagram" className="w-5 h-5" />
             </a>
           </div>

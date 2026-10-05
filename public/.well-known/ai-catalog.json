@@ -1,0 +1,62 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "ZeperAI",
+    "documentationUrl": "https://zeperai.in/about",
+    "logoUrl": "https://zeperai.in/favicon.ico"
+  },
+  "entries": [
+    {
+      "identifier": "urn:ard:zeperai.in:tool:campaign-studio",
+      "displayName": "Campaign Studio",
+      "type": "application/json",
+      "url": "https://zeperai.in/api/campaign-studio/docs",
+      "description": "Autonomous multi-agent campaign strategist and high-converting ad visual generation engine for D2C brands, social media ads, and performance media buyers.",
+      "representativeQueries": [
+        "Generate a complete marketing campaign from a website URL",
+        "Create advertising creatives and market strategy for D2C brand",
+        "Generate high-converting social media ads"
+      ],
+      "tags": ["marketing", "ad-creatives", "creative-strategy", "ai-agents"]
+    },
+    {
+      "identifier": "urn:ard:zeperai.in:tool:product-studio",
+      "displayName": "Product Studio",
+      "type": "application/json",
+      "url": "https://zeperai.in/",
+      "description": "AI-powered commercial product photography and studio background generation.",
+      "representativeQueries": [
+        "Generate studio product photos",
+        "Create professional e-commerce product imagery",
+        "Transform raw product photo into studio backdrop"
+      ],
+      "tags": ["product-photography", "ecommerce", "image-generation"]
+    },
+    {
+      "identifier": "urn:ard:zeperai.in:tool:background-remover",
+      "displayName": "AI Background Remover Pro",
+      "type": "application/json",
+      "url": "https://zeperai.in/tools/background-remover",
+      "description": "Instant pixel-perfect background cutout and transparent PNG extraction preserving fine edges and packaging detail.",
+      "representativeQueries": [
+        "Remove background from product photo",
+        "Make product background transparent",
+        "Clean cutout for e-commerce catalog"
+      ],
+      "tags": ["background-removal", "image-editing", "transparent-png"]
+    },
+    {
+      "identifier": "urn:ard:zeperai.in:tool:ugc-influencer-studio",
+      "displayName": "AI UGC Influencer Studio",
+      "type": "application/json",
+      "url": "https://zeperai.in/",
+      "description": "Generate relatable Indian and global influencer UGC model photos showcasing products in authentic everyday settings.",
+      "representativeQueries": [
+        "Create influencer UGC photos for product",
+        "Generate model showcasing skincare product",
+        "AI fashion shoot with virtual model"
+      ],
+      "tags": ["ugc", "influencer", "fashion", "ai-models"]
+    }
+  ]
+}

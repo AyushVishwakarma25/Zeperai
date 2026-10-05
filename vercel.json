@@ -46,6 +46,18 @@
       "destination": "/cookies/index.html"
     },
     {
+      "source": "/ai-catalog.json",
+      "destination": "/ai-catalog.json"
+    },
+    {
+      "source": "/.well-known/ai-catalog.json",
+      "destination": "/.well-known/ai-catalog.json"
+    },
+    {
+      "source": "/.well-known/ard.json",
+      "destination": "/.well-known/ard.json"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
