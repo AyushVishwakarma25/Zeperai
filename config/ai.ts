@@ -177,13 +177,13 @@ export const getAI = () => {
                 if (modelName === 'nano-banana-2' || modelName === 'nano-banana') realModelName = 'gemini-2.5-flash-image';
                 if (modelName === 'nano-banana-pro') realModelName = 'gemini-3-pro-image';
                 if (modelName === 'gemini-3.1-pro-preview' || modelName === 'gemini-3-pro-preview' || modelName === 'gemini-pro-latest' || modelName === 'gemini-pro') {
-                    realModelName = 'gemini-2.5-pro';
+                    realModelName = 'gemini-3.1-pro-preview';
                 }
                 // Vertex AI does not support AI Studio's rolling "-latest" alias convention;
                 // it needs a concrete, versioned publisher model id.
                 if (useVertex) {
                     if (realModelName === 'gemini-flash-latest' || realModelName === 'gemini-3.7-flash') realModelName = 'gemini-2.5-flash';
-                    if (realModelName === 'gemini-3.1-pro-preview' || realModelName === 'gemini-3-pro-preview' || realModelName === 'gemini-pro-latest' || realModelName === 'gemini-pro') realModelName = 'gemini-2.5-pro';
+                    if (realModelName === 'gemini-3.1-pro-preview' || realModelName === 'gemini-3-pro-preview' || realModelName === 'gemini-pro-latest' || realModelName === 'gemini-pro') realModelName = 'gemini-2.5-flash';
                     if (realModelName === 'gemini-3.1-flash-image' || realModelName === 'gemini-3-pro-image') realModelName = 'gemini-2.5-flash-image';
                 }
                 // Discontinued Imagen aliases fallback cleanly to Nano Banana models
