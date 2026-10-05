@@ -78,7 +78,7 @@ export const Footer: React.FC = () => {
       
       <div className="max-w-7xl mx-auto pt-8 border-t border-slate-900 flex flex-col md:flex-row justify-between items-center gap-4 text-sm">
         <div>© {new Date().getFullYear()} ZeperAi. All rights reserved.</div>
-        <div className="font-medium text-slate-500">AI is your partner, not your replacement.</div>
+        <div className="font-medium text-slate-400">AI is your partner, not your replacement.</div>
       </div>
     </footer>
   );

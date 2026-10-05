@@ -552,13 +552,13 @@ export const LandingPage: React.FC = () => {
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* 1. AD STUDIO */}
-          <div className="bg-[#6366F1] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
+          <div className="bg-[#4338CA] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
             <div>
               <div className="text-xs font-bold tracking-widest text-indigo-100 uppercase mb-3">Ad Studio</div>
               <h3 className="text-2xl font-bold text-white leading-tight">AI Ad Creative Studio.</h3>
             </div>
             <div className="mt-6">
-              <span className="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur-sm text-white text-sm font-bold rounded-lg border border-white/30">
+              <span className="inline-flex items-center px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg shadow-sm">
                 Professional ad creation in minutes
               </span>
             </div>
@@ -604,7 +604,7 @@ export const LandingPage: React.FC = () => {
           </div>
 
           {/* 5. INTELLIGENCE */}
-          <div className="bg-[#F43F5E] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
+          <div className="bg-[#BE123C] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
             <div>
               <div className="text-xs font-bold tracking-widest text-rose-100 uppercase mb-3">Intelligence</div>
               <h3 className="text-2xl font-bold text-white leading-tight">Predictive creative analytics.</h3>
@@ -617,7 +617,7 @@ export const LandingPage: React.FC = () => {
           </div>
 
           {/* 6. TEMPLATES */}
-          <div className="bg-[#A855F7] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
+          <div className="bg-[#7E22CE] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
             <div>
               <div className="text-xs font-bold tracking-widest text-purple-100 uppercase mb-3">Templates</div>
               <h3 className="text-2xl font-bold text-white leading-tight">100+ High-CTR Presets.</h3>
@@ -630,7 +630,7 @@ export const LandingPage: React.FC = () => {
           </div>
 
           {/* 7. INTEGRATION */}
-          <div className="bg-[#3B82F6] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
+          <div className="bg-[#1D4ED8] rounded-3xl p-8 flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all">
             <div>
               <div className="text-xs font-bold tracking-widest text-blue-100 uppercase mb-3">Integration</div>
               <h3 className="text-2xl font-bold text-white leading-tight">Upload your Shopify store data.</h3>
@@ -657,18 +657,18 @@ export const LandingPage: React.FC = () => {
           <div className="flex w-max animate-marquee hover:[animation-play-state:paused] gap-6 px-4">
             {/* Original Set */}
             <div className="w-[280px] md:w-[320px] h-[400px] bg-[#2DD4BF] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
-              <h3 className="text-xl font-bold text-white mb-2 relative z-10">Inspiration Feed</h3>
-              <p className="text-teal-50 text-sm relative z-10">Curated Pinterest-style feed of top-performing creatives.</p>
+              <h3 className="text-xl font-bold text-teal-950 mb-2 relative z-10">Inspiration Feed</h3>
+              <p className="text-teal-950 text-sm font-medium relative z-10">Curated Pinterest-style feed of top-performing creatives.</p>
               <div className="mt-auto relative z-10">
-                 <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                   <Icon name="layout" className="w-12 h-12 text-white" />
+                 <div className="w-32 h-32 mx-auto bg-white/40 backdrop-blur-md rounded-2xl border border-white/50 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                   <Icon name="layout" className="w-12 h-12 text-teal-950" />
                  </div>
               </div>
             </div>
 
-            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#6366F1] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#4338CA] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
               <h3 className="text-xl font-bold text-white mb-2 relative z-10">1-Click Remix</h3>
-              <p className="text-indigo-50 text-sm relative z-10">See something you love? Remix it with your product instantly.</p>
+              <p className="text-indigo-100 text-sm relative z-10">See something you love? Remix it with your product instantly.</p>
               <div className="mt-auto relative z-10">
                  <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-full border border-white/30 shadow-2xl flex items-center justify-center group-hover:rotate-180 transition-transform duration-700">
                    <Icon name="refresh-cw" className="w-12 h-12 text-white" />
@@ -686,9 +686,9 @@ export const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#F43F5E] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#BE123C] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
               <h3 className="text-xl font-bold text-white mb-2 relative z-10">Image Restyle</h3>
-              <p className="text-rose-50 text-sm relative z-10">AI style transfer to make any raw photo ad-ready in seconds.</p>
+              <p className="text-rose-100 text-sm relative z-10">AI style transfer to make any raw photo ad-ready in seconds.</p>
               <div className="mt-auto relative z-10">
                  <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500 rotate-12">
                    <Icon name="sparkles" className="w-12 h-12 text-white" />
@@ -696,9 +696,9 @@ export const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#10B981] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#047857] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
               <h3 className="text-xl font-bold text-white mb-2 relative z-10">Brand Kit Integration</h3>
-              <p className="text-emerald-50 text-sm relative z-10">Automatically apply your brand colors, fonts, and logos.</p>
+              <p className="text-emerald-100 text-sm relative z-10">Automatically apply your brand colors, fonts, and logos.</p>
               <div className="mt-auto relative z-10">
                  <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500 -rotate-6">
                    <Icon name="palette" className="w-12 h-12 text-white" />
@@ -708,18 +708,18 @@ export const LandingPage: React.FC = () => {
 
             {/* Duplicated Set for Infinite Loop */}
             <div className="w-[280px] md:w-[320px] h-[400px] bg-[#2DD4BF] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
-              <h3 className="text-xl font-bold text-white mb-2 relative z-10">Inspiration Feed</h3>
-              <p className="text-teal-50 text-sm relative z-10">Curated Pinterest-style feed of top-performing creatives.</p>
+              <h3 className="text-xl font-bold text-teal-950 mb-2 relative z-10">Inspiration Feed</h3>
+              <p className="text-teal-950 text-sm font-medium relative z-10">Curated Pinterest-style feed of top-performing creatives.</p>
               <div className="mt-auto relative z-10">
-                 <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                   <Icon name="layout" className="w-12 h-12 text-white" />
+                 <div className="w-32 h-32 mx-auto bg-white/40 backdrop-blur-md rounded-2xl border border-white/50 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                   <Icon name="layout" className="w-12 h-12 text-teal-950" />
                  </div>
               </div>
             </div>
 
-            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#6366F1] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#4338CA] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
               <h3 className="text-xl font-bold text-white mb-2 relative z-10">1-Click Remix</h3>
-              <p className="text-indigo-50 text-sm relative z-10">See something you love? Remix it with your product instantly.</p>
+              <p className="text-indigo-100 text-sm relative z-10">See something you love? Remix it with your product instantly.</p>
               <div className="mt-auto relative z-10">
                  <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-full border border-white/30 shadow-2xl flex items-center justify-center group-hover:rotate-180 transition-transform duration-700">
                    <Icon name="refresh-cw" className="w-12 h-12 text-white" />
@@ -737,9 +737,9 @@ export const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#F43F5E] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#BE123C] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
               <h3 className="text-xl font-bold text-white mb-2 relative z-10">Image Restyle</h3>
-              <p className="text-rose-50 text-sm relative z-10">AI style transfer to make any raw photo ad-ready in seconds.</p>
+              <p className="text-rose-100 text-sm relative z-10">AI style transfer to make any raw photo ad-ready in seconds.</p>
               <div className="mt-auto relative z-10">
                  <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500 rotate-12">
                    <Icon name="sparkles" className="w-12 h-12 text-white" />
@@ -747,9 +747,9 @@ export const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#10B981] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
+            <div className="w-[280px] md:w-[320px] h-[400px] bg-[#047857] rounded-3xl p-8 flex flex-col relative overflow-hidden group shrink-0">
               <h3 className="text-xl font-bold text-white mb-2 relative z-10">Brand Kit Integration</h3>
-              <p className="text-emerald-50 text-sm relative z-10">Automatically apply your brand colors, fonts, and logos.</p>
+              <p className="text-emerald-100 text-sm relative z-10">Automatically apply your brand colors, fonts, and logos.</p>
               <div className="mt-auto relative z-10">
                  <div className="w-32 h-32 mx-auto bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500 -rotate-6">
                    <Icon name="palette" className="w-12 h-12 text-white" />
@@ -814,7 +814,7 @@ export const LandingPage: React.FC = () => {
                   </div>
                   <h3 className="font-bold text-slate-800">Store Analysis</h3>
                 </div>
-                <span className="text-xs font-bold bg-slate-100 px-2 py-1 rounded text-slate-500">Last 30 Days</span>
+                <span className="text-xs font-bold bg-slate-100 px-2 py-1 rounded text-slate-700">Last 30 Days</span>
               </div>
               
               <div className="space-y-4">
@@ -825,8 +825,8 @@ export const LandingPage: React.FC = () => {
                     </div>
                     <div>
                       <div className="font-bold text-sm text-slate-900">Classic White Sneaker</div>
-                      <div className="text-xs text-green-600 font-bold mt-0.5 flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                      <div className="text-xs text-emerald-800 font-bold mt-0.5 flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-600"></div>
                         High ROAS • Scale Spend
                       </div>
                     </div>
@@ -841,8 +841,8 @@ export const LandingPage: React.FC = () => {
                     </div>
                     <div>
                       <div className="font-bold text-sm text-slate-900">Summer Linen Shirt</div>
-                      <div className="text-xs text-yellow-600 font-bold mt-0.5 flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-yellow-500"></div>
+                      <div className="text-xs text-amber-900 font-bold mt-0.5 flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-600"></div>
                         High Traffic, Low Conv.
                       </div>
                     </div>
@@ -857,8 +857,8 @@ export const LandingPage: React.FC = () => {
                     </div>
                     <div>
                       <div className="font-bold text-sm text-slate-900">Winter Beanie</div>
-                      <div className="text-xs text-red-600 font-bold mt-0.5 flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+                      <div className="text-xs text-red-800 font-bold mt-0.5 flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-600"></div>
                         Dead Stock
                       </div>
                     </div>
@@ -879,7 +879,7 @@ export const LandingPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-[#6366F1] p-8 rounded-3xl relative overflow-hidden group shadow-xl hover:-translate-y-2 transition-all duration-300">
+          <div className="bg-[#4338CA] p-8 rounded-3xl relative overflow-hidden group shadow-xl hover:-translate-y-2 transition-all duration-300">
             <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <Icon name="upload" className="w-6 h-6 text-white" />
             </div>
@@ -897,7 +897,7 @@ export const LandingPage: React.FC = () => {
             <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/20 rounded-full blur-xl group-hover:bg-white/30 transition-all"></div>
           </div>
           
-          <div className="bg-[#F43F5E] p-8 rounded-3xl relative overflow-hidden group shadow-xl hover:-translate-y-2 transition-all duration-300">
+          <div className="bg-[#BE123C] p-8 rounded-3xl relative overflow-hidden group shadow-xl hover:-translate-y-2 transition-all duration-300">
             <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <Icon name="image" className="w-6 h-6 text-white" />
             </div>
