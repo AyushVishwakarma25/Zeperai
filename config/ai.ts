@@ -148,13 +148,32 @@ export const getAI = () => {
                     throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON is not valid JSON. Paste the full service-account key file contents.");
                 }
             }
-            genAIInstance = new GoogleGenAI({
-                vertexai: true,
-                project,
-                location,
-                ...(vertexApiKey ? { apiKey: vertexApiKey } : {}),
-                ...(googleAuthOptions ? { googleAuthOptions } : {}),
-            });
+
+            // In @google/genai, apiKey and project/location are mutually exclusive.
+            // If an explicit vertexApiKey is set or if using apiKey in Vertex Express mode:
+            if (vertexApiKey) {
+                genAIInstance = new GoogleGenAI({
+                    vertexai: true,
+                    apiKey: vertexApiKey,
+                });
+            } else if (project || saJson || googleAuthOptions) {
+                genAIInstance = new GoogleGenAI({
+                    vertexai: true,
+                    ...(project ? { project } : {}),
+                    location: location || 'us-central1',
+                    ...(googleAuthOptions ? { googleAuthOptions } : {}),
+                });
+            } else if (apiKey) {
+                genAIInstance = new GoogleGenAI({
+                    vertexai: true,
+                    apiKey,
+                });
+            } else {
+                genAIInstance = new GoogleGenAI({
+                    vertexai: true,
+                    location: location || 'us-central1',
+                });
+            }
         } else {
             genAIInstance = new GoogleGenAI({ apiKey: apiKey || '' });
         }

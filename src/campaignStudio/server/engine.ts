@@ -92,6 +92,12 @@ export function mapAgentError(err: unknown): { status: number; message: string }
     };
   }
   if (err instanceof GeminiCallError) {
+    if (err.status === 402 || err.message?.toLowerCase().includes('prepayment credits') || err.message?.toLowerCase().includes('depleted')) {
+      return {
+        status: 402,
+        message: 'Google Gemini API prepayment credits are depleted. Please check your Google AI Studio billing balance or API key.',
+      };
+    }
     switch (err.kind) {
       case 'blocked':
         return { status: 422, message: "The AI couldn't process this content because of its safety filters. Try rewording your brand details or feedback." };

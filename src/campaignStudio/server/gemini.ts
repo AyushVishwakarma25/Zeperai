@@ -136,8 +136,10 @@ function statusOf(err: any): number | undefined {
 
 export function isTransientError(err: any): boolean {
   const status = statusOf(err);
-  if (status === 408 || status === 429 || (status !== undefined && status >= 500)) return true;
+  if (status === 402) return false;
   const msg = String(err?.message || err || '').toLowerCase();
+  if (msg.includes('prepayment credits') || msg.includes('depleted') || msg.includes('lightning dunning')) return false;
+  if (status === 408 || status === 429 || (status !== undefined && status >= 500)) return true;
   return [
     'unavailable',
     'resource_exhausted',
