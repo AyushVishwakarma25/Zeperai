@@ -37,12 +37,13 @@
 ### 3.3. AI Creative Suite (Modes & Engines)
 * **Product Photography:** Transform basic product shots into professional studio lighting setups with custom backdrops, camera angles, shadow controls, and category presets (Skincare, Perfume, Tech, Fashion, Jewellery, Home Decor).
 * **Fashion & Apparel Photography:** Swap AI models, apply garment transfers, and customize demographic parameters (gender, age, skin tone, clothing styles, studio lighting).
-* **Ad Creative Studio:** Generate high-converting ad creatives with structured **Layout Blueprints** (Text Right/Left, Product Showcase, Comparison Split, Comparison Overlay, Feature Table) and customizable banner themes.
+* **Campaign Studio (Autonomous Multi-Agent Engine):** Turn any website URL or product brief into a complete, full-funnel ad campaign. Autonomous 7-stage pipeline (Brand Analysis, Market Research, Competitor Research, Strategy, Creative Direction, Master Prompts, Visual Creatives) with human-in-the-loop review gates, multi-platform aspect ratios, and conversion-optimized ad creatives.
+* **Background Remover Pro:** Client-side WebAssembly/WebGL accelerated background extraction (RMBG / ONNX runtime) providing instant, zero-cost transparent PNG cutouts without consuming server API quotas.
 * **AI UGC Influencer Generator:** Create photorealistic virtual influencer images with granular control over pose, setting, expression, outfit, and demographics.
 * **Festive & Seasonal Photoshoot:** Adapt product visuals for major shopping holidays (Christmas, Diwali, Black Friday, Summer Sales, Halloween) using pre-curated prompts.
 * **Image Restyle (Remix):** Apply advanced AI style transfer while preserving underlying product geometry.
 * **Bulk Multi-Variant Generation:** Batch-process multi-sku catalogs into unified marketing visual sets.
-* **3D Studio:** Interactive canvas for positioning and previewing 3D object models in virtual spaces.
+* **CGI & 3D Lighting Studio:** Studio-grade virtual lighting rigs, reflections, and 3D composition for commercial product staging.
 
 ### 3.4. Interactive Director Canvas & Asset Editing
 * **Director Canvas:** On-image overlay editor supporting draggable text layers, custom Google Fonts typography, logo watermarking, color adjustments, background removal, and precision erasing/inpainting.
@@ -86,10 +87,11 @@
 
 ### 5.1 Tech Stack
 * **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Framer Motion animations, Lucide React icons.
-* **Backend Proxy:** Node.js Express server (`server.ts`) running on port `3000` behind Cloud Run / Nginx.
-* **AI Engine:** Google Gemini API (`@google/genai` SDK) utilizing Gemini 2.5 Flash and Gemini 3.0 models with two-stage prompt optimization (Critic/Optimizer -> Generation).
-* **Database & Storage:** Supabase PostgreSQL with Row Level Security (RLS) for multi-tenant profile isolation, designs, brand kits, user credits, and asset storage.
-* **Payments:** Dual gateway integration via Stripe API and Razorpay SDK.
+* **Backend Proxy:** Node.js Express server (`server.ts`) running on port `3000` behind Cloud Run / Vercel Serverless.
+* **AI Engine:** Google GenAI (`@google/genai` SDK) supporting **Google Vertex AI (Enterprise Postpay & Express API Key Mode)** and **Google AI Studio Mode** with runtime hot-reloading (`resetAIInstance()`).
+* **Database & Storage:** Supabase PostgreSQL with Row Level Security (RLS) for multi-tenant profile isolation, designs, campaign runs, brand kits, user credits, and asset storage.
+* **Admin Portal & AI Secrets Manager:** Zero-trust admin authorization (`crypto.timingSafeEqual`), live Campaign Studio multi-agent telemetry, user directory, credit ledger, and in-app AI credential rotation.
+* **Payments:** Razorpay payment gateway integration for INR/UPI, netbanking, and cards with automated credit top-up and subscription webhooks.
 
 ### 5.2 Concurrency & Rate Limiting System
 * **Task Queue Engine:** Express proxy enforces a global `TaskQueue` limiting active Gemini API requests to **2 concurrent operations** globally. Excess incoming requests are queued in memory and processed sequentially to prevent `429 Too Many Requests` API errors while preserving user credits.

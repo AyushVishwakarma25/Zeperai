@@ -1,103 +1,158 @@
-# Free Tier — Client-Side Background Remover
+# ZeperAi Studio
 
-100% in-browser. No API, no server cost, scales infinitely for free because
-the user's own device does the compute.
+> The All-in-One AI Creative Intelligence & Performance Ad Generation Platform for D2C Brands, E-Commerce Stores, and Growth Marketers.
 
-## How it works
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-B73BFE?style=for-the-badge&logo=vite&logoColor=FFD62E)](https://vitejs.dev/)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Google Gemini](https://img.shields.io/badge/Google_Gemini-8E75C2?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
+[![Google Cloud Vertex AI](https://img.shields.io/badge/Google_Cloud_Vertex_AI-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white)](https://cloud.google.com/vertex-ai)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 
-1. A small segmentation model (RMBG-1.4, open weights) runs via
-   `onnxruntime-web` using WebGL (falls back to WASM on older devices).
-2. The model file is a **static asset** — downloaded once from your own
-   CDN/public folder and cached by the browser. This is not a third-party
-   API call; it's the same as loading a font or a large JS bundle.
-3. Everything — decode, inference, masking, PNG export — happens in the
-   `<canvas>` in the user's browser.
+---
 
-## 1. Install the JS dependency
+## 🚀 Overview
+
+**ZeperAi Studio** (`zeperai.in`) replaces expensive traditional commercial photoshoots and multi-week agency design turnaround times with an autonomous, high-velocity creative generation suite. Brands can transform simple product photos or website URLs into full-funnel ad campaigns, photorealistic studio photography, influencer content, and transparent cutouts in seconds.
+
+---
+
+## 🌟 Core Features & Studios
+
+### 1. Autonomous Campaign Studio
+Turn any website URL or product details into a complete, high-converting ad campaign. A 7-stage multi-agent orchestration pipeline with human-in-the-loop review gates:
+* **Brand Analysis:** Analyzes company URLs and value props to extract a verified `BrandContext`.
+* **Market & Competitor Research:** Discovers target demographics, angles, and competitor hooks.
+* **Strategy & Creative Direction:** Synthesizes messaging pillars, themes, and art direction.
+* **Master Prompts & Creatives Generation:** Generates multi-platform visual ad creatives (Meta, Google, TikTok) ready for immediate deployment.
+
+### 2. Commercial Creative Suites
+* **Product Studio:** Place isolated products into photorealistic commercial environments (marble, studio lighting, outdoor, tech backdrops).
+* **Influencer & Fashion Studio:** On-model garment transfers and relatable UGC photos with Indian and global models.
+* **CGI & 3D Lighting Studio:** High-end studio lighting rigs, reflections, and 3D composition.
+* **Festival & Seasonal Photoshoots:** Instant campaign backdrops for Diwali, Black Friday, Christmas, Summer Sales, and flash promotions.
+
+### 3. Background Remover Pro
+* **100% Client-Side:** Leverages `onnxruntime-web` with WebGL/WASM acceleration.
+* **Zero Cost & Instant:** Extracts transparent PNG cutouts entirely in the user's browser with no server GPU costs and zero network latency.
+
+### 4. Admin Command Center & AI Secrets Manager
+* **In-App AI Secrets Management:** One-click toggle between **Google Vertex AI (Postpay & Express Mode)** and **Google AI Studio (API Key Mode)** without redeploying.
+* **Runtime Hot-Reload:** Updates in-memory AI configuration and singletons via `resetAIInstance()`, guaranteeing zero downtime.
+* **Live Connectivity Testing:** Ping test button measuring live roundtrip latency in milliseconds.
+* **Live Telemetry:** Tracks live Campaign Studio runs, active user quotas, credit ledgers, and operational execution logs.
+
+---
+
+## 🛠 Tech Stack
+
+* **Frontend:** React 18, TypeScript, Tailwind CSS, Vite, Lucide React, Recharts.
+* **Backend:** Node.js Express server (`server.ts`) compiled with `esbuild`.
+* **Database & Storage:** Supabase PostgreSQL with strict Row Level Security (RLS) and storage buckets.
+* **AI Engine:** Google GenAI (`@google/genai`) with dual Vertex AI Enterprise Postpay & Google AI Studio routing.
+* **Payments:** Razorpay API for INR/UPI & card checkouts with automatic credit top-up and subscription webhooks.
+* **AI Agent Discovery:** Manifest compliant with RFC 8141 URNs (`urn:air:`) at `/ai-catalog.json` and `/llms.txt`.
+
+---
+
+## 🔒 Architectural Invariants & Security
+
+1. **Zero-Trust Hardened Admin Authentication:**
+   * Constant-time comparison (`crypto.timingSafeEqual`) against environment variables `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET`.
+   * Strict email allowlist (`ADMIN_ALLOWED_EMAILS`) or verified database role metadata (`is_admin === true`).
+   * No fallback or hardcoded credentials.
+2. **Mandatory `.js` Extensions on Relative Imports:**
+   * Package uses `"type": "module"`. All relative imports (`./...` and `../...`) across frontend and backend **must** end with `.js`.
+3. **Secret Protection:**
+   * `.env` files are strictly git-ignored. All sensitive keys are managed via hosting environment secrets or the Admin Secrets Manager.
+
+---
+
+## 📦 Getting Started
+
+### Prerequisites
+* Node.js 18+
+* npm or pnpm
+
+### Installation
 
 ```bash
-npm install onnxruntime-web
+# Clone the repository
+git clone https://github.com/AyushVishwakarma25/Zeperai.git
+cd Zeperai
+
+# Install dependencies
+npm install
 ```
 
-## 2. Get the model file (one-time, done by you, not per-user)
-
-You need `rmbg-1.4-int8.onnx` (quantized, ~11MB — much faster to download
-and run than the 44MB fp32 version).
+### Environment Configuration
+Copy `.env.example` to `.env` and populate your credentials:
 
 ```bash
-pip install optimum[exporters] onnx onnxruntime --break-system-packages
-
-python -c "
-from optimum.exporters.onnx import main_export
-main_export(
-    model_name_or_path='briaai/RMBG-1.4',
-    output='rmbg-onnx',
-    task='semantic-segmentation'
-)
-"
-
-# Quantize to int8 to shrink size + speed up browser inference
-python -c "
-from onnxruntime.quantization import quantize_dynamic, QuantType
-quantize_dynamic('rmbg-onnx/model.onnx', 'rmbg-1.4-int8.onnx', weight_type=QuantType.QInt8)
-"
+cp .env.example .env
 ```
 
-Note: RMBG-1.4 is released under a **non-commercial** license by BRIA — fine
-to prototype with, but for the free tier of a commercial product, swap it
-for a fully permissive alternative such as:
-- `briaai/RMBG-2.0` base variant under BRIA's commercial license (paid), or
-- **U2Net (u2netp, Apache-2.0)** — smaller, slightly lower quality, but
-  fully free for commercial use. Same export steps, just point
-  `model_name_or_path` at a U2Net ONNX export instead.
+Key environment variables:
+```ini
+# Supabase Configuration
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-I'd recommend U2Net (u2netp) for the actually-free tier given your Pro tier
-already exists to upsell quality — keeps you license-clean.
+# AI Provider Configuration (Google Vertex AI or AI Studio)
+USE_VERTEX_AI=true
+VERTEX_PROJECT_ID=your-gcp-project-id
+VERTEX_LOCATION=us-central1
+VERTEX_API_KEY=your-optional-vertex-express-key
+GEMINI_API_KEY=your-optional-ai-studio-gemini-key
 
-## 3. Host the model file
+# Hardened Admin Credentials
+ADMIN_USERNAME=your-admin-user
+ADMIN_PASSWORD=your-secure-admin-password
+ADMIN_SESSION_SECRET=your-random-64-char-secret
+ADMIN_ALLOWED_EMAILS=founder@zeper.ai
 
-Drop the `.onnx` file into your Next.js `public/models/` folder:
-
-```
-public/models/rmbg-1.4-int8.onnx   (or u2netp-int8.onnx)
-```
-
-It'll be served as a static file at `/models/rmbg-1.4-int8.onnx` — update
-`MODEL_URL` in `BackgroundRemover.tsx` to match.
-
-## 4. Serve required CORS/COOP headers (for WASM threading)
-
-In `next.config.js`:
-
-```js
-module.exports = {
-  async headers() {
-    return [
-      {
-        source: "/models/:path*",
-        headers: [
-          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
-        ],
-      },
-    ];
-  },
-};
+# Payment Gateway (Razorpay)
+RAZORPAY_KEY_ID=rzp_live_your_key_id
+RAZORPAY_KEY_SECRET=your-razorpay-secret
 ```
 
-## 5. Drop the component in
+### Running Locally
 
-```tsx
-import BackgroundRemover from "@/components/BackgroundRemover";
+```bash
+# Start Vite development server
+npm run dev
 
-export default function ToolPage() {
-  return <BackgroundRemover />;
-}
+# Start Node backend server
+npm run server
 ```
 
-## Expected quality/speed
+---
 
-- Clean product-on-plain-background shots: very good, close to Pro tier.
-- Complex edges (flyaway hair, fur, semi-transparent objects): noticeably
-  behind Pro tier — this is your natural upsell moment.
-- Speed: ~1-3s on a modern laptop/phone (WebGL), ~4-8s on WASM fallback.
+## 🧪 Testing & Verification
+
+```bash
+# Type check and lint validation
+npm run lint
+
+# Production bundle compilation
+npm run build
+```
+
+---
+
+## 🌐 Sitemaps & Search Engine Discovery
+
+* **XML Sitemap:** [`https://zeperai.in/sitemap.xml`](https://zeperai.in/sitemap.xml)
+* **Robots Directives:** [`https://zeperai.in/robots.txt`](https://zeperai.in/robots.txt)
+* **AI Agent Catalog (ARD / RFC 8141):** [`https://zeperai.in/ai-catalog.json`](https://zeperai.in/ai-catalog.json)
+* **LLM Knowledge Index:** [`https://zeperai.in/llms.txt`](https://zeperai.in/llms.txt)
+
+---
+
+## 📄 License & Commercial Rights
+
+Outputs generated across free and commercial tiers include full commercial usage rights for digital and print advertising.
+
+© 2026 ZeperAi. All rights reserved.

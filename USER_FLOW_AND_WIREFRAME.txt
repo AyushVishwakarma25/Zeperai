@@ -77,7 +77,7 @@ ________________________________________________________________________________
 |  [---------------------------------------------------------------------------]  |
 |                                                                                 |
 |  [GRID: QUICK ACTIONS]                                                          |
-|  [Product Studio] [Fashion Studio] [Ad Generator] [Background Remover]          |
+|  [Product Studio] [Fashion Studio] [Campaign Studio] [Background Remover]       |
 |  (Colorful Cards with Icons)                                                    |
 |                                                                                 |
 |_________________________________________________________________________________|

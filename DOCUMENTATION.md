@@ -1,142 +1,135 @@
-
 # ZeperAi Studio Technical Documentation
 
 ## 1. Executive Summary
 
-ZeperAi Studio is a full-stack, AI-powered Creative Intelligence Platform designed for e-commerce brands and agencies. It goes beyond simple image generation by integrating **Commerce Intelligence (Shopify Data)**, **Brand Identity Persistence**, and **Predictive Analytics** into the creative workflow.
+ZeperAi Studio (`zeperai.in`) is an enterprise-grade AI Creative Intelligence & Performance Campaign Suite built for direct-to-consumer (D2C) brands, Shopify store operators, and performance marketing teams. It combines:
+1. **Autonomous Campaign Studio:** A 7-stage multi-agent strategic ad generation engine with human-in-the-loop review gates.
+2. **Commercial Studio Suites:** Product Studio, Influencer & Fashion Studio, CGI/3D Lighting, and Festival/Seasonal modes.
+3. **Background Remover Pro:** Zero-cost, 100% in-browser segmentation model (ONNX Runtime via WebGL/WASM) for transparent PNG cutouts.
+4. **Commerce Intelligence:** Shopify CSV ingestion, product catalog performance zoning (Green/Yellow/Red), and automated ad angle recommendations.
+5. **Admin Command Center & AI Secrets Manager:** Zero-trust hardened admin portal with live multi-agent telemetry, user quota ledger, and hot-reloading AI provider credentials.
 
-The system leverages **Google Gemini 2.5 & 3.0** models for multimodal generation (Text-to-Image, Image-to-Text, Data Analysis) and uses **Supabase** for a serverless backend infrastructure.
+The system is powered by **Google Gemini 2.5 Flash & 3.0** via `@google/genai` with enterprise **Google Vertex AI Postpay** and **Google AI Studio** dual-engine routing.
 
 ---
 
 ## 2. System Architecture
 
 ### 2.1 Tech Stack
--   **Frontend:** React 18, TypeScript, Tailwind CSS, Vite.
--   **State Management:** React Hooks + Context (Local State), Supabase Realtime (Remote State).
--   **Backend (BaaS):** Supabase (PostgreSQL, Auth, Storage, Edge Functions).
--   **AI Layer:** Google Gemini API (via `@google/genai` SDK).
--   **Payments:** Stripe (via Supabase Edge Functions).
+- **Frontend:** React 18, TypeScript, Tailwind CSS, Vite, Lucide React, Recharts.
+- **Backend / Proxy:** Node.js Express server (`server.ts`), compiled with `esbuild` for production.
+- **Database & Storage:** Supabase PostgreSQL with strict Row Level Security (RLS) and Supabase Storage.
+- **AI Infrastructure:** Google GenAI (`@google/genai` SDK) supporting:
+  - **Google Vertex AI (Postpay & Express Mode):** Google Cloud Project / Service Account / Express Key routing.
+  - **Google AI Studio (API Key Mode):** Standard Gemini API key routing.
+  - **Dynamic In-Memory Reconfiguration:** `resetAIInstance()` in `config/ai.ts` allows instant credential rotation without node restarts.
+- **Payments:** Razorpay API & Webhooks supporting INR/UPI, cards, and netbanking with automated credit ledger settlement.
+- **Module System:** ESM (`"type": "module"`) requiring explicit `.js` extensions on all relative imports across frontend and backend.
 
-### 2.2 Security Model
--   **Client-Side:** No sensitive API keys are exposed.
--   **Edge Proxy:** All AI calls go through `gemini-proxy`, a Supabase Edge Function that:
-    1.  Verifies the User's JWT.
-    2.  Checks the `user_credits` balance in PostgreSQL.
-    3.  Injects the server-side API Key.
-    4.  Deducts credits upon success.
--   **Row Level Security (RLS):** Database policies ensure users can only access their own profiles, designs, and brand kits.
+### 2.2 Security Model & Architectural Invariants
+- **Client-Side Secret Shielding:** No private API keys, Razorpay secrets, or service account JSONs are ever sent to client browsers.
+- **Hardened Admin Authentication:**
+  - Zero hardcoded fallback credentials.
+  - Admin login validates via constant-time comparison (`crypto.timingSafeEqual`) against environment variables `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET`.
+  - Admin email authorization enforces exact match against `ADMIN_ALLOWED_EMAILS` or verified database role metadata (`user_metadata.is_admin === true`).
+- **Row Level Security (RLS):** Policies ensure users only access their own designs, brand kits, credits, and campaign runs.
 
 ---
 
-## 3. Directory Structure
+## 3. Directory Layout
 
 ```
 /
 |-- components/
-|   |-- modes/              # Logic-heavy sub-forms for specific generation modes (Product, Fashion, etc.)
-|   |-- ui/                 # Atomic design elements (Buttons, Inputs, Icons)
-|   |-- AnalyticsDashboard  # BI Dashboard with Chart.js visualization
-|   |-- BrandKitModal       # Visual Identity manager (Logo analysis, Color extraction)
-|   |-- CreativeModal       # The core orchestration engine for generative tasks
-|   |-- DashboardSidebar    # Global navigation and state controller
-|   |-- ShopifyDashboard    # CSV Parser and Data Analysis engine
-|   |-- ... (Feature-specific modals & panels)
+|   |-- admin/                 # Admin Command Center, AI Secrets Manager, Telemetry
+|   |   |-- AdminDashboard.tsx         # Command center shell & sidebar
+|   |   |-- PlatformSettingsManager.tsx# AI Engine & Secrets manager (Option 1)
+|   |   |-- AIUsageAnalytics.tsx       # Studio telemetry & Campaign Studio cards
+|   |   |-- GenerationMonitoring.tsx   # Operational monitoring & execution filters
+|   |-- campaign/              # Campaign Studio UI (Stepper, Gates, Reviews, Creatives)
+|   |-- modes/                 # Studio controls (Product, Fashion, Influencer, Festival)
+|   |-- tools/                 # Client tools (BackgroundRemoverPro via ONNX)
+|   |-- ui/                    # Design system primitives (Card, Button, Spinner, Icons)
+|-- config/
+|   |-- ai.ts                  # Multi-provider GoogleGenAI client & resetAIInstance()
+|-- src/
+|   |-- campaignStudio/        # CAMPAIGN STUDIO CORE
+|   |   |-- types.ts           # Shared types (agents, review gates, schemas)
+|   |   |-- server/            # Multi-agent orchestrator, gemini calls, router
+|   |   |-- client/            # Typed client API, access control hook, view-models
 |-- services/
-|   |-- adCopyService.ts    # structured text generation for marketing copy
-|   |-- analyticsService.ts # Heuristic performance prediction algorithms
-|   |-- authService.ts      # Supabase Auth wrapper
-|   |-- brandService.ts     # CRUD for Brand Identity persistence
-|   |-- geminiService.ts    # CENTRAL AI SERVICE: Prompt Engineering & API communication
-|   |-- paymentService.ts   # Stripe Checkout initialization
-|   |-- shopifyService.ts   # AI-driven CSV analysis and insight generation
-|   |-- ... (Data access layers)
-|-- supabase/
-|   |-- functions/          # Deno-based Edge Functions
-|       |-- gemini-proxy/   # Secure AI Gateway
-|       |-- create-checkout/# Stripe Session Creator
-|       |-- stripe-webhook/ # Payment confirmation listener
-|-- types.ts                # Strict TypeScript definitions
-|-- utils/                  # Client-side image processing (crop, resize, format)
+|   |-- geminiService.ts       # Central visual prompt engineering & generation logic
+|   |-- razorpayService.ts     # Payment initiation & client-side checkout
+|   |-- brandService.ts        # Brand Kit extraction & persistence
+|   |-- shopifyService.ts      # CSV catalog parser & insight categorization
+|-- public/
+|   |-- sitemap.xml            # Production XML Sitemap
+|   |-- robots.txt             # Crawl directives & disallow rules
+|   |-- ai-catalog.json        # RFC 8141 URN (urn:air:) AI Agent Discovery Manifest
+|   |-- llms.txt               # LLM-readable service directory
+|-- server.ts                  # Production Express API, proxy, and admin routes
 ```
 
 ---
 
-## 4. Core Modules & Logic
+## 4. Key Engines & Workflows
 
-### 4.1 Generative Engine (`geminiService.ts`)
-This service contains the sophisticated "Prompt Engineering" logic.
--   **Prompt Moderation (Acceptable Use Policy):** Before generation, user prompts are evaluated by a strict AI moderator. The system rejects prompts unrelated to commercial products, brands, marketing assets, or fashion shoots (e.g., general art, historical events, political topics). Violations return a clear error message.
--   **Dynamic Prompt Building:** It assembles a prompt based on `AppMode` (Product, Influencer, Fashion). It injects Brand Kit constraints (colors, fonts, negative prompts) automatically into every request.
--   **Advanced Prompt Chaining:** To scale quality, the system employs a two-step strategy:
-    1.  **The Critic/Optimizer Step:** A small Gemini call "expands" a simple user prompt into a high-fidelity "Diffusion-style" prompt using the Brand Kit.
-    2.  **The Generation Step:** The actual multimodal call uses this optimized prompt to ensure Brand Persistence is hard-coded into the visual output.
--   **Safety Filters:** The system gracefully handles Gemini's safety triggers (e.g., blocked content) by catching specific error codes and returning user-friendly messages instead of crashing.
--   **Multimodal Input:** Handles mixing text prompts with multiple reference images (Scene + Product).
--   **Fallback & Retry:** Implements exponential backoff for API rate limits.
+### 4.1 Campaign Studio (Autonomous Multi-Agent Engine)
+Located in `src/campaignStudio/`, Campaign Studio takes a website URL or brand brief and orchestrates 7 specialized AI agents:
+1. **`brand_analysis`:** Scrapes or analyzes input brand details to construct an authoritative `BrandContext`.
+2. **`market_research`:** Identifies target demographics, pain points, and psychological triggers.
+3. **`competitor_research`:** Maps competitor positioning and hooks.
+4. **`strategy`:** Synthesizes messaging pillars, value propositions, and platform strategy.
+5. **`creative_direction`:** Formulates visual concepts, color schemes, and art direction.
+6. **`master_prompts`:** Generates high-fidelity visual generation prompts.
+7. **`creatives`:** Calls Gemini image generation with layout overlays and product blending.
 
-### 4.2 Commerce Intelligence (`shopifyService.ts` & `ShopifyDashboard.tsx`)
--   **Ingestion:** Parses raw CSV exports from Shopify using `PapaParse`.
-    -   **CSV Sanitization:** Configured with `skipEmptyLines: true` and `dynamicTyping: true` to handle messy Shopify exports and prevent ingestion errors.
-    -   **Token Limits:** The service monitors the size of the CSV data to ensure it fits within the model's context window, truncating or batching if necessary.
--   **AI Analysis:** Sends the raw data to Gemini-3-Pro (via Proxy) to categorize products into performance zones:
-    -   🟢 **Green Zone:** Top 20% revenue drivers (Scale Ad).
-    -   🟡 **Yellow Zone:** Middle 60% (Boost).
-    -   🔴 **Red Zone:** Bottom 20% (Clearance).
--   **Strategy Generation:** Automatically suggests specific ad angles based on the data analysis.
+**Human-in-the-Loop Review Gates (`REVIEW_GATES`):**
+- Gate 1: Brand Context & Market/Competitor Research Approval.
+- Gate 2: Strategy & Creative Direction Approval.
+- Gate 3: Master Prompts Approval before final image generation.
 
-### 4.3 Brand Identity System (`brandService.ts`)
--   **Logo Analysis:** Users upload a logo, and Gemini Vision extracts the Hex palette, font style, and brand "vibe".
--   **Persistence:** This data is stored in the `brand_kits` table and auto-injected into the context of the AI Content Writer and Image Generator.
+**Database Schema:**
+- `public.campaign_runs`: Parent execution record, goal, status, credits spent.
+- `public.campaign_steps`: Agent versioning and input/output snapshots.
+- `public.campaign_assets`: Generated visual creatives, prompts, aspect ratios, overlays.
+- `public.campaign_product_images`: Uploaded product reference shots for blending.
 
-### 4.4 Credits & Payment (`paymentService.ts`)
--   **Consumption:** Credits are deducted atomically via the backend.
-    -   Standard Image: 1 Credit.
-    -   AI Copywriting: 2 Credits.
-    -   High Res / Fashion Batch: 4 Credits.
--   **Top-up:** Webhooks listen for Stripe events to increment the `user_credits` table safely.
+### 4.2 AI Provider & Secrets Manager (`components/admin/PlatformSettingsManager.tsx`)
+Admins can manage platform AI infrastructure live from the dashboard:
+- **Provider Switch:** Toggle between Google Vertex AI Postpay and Google AI Studio.
+- **Vertex AI Controls:** Project ID, GCP Region (`us-central1`, `us-east4`, etc.), and Vertex Express API Key.
+- **Google AI Studio Key:** Rotate Gemini API Key securely.
+- **Campaign Studio Controls:** Master feature switch and private beta email whitelist.
+- **Live Connection Test:** Executes a lightweight test prompt and displays latency in milliseconds.
+- **Runtime Hot-Reload:** Updates `process.env` in memory and executes `resetAIInstance()`, guaranteeing zero downtime.
 
-### 4.5 Rate Limiting & Concurrency Management
-To protect API margins and prevent Google Gemini `429 Too Many Requests` errors during high-volume usage, the application utilizes a hybrid concurrency model:
-
-| Component | Location | Action | Limit / Behavior |
-| :--- | :--- | :--- | :--- |
-| **Frontend** | `geminiService.ts` | Parallel Requests | Uses `Promise.all` to send all batch image requests (e.g., 4 variations) to the backend simultaneously, rather than waiting for each to finish sequentially. |
-| **Backend** | `server.ts` | Global Task Queue | Implements a custom `TaskQueue` class that intercepts all incoming generation requests. |
-| **Gemini API** | `server.ts` -> Google | Concurrency Cap | The backend queue strictly limits active API calls to **2 concurrent requests globally**. Excess requests are safely held in memory and processed immediately as slots open up. |
-
-This architecture cuts user wait times in half for batch generations while mathematically guaranteeing the system will never exceed its defined API rate limits.
+### 4.3 Client-Side Background Remover Pro
+- Employs `onnxruntime-web` with WebGL execution (and WASM fallback).
+- Runs 100% on the user's GPU/device canvas with zero server API cost and zero network round-trip.
+- Produces pixel-perfect transparent PNG cutouts ready for immediate placement in Product Studio or Campaign Studio.
 
 ---
 
-## 5. Database Schema (PostgreSQL)
+## 5. Development & Deployment
 
-The application relies on a relational schema with foreign key constraints.
+### Local Development
+```bash
+npm install
+npm run dev      # Launches Vite frontend (http://localhost:5173)
+npm run server   # Launches backend API (http://localhost:3000)
+```
 
-1.  **`profiles`**: Extends `auth.users` with display names and avatars.
-2.  **`user_credits`**: Tracks integer balance and subscription quotas.
-3.  **`designs`**: Stores generated images, prompt metadata, and Cloud Storage paths.
-4.  **`brand_kits`**: Stores design system tokens (colors, fonts, voice).
-5.  **`analysis_reports`**: JSONB storage for historical Shopify analysis data.
-6.  **`inspiration_gallery`**: Public/Private feed of remixable designs.
+### Validation & Build
+```bash
+npm run lint     # Validates TypeScript types (tsc --noEmit)
+npm run build    # Compiles Vite production bundle & esbuild server.cjs
+```
 
----
-
-## 6. Development & Deployment
-
-### Environment Variables
-Required in `.env` (Local) and Vercel/Supabase (Production):
--   `VITE_SUPABASE_URL`: Public Supabase URL.
--   `VITE_SUPABASE_ANON_KEY`: Public Anon Key.
--   `API_KEY`: Google Gemini API Key (Server-side only).
--   `STRIPE_SECRET_KEY`: Stripe Secret (Server-side only).
-
-### Image Processing Pipeline
-1.  **Upload:** Browser resizes images to max 2048px (to save bandwidth).
-2.  **Generation:** Gemini returns Base64.
-3.  **Transactional Persistence:**
-    -   Uses a **Supabase Database Webhook** or a single **Edge Function** to handle both the Storage upload and DB record creation in one transactional flow.
-    -   This ensures data integrity and prevents orphaned files or records.
+### Production Deployment
+- Frontend static assets deployed via Vercel CDN.
+- Backend server deployed on Cloud Run / Node runtime.
+- Environment variables configured in hosting environment secrets (`.env` is git-ignored).
 
 ---
-*Documentation maintained by ZeperAi Engineering.*
+*Documentation maintained by ZeperAi Engineering Team.*
