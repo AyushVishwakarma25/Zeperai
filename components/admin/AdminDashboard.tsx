@@ -29,7 +29,8 @@ import {
   Copy,
   Check,
   RefreshCw,
-  Terminal
+  Terminal,
+  Key
 } from 'lucide-react';
 import { getAdminAuthHeader, clearAdminAuthSession, getStoredAdminUser } from './adminAuthHelper.js';
 import { BrandLogo } from '../ui/BrandLogo.js';
@@ -46,9 +47,10 @@ import UserDetailModal from './UserDetailModal.js';
 import GenerationMonitoring from './GenerationMonitoring.js';
 import AdminAuditLog from './AdminAuditLog.js';
 import GlobalSearchModal from './GlobalSearchModal.js';
+import PlatformSettingsManager from './PlatformSettingsManager.js';
 import { AdminStateMessage } from './AdminStateMessage.js';
 
-type AdminTab = 'users' | 'overview' | 'payments' | 'subscriptions' | 'credits' | 'analytics' | 'monitoring' | 'storage' | 'audit';
+type AdminTab = 'users' | 'overview' | 'payments' | 'subscriptions' | 'credits' | 'analytics' | 'monitoring' | 'storage' | 'audit' | 'secrets';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -194,6 +196,7 @@ export default function AdminDashboard() {
     { id: 'monitoring', label: 'Health & Logs', icon: Layers },
     { id: 'storage', label: 'Storage', icon: Database },
     { id: 'audit', label: 'Audit Logs', icon: ShieldCheck },
+    { id: 'secrets', label: 'AI & Secrets', icon: Key },
   ];
 
   const getPageTitle = () => {
@@ -207,6 +210,7 @@ export default function AdminDashboard() {
       case 'monitoring': return 'System Health & Monitoring';
       case 'storage': return 'Storage & Asset Buckets';
       case 'audit': return 'Administrative Audit Logs';
+      case 'secrets': return 'AI Engine & Secret Keys Manager';
       default: return 'Admin Portal';
     }
   };
@@ -830,6 +834,11 @@ CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR 
           {/* TAB 9: SUBSCRIPTIONS */}
           {activeTab === 'subscriptions' && (
             <SubscriptionsList onSelectUser={(userId) => setSelectedUserId(userId)} />
+          )}
+
+          {/* TAB 10: AI & SECRETS */}
+          {activeTab === 'secrets' && (
+            <PlatformSettingsManager />
           )}
 
         </main>

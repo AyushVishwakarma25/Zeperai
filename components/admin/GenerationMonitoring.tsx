@@ -239,6 +239,7 @@ export default function GenerationMonitoring({ onSelectUser }: GenerationMonitor
                 className="w-full px-3 py-1.5 bg-white border border-border-light rounded-xl text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent shadow-xs"
               >
                 <option value="all">All Features & Studios</option>
+                <option value="campaign">Campaign Studio</option>
                 <option value="product">Product Studio</option>
                 <option value="fashion">Fashion Studio</option>
                 <option value="influencer">Influencer Studio</option>

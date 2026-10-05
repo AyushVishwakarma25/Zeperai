@@ -44,7 +44,7 @@ process.env.SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VIT
 process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 process.env.VITE_SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
-import { getAI } from './config/ai.js';
+import { getAI, resetAIInstance } from './config/ai.js';
 import { globalErrorHandler, asyncHandler, setupProcessLevelHandlers, AppError } from './utils/errorHandler.js';
 import { registerCampaignStudioRoutes } from './src/campaignStudio/server/index.js';
 
@@ -1429,6 +1429,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     let otherStudioCount = 0;
 
     const studioBreakdown: Record<string, { count: number; creditsConsumed: number }> = {
+      'Campaign Studio': { count: 0, creditsConsumed: 0 },
       'Product Studio': { count: 0, creditsConsumed: 0 },
       'Fashion Studio': { count: 0, creditsConsumed: 0 },
       'Influencer Studio': { count: 0, creditsConsumed: 0 },
@@ -1517,6 +1518,44 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       }
     });
 
+    // Query campaign_runs for Campaign Studio live telemetry
+    let campaignStudioCount = 0;
+    let campaignCreditsConsumed = 0;
+    try {
+      const { data: campaignRuns, error: cErr } = await adminClient
+        .from('campaign_runs')
+        .select('id, user_id, title, status, credits_spent, created_at')
+        .order('created_at', { ascending: false })
+        .limit(2000);
+
+      if (!cErr && campaignRuns) {
+        campaignStudioCount = campaignRuns.length;
+        campaignRuns.forEach((r: any) => {
+          const credits = Number(r.credits_spent) || 0;
+          campaignCreditsConsumed += credits;
+
+          if (r.user_id) {
+            if (!userGenCounts[r.user_id]) {
+              userGenCounts[r.user_id] = { count: 0, lastGen: r.created_at };
+            }
+            userGenCounts[r.user_id].count += 1;
+          }
+
+          const rDate = new Date(r.created_at);
+          const dayKey = rDate.toISOString().split('T')[0];
+          if (dailyGenMap[dayKey]) {
+            dailyGenMap[dayKey].total += 1;
+            dailyGenMap[dayKey].images += 1;
+          }
+        });
+      }
+    } catch (cEx: any) {
+      console.warn('Could not query campaign_runs for analytics:', cEx.message);
+    }
+
+    studioBreakdown['Campaign Studio'].count = campaignStudioCount;
+    studioBreakdown['Campaign Studio'].creditsConsumed = campaignCreditsConsumed;
+
     // Top presets
     const mostUsedPresets = Object.entries(presetCounts)
       .map(([name, count]) => ({ name, count }))
@@ -1551,11 +1590,12 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     res.json({
       success: true,
       analytics: {
-        totalGenerations,
-        images: imageCount,
+        totalGenerations: totalGenerations + campaignStudioCount,
+        images: imageCount + campaignStudioCount,
         videos: videoCount,
         studioBreakdown,
         countsByStudio: {
+          campaignStudio: campaignStudioCount,
           productStudio: productStudioCount,
           fashionStudio: fashionStudioCount,
           influencerStudio: influencerStudioCount,
@@ -2296,6 +2336,27 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       });
     } catch (e) {
       console.warn('Could not query designs summary:', e);
+    }
+
+    // Query campaign_runs for Campaign Studio live usage summary
+    try {
+      const { data: cRuns, count: cCount } = await adminClient
+        .from('campaign_runs')
+        .select('id, status, created_at', { count: 'exact' });
+      const cTotal = cCount || cRuns?.length || 0;
+      if (cTotal > 0) {
+        modeCounts['Campaign Studio'] = cTotal;
+        totalGenerations += cTotal;
+        (cRuns || []).forEach((r: any) => {
+          const rDate = new Date(r.created_at);
+          const dayKey = rDate.toISOString().split('T')[0];
+          if (dailyGenerationsMap[dayKey]) {
+            dailyGenerationsMap[dayKey].count += 1;
+          }
+        });
+      }
+    } catch (cSummaryErr) {
+      console.warn('Could not query campaign_runs for summary:', cSummaryErr);
     }
 
     // Credits in circulation
@@ -3117,6 +3178,163 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     } catch (profErr) {}
 
     res.json({ success: true });
+  }));
+
+  // --- ADMIN AI PROVIDER & SECRETS MANAGEMENT ---
+  app.get('/api/admin/settings/ai', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const vertexProjectId = process.env.VERTEX_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || '';
+    const vertexLocation = process.env.VERTEX_LOCATION || process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+    const vertexApiKey = process.env.VERTEX_API_KEY || '';
+    const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || '';
+    const hasServiceAccountJson = Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+
+    const useVertex = Boolean(
+      process.env.USE_VERTEX_AI === 'true' ||
+      vertexProjectId ||
+      (!geminiApiKey && process.env.GOOGLE_CLOUD_PROJECT)
+    );
+
+    const maskKey = (key: string) => {
+      if (!key) return '';
+      if (key.length <= 8) return '••••••••';
+      return key.slice(0, 4) + '••••••••' + key.slice(-4);
+    };
+
+    const campaignStudioEnabled = process.env.CAMPAIGN_STUDIO_ENABLED !== 'false';
+    const campaignStudioAllowedEmails = process.env.CAMPAIGN_STUDIO_ALLOWED_EMAILS || '';
+
+    res.json({
+      success: true,
+      settings: {
+        provider: useVertex ? 'vertex' : 'studio',
+        useVertexAI: useVertex,
+        vertexProjectId,
+        vertexLocation,
+        hasVertexApiKey: Boolean(vertexApiKey),
+        vertexApiKeyMasked: maskKey(vertexApiKey),
+        hasGeminiApiKey: Boolean(geminiApiKey),
+        geminiApiKeyMasked: maskKey(geminiApiKey),
+        hasServiceAccountJson,
+        campaignStudioEnabled,
+        campaignStudioAllowedEmails,
+        activeEngineStatus: {
+          mode: useVertex ? 'Google Vertex AI (Postpay & Express)' : 'Google AI Studio (API Key)',
+          billingModel: useVertex ? 'Postpay / Cloud Billing' : 'API Credits / Pay-as-you-go',
+          targetRegion: vertexLocation,
+          status: (useVertex ? (vertexProjectId || vertexApiKey || hasServiceAccountJson) : Boolean(geminiApiKey)) ? 'configured' : 'needs_configuration'
+        }
+      }
+    });
+  }));
+
+  app.post('/api/admin/settings/ai', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const adminClient = await getAdminSupabaseClient();
+    const {
+      useVertexAI,
+      vertexProjectId,
+      vertexLocation,
+      vertexApiKey,
+      geminiApiKey,
+      campaignStudioEnabled,
+      campaignStudioAllowedEmails
+    } = req.body || {};
+
+    const updatedFields: string[] = [];
+
+    if (typeof useVertexAI === 'boolean') {
+      process.env.USE_VERTEX_AI = useVertexAI ? 'true' : 'false';
+      updatedFields.push('USE_VERTEX_AI');
+    }
+    if (typeof vertexProjectId === 'string') {
+      process.env.VERTEX_PROJECT_ID = vertexProjectId.trim();
+      updatedFields.push('VERTEX_PROJECT_ID');
+    }
+    if (typeof vertexLocation === 'string' && vertexLocation.trim()) {
+      process.env.VERTEX_LOCATION = vertexLocation.trim();
+      updatedFields.push('VERTEX_LOCATION');
+    }
+    if (typeof vertexApiKey === 'string' && vertexApiKey.trim()) {
+      process.env.VERTEX_API_KEY = vertexApiKey.trim();
+      updatedFields.push('VERTEX_API_KEY');
+    }
+    if (typeof geminiApiKey === 'string' && geminiApiKey.trim()) {
+      process.env.GEMINI_API_KEY = geminiApiKey.trim();
+      process.env.GeminiAPI = geminiApiKey.trim();
+      updatedFields.push('GEMINI_API_KEY');
+    }
+    if (typeof campaignStudioEnabled === 'boolean') {
+      process.env.CAMPAIGN_STUDIO_ENABLED = campaignStudioEnabled ? 'true' : 'false';
+      updatedFields.push('CAMPAIGN_STUDIO_ENABLED');
+    }
+    if (typeof campaignStudioAllowedEmails === 'string') {
+      process.env.CAMPAIGN_STUDIO_ALLOWED_EMAILS = campaignStudioAllowedEmails.trim();
+      updatedFields.push('CAMPAIGN_STUDIO_ALLOWED_EMAILS');
+    }
+
+    // Reset runtime AI instance so that next request instantiates with the fresh settings
+    resetAIInstance();
+
+    // Audit log
+    try {
+      await adminClient.from('admin_actions').insert({
+        admin_id: isUuid(req.user.id) ? req.user.id : null,
+        action: 'update_ai_settings',
+        target_user_id: null,
+        details: {
+          updatedFields,
+          useVertexAI: process.env.USE_VERTEX_AI,
+          vertexProjectId: process.env.VERTEX_PROJECT_ID,
+          vertexLocation: process.env.VERTEX_LOCATION,
+          hasVertexApiKey: Boolean(process.env.VERTEX_API_KEY),
+          hasGeminiApiKey: Boolean(process.env.GEMINI_API_KEY),
+          campaignStudioEnabled: process.env.CAMPAIGN_STUDIO_ENABLED,
+          admin_email: req.user.email
+        }
+      });
+    } catch (logErr) {
+      console.warn('Failed to record AI settings admin action:', logErr);
+    }
+
+    res.json({
+      success: true,
+      message: 'AI Provider settings & secrets updated in runtime memory successfully.',
+      updatedFields
+    });
+  }));
+
+  app.post('/api/admin/settings/ai/test', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
+    const startTime = Date.now();
+    try {
+      const ai = getAI();
+      const result = await (ai as any).models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [{ role: 'user', parts: [{ text: 'Respond with the single word "READY"' }] }],
+        config: { maxOutputTokens: 10 }
+      });
+      const latencyMs = Date.now() - startTime;
+      const text = result?.text?.() || result?.response?.text?.() || 'READY';
+
+      const useVertex = Boolean(
+        process.env.USE_VERTEX_AI === 'true' ||
+        process.env.VERTEX_PROJECT_ID ||
+        process.env.VERTEX_API_KEY
+      );
+
+      res.json({
+        success: true,
+        latencyMs,
+        provider: useVertex ? 'Vertex AI' : 'Google AI Studio',
+        model: 'gemini-2.5-flash',
+        response: String(text).trim().slice(0, 50)
+      });
+    } catch (testErr: any) {
+      const latencyMs = Date.now() - startTime;
+      res.status(500).json({
+        success: false,
+        latencyMs,
+        error: testErr.message || 'AI test call failed. Check provider credentials.'
+      });
+    }
   }));
 
 

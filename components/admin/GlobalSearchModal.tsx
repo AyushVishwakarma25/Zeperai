@@ -8,7 +8,7 @@ interface GlobalSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectUser: (userId: string) => void;
-  onNavigateTab: (tab: 'users' | 'subscriptions' | 'payments' | 'credits' | 'analytics' | 'storage' | 'monitoring' | 'audit') => void;
+  onNavigateTab: (tab: 'users' | 'subscriptions' | 'payments' | 'credits' | 'analytics' | 'storage' | 'monitoring' | 'audit' | 'secrets') => void;
 }
 
 export default function GlobalSearchModal({

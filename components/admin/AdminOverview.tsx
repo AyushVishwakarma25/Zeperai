@@ -93,7 +93,7 @@ const TIER_COLORS: Record<string, string> = {
 const FEATURE_COLORS = ['#6A5AE0', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
 
 interface AdminOverviewProps {
-  onNavigateTab?: (tab: 'users' | 'subscriptions' | 'payments' | 'credits' | 'analytics' | 'storage' | 'monitoring' | 'audit') => void;
+  onNavigateTab?: (tab: 'users' | 'subscriptions' | 'payments' | 'credits' | 'analytics' | 'storage' | 'monitoring' | 'audit' | 'secrets') => void;
 }
 
 export default function AdminOverview({ onNavigateTab }: AdminOverviewProps) {

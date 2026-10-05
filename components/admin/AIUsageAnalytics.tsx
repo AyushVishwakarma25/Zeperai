@@ -22,7 +22,8 @@ import {
   Zap,
   Tag,
   Calendar,
-  ExternalLink
+  ExternalLink,
+  Megaphone
 } from 'lucide-react';
 import {
   AreaChart,
@@ -44,6 +45,7 @@ interface AIUsageAnalyticsProps {
 }
 
 const STUDIO_COLORS: Record<string, string> = {
+  'Campaign Studio': '#6366F1',
   'Product Studio': '#10B981',
   'Fashion Studio': '#8B5CF6',
   'Influencer Studio': '#EC4899',
@@ -185,7 +187,15 @@ export default function AIUsageAnalytics({ onSelectUser }: AIUsageAnalyticsProps
       </div>
 
       {/* 2. STUDIO USAGE BREAKDOWN CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+        <div className="p-4 bg-surface border border-indigo-200/80 rounded-2xl shadow-sm bg-gradient-to-br from-indigo-50/60 to-transparent">
+          <div className="flex items-center gap-2 text-[#6366F1] text-xs font-semibold">
+            <Megaphone className="w-4 h-4" /> Campaign Studio
+          </div>
+          <div className="mt-2 text-xl font-bold font-batangas font-mono text-text-primary">{countsByStudio.campaignStudio || 0}</div>
+          <p className="text-[10px] text-text-secondary mt-0.5">Multi-agent campaigns</p>
+        </div>
+
         <div className="p-4 bg-surface border border-border-light rounded-2xl shadow-sm">
           <div className="flex items-center gap-2 text-accent-green text-xs font-semibold">
             <Camera className="w-4 h-4" /> Product Studio
@@ -231,7 +241,7 @@ export default function AIUsageAnalytics({ onSelectUser }: AIUsageAnalyticsProps
             <Sparkles className="w-4 h-4" /> Creative / Other
           </div>
           <div className="mt-2 text-xl font-bold font-batangas font-mono text-text-primary">{(countsByStudio.festivalStudio || 0) + (countsByStudio.other || 0)}</div>
-          <p className="text-[10px] text-text-secondary mt-0.5">Ad campaigns & misc</p>
+          <p className="text-[10px] text-text-secondary mt-0.5">Seasonal & custom styles</p>
         </div>
       </div>
 

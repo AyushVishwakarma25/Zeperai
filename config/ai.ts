@@ -10,6 +10,15 @@ import { supabase } from "../services/supabaseClient.js";
 let genAIInstance: GoogleGenAI | null = null;
 let currentApiKey = '';
 
+/**
+ * Resets the in-memory GoogleGenAI instance so that dynamic runtime configuration
+ * (e.g. from Admin Dashboard AI & Secrets manager) takes effect immediately.
+ */
+export const resetAIInstance = () => {
+    genAIInstance = null;
+    currentApiKey = '';
+};
+
 const DEFAULT_SAFETY_SETTINGS = [
     {
         category: HarmCategory.HARM_CATEGORY_HARASSMENT,
