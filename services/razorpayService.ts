@@ -132,12 +132,21 @@ export const openCheckout = async (options: CheckoutOptions): Promise<void> => {
     throw new Error('Razorpay Key ID is missing from server response.');
   }
 
+  const baseVal = orderData.baseAmount != null ? Number(orderData.baseAmount) : Number(options.amount);
+  const gstVal = orderData.gstAmount != null ? Number(orderData.gstAmount) : 0;
+  const gstRate = orderData.taxBreakdown?.gstRatePercent || 18;
+
+  // Clear cost breakdown prominently displayed in the Razorpay Checkout modal header
+  const checkoutDescription = (gstVal > 0)
+    ? `${options.planName} • ₹${baseVal.toLocaleString('en-IN')} + ${gstRate}% GST (₹${gstVal.toFixed(2)})`
+    : `${options.planName} ${options.creditsText ? `(${options.creditsText})` : ''}`;
+
   const rzpOptions = {
     key: key_id,
     amount: order.amount,
     currency: order.currency || 'INR',
     name: 'ZeperAI Studio',
-    description: `${options.planName} ${options.creditsText ? `(${options.creditsText})` : ''}`,
+    description: checkoutDescription,
     order_id: order.id,
     prefill: {
       name: options.userName || '',

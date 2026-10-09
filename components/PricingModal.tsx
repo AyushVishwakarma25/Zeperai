@@ -233,11 +233,11 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
                       </div>
 
                       {plan.rawAmount > 0 && (
-                        <div className={`text-[10px] font-medium -mt-1 mb-2 flex items-center gap-1 ${isPro ? 'text-blue-100/90' : 'text-slate-500'}`}>
-                          <span>+ {plan.taxBreakdown.gstRatePercent}% GST</span>
-                          <span className="opacity-50">•</span>
-                          <span className="font-semibold">
-                            Total: ₹{plan.taxBreakdown.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <div className={`text-[10px] font-medium -mt-1 mb-2.5 flex flex-wrap items-center gap-1.5 ${isPro ? 'text-blue-100' : 'text-slate-500'}`}>
+                          <span>₹{plan.rawAmount.toLocaleString('en-IN')} + 18% GST (₹{plan.taxBreakdown.totalGst.toFixed(2)})</span>
+                          <span className="opacity-40">•</span>
+                          <span className={`font-bold px-1.5 py-0.2 rounded ${isPro ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800'}`}>
+                            ₹{plan.taxBreakdown.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Total
                           </span>
                         </div>
                       )}
@@ -303,6 +303,11 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
                           plan.buttonText
                         )}
                       </button>
+                      {plan.rawAmount > 0 && !plan.disabled && (
+                        <p className={`text-[9.5px] text-center mt-1.5 font-medium ${isPro ? 'text-blue-100/80' : 'text-slate-400'}`}>
+                          Base ₹{plan.rawAmount.toLocaleString('en-IN')} + ₹{plan.taxBreakdown.totalGst.toFixed(2)} GST (SAC 998313)
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
