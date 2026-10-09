@@ -189,6 +189,43 @@ export default function PlatformSettingsManager() {
     }
   }, [newServiceAccountJson]);
 
+  const jsonValidationError = React.useMemo(() => {
+    if (!newServiceAccountJson.trim()) return null;
+    const str = newServiceAccountJson.trim();
+    if (!str.startsWith('{')) {
+      return "The pasted text is missing the opening '{'. You may have copied only the bottom part of the file. Please copy the entire .json file from the very first line.";
+    }
+    try {
+      const parsed = JSON.parse(str);
+      if (!parsed.type) return "Missing 'type' field in JSON (must be 'service_account').";
+      if (!parsed.project_id) return "Missing 'project_id' field in JSON.";
+      if (!parsed.private_key) return "Missing 'private_key' field. Please paste the entire service account JSON file.";
+      return null;
+    } catch (err: any) {
+      return "Invalid JSON syntax. Ensure you copy the entire JSON file starting from '{' to '}'.";
+    }
+  }, [newServiceAccountJson]);
+
+  const handleClearVertexApiKey = async () => {
+    try {
+      setSaving(true);
+      await axios.post('/api/admin/settings/ai', {
+        vertexApiKey: ''
+      }, { headers: await getHeaders() });
+      setNewVertexApiKey('');
+      setShowVertexKeyInput(false);
+      await fetchSettings();
+      setFeedback({
+        type: 'success',
+        message: 'Vertex API Key removed. The engine will use your Google Cloud Service Account credentials.'
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: 'Failed to clear key.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleServiceAccountJsonChange = (val: string) => {
     const trimmed = val.trim();
     // Auto-detect if user mistakenly pasted an API Key (e.g. AIzaSy...) instead of JSON
@@ -611,11 +648,34 @@ export default function PlatformSettingsManager() {
                 </p>
               </div>
               {settings?.hasVertexApiKey && (
-                <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
-                  Active: {settings.vertexApiKeyMasked}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-lg border ${
+                    settings.vertexApiKeyMasked.startsWith('AQ.')
+                      ? 'text-rose-700 bg-rose-50 border-rose-200'
+                      : 'text-slate-500 bg-slate-100 border-slate-200'
+                  }`}>
+                    Active: {settings.vertexApiKeyMasked}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearVertexApiKey}
+                    disabled={saving}
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-800 underline"
+                  >
+                    Clear Key
+                  </button>
+                </div>
               )}
             </div>
+
+            {settings?.hasVertexApiKey && settings.vertexApiKeyMasked.startsWith('AQ.') && (
+              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-[11px] flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong>Mismatched Key Detected:</strong> The active key starts with <code className="font-mono bg-white px-1 rounded">AQ.</code> which is a Google AI Studio key, not a Vertex AI key. Click <strong>Clear Key</strong> to remove it so your Google Cloud Service Account is used.
+                </div>
+              </div>
+            )}
 
             {!showVertexKeyInput ? (
               <button
@@ -794,6 +854,18 @@ export default function PlatformSettingsManager() {
                   disabled={!useVertexAI}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 font-mono placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4452FB]/20 focus:border-[#4452FB]"
                 />
+                {jsonValidationError && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-amber-950 text-xs flex items-start gap-2.5 animate-in fade-in">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <strong className="font-bold block text-amber-900">Incomplete Service Account JSON:</strong>
+                      <span className="text-[11px] leading-relaxed block">{jsonValidationError}</span>
+                      <span className="text-[11px] text-amber-800 font-medium block pt-1">
+                        👉 <strong>Easiest Solution:</strong> Click the <strong>"Click to upload your .json key file"</strong> box above and select your <code className="font-mono bg-white px-1 rounded">vertex-key.json</code> file directly so no lines are accidentally cut off!
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

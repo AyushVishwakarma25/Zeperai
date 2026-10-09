@@ -173,17 +173,18 @@ export const getAI = () => {
         currentApiKey = cacheKey;
         if (useVertex) {
             // In @google/genai, apiKey and project/location are mutually exclusive.
-            if (vertexApiKey) {
-                genAIInstance = new GoogleGenAI({
-                    vertexai: true,
-                    apiKey: vertexApiKey,
-                });
-            } else if (effectiveProject || googleAuthOptions) {
+            // Prioritize Service Account credentials (googleAuthOptions) for true enterprise postpay billing
+            if (googleAuthOptions || effectiveProject) {
                 genAIInstance = new GoogleGenAI({
                     vertexai: true,
                     ...(effectiveProject ? { project: effectiveProject } : {}),
                     location: location || 'us-central1',
                     ...(googleAuthOptions ? { googleAuthOptions } : {}),
+                });
+            } else if (vertexApiKey && !vertexApiKey.startsWith('AQ.')) {
+                genAIInstance = new GoogleGenAI({
+                    vertexai: true,
+                    apiKey: vertexApiKey,
                 });
             } else {
                 genAIInstance = new GoogleGenAI({

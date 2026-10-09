@@ -56,6 +56,12 @@ try {
   console.warn('Persisted service-account.json loading skipped:', saErr.message);
 }
 
+// Clean up any mismatched AI Studio keys mistakenly assigned to VERTEX_API_KEY
+if (process.env.VERTEX_API_KEY && process.env.VERTEX_API_KEY.startsWith('AQ.')) {
+  console.log('Cleaning up mismatched Google AI Studio key from VERTEX_API_KEY (AI Studio keys cannot call Vertex AI).');
+  delete process.env.VERTEX_API_KEY;
+}
+
 export function persistEnvUpdates(updates: Record<string, string | undefined>) {
   try {
     const envPath = path.join(process.cwd(), '.env');
@@ -3264,6 +3270,11 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       } catch (_) {}
     }
 
+    // Purge mismatched Google AI Studio keys from VERTEX_API_KEY (AI Studio keys start with AQ. and are blocked on Vertex AI)
+    if (process.env.VERTEX_API_KEY && process.env.VERTEX_API_KEY.startsWith('AQ.')) {
+      delete process.env.VERTEX_API_KEY;
+    }
+
     const vertexProjectId = process.env.VERTEX_PROJECT_ID || serviceAccountDetails.projectId || process.env.GOOGLE_CLOUD_PROJECT || '';
     const vertexLocation = process.env.VERTEX_LOCATION || process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
     const vertexApiKey = process.env.VERTEX_API_KEY || '';
@@ -3339,9 +3350,15 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       process.env.VERTEX_LOCATION = vertexLocation.trim();
       updatedFields.push('VERTEX_LOCATION');
     }
-    if (typeof vertexApiKey === 'string' && vertexApiKey.trim()) {
-      process.env.VERTEX_API_KEY = vertexApiKey.trim();
-      updatedFields.push('VERTEX_API_KEY');
+    if (typeof vertexApiKey === 'string') {
+      const trimmed = vertexApiKey.trim();
+      if (!trimmed || trimmed.startsWith('AQ.')) {
+        delete process.env.VERTEX_API_KEY;
+        updatedFields.push('VERTEX_API_KEY_CLEARED');
+      } else {
+        process.env.VERTEX_API_KEY = trimmed;
+        updatedFields.push('VERTEX_API_KEY');
+      }
     }
     if (typeof geminiApiKey === 'string' && geminiApiKey.trim()) {
       process.env.GEMINI_API_KEY = geminiApiKey.trim();
@@ -3494,20 +3511,26 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           targetProject = proj;
           const loc = (pendingVertexLocation || process.env.VERTEX_LOCATION || 'us-central1').trim();
 
-          if (vKey) {
-            testClient = new GoogleGenAI({ vertexai: true, apiKey: vKey });
-          } else if (parsedSa || proj) {
+          if (parsedSa) {
             testClient = new GoogleGenAI({
               vertexai: true,
-              ...(proj ? { project: proj } : {}),
+              project: proj || parsedSa.project_id,
               location: loc,
-              ...(parsedSa ? { googleAuthOptions: { credentials: parsedSa } } : {})
+              googleAuthOptions: { credentials: parsedSa }
+            });
+          } else if (vKey && !vKey.startsWith('AQ.')) {
+            testClient = new GoogleGenAI({ vertexai: true, apiKey: vKey });
+          } else if (proj) {
+            testClient = new GoogleGenAI({
+              vertexai: true,
+              project: proj,
+              location: loc
             });
           } else {
             return res.status(400).json({
               success: false,
               latencyMs: 0,
-              error: 'Please enter a Google Cloud Project ID and Service Account JSON or Vertex API Key to test.'
+              error: 'Please upload or paste your Google Cloud Service Account JSON file (or valid Vertex Express API key) to test.'
             });
           }
         } else {
