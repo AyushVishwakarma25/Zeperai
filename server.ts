@@ -47,6 +47,8 @@ process.env.VITE_SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || proce
 import { getAI, resetAIInstance } from './config/ai.js';
 import { globalErrorHandler, asyncHandler, setupProcessLevelHandlers, AppError } from './utils/errorHandler.js';
 import { registerCampaignStudioRoutes } from './src/campaignStudio/server/index.js';
+import { resolveTaxBreakdown, calculateTaxInclusive, calculateTaxExclusive, toPaise, toRupees, isPlaceOfSupplyIntraState, DEFAULT_GST_RATE_PERCENT, DEFAULT_SAC_CODE } from './utils/taxCalculator.js';
+import { findPlanById, resolvePlanByAmount, calculateDynamicCredits, PRICING_CATALOG } from './config/pricingCatalog.js';
 
 // Initialize global process-level error handling for unhandled rejections and uncaught exceptions
 setupProcessLevelHandlers();
@@ -3390,42 +3392,42 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     return razorpayInstance;
   }
 
-  // Server-authoritative pricing catalog (Base prices in INR, excluding 18% GST)
-  const SERVER_PRICING_CATALOG: Record<string, { name: string; price: number; credits: number; tier: string }> = {
-    free: { name: 'Free Trial', price: 0, credits: 10, tier: 'Free' },
-    payg: { name: 'Pay As You Go', price: 999, credits: 120, tier: 'PayAsYouGo' },
-    'pay-as-you-go': { name: 'Pay As You Go', price: 999, credits: 120, tier: 'PayAsYouGo' },
-    pro: { name: 'Pro Subscription', price: 1999, credits: 300, tier: 'Pro' },
-    agency: { name: 'Agency Plan', price: 4999, credits: 1000, tier: 'Agency' },
-    'local-seo-10': { name: 'Local SEO Audit Pack (10 Reports)', price: 50, credits: 10, tier: 'PayAsYouGo' },
-    'localseo10': { name: 'Local SEO Audit Pack (10 Reports)', price: 50, credits: 10, tier: 'PayAsYouGo' },
-  };
-
   app.post(['/api/razorpay/create-order', '/api/create-order', '/razorpay/create-order', '/create-order'], requireAuth, asyncHandler(async (req: any, res: any) => {
     const { planId, userId, amount, currency = 'INR', receipt, isTaxInclusive } = req.body || {};
     const effectiveUserId = req.user?.id || userId || '';
-    const effectivePlanId = (planId || 'payg').toLowerCase();
+    
+    // Dynamically match catalog plan or resolve by amount
+    const matchedPlan = findPlanById(planId) || resolvePlanByAmount(Number(amount));
+    const rawAmount = Number(amount) || matchedPlan.basePrice;
 
-    // Determine base amount (pre-GST) in INR
-    const rawNum = Number(amount) || SERVER_PRICING_CATALOG[effectivePlanId]?.price || 999;
-
-    let baseAmount: number;
-    let totalAmount: number;
-
-    // Check if the amount passed already includes 18% GST (e.g. 1178.82, 2358.82, 5898.82, 59.00)
-    if (isTaxInclusive || [1178.82, 2358.82, 5898.82, 59].some(val => Math.abs(rawNum - val) < 0.05)) {
-      totalAmount = Math.round(rawNum * 100) / 100;
-      baseAmount = Math.round((totalAmount / 1.18) * 100) / 100;
-    } else {
-      // 18% GST applied on base price (e.g., 999 * 1.18 = 1178.82)
-      baseAmount = Math.round(rawNum * 100) / 100;
-      totalAmount = Math.round(baseAmount * 1.18 * 100) / 100;
+    // Fetch user profile if available for customer name, state, and GSTIN
+    let userProfile: any = null;
+    if (effectiveUserId) {
+      try {
+        const adminClient = await getAdminSupabaseClient();
+        const { data: uProfile } = await adminClient
+          .from('profiles')
+          .select('name, company_name, billing_address, billing_state, gstin')
+          .eq('id', effectiveUserId)
+          .maybeSingle();
+        userProfile = uProfile;
+      } catch (profErr) {
+        // Non-blocking
+      }
     }
 
-    const gstAmount = Math.round((totalAmount - baseAmount) * 100) / 100;
-    const finalAmountPaise = Math.round(totalAmount * 100);
+    // Dynamic tax calculation engine (SAC 998313 compliant)
+    const taxBreakdown = resolveTaxBreakdown({
+      amount: rawAmount,
+      isTaxInclusive: isTaxInclusive,
+      planBasePrice: matchedPlan.basePrice,
+      customerState: userProfile?.billing_state,
+      customerGstin: userProfile?.gstin,
+      supplierState: process.env.COMPANY_STATE,
+      supplierGstin: process.env.COMPANY_GSTIN
+    });
 
-    if (finalAmountPaise < 100) {
+    if (taxBreakdown.amountPaise < 100) {
       return res.status(400).json({ success: false, error: "Amount must be at least 1 INR.", message: "Amount must be at least 1 INR." });
     }
     
@@ -3436,37 +3438,25 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
 
     const generatedReceipt = `rcpt_${(effectiveUserId || 'anon').substring(0, 10)}_${Date.now()}`.substring(0, 40);
-    let customerNotes: any = {
-      planId: effectivePlanId.substring(0, 50),
+    const customerNotes: any = {
+      planId: matchedPlan.id.substring(0, 50),
       userId: (effectiveUserId || '').substring(0, 50),
-      baseAmount: baseAmount.toFixed(2),
-      gstAmount: gstAmount.toFixed(2),
-      totalAmount: totalAmount.toFixed(2),
-      gstRate: '18%',
-      sacCode: '998313'
+      baseAmount: taxBreakdown.taxableAmount.toFixed(2),
+      gstAmount: taxBreakdown.totalGst.toFixed(2),
+      totalAmount: taxBreakdown.totalAmount.toFixed(2),
+      gstRate: `${taxBreakdown.gstRatePercent}%`,
+      sacCode: taxBreakdown.sacCode,
+      placeOfSupply: taxBreakdown.placeOfSupply.substring(0, 50)
     };
 
-    if (effectiveUserId) {
-      try {
-        const adminClient = await getAdminSupabaseClient();
-        const { data: uProfile } = await adminClient
-          .from('profiles')
-          .select('name, company_name, billing_address, billing_state, gstin')
-          .eq('id', effectiveUserId)
-          .maybeSingle();
-
-        if (uProfile) {
-          if (uProfile.company_name || uProfile.name) customerNotes.customerName = (uProfile.company_name || uProfile.name).substring(0, 50);
-          if (uProfile.billing_state) customerNotes.billingState = uProfile.billing_state.substring(0, 50);
-          if (uProfile.gstin) customerNotes.gstin = uProfile.gstin.substring(0, 20);
-        }
-      } catch (profErr) {
-        // Non-blocking
-      }
+    if (userProfile) {
+      if (userProfile.company_name || userProfile.name) customerNotes.customerName = (userProfile.company_name || userProfile.name).substring(0, 50);
+      if (userProfile.billing_state) customerNotes.billingState = userProfile.billing_state.substring(0, 50);
+      if (userProfile.gstin) customerNotes.gstin = userProfile.gstin.substring(0, 20);
     }
 
     const options = {
-      amount: finalAmountPaise, // in paise (e.g. 117882 for 999 INR base plan + 18% GST)
+      amount: taxBreakdown.amountPaise, // in paise
       currency: currency,
       receipt: (receipt || generatedReceipt).substring(0, 40),
       notes: customerNotes
@@ -3488,10 +3478,11 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       order, 
       order_id: order.id, 
       id: order.id,
-      amount: order.amount, // 117882 paise
-      baseAmount,
-      gstAmount,
-      totalAmount,
+      amount: order.amount, // in paise
+      baseAmount: taxBreakdown.taxableAmount,
+      gstAmount: taxBreakdown.totalGst,
+      totalAmount: taxBreakdown.totalAmount,
+      taxBreakdown,
       currency: order.currency,
       key_id: keyId
     });
@@ -3699,68 +3690,43 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         }
       }
 
-      // 3. Calculate tier & credits using server-authoritative pricing catalog
-      let resolvedPlanId = (planId || 'pro').toLowerCase();
-      let creditsToAdd = 300;
-      let planName = 'Pro Subscription (300 Credits / mo)';
-      let userTier = 'Pro';
+      // 3. Dynamically resolve plan, credits, and tier from pricing catalog
       const numAmount = Number(amountInRupees) || 0;
+      const matchedPlan = findPlanById(planId) || resolvePlanByAmount(numAmount);
+      const resolvedPlanId = matchedPlan.id;
+      let creditsToAdd = matchedPlan.credits;
+      let planName = `${matchedPlan.name} (${matchedPlan.credits} Credits${matchedPlan.period === 'month' ? ' / mo' : ''})`;
+      let userTier = matchedPlan.tier;
 
-      if (SERVER_PRICING_CATALOG[resolvedPlanId]) {
-        const catalogItem = SERVER_PRICING_CATALOG[resolvedPlanId];
-        creditsToAdd = catalogItem.credits;
-        planName = `${catalogItem.name} (${catalogItem.credits} Credits${catalogItem.tier === 'Pro' || catalogItem.tier === 'Agency' ? ' / mo' : ''})`;
-        userTier = catalogItem.tier;
-      } else if (numAmount >= 4999) {
-        creditsToAdd = 1000;
-        planName = 'Agency Plan (1,000 Credits / mo)';
-        userTier = 'Agency';
-        resolvedPlanId = 'agency';
-      } else if (numAmount >= 1999) {
-        creditsToAdd = 300;
-        planName = 'Pro Subscription (300 Credits / mo)';
-        userTier = 'Pro';
-        resolvedPlanId = 'pro';
-      } else if (numAmount >= 999) {
-        creditsToAdd = 120;
-        planName = 'Pay As You Go (120 Credits)';
-        userTier = 'PayAsYouGo';
-        resolvedPlanId = 'payg';
-      } else if (numAmount > 0) {
-        creditsToAdd = Math.max(1, Math.round(numAmount * (120 / 999)));
+      // Handle custom top-up amounts if any
+      if (!planId && numAmount > 0 && numAmount < (findPlanById('payg')?.basePrice || 999)) {
+        creditsToAdd = calculateDynamicCredits(numAmount);
         planName = `Custom Credit Pack (${creditsToAdd} Credits)`;
-        userTier = 'PayAsYouGo';
-        resolvedPlanId = 'payg';
       }
 
-      const catalogBasePrice = SERVER_PRICING_CATALOG[resolvedPlanId]?.price;
-      let finalTotalAmount: number;
-      let finalTaxableAmount: number;
-      let finalTaxAmount: number;
-
-      if (numAmount > 0) {
-        // If numAmount matches the gross total with 18% GST (e.g. 1178.82 for 999 base)
-        if (catalogBasePrice && Math.abs(numAmount - Math.round(catalogBasePrice * 1.18 * 100) / 100) < 0.5) {
-          finalTotalAmount = Math.round(numAmount * 100) / 100;
-          finalTaxableAmount = catalogBasePrice;
-          finalTaxAmount = Math.round((finalTotalAmount - finalTaxableAmount) * 100) / 100;
-        } else if (catalogBasePrice && Math.abs(numAmount - catalogBasePrice) < 0.5) {
-          // If numAmount was sent as the base amount (e.g. 999)
-          finalTaxableAmount = catalogBasePrice;
-          finalTotalAmount = Math.round(catalogBasePrice * 1.18 * 100) / 100;
-          finalTaxAmount = Math.round((finalTotalAmount - finalTaxableAmount) * 100) / 100;
-        } else {
-          // Dynamic/Custom amount
-          finalTotalAmount = Math.round(numAmount * 100) / 100;
-          finalTaxableAmount = Math.round((finalTotalAmount / 1.18) * 100) / 100;
-          finalTaxAmount = Math.round((finalTotalAmount - finalTaxableAmount) * 100) / 100;
-        }
-      } else {
-        const base = catalogBasePrice || (resolvedPlanId === 'agency' ? 4999 : resolvedPlanId === 'pro' ? 1999 : 999);
-        finalTaxableAmount = base;
-        finalTotalAmount = Math.round(base * 1.18 * 100) / 100;
-        finalTaxAmount = Math.round((finalTotalAmount - finalTaxableAmount) * 100) / 100;
+      // Fetch user profile for state & GSTIN if available
+      let userProfile: any = null;
+      try {
+        const { data: pData } = await adminClient
+          .from('profiles')
+          .select('company_name, billing_address, billing_state, gstin')
+          .eq('id', userId)
+          .maybeSingle();
+        userProfile = pData;
+      } catch (profErr) {
+        // Non-blocking
       }
+
+      // Dynamically resolve tax breakdown for captured payment
+      const taxBreakdown = resolveTaxBreakdown({
+        amount: numAmount > 0 ? numAmount : matchedPlan.basePrice,
+        isTaxInclusive: true, // payments processed through gateway are gross amounts
+        planBasePrice: matchedPlan.basePrice,
+        customerState: userProfile?.billing_state,
+        customerGstin: userProfile?.gstin,
+        supplierState: process.env.COMPANY_STATE,
+        supplierGstin: process.env.COMPANY_GSTIN
+      });
 
       let razorpayInvoiceId: string | null = null;
       let invoiceUrl: string | null = null;
@@ -3793,7 +3759,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         razorpay_order_id: razorpayOrderId || null,
         razorpay_payment_id: razorpayPaymentId,
         plan_id: resolvedPlanId,
-        amount: finalTotalAmount,
+        amount: taxBreakdown.totalAmount,
         currency: 'INR',
         credits_added: creditsToAdd,
         status: 'paid',
@@ -3803,8 +3769,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       if (razorpayInvoiceId) txPayload.razorpay_invoice_id = razorpayInvoiceId;
       if (invoiceUrl) txPayload.invoice_url = invoiceUrl;
       if (invoiceNumber) txPayload.invoice_number = invoiceNumber;
-      txPayload.taxable_amount = finalTaxableAmount;
-      txPayload.tax_amount = finalTaxAmount;
+      txPayload.taxable_amount = taxBreakdown.taxableAmount;
+      txPayload.tax_amount = taxBreakdown.totalGst;
 
       let { error: txInsertErr } = await adminClient
         .from('payment_transactions')
@@ -3817,7 +3783,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           razorpay_order_id: razorpayOrderId || null,
           razorpay_payment_id: razorpayPaymentId,
           plan_id: resolvedPlanId,
-          amount: finalTotalAmount,
+          amount: taxBreakdown.totalAmount,
           currency: 'INR',
           credits_added: creditsToAdd,
           status: 'paid',
@@ -3877,7 +3843,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           plan_id: resolvedPlanId,
           plan_name: planName,
           status: 'active',
-          amount: finalTotalAmount,
+          amount: taxBreakdown.totalAmount,
           currency: 'INR',
           credits_allocated: creditsToAdd,
           razorpay_order_id: razorpayOrderId || null,
@@ -4080,28 +4046,35 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       console.warn('[API: user/invoices] Error querying payment_transactions:', e);
     }
 
-    const isIntraState = customerState.toLowerCase().includes('maharashtra') || customerState.toLowerCase().includes('mumbai');
-    const supplierGstin = process.env.COMPANY_GSTIN || '27AAACZ1234F1Z9';
+    const supplierGstin = process.env.COMPANY_GSTIN || DEFAULT_SUPPLIER_GSTIN;
+    const isIntraState = isPlaceOfSupplyIntraState({
+      customerState,
+      customerGstin,
+      supplierGstin
+    });
 
     const invoices = transactions.map((tx: any) => {
       const totalAmount = Number(tx.amount) || 0;
+
+      const taxBreakdown = resolveTaxBreakdown({
+        amount: totalAmount,
+        isTaxInclusive: true,
+        planBasePrice: tx.taxable_amount ? Number(tx.taxable_amount) : undefined,
+        customerState,
+        customerGstin,
+        supplierGstin
+      });
+
       const taxableValue = tx.taxable_amount != null && Number(tx.taxable_amount) > 0
         ? Number(tx.taxable_amount)
-        : Math.round((totalAmount / 1.18) * 100) / 100;
+        : taxBreakdown.taxableAmount;
       const totalGst = tx.tax_amount != null && Number(tx.tax_amount) > 0
         ? Number(tx.tax_amount)
-        : Math.round((totalAmount - taxableValue) * 100) / 100;
+        : taxBreakdown.totalGst;
 
-      let cgst = 0;
-      let sgst = 0;
-      let igst = 0;
-
-      if (isIntraState) {
-        cgst = Math.round((totalGst / 2) * 100) / 100;
-        sgst = Math.round((totalGst - cgst) * 100) / 100;
-      } else {
-        igst = totalGst;
-      }
+      const cgst = isIntraState ? taxBreakdown.cgst : 0;
+      const sgst = isIntraState ? taxBreakdown.sgst : 0;
+      const igst = !isIntraState ? totalGst : 0;
 
       const createdDate = new Date(tx.created_at || Date.now());
       const formattedDate = createdDate.toLocaleDateString('en-IN', {
@@ -4112,16 +4085,10 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
       const invoiceNumber = tx.invoice_number || tx.razorpay_invoice_id || `ZPR-${createdDate.getFullYear()}-${String(tx.id || '').substring(0, 8).toUpperCase()}`;
 
-      let description = 'AI Credits Pack';
-      if (tx.plan_id === 'agency') {
-        description = 'Agency Plan - 1,000 Credits/mo';
-      } else if (tx.plan_id === 'pro') {
-        description = 'Pro Subscription - 300 Credits/mo';
-      } else if (tx.plan_id === 'payg' || tx.plan_id === 'pay-as-you-go') {
-        description = 'Pay As You Go - 120 Credits Pack';
-      } else if (tx.plan_id === 'local-seo-10' || tx.plan_id === 'localseo10') {
-        description = 'Local SEO Audit Pack (10 Reports)';
-      }
+      const matchedPlan = findPlanById(tx.plan_id);
+      const description = matchedPlan 
+        ? `${matchedPlan.name} (${matchedPlan.credits} Credits${matchedPlan.period === 'month' ? '/mo' : ''})`
+        : 'AI Credits Pack';
 
       return {
         id: tx.id,
@@ -4136,12 +4103,12 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         sgst,
         igst,
         totalGst,
-        gstRate: 18,
-        sacCode: '998313',
-        placeOfSupply: `${customerState} (${isIntraState ? 'Intra-State: CGST+SGST' : 'Inter-State: IGST'})`,
+        gstRate: taxBreakdown.gstRatePercent,
+        sacCode: taxBreakdown.sacCode,
+        placeOfSupply: taxBreakdown.placeOfSupply,
         supplierGstin,
         supplierName: 'ZeperAI Studio Pvt Ltd',
-        supplierState: 'Maharashtra',
+        supplierState: DEFAULT_SUPPLIER_STATE,
         customerGstin,
         customerName,
         customerAddress,

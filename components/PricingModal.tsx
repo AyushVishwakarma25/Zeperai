@@ -4,103 +4,28 @@ import { Spinner } from './ui/Spinner.js';
 import { useNetworkStatus } from '../hooks/useNetworkStatus.js';
 import { supabase } from '../services/supabaseClient.js';
 import { openCheckout } from '../services/razorpayService.js';
+import { PRICING_CATALOG } from '../config/pricingCatalog.js';
+import { calculateTaxExclusive } from '../utils/taxCalculator.js';
 
 interface PricingModalProps {
   onClose: () => void;
 }
 
-interface PricingPlan {
-  id: string;
-  priceId: string;
-  name: string;
-  tagline: string;
-  price: string;
-  rawAmount: number;
-  period: string;
-  credits: string;
-  features: { text: string; muted?: boolean }[];
-  highlight: boolean;
-  badge?: string;
-  disabled?: boolean;
-  buttonText: string;
-}
-
-const pricingPlans: PricingPlan[] = [
-  {
-    id: 'free',
-    priceId: 'free',
-    name: 'Free Trial',
-    tagline: 'Explore studio capabilities.',
-    price: '₹0',
-    rawAmount: 0,
-    period: '7 days',
-    credits: '10 Credits',
-    features: [
-      { text: '10 free credits for 7 days' },
-      { text: 'Access to Product Studio' },
-      { text: 'Community support' },
-      { text: 'Pro studios locked', muted: true },
-    ],
-    highlight: false,
-    disabled: true,
-    buttonText: 'Current Plan'
-  },
-  {
-    id: 'payg',
-    priceId: 'payg',
-    name: 'Pay As You Go',
-    tagline: 'Buy as needed. Never expires.',
-    price: '₹999',
-    rawAmount: 999,
-    period: 'pack',
-    credits: '120 Credits',
-    features: [
-      { text: '120 credits top-up pack' },
-      { text: 'Credits never expire' },
-      { text: 'All Studios unlocked' },
-      { text: 'Commercial usage rights' },
-    ],
-    highlight: false,
-    buttonText: 'Buy 120 Credits'
-  },
-  {
-    id: 'pro',
-    priceId: 'pro',
-    name: 'Pro Subscription',
-    tagline: 'All premium studios unlocked.',
-    price: '₹1,999',
-    rawAmount: 1999,
-    period: 'month',
-    credits: '300 Credits / mo',
-    features: [
-      { text: '300 credits recurrent monthly' },
-      { text: 'All Studios & models unlocked' },
-      { text: 'Priority generation speed' },
-      { text: 'Commercial usage rights' },
-    ],
-    highlight: true,
-    badge: 'Most Popular',
-    buttonText: 'Subscribe Now'
-  },
-  {
-    id: 'agency',
-    priceId: 'agency',
-    name: 'Agency Plan',
-    tagline: 'High volume for agencies & teams.',
-    price: '₹4,999',
-    rawAmount: 4999,
-    period: 'month',
-    credits: '1,000 Credits / mo',
-    features: [
-      { text: '1,000 credits recurrent monthly' },
-      { text: 'All Studios & models unlocked' },
-      { text: 'Multi-seat team rights' },
-      { text: 'Dedicated priority support' },
-    ],
-    highlight: false,
-    buttonText: 'Get Agency Plan'
-  }
-];
+const pricingPlans = PRICING_CATALOG
+  .filter((p) => p.id !== 'local-seo-10')
+  .map((p) => {
+    const taxBreakdown = calculateTaxExclusive(p.basePrice);
+    return {
+      ...p,
+      priceId: p.id,
+      price: `₹${p.basePrice.toLocaleString('en-IN')}`,
+      rawAmount: p.basePrice,
+      credits: p.creditsLabel,
+      taxBreakdown,
+      buttonText: p.buttonText || (p.disabled ? 'Current Plan' : 'Subscribe Now'),
+      highlight: Boolean(p.highlight)
+    };
+  });
 
 interface ImageModelInfo {
   name: string;
@@ -309,10 +234,10 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
 
                       {plan.rawAmount > 0 && (
                         <div className={`text-[10px] font-medium -mt-1 mb-2 flex items-center gap-1 ${isPro ? 'text-blue-100/90' : 'text-slate-500'}`}>
-                          <span>+ 18% GST</span>
+                          <span>+ {plan.taxBreakdown.gstRatePercent}% GST</span>
                           <span className="opacity-50">•</span>
                           <span className="font-semibold">
-                            Total: ₹{(Math.round(plan.rawAmount * 1.18 * 100) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            Total: ₹{plan.taxBreakdown.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       )}

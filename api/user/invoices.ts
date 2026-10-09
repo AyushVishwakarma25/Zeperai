@@ -1,12 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { resolveTaxBreakdown, isPlaceOfSupplyIntraState, DEFAULT_GST_RATE_PERCENT, DEFAULT_SAC_CODE, DEFAULT_SUPPLIER_STATE, DEFAULT_SUPPLIER_GSTIN } from '../../utils/taxCalculator.js';
+import { findPlanById } from '../../config/pricingCatalog.js';
 
 const DEFAULT_SUPABASE_URL = 'https://kvqzfiezakcbnxbagxjs.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_6JMJwxQ-176l71T_ULVl2A_82Z0u_rb';
-const SUPPLIER_GSTIN = process.env.COMPANY_GSTIN || '27AAACZ1234F1Z9';
+const SUPPLIER_GSTIN = process.env.COMPANY_GSTIN || DEFAULT_SUPPLIER_GSTIN;
 const SUPPLIER_NAME = 'ZeperAI Studio Pvt Ltd';
-const SUPPLIER_STATE = 'Maharashtra';
-const SUPPLIER_STATE_CODE = '27';
-const SAC_CODE = '998313'; // Information technology software consulting and support services
+const SUPPLIER_STATE = process.env.COMPANY_STATE || DEFAULT_SUPPLIER_STATE;
+const SAC_CODE = DEFAULT_SAC_CODE;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -85,28 +86,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Determine Place of Supply (POS)
-    const isIntraState = customerState.toLowerCase().includes('maharashtra') || customerState.toLowerCase().includes('mumbai');
+    const isIntraState = isPlaceOfSupplyIntraState({
+      customerState,
+      customerGstin,
+      supplierGstin: SUPPLIER_GSTIN
+    });
 
     const invoices = transactions.map((tx) => {
       const totalAmount = Number(tx.amount) || 0;
-      // Use persisted taxable_amount / tax_amount if available, or compute from totalAmount
+
+      const taxBreakdown = resolveTaxBreakdown({
+        amount: totalAmount,
+        isTaxInclusive: true,
+        planBasePrice: tx.taxable_amount ? Number(tx.taxable_amount) : undefined,
+        customerState,
+        customerGstin,
+        supplierGstin: SUPPLIER_GSTIN
+      });
+
       const taxableValue = tx.taxable_amount != null && Number(tx.taxable_amount) > 0
         ? Number(tx.taxable_amount)
-        : Math.round((totalAmount / 1.18) * 100) / 100;
+        : taxBreakdown.taxableAmount;
       const totalGst = tx.tax_amount != null && Number(tx.tax_amount) > 0
         ? Number(tx.tax_amount)
-        : Math.round((totalAmount - taxableValue) * 100) / 100;
+        : taxBreakdown.totalGst;
 
-      let cgst = 0;
-      let sgst = 0;
-      let igst = 0;
-
-      if (isIntraState) {
-        cgst = Math.round((totalGst / 2) * 100) / 100;
-        sgst = Math.round((totalGst - cgst) * 100) / 100;
-      } else {
-        igst = totalGst;
-      }
+      const cgst = isIntraState ? taxBreakdown.cgst : 0;
+      const sgst = isIntraState ? taxBreakdown.sgst : 0;
+      const igst = !isIntraState ? totalGst : 0;
 
       const createdDate = new Date(tx.created_at || Date.now());
       const formattedDate = createdDate.toLocaleDateString('en-IN', {
@@ -118,17 +125,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Format clean sequential invoice number
       const invoiceNumber = tx.invoice_number || tx.razorpay_invoice_id || `ZPR-${createdDate.getFullYear()}-${String(tx.id || '').substring(0, 8).toUpperCase()}`;
 
-      // Resolve human-readable plan description
-      let description = 'AI Credits Pack';
-      if (tx.plan_id === 'agency') {
-        description = 'Agency Plan - 1,000 Credits/mo';
-      } else if (tx.plan_id === 'pro') {
-        description = 'Pro Subscription - 300 Credits/mo';
-      } else if (tx.plan_id === 'payg' || tx.plan_id === 'pay-as-you-go') {
-        description = 'Pay As You Go - 120 Credits Pack';
-      } else if (tx.plan_id === 'local-seo-10' || tx.plan_id === 'localseo10') {
-        description = 'Local SEO Audit Pack (10 Reports)';
-      }
+      // Resolve human-readable plan description dynamically from catalog
+      const matchedPlan = findPlanById(tx.plan_id);
+      const description = matchedPlan 
+        ? `${matchedPlan.name} (${matchedPlan.credits} Credits${matchedPlan.period === 'month' ? '/mo' : ''})`
+        : 'AI Credits Pack';
 
       return {
         id: tx.id,
@@ -143,9 +144,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         sgst,
         igst,
         totalGst,
-        gstRate: 18,
+        gstRate: taxBreakdown.gstRatePercent,
         sacCode: SAC_CODE,
-        placeOfSupply: `${customerState} (${isIntraState ? 'Intra-State: CGST+SGST' : 'Inter-State: IGST'})`,
+        placeOfSupply: taxBreakdown.placeOfSupply,
         supplierGstin: SUPPLIER_GSTIN,
         supplierName: SUPPLIER_NAME,
         supplierState: SUPPLIER_STATE,

@@ -6,6 +6,8 @@ import { SubscriptionManagement } from './SubscriptionManagement.js';
 import { View, UserActivity } from '../types.js';
 import { supabase } from '../services/supabaseClient.js';
 import { userService } from '../services/userService.js';
+import { findPlanById, PRICING_CATALOG } from '../config/pricingCatalog.js';
+import { resolveTaxBreakdown, DEFAULT_SUPPLIER_GSTIN } from '../utils/taxCalculator.js';
 
 interface UserProfile {
   id?: string;
@@ -194,32 +196,40 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   // Sample Invoice preview generator for users who haven't made a payment yet
   const handlePreviewSampleInvoice = () => {
-    const sampleBase = userTier === 'Agency' ? 4999 : userTier === 'PayAsYouGo' ? 999 : 1999;
-    const sampleTotal = Math.round(sampleBase * 1.18 * 100) / 100;
-    const taxable = sampleBase;
-    const gst = Math.round((sampleTotal - taxable) * 100) / 100;
-    const isMH = (billingState || 'Maharashtra').toLowerCase().includes('maharashtra');
+    const matchedPlan = findPlanById(userTier) || findPlanById('pro') || PRICING_CATALOG[2];
+    const customerState = (billingState || user.location || 'Maharashtra').trim();
+    const customerGstin = (gstin || '').trim();
+
+    const taxBreakdown = resolveTaxBreakdown({
+      amount: matchedPlan.basePrice,
+      isTaxInclusive: false,
+      planBasePrice: matchedPlan.basePrice,
+      customerState,
+      customerGstin
+    });
+
+    const description = `${matchedPlan.name} (${matchedPlan.credits} Credits${matchedPlan.period === 'month' ? '/mo' : ''})`;
 
     setSelectedInvoice({
       id: 'preview_sample',
       invoiceNumber: `ZPR-${new Date().getFullYear()}-SAMPLE`,
       date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
-      description: userTier === 'Agency' ? 'Agency Plan - 1,000 Credits/mo' : userTier === 'PayAsYouGo' ? 'Pay As You Go - 120 Credits Pack' : 'Pro Subscription - 300 Credits/mo',
-      amount: sampleTotal,
-      taxableValue: taxable,
-      cgst: isMH ? Math.round((gst / 2) * 100) / 100 : 0,
-      sgst: isMH ? Math.round((gst / 2) * 100) / 100 : 0,
-      igst: !isMH ? gst : 0,
-      totalGst: gst,
-      gstRate: 18,
-      sacCode: '998313',
-      placeOfSupply: `${billingState || 'Maharashtra'} (${isMH ? 'Intra-State: CGST+SGST' : 'Inter-State: IGST'})`,
-      supplierGstin: '27AAACZ1234F1Z9',
+      description,
+      amount: taxBreakdown.totalAmount,
+      taxableValue: taxBreakdown.taxableAmount,
+      cgst: taxBreakdown.cgst,
+      sgst: taxBreakdown.sgst,
+      igst: taxBreakdown.igst,
+      totalGst: taxBreakdown.totalGst,
+      gstRate: taxBreakdown.gstRatePercent,
+      sacCode: taxBreakdown.sacCode,
+      placeOfSupply: taxBreakdown.placeOfSupply,
+      supplierGstin: DEFAULT_SUPPLIER_GSTIN,
       supplierName: 'ZeperAI Studio Pvt Ltd',
-      customerGstin: gstin || 'Unregistered (B2C)',
-      customerName: companyName || user.name,
+      customerGstin: customerGstin || 'Unregistered (B2C)',
+      customerName: companyName || user.name || 'Valued Customer',
       customerAddress: billingAddress || user.location || 'India',
-      customerState: billingState || 'Maharashtra',
+      customerState: customerState || 'Maharashtra',
       customerPincode: billingPincode || '',
       status: 'Paid',
       invoiceUrl: null
