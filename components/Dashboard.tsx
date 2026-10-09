@@ -29,14 +29,22 @@ const ColorfulCard: React.FC<ColorfulCardProps> = ({ title, description, color, 
                 className="h-24 sm:h-28 relative overflow-hidden flex items-center justify-center transition-colors duration-300"
                 style={{ backgroundColor: color }}
             >
-                {thumbnail && !isLocked ? (
+                {thumbnail ? (
                   <div className="absolute inset-0 w-full h-full">
                     <img 
                       src={thumbnail} 
                       alt={title} 
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                      className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${isLocked ? 'filter brightness-90 contrast-95' : ''}`} 
                     />
                     <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors duration-300" />
+                    {isLocked && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/25 backdrop-blur-[1px]">
+                        <div className="relative w-12 h-12 bg-white/95 rounded-xl shadow-md flex items-center justify-center">
+                          <Icon name="lock" className="w-5 h-5 text-slate-700" />
+                          <div className="absolute -top-1.5 -right-1.5 bg-slate-900 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm border border-white">PRO</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="relative w-14 h-14 bg-white rounded-xl shadow-md transform group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-500 flex items-center justify-center">
@@ -152,7 +160,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#EAE3FD', // card-purple
             accentColor: '#6366F1', // indigo-500
             iconName: 'camera',
-            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/Product%20shoot%20dashboard.webp',
+            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/Product%20Ad%20Studio%20zeperai.webp',
             onClick: () => onSelectMode(AppMode.Product)
         },
         {
@@ -161,7 +169,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#FCD8FC', // card-pink
             accentColor: '#EC4899', // pink-500
             iconName: 'user',
-            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/Ai%20ugc%20influencer.webp',
+            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/Ai%20UGC%20Influencer%20Zeperai.webp',
             onClick: () => onSelectMode(AppMode.Influencer)
         },
         {
@@ -170,7 +178,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#B8CF8A', // card-sage
             accentColor: '#166534', // green-700
             iconName: 'shirt',
-            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/Fashion%20Studio.webp',
+            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/Fashion%20studio%20Zeperai.webp',
             onClick: () => onSelectMode(AppMode.Fashion)
         },
         ...(onOpenCampaignStudio ? [{
@@ -179,6 +187,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#EAE3FD', // card-purple
             accentColor: '#6A5AE0', // brand primary
             iconName: 'strategy',
+            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/Campaing%20Studio%20Zeperai.webp',
             onClick: onOpenCampaignStudio
         }] : []),
         {
@@ -187,6 +196,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#EAE3FD', // card-purple (Reusing for content/creative vibe)
             accentColor: '#7C3AED', // violet-600
             iconName: 'pencil-sparkles',
+            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/Ai%20content%20writer%20zeperai.webp',
             onClick: onOpenContentGenerator,
             isLocked: isProLocked,
             onUnlock: onOpenPricingModal
@@ -197,6 +207,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#FCD8FC', // card-pink (Reusing for edit/utility)
             accentColor: '#BE185D', // pink-700
             iconName: 'magic-wand',
+            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/background%20remover%20zeperai.webp',
             onClick: () => navigate('/tools/background-remover')
         },
         {
@@ -213,7 +224,7 @@ const DashboardHome: React.FC<DashboardProps> = ({
             color: '#E1D9CC', // card-tan
             accentColor: '#B45309', // amber-700
             iconName: 'lamp',
-            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Dashboard%20thumbnails/festive%20shot.webp',
+            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/festive%20shoot%20Zeperai.webp',
             onClick: () => onSelectMode(AppMode.Festival)
         }
     ];
