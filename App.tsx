@@ -593,6 +593,7 @@ const AppInternal: React.FC = () => {
                 onDeductCredits={handleCheckCredits}
                 onRefundCredits={handleRefundCredits}
                 userId={user.id}
+                credits={appData.credits}
 
                 isBrandKitModalOpen={modals.isBrandKitOpen}
                 onCloseBrandKit={modals.closeBrandKit}

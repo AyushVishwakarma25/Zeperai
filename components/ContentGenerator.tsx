@@ -139,10 +139,11 @@ interface ContentGeneratorProps {
     onRefundCredits?: (cost: number) => void;
     userId?: string;
     userTier?: string;
+    credits?: number;
     onOpenPricingModal?: () => void;
 }
 
-const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCredits, onRefundCredits, userId, userTier, onOpenPricingModal }) => {
+const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCredits, onRefundCredits, userId, userTier, credits, onOpenPricingModal }) => {
   const isOnline = useNetworkStatus();
   const [params, setParams] = useState<GenerateContentParams>(initialParams);
   const [results, setResults] = useState<CopyVariation[]>([]);
@@ -152,6 +153,8 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
   const [freeUsageCount, setFreeUsageCount] = useState(0);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [showPricingTable, setShowPricingTable] = useState(false);
+
+  const isPaidUser = userTier === 'Pro' || userTier === 'Agency' || userTier === 'PayAsYouGo' || userTier === 'Standard';
   
   const languages = [
       {label: 'English', value: 'English'},
@@ -166,17 +169,17 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
   ];
 
   useEffect(() => {
-      if (userId) {
+      if (userId && !isPaidUser) {
           const key = `ai_writer_usage_${userId}`;
           const savedCount = localStorage.getItem(key);
           if (savedCount) {
               setFreeUsageCount(parseInt(savedCount, 10));
           }
       }
-  }, [userId]);
+  }, [userId, isPaidUser]);
 
   const incrementFreeUsage = () => {
-      if (userId) {
+      if (userId && !isPaidUser) {
           const newCount = freeUsageCount + 1;
           setFreeUsageCount(newCount);
           localStorage.setItem(`ai_writer_usage_${userId}`, newCount.toString());
@@ -188,18 +191,24 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
   }, []);
 
   const handleGenerate = async () => {
-    if (userTier === 'Free') {
-        onOpenPricingModal?.();
-        return;
-    }
     if (!isOnline) {
         setToast({ message: "You are offline.", type: 'error' });
         return;
     }
-    const isFree = freeUsageCount < AI_WRITER_FREE_LIMIT;
+
+    const isFreeTrial = !isPaidUser && freeUsageCount < AI_WRITER_FREE_LIMIT;
+
+    if (!isPaidUser && !isFreeTrial) {
+        onOpenPricingModal?.();
+        return;
+    }
     
-    if (!isFree) {
-        if (onDeductCredits && !onDeductCredits(2)) return; 
+    // Paid users deduct 1 credit from their account credit pool
+    if (isPaidUser) {
+        if (onDeductCredits && !onDeductCredits(1)) {
+            setShowPricingTable(true);
+            return;
+        }
     }
 
     setIsLoading(true);
@@ -209,12 +218,14 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
       const adCopies = await generateMarketingCopy(params);
       setResults(adCopies);
       
-      if (isFree) {
+      if (isFreeTrial) {
           incrementFreeUsage();
           setToast({ message: `Free Trial Used (${freeUsageCount + 1}/${AI_WRITER_FREE_LIMIT})`, type: 'success' });
+      } else {
+          setToast({ message: "Ad copy variations generated successfully!", type: 'success' });
       }
     } catch (err) {
-      if (!isFree && onRefundCredits) onRefundCredits(2);
+      if (isPaidUser && onRefundCredits) onRefundCredits(1);
       setError(err instanceof Error ? err.message : 'An unknown error occurred.');
     } finally {
       setIsLoading(false);
@@ -222,18 +233,19 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
   };
 
   const handleRewrite = useCallback(async (index: number, rewriteParams: RewriteCopyParams) => {
-      if (userTier === 'Free') {
-          onOpenPricingModal?.();
-          return;
-      }
       if (!isOnline) {
           setToast({ message: "You are offline.", type: 'error' });
           return;
       }
       
-      const isFree = freeUsageCount < AI_WRITER_FREE_LIMIT;
+      const isFreeTrial = !isPaidUser && freeUsageCount < AI_WRITER_FREE_LIMIT;
 
-      if (!isFree) {
+      if (!isPaidUser && !isFreeTrial) {
+          onOpenPricingModal?.();
+          return;
+      }
+
+      if (isPaidUser) {
           if (onDeductCredits && !onDeductCredits(1)) return;
       }
 
@@ -242,16 +254,18 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
           const rewrittenCopy = await rewriteMarketingCopy(rewriteParams);
           setResults(prev => prev.map((copy, i) => i === index ? { ...rewrittenCopy, isRewriting: false } : copy));
           
-          if (isFree) {
+          if (isFreeTrial) {
               incrementFreeUsage();
               setToast({ message: `Free Trial Used (${freeUsageCount + 1}/${AI_WRITER_FREE_LIMIT})`, type: 'success' });
+          } else {
+              setToast({ message: "Variation updated!", type: 'success' });
           }
       } catch (err) {
-          if (!isFree && onRefundCredits) onRefundCredits(1);
+          if (isPaidUser && onRefundCredits) onRefundCredits(1);
           setError(err instanceof Error ? `Rewrite failed: ${err.message}` : 'An unknown error occurred during rewrite.');
           setResults(prev => prev.map((copy, i) => i === index ? { ...copy, isRewriting: false } : copy));
       }
-  }, [onDeductCredits, onRefundCredits, freeUsageCount, userId, isOnline]);
+  }, [onDeductCredits, onRefundCredits, freeUsageCount, userId, isOnline, isPaidUser, onOpenPricingModal]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4 animate-fade-in-scale-up" onClick={onClose}>
@@ -275,9 +289,18 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                         <h2 className="text-lg font-bold text-text-primary">AI Content Writer</h2>
                         <p className="text-xs text-text-secondary">Generate converting copy in seconds</p>
                     </div>
-                    {freeUsageCount < AI_WRITER_FREE_LIMIT && (
+                    {isPaidUser ? (
+                        <span className="ml-4 px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full border border-indigo-200 flex items-center gap-1.5 shadow-sm">
+                            <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
+                            {userTier} Plan {typeof credits === 'number' ? `• ${credits} Credits Available` : '• 1 Credit / Generation'}
+                        </span>
+                    ) : freeUsageCount < AI_WRITER_FREE_LIMIT ? (
                         <span className="ml-4 px-2.5 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200">
                             {AI_WRITER_FREE_LIMIT - freeUsageCount} Free Credits Left
+                        </span>
+                    ) : (
+                        <span className="ml-4 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full border border-amber-200">
+                            Free Trial Finished • Upgrade to Pro
                         </span>
                     )}
                 </div>

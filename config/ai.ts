@@ -206,26 +206,40 @@ export const getAI = () => {
             generateContent: async (args: any) => {
                 let { model: modelName, contents, config } = args;
 
-                // Map model aliases to current supported models per gemini-api skill
+                const hasImageConfig = Boolean(config?.imageConfig);
+
+                // Map model aliases to current supported canonical models per gemini-api skill
                 let realModelName = modelName;
+                if (modelName === 'gemini-3.1-flash-lite' || modelName === 'gemini-flash-lite' || modelName === 'flash-lite') {
+                    realModelName = hasImageConfig ? 'gemini-nano-banana-2.1' : 'gemini-3.1-flash-lite';
+                }
                 if (modelName === 'gemini-3-flash-preview' || modelName === 'gemini-flash-latest' || modelName === 'gemini-2.5-flash' || modelName === 'gemini-2.0-flash' || modelName === 'gemini-1.5-flash') {
-                    realModelName = 'gemini-3.8-flash';
+                    realModelName = hasImageConfig ? 'gemini-nano-banana-2.1' : 'gemini-3.8-flash';
                 }
                 if (modelName === 'gemini-3.1-pro-preview' || modelName === 'gemini-3-pro-preview' || modelName === 'gemini-pro-latest' || modelName === 'gemini-pro' || modelName === 'gemini-2.5-pro' || modelName === 'gemini-2.0-pro' || modelName === 'gemini-1.5-pro') {
-                    realModelName = 'gemini-3.1-pro-preview';
+                    realModelName = hasImageConfig ? 'gemini-3-pro-image' : 'gemini-3.1-pro-preview';
                 }
-                if (modelName === 'gemini-2.5-flash-preview-tts') {
+                if (modelName === 'gemini-2.5-flash-preview-tts' || modelName === 'gemini-3.1-flash-tts-preview') {
                     realModelName = 'gemini-3.8-flash-lite-tts';
                 }
-                if (modelName === 'nano-banana-2-lite' || modelName === 'nano-banana-2' || modelName === 'nano-banana' || modelName === 'gemini-2.5-flash-image') {
+                // Image Models - Nano Banana Family
+                if (modelName === 'nano-banana-2-lite' || modelName === 'nano-banana-lite' || modelName === 'gemini-2.5-flash-image' || modelName === 'gemini-3.1-flash-lite-image') {
                     realModelName = 'gemini-3.1-flash-lite-image';
                 }
-                if (modelName === 'nano-banana-pro') {
+                if (modelName === 'nano-banana-2' || modelName === 'nano-banana' || modelName === 'gemini-3.1-flash-image' || modelName === 'gemini-nano-banana-2.1') {
+                    realModelName = 'gemini-nano-banana-2.1';
+                }
+                if (modelName === 'nano-banana-pro' || modelName === 'gemini-pro-image' || modelName === 'gemini-3-pro-image') {
                     realModelName = 'gemini-3-pro-image';
                 }
                 // Discontinued Imagen aliases fallback cleanly to Nano Banana models
                 if (modelName && (modelName.includes('imagen') || modelName.includes('dall-e'))) {
                     realModelName = 'gemini-3.1-flash-lite-image';
+                }
+
+                // Invariant: Never allow an image generation request (with imageConfig) to invoke a pure text model
+                if (hasImageConfig && (realModelName === 'gemini-3.8-flash' || realModelName === 'gemini-3.1-pro-preview' || !realModelName)) {
+                    realModelName = 'gemini-nano-banana-2.1';
                 }
 
                 // Normalize contents roles if passed as structured messages
@@ -251,7 +265,7 @@ export const getAI = () => {
 
                 // Use the modern models.generateContent API
                 return await ai.models.generateContent({ 
-                    model: realModelName || 'gemini-2.5-flash-image',
+                    model: realModelName || (hasImageConfig ? 'gemini-nano-banana-2.1' : 'gemini-3.8-flash'),
                     contents: normalizedContents,
                     config: finalConfig 
                 });

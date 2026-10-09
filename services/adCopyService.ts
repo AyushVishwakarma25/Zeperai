@@ -37,7 +37,7 @@ export const generateAdCopy = async (params: GenerateAdCopyParams): Promise<AdCo
     try {
         // 3. Call AI
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-3.1-flash-lite',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",

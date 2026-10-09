@@ -39,7 +39,7 @@ export const MODEL_REGISTRY: Record<InternalModelId, ModelDefinition> = {
   [InternalModelId.NanoBanana2Lite]: {
     id: InternalModelId.NanoBanana2Lite,
     displayName: 'Nano Banana 2 Lite',
-    apiModel: 'gemini-2.5-flash-image',
+    apiModel: 'gemini-3.1-flash-lite-image',
     credits: 1,
     badge: 'Fast & Efficient',
     tagline: 'Cheapest and fastest generation',
@@ -56,7 +56,7 @@ export const MODEL_REGISTRY: Record<InternalModelId, ModelDefinition> = {
   [InternalModelId.NanoBanana2]: {
     id: InternalModelId.NanoBanana2,
     displayName: 'Nano Banana 2',
-    apiModel: 'gemini-3.1-flash-image',
+    apiModel: 'gemini-nano-banana-2.1',
     credits: 1,
     badge: 'Standard Quality',
     tagline: 'Balanced quality, speed and cost',

@@ -855,7 +855,7 @@ export const editImage = async (params: EditImageParams): Promise<{ imageUrl: st
     parts.push({ text: params.prompt || "Edit this image according to the visual context." });
 
     const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-image',
+        model: 'gemini-nano-banana-2.1',
         contents: { parts: parts }
     });
     
@@ -924,7 +924,7 @@ export const generateCaption = async (params: GenerateCaptionParams, brandKit: B
 export const removeBackground = async (base64: string, mimeType: string): Promise<{ data: string, mimeType: string }> => {
     const ai = getAI();
     const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-image',
+        model: 'gemini-nano-banana-2.1',
         contents: { parts: [{ inlineData: { data: base64, mimeType } }, { text: "Isolate subject on pure white #FFFFFF background." }] }
     });
     const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
@@ -1140,7 +1140,7 @@ export async function generateAdBackground(prompt: string, aspectRatioStr: strin
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: 'gemini-3.1-flash-lite-image',
             contents: { parts: contents },
             config: {
                 imageConfig: {

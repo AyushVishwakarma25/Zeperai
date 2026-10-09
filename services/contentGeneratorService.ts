@@ -18,7 +18,7 @@ export const generateMarketingCopy = async (params: GenerateContentParams): Prom
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-3.1-flash-lite',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -69,7 +69,7 @@ export const rewriteMarketingCopy = async (params: RewriteCopyParams): Promise<C
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-3.1-flash-lite',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",

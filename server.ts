@@ -4569,15 +4569,19 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
   // --- ALLOWED GEMINI AI MODELS WHITELIST ---
   const ALLOWED_AI_MODELS = new Set([
+    'gemini-3.1-flash-lite-image',
+    'gemini-nano-banana-2.1',
+    'gemini-3-pro-image',
     'gemini-2.5-flash-image',
     'gemini-3.1-flash-image',
-    'gemini-3-pro-image',
     'nano-banana-2-lite',
     'nano-banana-2',
     'nano-banana',
     'nano-banana-pro',
     'gemini-flash-latest',
     'gemini-3-flash-preview',
+    'gemini-3.8-flash',
+    'gemini-3.1-flash-lite',
     'gemini-3.7-flash',
     'gemini-2.5-flash',
     'gemini-1.5-flash',
@@ -4585,7 +4589,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     'gemini-1.5-pro',
     'gemini-3.1-pro-preview',
     'gemini-3.1-flash-tts-preview',
-    'gemini-2.5-flash-preview-tts'
+    'gemini-2.5-flash-preview-tts',
+    'gemini-3.8-flash-lite-tts'
   ]);
 
   // --- HARDENED GEMINI GENERATION ENDPOINT (VALIDATION + SERVER-SIDE CREDITS) ---
@@ -4612,12 +4617,21 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
     // Resolve aliases to canonical Google GenAI models
     let resolvedModel = trimmedModel;
-    if (trimmedModel === 'nano-banana-2-lite') resolvedModel = 'gemini-2.5-flash-image';
-    else if (trimmedModel === 'nano-banana-2' || trimmedModel === 'nano-banana') resolvedModel = 'gemini-3.1-flash-image';
-    else if (trimmedModel === 'nano-banana-pro') resolvedModel = 'gemini-3-pro-image';
-    else if (trimmedModel === 'gemini-3-flash-preview') resolvedModel = 'gemini-flash-latest';
-    else if (trimmedModel === 'gemini-2.5-flash-preview-tts') resolvedModel = 'gemini-3.1-flash-tts-preview';
-    else if (trimmedModel === 'gemini-3.1-pro-preview') resolvedModel = 'gemini-2.5-pro';
+    if (trimmedModel === 'nano-banana-2-lite' || trimmedModel === 'gemini-2.5-flash-image' || trimmedModel === 'gemini-3.1-flash-lite-image') {
+      resolvedModel = 'gemini-3.1-flash-lite-image';
+    } else if (trimmedModel === 'nano-banana-2' || trimmedModel === 'nano-banana' || trimmedModel === 'gemini-3.1-flash-image' || trimmedModel === 'gemini-nano-banana-2.1') {
+      resolvedModel = 'gemini-nano-banana-2.1';
+    } else if (trimmedModel === 'nano-banana-pro' || trimmedModel === 'gemini-3-pro-image') {
+      resolvedModel = 'gemini-3-pro-image';
+    } else if (trimmedModel === 'gemini-3.1-flash-lite') {
+      resolvedModel = 'gemini-3.1-flash-lite';
+    } else if (trimmedModel === 'gemini-3-flash-preview' || trimmedModel === 'gemini-flash-latest' || trimmedModel === 'gemini-3.8-flash') {
+      resolvedModel = 'gemini-3.8-flash';
+    } else if (trimmedModel === 'gemini-2.5-flash-preview-tts' || trimmedModel === 'gemini-3.1-flash-tts-preview' || trimmedModel === 'gemini-3.8-flash-lite-tts') {
+      resolvedModel = 'gemini-3.8-flash-lite-tts';
+    } else if (trimmedModel === 'gemini-3.1-pro-preview' || trimmedModel === 'gemini-2.5-pro') {
+      resolvedModel = 'gemini-3.1-pro-preview';
+    }
 
     // Strict config sanitization (whitelisting safe properties only)
     const sanitizedConfig: any = {};
@@ -4659,6 +4673,11 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       }
     }
 
+    // Safeguard: Never allow an image generation request (with imageConfig) to call a pure text model (e.g. gemini-3.8-flash)
+    if (sanitizedConfig.imageConfig && (resolvedModel === 'gemini-3.8-flash' || resolvedModel === 'gemini-3.1-pro-preview')) {
+      resolvedModel = 'gemini-nano-banana-2.1';
+    }
+
     // Admin & Tier authorization
     const userEmail = (req.user?.email || '').toLowerCase().trim();
     let isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
@@ -4686,12 +4705,16 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     if (resolvedModel === 'gemini-3-pro-image' && !isAdmin) {
       const isPaid = userTier === 'Pro' || userTier === 'PayAsYouGo' || userTier === 'Agency' || userTier === 'Standard';
       if (!isPaid) {
-        resolvedModel = 'gemini-2.5-flash-image';
+        resolvedModel = 'gemini-3.1-flash-lite-image';
       }
     }
 
     // Determine credit cost
-    const isImageModel = resolvedModel === 'gemini-2.5-flash-image' || resolvedModel === 'gemini-3.1-flash-image' || resolvedModel === 'gemini-3-pro-image';
+    const isImageModel = resolvedModel === 'gemini-3.1-flash-lite-image' || 
+                         resolvedModel === 'gemini-nano-banana-2.1' || 
+                         resolvedModel === 'gemini-3-pro-image' || 
+                         resolvedModel === 'gemini-2.5-flash-image' || 
+                         resolvedModel === 'gemini-3.1-flash-image';
     let creditCost = 0;
     if (isImageModel) {
       creditCost = resolvedModel === 'gemini-3-pro-image' ? 2 : 1;
