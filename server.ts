@@ -35,6 +35,65 @@ try {
   console.warn('Manual .env file parsing skipped or failed:', err.message);
 }
 
+// Automatically load persisted Google Cloud Service Account JSON credentials if present
+try {
+  const saFilePath = path.join(process.cwd(), 'config', 'service-account.json');
+  if (fs.existsSync(saFilePath)) {
+    const rawSa = fs.readFileSync(saFilePath, 'utf8');
+    if (rawSa.trim()) {
+      process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON = rawSa.trim();
+      process.env.GOOGLE_APPLICATION_CREDENTIALS = saFilePath;
+      try {
+        const parsed = JSON.parse(rawSa);
+        if (parsed.project_id && !process.env.VERTEX_PROJECT_ID) {
+          process.env.VERTEX_PROJECT_ID = parsed.project_id;
+        }
+      } catch (_) {}
+      console.log('Successfully loaded persisted service-account.json credentials on server startup.');
+    }
+  }
+} catch (saErr: any) {
+  console.warn('Persisted service-account.json loading skipped:', saErr.message);
+}
+
+export function persistEnvUpdates(updates: Record<string, string | undefined>) {
+  try {
+    const envPath = path.join(process.cwd(), '.env');
+    let content = '';
+    if (fs.existsSync(envPath)) {
+      content = fs.readFileSync(envPath, 'utf8');
+    }
+    const lines = content.split(/\r?\n/);
+    const existingKeys = new Set<string>();
+
+    const updatedLines = lines.map(line => {
+      const match = line.match(/^\s*([\w.-]+)\s*=/);
+      if (match) {
+        const key = match[1];
+        existingKeys.add(key);
+        if (key in updates) {
+          const val = updates[key];
+          if (val === undefined || val === '') {
+            return `# ${key}=`;
+          }
+          return `${key}="${val.replace(/"/g, '\\"')}"`;
+        }
+      }
+      return line;
+    });
+
+    for (const [key, val] of Object.entries(updates)) {
+      if (!existingKeys.has(key) && val !== undefined && val !== '') {
+        updatedLines.push(`${key}="${val.replace(/"/g, '\\"')}"`);
+      }
+    }
+
+    fs.writeFileSync(envPath, updatedLines.join('\n'), 'utf8');
+  } catch (err: any) {
+    console.warn('Failed to persist env updates to .env file:', err.message);
+  }
+}
+
 // Default Supabase configuration fallback matching client defaults
 const DEFAULT_SUPABASE_URL = 'https://kvqzfiezakcbnxbagxjs.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_6JMJwxQ-176l71T_ULVl2A_82Z0u_rb';
@@ -3184,15 +3243,38 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
   // --- ADMIN AI PROVIDER & SECRETS MANAGEMENT ---
   app.get('/api/admin/settings/ai', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
-    const vertexProjectId = process.env.VERTEX_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || '';
+    let serviceAccountDetails: {
+      attached: boolean;
+      projectId?: string;
+      clientEmail?: string;
+      privateKeyIdMasked?: string;
+      type?: string;
+    } = { attached: false };
+
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+      try {
+        const p = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+        serviceAccountDetails = {
+          attached: true,
+          projectId: p.project_id || '',
+          clientEmail: p.client_email || '',
+          privateKeyIdMasked: p.private_key_id ? `${p.private_key_id.slice(0, 6)}••••${p.private_key_id.slice(-4)}` : 'Attached',
+          type: p.type || 'service_account'
+        };
+      } catch (_) {}
+    }
+
+    const vertexProjectId = process.env.VERTEX_PROJECT_ID || serviceAccountDetails.projectId || process.env.GOOGLE_CLOUD_PROJECT || '';
     const vertexLocation = process.env.VERTEX_LOCATION || process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
     const vertexApiKey = process.env.VERTEX_API_KEY || '';
     const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || '';
-    const hasServiceAccountJson = Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+    const hasServiceAccountJson = serviceAccountDetails.attached || Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
 
     const useVertex = Boolean(
       process.env.USE_VERTEX_AI === 'true' ||
       vertexProjectId ||
+      hasServiceAccountJson ||
+      vertexApiKey ||
       (!geminiApiKey && process.env.GOOGLE_CLOUD_PROJECT)
     );
 
@@ -3217,11 +3299,12 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         hasGeminiApiKey: Boolean(geminiApiKey),
         geminiApiKeyMasked: maskKey(geminiApiKey),
         hasServiceAccountJson,
+        serviceAccountDetails,
         campaignStudioEnabled,
         campaignStudioAllowedEmails,
         activeEngineStatus: {
-          mode: useVertex ? 'Google Vertex AI (Postpay & Express)' : 'Google AI Studio (API Key)',
-          billingModel: useVertex ? 'Postpay / Cloud Billing' : 'API Credits / Pay-as-you-go',
+          mode: useVertex ? 'Gemini Enterprise Agent Platform (Vertex AI Postpay)' : 'Google AI Studio (API Key)',
+          billingModel: useVertex ? 'Postpay / Direct Cloud Billing' : 'Prepay / API Credits',
           targetRegion: vertexLocation,
           status: (useVertex ? (vertexProjectId || vertexApiKey || hasServiceAccountJson) : Boolean(geminiApiKey)) ? 'configured' : 'needs_configuration'
         }
@@ -3265,24 +3348,51 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       process.env.GeminiAPI = geminiApiKey.trim();
       updatedFields.push('GEMINI_API_KEY');
     }
+
     if (typeof serviceAccountJson === 'string') {
-      const trimmed = serviceAccountJson.trim();
-      if (trimmed) {
+      let trimmed = serviceAccountJson.trim();
+      // Auto-detect if user accidentally pasted an API key (e.g. AIzaSy...) instead of JSON
+      if (trimmed.startsWith('AIza') && !trimmed.startsWith('{')) {
+        process.env.VERTEX_API_KEY = trimmed;
+        updatedFields.push('VERTEX_API_KEY_AUTODETECTED');
+      } else if (trimmed) {
         try {
-          JSON.parse(trimmed);
-          process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON = trimmed;
+          const parsed = JSON.parse(trimmed);
+          if (parsed.private_key && typeof parsed.private_key === 'string') {
+            parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+          }
+          const normalizedJson = JSON.stringify(parsed, null, 2);
+          process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON = normalizedJson;
+
+          // Save physical service-account file for persistence across server restarts
+          const configDir = path.join(process.cwd(), 'config');
+          if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+          const saFilePath = path.join(configDir, 'service-account.json');
+          fs.writeFileSync(saFilePath, normalizedJson, { mode: 0o600 });
+          process.env.GOOGLE_APPLICATION_CREDENTIALS = saFilePath;
+
+          if (parsed.project_id && (!process.env.VERTEX_PROJECT_ID || process.env.VERTEX_PROJECT_ID.trim() === '')) {
+            process.env.VERTEX_PROJECT_ID = parsed.project_id;
+            updatedFields.push('VERTEX_PROJECT_ID_AUTO');
+          }
           updatedFields.push('GOOGLE_APPLICATION_CREDENTIALS_JSON');
         } catch {
           return res.status(400).json({
             success: false,
-            error: 'Invalid Service Account JSON. Please paste the full valid JSON object.'
+            error: 'Invalid Service Account JSON. Please paste the full valid JSON object or upload your .json credentials file.'
           });
         }
       } else if (serviceAccountJson === '') {
         delete process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+        delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+        const saFilePath = path.join(process.cwd(), 'config', 'service-account.json');
+        if (fs.existsSync(saFilePath)) {
+          try { fs.unlinkSync(saFilePath); } catch (_) {}
+        }
         updatedFields.push('GOOGLE_APPLICATION_CREDENTIALS_JSON_CLEARED');
       }
     }
+
     if (typeof campaignStudioEnabled === 'boolean') {
       process.env.CAMPAIGN_STUDIO_ENABLED = campaignStudioEnabled ? 'true' : 'false';
       updatedFields.push('CAMPAIGN_STUDIO_ENABLED');
@@ -3292,7 +3402,19 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       updatedFields.push('CAMPAIGN_STUDIO_ALLOWED_EMAILS');
     }
 
-    // Reset runtime AI instance so that next request instantiates with the fresh settings
+    // Persist configuration updates to .env file so restarts/builds never lose credentials
+    persistEnvUpdates({
+      USE_VERTEX_AI: process.env.USE_VERTEX_AI,
+      VERTEX_PROJECT_ID: process.env.VERTEX_PROJECT_ID,
+      VERTEX_LOCATION: process.env.VERTEX_LOCATION,
+      VERTEX_API_KEY: process.env.VERTEX_API_KEY,
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+      CAMPAIGN_STUDIO_ENABLED: process.env.CAMPAIGN_STUDIO_ENABLED,
+      CAMPAIGN_STUDIO_ALLOWED_EMAILS: process.env.CAMPAIGN_STUDIO_ALLOWED_EMAILS,
+      GOOGLE_APPLICATION_CREDENTIALS: process.env.GOOGLE_APPLICATION_CREDENTIALS
+    });
+
+    // Reset runtime AI singleton instance so that next request instantiates with fresh settings
     resetAIInstance();
 
     // Audit log
@@ -3319,16 +3441,101 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
     res.json({
       success: true,
-      message: 'AI Provider settings & secrets updated in runtime memory successfully.',
+      message: 'AI Provider settings & credentials securely applied and saved to disk.',
       updatedFields
     });
   }));
 
   app.post('/api/admin/settings/ai/test', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
     const startTime = Date.now();
+    const {
+      pendingUseVertexAI,
+      pendingVertexProjectId,
+      pendingVertexLocation,
+      pendingVertexApiKey,
+      pendingServiceAccountJson,
+      pendingGeminiApiKey
+    } = req.body || {};
+
+    let testClient: any = null;
+    let targetProvider = '';
+    let targetProject = '';
+
     try {
-      const ai = getAI();
-      const result = await (ai as any).models.generateContent({
+      const hasPendingOverrides =
+        pendingUseVertexAI !== undefined ||
+        Boolean(pendingServiceAccountJson) ||
+        Boolean(pendingVertexApiKey) ||
+        Boolean(pendingGeminiApiKey) ||
+        Boolean(pendingVertexProjectId);
+
+      if (hasPendingOverrides) {
+        const isVertex = pendingUseVertexAI ?? (process.env.USE_VERTEX_AI === 'true');
+        if (isVertex) {
+          targetProvider = 'Gemini Enterprise Agent Platform (Vertex AI Postpay)';
+          let saJson = pendingServiceAccountJson || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || '';
+          let parsedSa: any = null;
+          if (saJson) {
+            try {
+              parsedSa = JSON.parse(saJson);
+              if (parsedSa.private_key && typeof parsedSa.private_key === 'string') {
+                parsedSa.private_key = parsedSa.private_key.replace(/\\n/g, '\n');
+              }
+            } catch {
+              return res.status(400).json({
+                success: false,
+                latencyMs: 0,
+                error: 'The Service Account JSON provided is not valid JSON. Please check the JSON format.'
+              });
+            }
+          }
+          const vKey = pendingVertexApiKey !== undefined ? pendingVertexApiKey : (process.env.VERTEX_API_KEY || '');
+          const proj = (pendingVertexProjectId || parsedSa?.project_id || process.env.VERTEX_PROJECT_ID || '').trim();
+          targetProject = proj;
+          const loc = (pendingVertexLocation || process.env.VERTEX_LOCATION || 'us-central1').trim();
+
+          if (vKey) {
+            testClient = new GoogleGenAI({ vertexai: true, apiKey: vKey });
+          } else if (parsedSa || proj) {
+            testClient = new GoogleGenAI({
+              vertexai: true,
+              ...(proj ? { project: proj } : {}),
+              location: loc,
+              ...(parsedSa ? { googleAuthOptions: { credentials: parsedSa } } : {})
+            });
+          } else {
+            return res.status(400).json({
+              success: false,
+              latencyMs: 0,
+              error: 'Please enter a Google Cloud Project ID and Service Account JSON or Vertex API Key to test.'
+            });
+          }
+        } else {
+          targetProvider = 'Google AI Studio (API Key)';
+          const gKey = pendingGeminiApiKey || process.env.GEMINI_API_KEY || '';
+          if (!gKey) {
+            return res.status(400).json({
+              success: false,
+              latencyMs: 0,
+              error: 'Please enter a Gemini API Key to test AI Studio mode.'
+            });
+          }
+          testClient = new GoogleGenAI({ apiKey: gKey });
+        }
+      } else {
+        // Test current active instance
+        testClient = getAI();
+        const useVertex = Boolean(
+          process.env.USE_VERTEX_AI === 'true' ||
+          process.env.VERTEX_PROJECT_ID ||
+          process.env.VERTEX_API_KEY ||
+          process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
+        );
+        targetProvider = useVertex ? 'Gemini Enterprise Agent Platform (Vertex AI Postpay)' : 'Google AI Studio';
+        targetProject = process.env.VERTEX_PROJECT_ID || '';
+      }
+
+      const result = await testClient.models.generateContent({
         model: 'gemini-3.8-flash',
         contents: [{ role: 'user', parts: [{ text: 'Respond with the single word "READY"' }] }],
         config: { maxOutputTokens: 10 }
@@ -3336,26 +3543,32 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       const latencyMs = Date.now() - startTime;
       const text = result?.text?.() || result?.response?.text?.() || 'READY';
 
-      const useVertex = Boolean(
-        process.env.USE_VERTEX_AI === 'true' ||
-        process.env.VERTEX_PROJECT_ID ||
-        process.env.VERTEX_API_KEY ||
-        process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
-      );
-
       res.json({
         success: true,
         latencyMs,
-        provider: useVertex ? 'Google Vertex AI (Postpay)' : 'Google AI Studio',
+        provider: targetProvider,
+        project: targetProject,
         model: 'gemini-3.8-flash',
         response: String(text).trim().slice(0, 50)
       });
     } catch (testErr: any) {
       const latencyMs = Date.now() - startTime;
+      const errMsg = testErr?.message || String(testErr);
+      let troubleshootingTip = '';
+
+      if (errMsg.includes('402') || errMsg.includes('prepayment credits') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+        troubleshootingTip = 'AI Studio prepayment credits depleted (Error 402). Switch to Gemini Enterprise Agent Platform (Vertex AI Postpay) with your Service Account to bill directly to Google Cloud without prepaid limits.';
+      } else if (errMsg.includes('403') || errMsg.includes('PERMISSION_DENIED') || errMsg.includes('aiplatform.googleapis.com')) {
+        troubleshootingTip = `The Vertex AI API (aiplatform.googleapis.com) may be disabled or blocked for project "${targetProject || 'your GCP project'}". In your Google Cloud Console, go to APIs & Services > Library, search for "Vertex AI API", and click "Enable". Also verify that your Service Account has the "Vertex AI User" role in IAM.`;
+      } else if (errMsg.includes('invalid_grant') || errMsg.includes('credentials') || errMsg.includes('private_key')) {
+        troubleshootingTip = 'The Service Account private key or credentials could not be decrypted. Ensure you uploaded or pasted the complete .json file generated from Google Cloud IAM.';
+      }
+
       res.status(500).json({
         success: false,
         latencyMs,
-        error: testErr.message || 'AI test call failed. Check provider credentials.'
+        error: errMsg,
+        troubleshootingTip: troubleshootingTip || undefined
       });
     }
   }));

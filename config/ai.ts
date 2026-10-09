@@ -135,6 +135,9 @@ export const getAI = () => {
         try {
             const parsed = JSON.parse(saJson);
             parsedSaProject = parsed.project_id || '';
+            if (parsed.private_key && typeof parsed.private_key === 'string') {
+                parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+            }
             googleAuthOptions = { credentials: parsed };
         } catch {
             throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON is not valid JSON. Please provide the valid service account JSON contents.");

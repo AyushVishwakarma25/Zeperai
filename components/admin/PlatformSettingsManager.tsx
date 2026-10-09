@@ -40,6 +40,13 @@ interface AISettingsData {
   hasGeminiApiKey: boolean;
   geminiApiKeyMasked: string;
   hasServiceAccountJson: boolean;
+  serviceAccountDetails?: {
+    attached: boolean;
+    projectId?: string;
+    clientEmail?: string;
+    privateKeyIdMasked?: string;
+    type?: string;
+  };
   campaignStudioEnabled: boolean;
   campaignStudioAllowedEmails: string;
   activeEngineStatus: {
@@ -62,6 +69,8 @@ export default function PlatformSettingsManager() {
     model?: string;
     response?: string;
     error?: string;
+    troubleshootingTip?: string;
+    isStaged?: boolean;
   } | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -166,6 +175,45 @@ export default function PlatformSettingsManager() {
     }
   };
 
+  const stagedDetails = React.useMemo(() => {
+    if (!newServiceAccountJson.trim()) return null;
+    try {
+      const p = JSON.parse(newServiceAccountJson);
+      return {
+        projectId: p.project_id || 'Unknown Project',
+        clientEmail: p.client_email || 'Service Account',
+        privateKeyId: p.private_key_id ? `${p.private_key_id.slice(0, 6)}••••${p.private_key_id.slice(-4)}` : 'Key Staged'
+      };
+    } catch {
+      return null;
+    }
+  }, [newServiceAccountJson]);
+
+  const handleServiceAccountJsonChange = (val: string) => {
+    const trimmed = val.trim();
+    // Auto-detect if user mistakenly pasted an API Key (e.g. AIzaSy...) instead of JSON
+    if (trimmed.startsWith('AIza') && !trimmed.startsWith('{')) {
+      setNewVertexApiKey(trimmed);
+      setShowVertexKeyInput(true);
+      setNewServiceAccountJson('');
+      setFeedback({
+        type: 'success',
+        message: 'Detected Google API Key format! Automatically placed into the "Vertex AI API Key" field above.'
+      });
+      return;
+    }
+
+    setNewServiceAccountJson(val);
+    try {
+      const p = JSON.parse(val);
+      if (p.project_id && (!vertexProjectId || vertexProjectId.trim() === '')) {
+        setVertexProjectId(p.project_id);
+      }
+    } catch {
+      // ignore parse errors while typing
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -199,7 +247,7 @@ export default function PlatformSettingsManager() {
         }
         setFeedback({
           type: 'success',
-          message: `Loaded "${file.name}" for project "${parsed.project_id}". Click "Save & Apply Settings" to activate.`
+          message: `Loaded credentials for project "${parsed.project_id}" (${parsed.client_email || 'Service Account'}). Click "Save & Apply Settings" or "Test AI Connection".`
         });
       } catch {
         setFeedback({
@@ -215,7 +263,30 @@ export default function PlatformSettingsManager() {
     try {
       setTesting(true);
       setTestResult(null);
-      const res = await axios.post('/api/admin/settings/ai/test', {}, {
+
+      // Pass staged form fields so connection can test what the user is typing/pasting
+      const payload: Record<string, any> = {
+        pendingUseVertexAI: useVertexAI,
+        pendingVertexProjectId: vertexProjectId.trim(),
+        pendingVertexLocation: vertexLocation.trim()
+      };
+      if (newVertexApiKey.trim()) {
+        payload.pendingVertexApiKey = newVertexApiKey.trim();
+      }
+      if (newServiceAccountJson.trim()) {
+        payload.pendingServiceAccountJson = newServiceAccountJson.trim();
+      }
+      if (newGeminiApiKey.trim()) {
+        payload.pendingGeminiApiKey = newGeminiApiKey.trim();
+      }
+
+      const isStaged = Boolean(
+        payload.pendingServiceAccountJson ||
+        payload.pendingVertexApiKey ||
+        payload.pendingGeminiApiKey
+      );
+
+      const res = await axios.post('/api/admin/settings/ai/test', payload, {
         headers: await getHeaders()
       });
       setTestResult({
@@ -223,14 +294,16 @@ export default function PlatformSettingsManager() {
         latencyMs: res.data.latencyMs,
         provider: res.data.provider,
         model: res.data.model,
-        response: res.data.response
+        response: res.data.response,
+        isStaged
       });
     } catch (err: any) {
       console.error('AI connectivity test error:', err);
       setTestResult({
         success: false,
         latencyMs: err.response?.data?.latencyMs,
-        error: err.response?.data?.error || err.message || 'Connection test failed. Check key / project setup.'
+        error: err.response?.data?.error || err.message || 'Connection test failed. Check key / project setup.',
+        troubleshootingTip: err.response?.data?.troubleshootingTip
       });
     } finally {
       setTesting(false);
@@ -328,12 +401,34 @@ export default function PlatformSettingsManager() {
               )}
             </div>
             {testResult.success ? (
-              <p className="text-emerald-800">
-                Successfully routed through <strong>{testResult.provider}</strong> using model <code className="font-mono font-bold">{testResult.model}</code>. Engine returned:{' '}
-                <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-emerald-200">{testResult.response}</span>
-              </p>
+              <div className="space-y-1.5">
+                <p className="text-emerald-800">
+                  Successfully routed through <strong>{testResult.provider}</strong> using model <code className="font-mono font-bold">{testResult.model}</code>. Engine returned:{' '}
+                  <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-emerald-200">{testResult.response}</span>
+                </p>
+                {testResult.isStaged && (
+                  <div className="mt-2 p-2 bg-emerald-100/80 border border-emerald-300/80 rounded-xl text-emerald-950 font-semibold flex items-center justify-between gap-2">
+                    <span>✓ Verified with staged credentials! Click "Save & Apply Settings" below to persist them.</span>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-3 py-1 rounded-lg shadow-xs shrink-0"
+                    >
+                      {saving ? 'Saving...' : 'Save Now'}
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
-              <p className="text-rose-800 font-mono text-[11px]">{testResult.error}</p>
+              <div className="space-y-2">
+                <p className="text-rose-800 font-mono text-[11px]">{testResult.error}</p>
+                {testResult.troubleshootingTip && (
+                  <div className="p-2.5 bg-rose-100/90 border border-rose-300 rounded-xl text-rose-950 font-medium text-[11px] leading-relaxed">
+                    💡 <strong>Next Step / Fix:</strong> {testResult.troubleshootingTip}
+                  </div>
+                )}
+              </div>
             )}
           </div>
           <button
@@ -556,7 +651,7 @@ export default function PlatformSettingsManager() {
           </div>
 
           {/* Google Cloud Service Account JSON */}
-          <div className="space-y-3 pt-3 border-t border-slate-100">
+          <div className="space-y-4 pt-3 border-t border-slate-100">
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
@@ -570,12 +665,70 @@ export default function PlatformSettingsManager() {
               {settings?.hasServiceAccountJson && (
                 <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 flex items-center gap-1">
                   <Check className="w-3 h-3" />
-                  Key Attached
+                  Key Attached & Active
                 </span>
               )}
             </div>
 
+            {/* Currently Active Service Account Details Card (Solves "Is key saved or not?") */}
+            {settings?.hasServiceAccountJson && (
+              <div className="p-4 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl space-y-3 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span className="text-xs font-black text-emerald-900 tracking-tight">
+                      Active Service Account Saved & Verified on Server
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                    Saved on Disk
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  <div className="p-3 bg-white/90 rounded-xl border border-emerald-100 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Google Cloud Project ID</span>
+                    <code className="text-xs font-mono font-black text-slate-900">
+                      {settings.serviceAccountDetails?.projectId || settings.vertexProjectId || 'Configured'}
+                    </code>
+                  </div>
+                  <div className="p-3 bg-white/90 rounded-xl border border-emerald-100 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Service Account Client Email</span>
+                    <code className="text-[11px] font-mono text-slate-700 truncate block" title={settings.serviceAccountDetails?.clientEmail}>
+                      {settings.serviceAccountDetails?.clientEmail || 'Google IAM Service Account'}
+                    </code>
+                  </div>
+                </div>
+                <p className="text-[11px] text-emerald-800 flex items-center gap-1.5 pt-0.5 font-medium">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>
+                    Your service account key is saved to persistent disk and active for all Campaign Studio runs with post-pay billing.
+                  </span>
+                </p>
+              </div>
+            )}
+
+            {/* Staged Credentials Notification */}
+            {stagedDetails && (
+              <div className="p-3.5 bg-blue-50/90 border border-blue-200 rounded-2xl flex items-start gap-2.5 animate-in fade-in">
+                <FileCheck className="w-4 h-4 text-[#4452FB] shrink-0 mt-0.5" />
+                <div className="space-y-0.5 text-xs flex-1">
+                  <span className="font-bold text-blue-900 block">
+                    New Key Staged: {stagedDetails.projectId} ({stagedDetails.clientEmail})
+                  </span>
+                  <span className="text-[11px] text-blue-700">
+                    Click <strong>Save & Apply Settings</strong> below or <strong>Test AI Connection</strong> to test this key immediately before saving.
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">
+                  {settings?.hasServiceAccountJson ? 'Replace / Update Service Account Key:' : 'Upload or Paste Service Account Key:'}
+                </span>
+              </div>
+
               {/* Option A: Upload JSON file button / dropzone */}
               <div className="p-4 rounded-2xl border-2 border-dashed border-slate-200 hover:border-[#4452FB]/50 bg-slate-50/70 hover:bg-[#4452FB]/5 transition-all text-center">
                 <input
@@ -602,7 +755,7 @@ export default function PlatformSettingsManager() {
                     <span className="text-xs text-slate-500"> or drag and drop</span>
                   </div>
                   <span className="text-[11px] text-slate-400">
-                    Auto-fills Project ID and parses your credentials safely
+                    Auto-fills Project ID and validates your credentials safely
                   </span>
                 </label>
 
@@ -636,17 +789,7 @@ export default function PlatformSettingsManager() {
                 <textarea
                   rows={4}
                   value={newServiceAccountJson}
-                  onChange={(e) => {
-                    setNewServiceAccountJson(e.target.value);
-                    try {
-                      const p = JSON.parse(e.target.value);
-                      if (p.project_id && (!vertexProjectId || vertexProjectId.trim() === '')) {
-                        setVertexProjectId(p.project_id);
-                      }
-                    } catch {
-                      // ignore parse errors while typing
-                    }
-                  }}
+                  onChange={(e) => handleServiceAccountJsonChange(e.target.value)}
                   placeholder='{ "type": "service_account", "project_id": "your-project-id", "private_key_id": "...", "private_key": "-----BEGIN PRIVATE KEY...", "client_email": "..." }'
                   disabled={!useVertexAI}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 font-mono placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4452FB]/20 focus:border-[#4452FB]"
@@ -767,8 +910,28 @@ export default function PlatformSettingsManager() {
           </div>
         </div>
 
-        {/* Bottom Save Bar */}
+        {/* Bottom Save & Action Bar */}
         <div className="flex items-center justify-end gap-3 pt-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleTestConnection}
+            disabled={testing || saving}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-5 h-11 rounded-2xl flex items-center gap-2 border border-slate-200"
+          >
+            {testing ? (
+              <>
+                <Spinner className="w-3.5 h-3.5 text-slate-600" />
+                <span>Testing Connection...</span>
+              </>
+            ) : (
+              <>
+                <Zap className="w-4 h-4 text-[#4452FB]" />
+                <span>Test AI Connection</span>
+              </>
+            )}
+          </Button>
+
           <Button
             type="submit"
             disabled={saving}
