@@ -3390,14 +3390,40 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     return razorpayInstance;
   }
 
+  // Server-authoritative pricing catalog (Base prices in INR, excluding 18% GST)
+  const SERVER_PRICING_CATALOG: Record<string, { name: string; price: number; credits: number; tier: string }> = {
+    free: { name: 'Free Trial', price: 0, credits: 10, tier: 'Free' },
+    payg: { name: 'Pay As You Go', price: 999, credits: 120, tier: 'PayAsYouGo' },
+    'pay-as-you-go': { name: 'Pay As You Go', price: 999, credits: 120, tier: 'PayAsYouGo' },
+    pro: { name: 'Pro Subscription', price: 1999, credits: 300, tier: 'Pro' },
+    agency: { name: 'Agency Plan', price: 4999, credits: 1000, tier: 'Agency' },
+    'local-seo-10': { name: 'Local SEO Audit Pack (10 Reports)', price: 50, credits: 10, tier: 'PayAsYouGo' },
+    'localseo10': { name: 'Local SEO Audit Pack (10 Reports)', price: 50, credits: 10, tier: 'PayAsYouGo' },
+  };
+
   app.post(['/api/razorpay/create-order', '/api/create-order', '/razorpay/create-order', '/create-order'], requireAuth, asyncHandler(async (req: any, res: any) => {
-    const { planId, userId, amount, currency = 'INR', receipt } = req.body || {};
+    const { planId, userId, amount, currency = 'INR', receipt, isTaxInclusive } = req.body || {};
     const effectiveUserId = req.user?.id || userId || '';
-    
-    let finalAmountPaise = 49900; // default 499 INR
-    if (amount) {
-      finalAmountPaise = Math.round(Number(amount) * 100);
+    const effectivePlanId = (planId || 'payg').toLowerCase();
+
+    // Determine base amount (pre-GST) in INR
+    const rawNum = Number(amount) || SERVER_PRICING_CATALOG[effectivePlanId]?.price || 999;
+
+    let baseAmount: number;
+    let totalAmount: number;
+
+    // Check if the amount passed already includes 18% GST (e.g. 1178.82, 2358.82, 5898.82, 59.00)
+    if (isTaxInclusive || [1178.82, 2358.82, 5898.82, 59].some(val => Math.abs(rawNum - val) < 0.05)) {
+      totalAmount = Math.round(rawNum * 100) / 100;
+      baseAmount = Math.round((totalAmount / 1.18) * 100) / 100;
+    } else {
+      // 18% GST applied on base price (e.g., 999 * 1.18 = 1178.82)
+      baseAmount = Math.round(rawNum * 100) / 100;
+      totalAmount = Math.round(baseAmount * 1.18 * 100) / 100;
     }
+
+    const gstAmount = Math.round((totalAmount - baseAmount) * 100) / 100;
+    const finalAmountPaise = Math.round(totalAmount * 100);
 
     if (finalAmountPaise < 100) {
       return res.status(400).json({ success: false, error: "Amount must be at least 1 INR.", message: "Amount must be at least 1 INR." });
@@ -3411,8 +3437,13 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
     const generatedReceipt = `rcpt_${(effectiveUserId || 'anon').substring(0, 10)}_${Date.now()}`.substring(0, 40);
     let customerNotes: any = {
-      planId: (planId || 'pay-as-you-go').substring(0, 50),
-      userId: (effectiveUserId || '').substring(0, 50)
+      planId: effectivePlanId.substring(0, 50),
+      userId: (effectiveUserId || '').substring(0, 50),
+      baseAmount: baseAmount.toFixed(2),
+      gstAmount: gstAmount.toFixed(2),
+      totalAmount: totalAmount.toFixed(2),
+      gstRate: '18%',
+      sacCode: '998313'
     };
 
     if (effectiveUserId) {
@@ -3435,7 +3466,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
 
     const options = {
-      amount: finalAmountPaise, // paise
+      amount: finalAmountPaise, // in paise (e.g. 117882 for 999 INR base plan + 18% GST)
       currency: currency,
       receipt: (receipt || generatedReceipt).substring(0, 40),
       notes: customerNotes
@@ -3457,7 +3488,10 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       order, 
       order_id: order.id, 
       id: order.id,
-      amount: order.amount, 
+      amount: order.amount, // 117882 paise
+      baseAmount,
+      gstAmount,
+      totalAmount,
       currency: order.currency,
       key_id: keyId
     });
@@ -3616,17 +3650,6 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
   }));
 
-  // Server-authoritative pricing catalog
-  const SERVER_PRICING_CATALOG: Record<string, { name: string; price: number; credits: number; tier: string }> = {
-    free: { name: 'Free Trial', price: 0, credits: 10, tier: 'Free' },
-    payg: { name: 'Pay As You Go', price: 999, credits: 120, tier: 'PayAsYouGo' },
-    'pay-as-you-go': { name: 'Pay As You Go', price: 999, credits: 120, tier: 'PayAsYouGo' },
-    pro: { name: 'Pro Subscription', price: 1999, credits: 300, tier: 'Pro' },
-    agency: { name: 'Agency Plan', price: 4999, credits: 1000, tier: 'Agency' },
-    'local-seo-10': { name: 'Local SEO Audit Pack (10 Reports)', price: 50, credits: 10, tier: 'PayAsYouGo' },
-    'localseo10': { name: 'Local SEO Audit Pack (10 Reports)', price: 50, credits: 10, tier: 'PayAsYouGo' },
-  };
-
   // In-flight payment lock map to prevent near-simultaneous concurrency on the same instance
   const inFlightPayments = new Set<string>();
 
@@ -3710,7 +3733,34 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         resolvedPlanId = 'payg';
       }
 
-      const effectivePlanAmount = SERVER_PRICING_CATALOG[resolvedPlanId]?.price || numAmount || (resolvedPlanId === 'agency' ? 4999 : resolvedPlanId === 'pro' ? 1999 : 999);
+      const catalogBasePrice = SERVER_PRICING_CATALOG[resolvedPlanId]?.price;
+      let finalTotalAmount: number;
+      let finalTaxableAmount: number;
+      let finalTaxAmount: number;
+
+      if (numAmount > 0) {
+        // If numAmount matches the gross total with 18% GST (e.g. 1178.82 for 999 base)
+        if (catalogBasePrice && Math.abs(numAmount - Math.round(catalogBasePrice * 1.18 * 100) / 100) < 0.5) {
+          finalTotalAmount = Math.round(numAmount * 100) / 100;
+          finalTaxableAmount = catalogBasePrice;
+          finalTaxAmount = Math.round((finalTotalAmount - finalTaxableAmount) * 100) / 100;
+        } else if (catalogBasePrice && Math.abs(numAmount - catalogBasePrice) < 0.5) {
+          // If numAmount was sent as the base amount (e.g. 999)
+          finalTaxableAmount = catalogBasePrice;
+          finalTotalAmount = Math.round(catalogBasePrice * 1.18 * 100) / 100;
+          finalTaxAmount = Math.round((finalTotalAmount - finalTaxableAmount) * 100) / 100;
+        } else {
+          // Dynamic/Custom amount
+          finalTotalAmount = Math.round(numAmount * 100) / 100;
+          finalTaxableAmount = Math.round((finalTotalAmount / 1.18) * 100) / 100;
+          finalTaxAmount = Math.round((finalTotalAmount - finalTaxableAmount) * 100) / 100;
+        }
+      } else {
+        const base = catalogBasePrice || (resolvedPlanId === 'agency' ? 4999 : resolvedPlanId === 'pro' ? 1999 : 999);
+        finalTaxableAmount = base;
+        finalTotalAmount = Math.round(base * 1.18 * 100) / 100;
+        finalTaxAmount = Math.round((finalTotalAmount - finalTaxableAmount) * 100) / 100;
+      }
 
       let razorpayInvoiceId: string | null = null;
       let invoiceUrl: string | null = null;
@@ -3737,16 +3787,13 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         }
       }
 
-      const taxableAmount = Math.round((effectivePlanAmount / 1.18) * 100) / 100;
-      const taxAmount = Math.round((effectivePlanAmount - taxableAmount) * 100) / 100;
-
       // 4. ATOMIC GATE: Insert into payment_transactions FIRST before adding any credits.
       const txPayload: any = {
         user_id: userId,
         razorpay_order_id: razorpayOrderId || null,
         razorpay_payment_id: razorpayPaymentId,
         plan_id: resolvedPlanId,
-        amount: effectivePlanAmount,
+        amount: finalTotalAmount,
         currency: 'INR',
         credits_added: creditsToAdd,
         status: 'paid',
@@ -3756,8 +3803,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       if (razorpayInvoiceId) txPayload.razorpay_invoice_id = razorpayInvoiceId;
       if (invoiceUrl) txPayload.invoice_url = invoiceUrl;
       if (invoiceNumber) txPayload.invoice_number = invoiceNumber;
-      txPayload.taxable_amount = taxableAmount;
-      txPayload.tax_amount = taxAmount;
+      txPayload.taxable_amount = finalTaxableAmount;
+      txPayload.tax_amount = finalTaxAmount;
 
       let { error: txInsertErr } = await adminClient
         .from('payment_transactions')
@@ -3770,7 +3817,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           razorpay_order_id: razorpayOrderId || null,
           razorpay_payment_id: razorpayPaymentId,
           plan_id: resolvedPlanId,
-          amount: effectivePlanAmount,
+          amount: finalTotalAmount,
           currency: 'INR',
           credits_added: creditsToAdd,
           status: 'paid',
@@ -3830,7 +3877,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           plan_id: resolvedPlanId,
           plan_name: planName,
           status: 'active',
-          amount: effectivePlanAmount,
+          amount: finalTotalAmount,
           currency: 'INR',
           credits_allocated: creditsToAdd,
           razorpay_order_id: razorpayOrderId || null,
@@ -4038,8 +4085,12 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
     const invoices = transactions.map((tx: any) => {
       const totalAmount = Number(tx.amount) || 0;
-      const taxableValue = Math.round((totalAmount / 1.18) * 100) / 100;
-      const totalGst = Math.round((totalAmount - taxableValue) * 100) / 100;
+      const taxableValue = tx.taxable_amount != null && Number(tx.taxable_amount) > 0
+        ? Number(tx.taxable_amount)
+        : Math.round((totalAmount / 1.18) * 100) / 100;
+      const totalGst = tx.tax_amount != null && Number(tx.tax_amount) > 0
+        ? Number(tx.tax_amount)
+        : Math.round((totalAmount - taxableValue) * 100) / 100;
 
       let cgst = 0;
       let sgst = 0;

@@ -194,9 +194,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   // Sample Invoice preview generator for users who haven't made a payment yet
   const handlePreviewSampleInvoice = () => {
-    const sampleAmount = userTier === 'Agency' ? 4999 : userTier === 'PayAsYouGo' ? 999 : 1999;
-    const taxable = Math.round((sampleAmount / 1.18) * 100) / 100;
-    const gst = Math.round((sampleAmount - taxable) * 100) / 100;
+    const sampleBase = userTier === 'Agency' ? 4999 : userTier === 'PayAsYouGo' ? 999 : 1999;
+    const sampleTotal = Math.round(sampleBase * 1.18 * 100) / 100;
+    const taxable = sampleBase;
+    const gst = Math.round((sampleTotal - taxable) * 100) / 100;
     const isMH = (billingState || 'Maharashtra').toLowerCase().includes('maharashtra');
 
     setSelectedInvoice({
@@ -204,7 +205,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       invoiceNumber: `ZPR-${new Date().getFullYear()}-SAMPLE`,
       date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
       description: userTier === 'Agency' ? 'Agency Plan - 1,000 Credits/mo' : userTier === 'PayAsYouGo' ? 'Pay As You Go - 120 Credits Pack' : 'Pro Subscription - 300 Credits/mo',
-      amount: sampleAmount,
+      amount: sampleTotal,
       taxableValue: taxable,
       cgst: isMH ? Math.round((gst / 2) * 100) / 100 : 0,
       sgst: isMH ? Math.round((gst / 2) * 100) / 100 : 0,

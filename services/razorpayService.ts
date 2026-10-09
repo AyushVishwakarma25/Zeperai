@@ -147,6 +147,12 @@ export const openCheckout = async (options: CheckoutOptions): Promise<void> => {
     theme: {
       color: '#4452FB'
     },
+    notes: {
+      planId: options.planId,
+      baseAmount: (orderData.baseAmount || options.amount).toString(),
+      gstAmount: (orderData.gstAmount || '').toString(),
+      totalAmount: (orderData.totalAmount || (order.amount / 100)).toString()
+    },
     handler: async function (response: any) {
       try {
         const verifyResult = await verifyRazorpayPayment({
@@ -154,7 +160,7 @@ export const openCheckout = async (options: CheckoutOptions): Promise<void> => {
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_signature: response.razorpay_signature,
           planId: options.planId,
-          amount: options.amount
+          amount: orderData.totalAmount || (order.amount ? order.amount / 100 : options.amount)
         });
         if (options.onSuccess) {
           options.onSuccess(verifyResult);

@@ -183,7 +183,7 @@ export const PricingPage: React.FC = () => {
                 {plan.tagline}
               </p>
 
-              <div className="mb-8">
+              <div className="mb-1">
                 <span className={`text-5xl font-black ${plan.highlight ? 'text-white' : 'text-slate-900'}`}>
                   {plan.price}
                 </span>
@@ -191,6 +191,13 @@ export const PricingPage: React.FC = () => {
                   {plan.cadence}
                 </span>
               </div>
+              {plan.id !== 'free' ? (
+                <div className={`text-xs font-medium mb-6 ${plan.highlight ? 'text-blue-100/90' : 'text-slate-500'}`}>
+                  + 18% GST (SAC 998313)
+                </div>
+              ) : (
+                <div className="mb-6 h-4" />
+              )}
 
               <div
                 className={

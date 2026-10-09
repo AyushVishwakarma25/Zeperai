@@ -98,7 +98,7 @@ const pricingPlans: PricingPlan[] = [
       { text: 'Dedicated priority support' },
     ],
     highlight: false,
-    buttonText: 'Subscribe ₹4,999'
+    buttonText: 'Get Agency Plan'
   }
 ];
 
@@ -298,7 +298,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
                         {plan.tagline}
                       </p>
 
-                      <div className="mb-2 flex items-baseline gap-1">
+                      <div className="mb-1 flex items-baseline gap-1">
                         <span className={`text-2xl sm:text-3xl font-black font-mono ${isPro ? 'text-white' : 'text-slate-900'}`}>
                           {plan.price}
                         </span>
@@ -306,6 +306,16 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
                           / {plan.period}
                         </span>
                       </div>
+
+                      {plan.rawAmount > 0 && (
+                        <div className={`text-[10px] font-medium -mt-1 mb-2 flex items-center gap-1 ${isPro ? 'text-blue-100/90' : 'text-slate-500'}`}>
+                          <span>+ 18% GST</span>
+                          <span className="opacity-50">•</span>
+                          <span className="font-semibold">
+                            Total: ₹{(Math.round(plan.rawAmount * 1.18 * 100) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Credits Pill */}
                       <div
@@ -410,7 +420,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
               Secure 256-bit Razorpay Checkout • Instant Credit Allocation
             </span>
             <span className="hidden sm:inline">
-              GST invoices with input tax credit auto-generated in account
+              GST invoices (18% ITC) auto-generated with SAC 998313 in account
             </span>
           </div>
 

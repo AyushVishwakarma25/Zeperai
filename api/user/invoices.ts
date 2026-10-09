@@ -89,9 +89,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const invoices = transactions.map((tx) => {
       const totalAmount = Number(tx.amount) || 0;
-      // GST is 18% inclusive in SaaS pricing (Taxable Value = Total / 1.18)
-      const taxableValue = Math.round((totalAmount / 1.18) * 100) / 100;
-      const totalGst = Math.round((totalAmount - taxableValue) * 100) / 100;
+      // Use persisted taxable_amount / tax_amount if available, or compute from totalAmount
+      const taxableValue = tx.taxable_amount != null && Number(tx.taxable_amount) > 0
+        ? Number(tx.taxable_amount)
+        : Math.round((totalAmount / 1.18) * 100) / 100;
+      const totalGst = tx.tax_amount != null && Number(tx.tax_amount) > 0
+        ? Number(tx.tax_amount)
+        : Math.round((totalAmount - taxableValue) * 100) / 100;
 
       let cgst = 0;
       let sgst = 0;
