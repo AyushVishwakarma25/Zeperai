@@ -27,6 +27,8 @@ const pricingPlans = PRICING_CATALOG
     };
   });
 
+type PricingPlan = (typeof pricingPlans)[number];
+
 interface ImageModelInfo {
   name: string;
   apiModel: string;

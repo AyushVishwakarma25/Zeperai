@@ -47,7 +47,7 @@ process.env.VITE_SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || proce
 import { getAI, resetAIInstance } from './config/ai.js';
 import { globalErrorHandler, asyncHandler, setupProcessLevelHandlers, AppError } from './utils/errorHandler.js';
 import { registerCampaignStudioRoutes } from './src/campaignStudio/server/index.js';
-import { resolveTaxBreakdown, calculateTaxInclusive, calculateTaxExclusive, toPaise, toRupees, isPlaceOfSupplyIntraState, DEFAULT_GST_RATE_PERCENT, DEFAULT_SAC_CODE } from './utils/taxCalculator.js';
+import { resolveTaxBreakdown, calculateTaxInclusive, calculateTaxExclusive, toPaise, toRupees, isPlaceOfSupplyIntraState, DEFAULT_GST_RATE_PERCENT, DEFAULT_SAC_CODE, DEFAULT_SUPPLIER_GSTIN, DEFAULT_SUPPLIER_STATE } from './utils/taxCalculator.js';
 import { findPlanById, resolvePlanByAmount, calculateDynamicCredits, PRICING_CATALOG } from './config/pricingCatalog.js';
 
 // Initialize global process-level error handling for unhandled rejections and uncaught exceptions
@@ -3237,6 +3237,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       vertexLocation,
       vertexApiKey,
       geminiApiKey,
+      serviceAccountJson,
       campaignStudioEnabled,
       campaignStudioAllowedEmails
     } = req.body || {};
@@ -3264,6 +3265,24 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       process.env.GeminiAPI = geminiApiKey.trim();
       updatedFields.push('GEMINI_API_KEY');
     }
+    if (typeof serviceAccountJson === 'string') {
+      const trimmed = serviceAccountJson.trim();
+      if (trimmed) {
+        try {
+          JSON.parse(trimmed);
+          process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON = trimmed;
+          updatedFields.push('GOOGLE_APPLICATION_CREDENTIALS_JSON');
+        } catch {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid Service Account JSON. Please paste the full valid JSON object.'
+          });
+        }
+      } else if (serviceAccountJson === '') {
+        delete process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+        updatedFields.push('GOOGLE_APPLICATION_CREDENTIALS_JSON_CLEARED');
+      }
+    }
     if (typeof campaignStudioEnabled === 'boolean') {
       process.env.CAMPAIGN_STUDIO_ENABLED = campaignStudioEnabled ? 'true' : 'false';
       updatedFields.push('CAMPAIGN_STUDIO_ENABLED');
@@ -3289,6 +3308,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           vertexLocation: process.env.VERTEX_LOCATION,
           hasVertexApiKey: Boolean(process.env.VERTEX_API_KEY),
           hasGeminiApiKey: Boolean(process.env.GEMINI_API_KEY),
+          hasServiceAccountJson: Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON),
           campaignStudioEnabled: process.env.CAMPAIGN_STUDIO_ENABLED,
           admin_email: req.user.email
         }
@@ -3309,7 +3329,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     try {
       const ai = getAI();
       const result = await (ai as any).models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         contents: [{ role: 'user', parts: [{ text: 'Respond with the single word "READY"' }] }],
         config: { maxOutputTokens: 10 }
       });
@@ -3319,14 +3339,15 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       const useVertex = Boolean(
         process.env.USE_VERTEX_AI === 'true' ||
         process.env.VERTEX_PROJECT_ID ||
-        process.env.VERTEX_API_KEY
+        process.env.VERTEX_API_KEY ||
+        process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
       );
 
       res.json({
         success: true,
         latencyMs,
-        provider: useVertex ? 'Vertex AI' : 'Google AI Studio',
-        model: 'gemini-2.5-flash',
+        provider: useVertex ? 'Google Vertex AI (Postpay)' : 'Google AI Studio',
+        model: 'gemini-3.8-flash',
         response: String(text).trim().slice(0, 50)
       });
     } catch (testErr: any) {

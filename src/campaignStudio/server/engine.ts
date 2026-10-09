@@ -95,8 +95,15 @@ export function mapAgentError(err: unknown): { status: number; message: string }
     if (err.status === 402 || err.message?.toLowerCase().includes('prepayment credits') || err.message?.toLowerCase().includes('depleted')) {
       console.error('[CRITICAL][AI Billing/Quota Alert] Google Gemini / Vertex API billing or quota issue:', err.message);
       return {
-        status: 503,
-        message: 'The AI generation service is temporarily undergoing maintenance. Please try again in a moment or contact support.',
+        status: 402,
+        message: 'Google Gemini prepayment credits are depleted. Switch to Google Vertex AI Postpay in Admin Settings > AI, or update your Google Cloud billing.',
+      };
+    }
+    if (err.status === 403 && (err.message?.includes('aiplatform.googleapis.com') || err.message?.includes('PERMISSION_DENIED'))) {
+      console.error('[CRITICAL][Vertex AI Permission Alert] Vertex AI API permission denied:', err.message);
+      return {
+        status: 403,
+        message: 'Google Cloud Vertex AI permission denied. Please verify that the Vertex AI API (aiplatform.googleapis.com) is enabled in your GCP project and your credentials have the "Vertex AI User" role (roles/aiplatform.user).',
       };
     }
     switch (err.kind) {

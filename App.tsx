@@ -26,10 +26,10 @@ import { ChatBot } from './components/ChatBot.js';
 
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { LandingPage } from './src/landing/LandingPage.js';
+import { LoginPage } from './components/LoginPage.js';
+import { SignupPage } from './components/SignupPage.js';
 
 // Lazy load secondary routes & admin suite to drastically reduce initial landing bundle size
-const LoginPage = React.lazy(() => import('./components/LoginPage.js').then(m => ({ default: m.LoginPage })));
-const SignupPage = React.lazy(() => import('./components/SignupPage.js').then(m => ({ default: m.SignupPage })));
 const AdminDashboard = React.lazy(() => import('./components/admin/AdminDashboard.js'));
 const AdminLoginPage = React.lazy(() => import('./components/admin/AdminLoginPage.js').then(m => ({ default: m.AdminLoginPage })));
 const BackgroundRemoverLandingPage = React.lazy(() => import('./src/landing/BackgroundRemoverLandingPage.js').then(m => ({ default: m.BackgroundRemoverLandingPage })));

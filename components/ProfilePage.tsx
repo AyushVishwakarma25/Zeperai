@@ -105,21 +105,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [showBillingForm, setShowBillingForm] = useState(false);
 
   // Billing & GST Details form state
-  const [companyName, setCompanyName] = useState(user.companyName || '');
-  const [gstin, setGstin] = useState(user.gstin || '');
-  const [billingAddress, setBillingAddress] = useState(user.billingAddress || '');
-  const [billingState, setBillingState] = useState(user.billingState || 'Maharashtra');
-  const [billingPincode, setBillingPincode] = useState(user.billingPincode || '');
+  const [companyName, setCompanyName] = useState(user?.companyName || '');
+  const [gstin, setGstin] = useState(user?.gstin || '');
+  const [billingAddress, setBillingAddress] = useState(user?.billingAddress || '');
+  const [billingState, setBillingState] = useState(user?.billingState || 'Maharashtra');
+  const [billingPincode, setBillingPincode] = useState(user?.billingPincode || '');
   const [savingBilling, setSavingBilling] = useState(false);
   const [billingSavedMessage, setBillingSavedMessage] = useState<string | null>(null);
 
   // Synchronize state when user prop updates
   useEffect(() => {
-    if (user.companyName !== undefined) setCompanyName(user.companyName);
-    if (user.gstin !== undefined) setGstin(user.gstin);
-    if (user.billingAddress !== undefined) setBillingAddress(user.billingAddress);
-    if (user.billingState !== undefined) setBillingState(user.billingState);
-    if (user.billingPincode !== undefined) setBillingPincode(user.billingPincode);
+    if (user?.companyName !== undefined) setCompanyName(user.companyName);
+    if (user?.gstin !== undefined) setGstin(user.gstin);
+    if (user?.billingAddress !== undefined) setBillingAddress(user.billingAddress);
+    if (user?.billingState !== undefined) setBillingState(user.billingState);
+    if (user?.billingPincode !== undefined) setBillingPincode(user.billingPincode);
   }, [user]);
 
   const fetchInvoices = async () => {

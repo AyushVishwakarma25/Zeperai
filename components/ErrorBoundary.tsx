@@ -21,6 +21,20 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
+    const msg = error?.message || '';
+    if (
+      msg.includes('Invalid hook call') ||
+      msg.includes('Cannot read properties of null') ||
+      msg.includes('Failed to fetch dynamically imported module') ||
+      msg.includes('dynamically imported module')
+    ) {
+      const reloadKey = 'zeperai_chunk_recover_reload';
+      const lastReload = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
+      if (Date.now() - lastReload > 4000) {
+        sessionStorage.setItem(reloadKey, String(Date.now()));
+        window.location.reload();
+      }
+    }
   }
 
   public handleRetry = () => {

@@ -127,55 +127,60 @@ export const getAI = () => {
            '') 
         : '';
 
-    // Post-pay Vertex AI mode: used when explicitly requested via USE_VERTEX_AI='true',
-    // or when VERTEX_PROJECT_ID is provided, or when no Gemini API key exists but a GCP project is set.
-    // NOTE: Cloud Run / App Engine environments automatically inject GOOGLE_CLOUD_PROJECT with an
-    // internal project number; we must not default to Vertex AI if a valid AI Studio GEMINI_API_KEY
-    // is available unless explicitly opted in.
-    const useVertex = Boolean(
-        process.env.USE_VERTEX_AI === 'true' ||
-        vertexProjectId ||
-        (!apiKey && gcpProject)
-    );
-    const project = vertexProjectId || (useVertex ? gcpProject : '');
-        
-    if (!useVertex && !apiKey) {
-        console.error("Missing Gemini API Key in environment variables!");
-        throw new Error("Missing GEMINI_API_KEY / GeminiAPI, or GOOGLE_CLOUD_PROJECT for Vertex AI. Please configure your API key in Settings > Secrets and do a hard refresh of your browser tab.");
+    const isVertexExplicitlyRequested = process.env.USE_VERTEX_AI === 'true';
+
+    let parsedSaProject = '';
+    let googleAuthOptions: any;
+    if (saJson) {
+        try {
+            const parsed = JSON.parse(saJson);
+            parsedSaProject = parsed.project_id || '';
+            googleAuthOptions = { credentials: parsed };
+        } catch {
+            throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON is not valid JSON. Please provide the valid service account JSON contents.");
+        }
     }
 
-    const cacheKey = useVertex ? `vertex:${project}:${location}:${vertexApiKey || (saJson ? 'sa' : 'adc')}` : `studio:${apiKey}`;
+    const hasExplicitVertexCreds = Boolean(
+        vertexApiKey ||
+        googleAuthOptions ||
+        process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+        vertexProjectId
+    );
+
+    const useVertex = isVertexExplicitlyRequested || (Boolean(vertexProjectId || vertexApiKey) && !apiKey);
+    const effectiveProject = vertexProjectId || parsedSaProject || (useVertex && !saJson && !vertexApiKey ? gcpProject : '');
+
+    if (useVertex) {
+        if (!hasExplicitVertexCreds) {
+            throw new Error(
+                "Google Vertex AI (Postpay) is enabled, but no Google Cloud credentials or Project ID were provided. " +
+                "To bill directly to your Google Cloud Billing account, please provide your Google Cloud Project ID (VERTEX_PROJECT_ID) " +
+                "and either a Service Account JSON (GOOGLE_APPLICATION_CREDENTIALS_JSON) or Vertex Express API Key (VERTEX_API_KEY) in Admin Settings > AI."
+            );
+        }
+    } else if (!apiKey) {
+        console.error("Missing Gemini API Key in environment variables!");
+        throw new Error("Missing GEMINI_API_KEY / GeminiAPI. Please configure your API key in Settings > Secrets or enable Vertex AI Postpay in Admin Settings > AI.");
+    }
+
+    const cacheKey = useVertex ? `vertex:${effectiveProject}:${location}:${vertexApiKey || (saJson ? 'sa' : 'adc')}` : `studio:${apiKey}`;
 
     if (!genAIInstance || currentApiKey !== cacheKey) {
         currentApiKey = cacheKey;
         if (useVertex) {
-            let googleAuthOptions: any;
-            if (saJson) {
-                try {
-                    googleAuthOptions = { credentials: JSON.parse(saJson) };
-                } catch {
-                    throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON is not valid JSON. Paste the full service-account key file contents.");
-                }
-            }
-
             // In @google/genai, apiKey and project/location are mutually exclusive.
-            // If an explicit vertexApiKey is set or if using apiKey in Vertex Express mode:
             if (vertexApiKey) {
                 genAIInstance = new GoogleGenAI({
                     vertexai: true,
                     apiKey: vertexApiKey,
                 });
-            } else if (project || saJson || googleAuthOptions) {
+            } else if (effectiveProject || googleAuthOptions) {
                 genAIInstance = new GoogleGenAI({
                     vertexai: true,
-                    ...(project ? { project } : {}),
+                    ...(effectiveProject ? { project: effectiveProject } : {}),
                     location: location || 'us-central1',
                     ...(googleAuthOptions ? { googleAuthOptions } : {}),
-                });
-            } else if (apiKey) {
-                genAIInstance = new GoogleGenAI({
-                    vertexai: true,
-                    apiKey,
                 });
             } else {
                 genAIInstance = new GoogleGenAI({
@@ -197,26 +202,26 @@ export const getAI = () => {
             generateContent: async (args: any) => {
                 let { model: modelName, contents, config } = args;
 
-                // MAP CUSTOM/OLD NAMES TO REAL GOOGLE NANO BANANA MODELS FOR @google/genai SDK
+                // Map model aliases to current supported models per gemini-api skill
                 let realModelName = modelName;
-                if (modelName === 'gemini-3-flash-preview') realModelName = 'gemini-flash-latest';
-                if (modelName === 'gemini-2.5-flash-preview-tts') realModelName = 'gemini-3.1-flash-tts-preview';
-                if (modelName === 'nano-banana-2-lite') realModelName = 'gemini-2.5-flash-image';
-                if (modelName === 'nano-banana-2' || modelName === 'nano-banana') realModelName = 'gemini-2.5-flash-image';
-                if (modelName === 'nano-banana-pro') realModelName = 'gemini-3-pro-image';
-                if (modelName === 'gemini-3.1-pro-preview' || modelName === 'gemini-3-pro-preview' || modelName === 'gemini-pro-latest' || modelName === 'gemini-pro') {
+                if (modelName === 'gemini-3-flash-preview' || modelName === 'gemini-flash-latest' || modelName === 'gemini-2.5-flash' || modelName === 'gemini-2.0-flash' || modelName === 'gemini-1.5-flash') {
+                    realModelName = 'gemini-3.8-flash';
+                }
+                if (modelName === 'gemini-3.1-pro-preview' || modelName === 'gemini-3-pro-preview' || modelName === 'gemini-pro-latest' || modelName === 'gemini-pro' || modelName === 'gemini-2.5-pro' || modelName === 'gemini-2.0-pro' || modelName === 'gemini-1.5-pro') {
                     realModelName = 'gemini-3.1-pro-preview';
                 }
-                // Vertex AI does not support AI Studio's rolling "-latest" alias convention;
-                // it needs a concrete, versioned publisher model id.
-                if (useVertex) {
-                    if (realModelName === 'gemini-flash-latest' || realModelName === 'gemini-3.7-flash') realModelName = 'gemini-2.5-flash';
-                    if (realModelName === 'gemini-3.1-pro-preview' || realModelName === 'gemini-3-pro-preview' || realModelName === 'gemini-pro-latest' || realModelName === 'gemini-pro') realModelName = 'gemini-2.5-flash';
-                    if (realModelName === 'gemini-3.1-flash-image' || realModelName === 'gemini-3-pro-image') realModelName = 'gemini-2.5-flash-image';
+                if (modelName === 'gemini-2.5-flash-preview-tts') {
+                    realModelName = 'gemini-3.8-flash-lite-tts';
+                }
+                if (modelName === 'nano-banana-2-lite' || modelName === 'nano-banana-2' || modelName === 'nano-banana' || modelName === 'gemini-2.5-flash-image') {
+                    realModelName = 'gemini-3.1-flash-lite-image';
+                }
+                if (modelName === 'nano-banana-pro') {
+                    realModelName = 'gemini-3-pro-image';
                 }
                 // Discontinued Imagen aliases fallback cleanly to Nano Banana models
                 if (modelName && (modelName.includes('imagen') || modelName.includes('dall-e'))) {
-                    realModelName = 'gemini-2.5-flash-image';
+                    realModelName = 'gemini-3.1-flash-lite-image';
                 }
 
                 // Normalize contents roles if passed as structured messages

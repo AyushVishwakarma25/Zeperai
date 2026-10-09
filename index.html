@@ -37,6 +37,24 @@
           console.warn('Suppressed non-critical background network notice:', event.reason);
         }
       });
+
+      // Recover from stale module / invalid hook call caused by dev server dependency re-bundling
+      window.addEventListener('error', function (event) {
+        var msg = (event && event.message) ? String(event.message) : '';
+        if (
+          msg.includes('Invalid hook call') ||
+          msg.includes("Cannot read properties of null (reading 'useState')") ||
+          msg.includes("Cannot read properties of null (reading 'useContext')") ||
+          msg.includes('Failed to fetch dynamically imported module')
+        ) {
+          var reloadKey = 'zeperai_chunk_recover_reload';
+          var lastReload = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
+          if (Date.now() - lastReload > 4000) {
+            sessionStorage.setItem(reloadKey, String(Date.now()));
+            window.location.reload();
+          }
+        }
+      });
     </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />

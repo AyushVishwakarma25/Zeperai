@@ -24,7 +24,10 @@ import {
   Sliders,
   Megaphone,
   Lock,
-  ArrowRight
+  ArrowRight,
+  Upload,
+  FileCode,
+  FileCheck
 } from 'lucide-react';
 
 interface AISettingsData {
@@ -68,6 +71,9 @@ export default function PlatformSettingsManager() {
   const [vertexLocation, setVertexLocation] = useState('us-central1');
   const [newVertexApiKey, setNewVertexApiKey] = useState('');
   const [showVertexKeyInput, setShowVertexKeyInput] = useState(false);
+  const [newServiceAccountJson, setNewServiceAccountJson] = useState('');
+  const [serviceAccountFileName, setServiceAccountFileName] = useState<string | null>(null);
+  const [showServiceAccountInput, setShowServiceAccountInput] = useState(true);
   const [newGeminiApiKey, setNewGeminiApiKey] = useState('');
   const [showGeminiKeyInput, setShowGeminiKeyInput] = useState(false);
   const [campaignStudioEnabled, setCampaignStudioEnabled] = useState(true);
@@ -123,6 +129,9 @@ export default function PlatformSettingsManager() {
       if (newVertexApiKey.trim()) {
         payload.vertexApiKey = newVertexApiKey.trim();
       }
+      if (newServiceAccountJson.trim()) {
+        payload.serviceAccountJson = newServiceAccountJson.trim();
+      }
       if (newGeminiApiKey.trim()) {
         payload.geminiApiKey = newGeminiApiKey.trim();
       }
@@ -139,6 +148,8 @@ export default function PlatformSettingsManager() {
       // Clear pending secret input states
       setNewVertexApiKey('');
       setShowVertexKeyInput(false);
+      setNewServiceAccountJson('');
+      setServiceAccountFileName(null);
       setNewGeminiApiKey('');
       setShowGeminiKeyInput(false);
 
@@ -153,6 +164,51 @@ export default function PlatformSettingsManager() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.json') && file.type !== 'application/json') {
+      setFeedback({
+        type: 'error',
+        message: 'Please upload a valid .json credentials file.'
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed = JSON.parse(text);
+        if (!parsed.type || !parsed.project_id) {
+          setFeedback({
+            type: 'error',
+            message: 'Uploaded JSON appears to be missing required service account fields (type, project_id).'
+          });
+          return;
+        }
+
+        setNewServiceAccountJson(text.trim());
+        setServiceAccountFileName(file.name);
+        // Auto-fill project ID if not already configured
+        if (!vertexProjectId || vertexProjectId.trim() === '') {
+          setVertexProjectId(parsed.project_id);
+        }
+        setFeedback({
+          type: 'success',
+          message: `Loaded "${file.name}" for project "${parsed.project_id}". Click "Save & Apply Settings" to activate.`
+        });
+      } catch {
+        setFeedback({
+          type: 'error',
+          message: 'Failed to parse file as valid JSON.'
+        });
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleTestConnection = async () => {
@@ -341,9 +397,9 @@ export default function PlatformSettingsManager() {
                     <Cloud className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-slate-900">Google Vertex AI</h4>
+                    <h4 className="text-sm font-black text-slate-900">Gemini Enterprise Agent Platform</h4>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-[#4452FB] bg-[#4452FB]/10 px-2 py-0.5 rounded-full">
-                      Postpay / Cloud Billing
+                      Formerly Vertex AI · Postpay Billing
                     </span>
                   </div>
                 </div>
@@ -355,7 +411,7 @@ export default function PlatformSettingsManager() {
                 />
               </div>
               <p className="text-xs text-slate-600 mt-3 leading-relaxed">
-                Enterprise postpay billing via Google Cloud. Does not deplete prepayment balances. Supports Vertex AI Express API keys and Cloud Project IDs.
+                Direct enterprise post-pay billing via Google Cloud (formerly Vertex AI). All user generation scales automatically against your Google Cloud billing account without prepaid credit bottlenecks.
               </p>
             </div>
 
@@ -394,16 +450,16 @@ export default function PlatformSettingsManager() {
           </div>
         </div>
 
-        {/* Section 2: Vertex AI Configuration */}
+        {/* Section 2: Gemini Enterprise Agent Platform (Vertex AI) Configuration */}
         <div className={`bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-5 transition-opacity ${!useVertexAI ? 'opacity-50' : 'opacity-100'}`}>
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div className="space-y-0.5">
               <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
                 <Server className="w-4 h-4 text-[#4452FB]" />
-                Vertex AI Credentials & Cloud Settings
+                Gemini Enterprise Agent Platform (Vertex AI) Settings
               </h3>
               <p className="text-xs text-slate-500">
-                Configure your GCP Project ID, deployment region, or Vertex AI Express API key.
+                Configure your Google Cloud Project ID, region, Express API Key, or Service Account JSON for postpay agent inference.
               </p>
             </div>
             {settings?.hasServiceAccountJson && (
@@ -497,6 +553,106 @@ export default function PlatformSettingsManager() {
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Google Cloud Service Account JSON */}
+          <div className="space-y-3 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-[#4452FB]" />
+                  Service Account Credentials (JSON)
+                </label>
+                <p className="text-[11px] text-slate-400">
+                  Upload your downloaded Google Cloud Service Account <code className="font-mono text-slate-600 bg-slate-100 px-1 py-0.5 rounded">.json</code> key file or paste its contents below.
+                </p>
+              </div>
+              {settings?.hasServiceAccountJson && (
+                <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Key Attached
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              {/* Option A: Upload JSON file button / dropzone */}
+              <div className="p-4 rounded-2xl border-2 border-dashed border-slate-200 hover:border-[#4452FB]/50 bg-slate-50/70 hover:bg-[#4452FB]/5 transition-all text-center">
+                <input
+                  type="file"
+                  id="sa-json-upload"
+                  accept=".json,application/json"
+                  onChange={handleFileUpload}
+                  disabled={!useVertexAI}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="sa-json-upload"
+                  className={`cursor-pointer flex flex-col items-center justify-center gap-2 ${
+                    !useVertexAI ? 'cursor-not-allowed opacity-50' : ''
+                  }`}
+                >
+                  <div className="p-2.5 bg-white rounded-full border border-slate-200 shadow-xs text-[#4452FB]">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-[#4452FB] hover:underline">
+                      Click to upload your .json key file
+                    </span>
+                    <span className="text-xs text-slate-500"> or drag and drop</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">
+                    Auto-fills Project ID and parses your credentials safely
+                  </span>
+                </label>
+
+                {serviceAccountFileName && (
+                  <div className="mt-2 inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full text-xs font-semibold">
+                    <FileCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Loaded: {serviceAccountFileName}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Option B: Or paste raw JSON directly */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    — Or Paste JSON Contents Directly —
+                  </span>
+                  {newServiceAccountJson && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewServiceAccountJson('');
+                        setServiceAccountFileName(null);
+                      }}
+                      className="text-[11px] text-rose-500 hover:text-rose-700 font-bold"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  rows={4}
+                  value={newServiceAccountJson}
+                  onChange={(e) => {
+                    setNewServiceAccountJson(e.target.value);
+                    try {
+                      const p = JSON.parse(e.target.value);
+                      if (p.project_id && (!vertexProjectId || vertexProjectId.trim() === '')) {
+                        setVertexProjectId(p.project_id);
+                      }
+                    } catch {
+                      // ignore parse errors while typing
+                    }
+                  }}
+                  placeholder='{ "type": "service_account", "project_id": "your-project-id", "private_key_id": "...", "private_key": "-----BEGIN PRIVATE KEY...", "client_email": "..." }'
+                  disabled={!useVertexAI}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 font-mono placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4452FB]/20 focus:border-[#4452FB]"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
