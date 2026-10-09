@@ -1,4 +1,38 @@
 
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..900&family=Inter:wght@400;500;600;700;800&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&display=swap');
+
+/* ==========================================================================
+   UNIVERSAL DESIGN SYSTEM TOKENS (ZEPERAI STUDIO)
+   ========================================================================== */
+:root {
+  /* Typography Families */
+  --font-heading: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-subheading: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-button: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-action: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-nav: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-data: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-table: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-doodle: 'Caveat', cursive;
+
+  /* Typography Invariants */
+  --tracking-heading: -0.02em;
+  --leading-body: 1.55;
+  --leading-heading: 1.12;
+
+  /* Brand Colors & Master Palette */
+  --color-primary: #4452FB;
+  --color-primary-hover: #3442E8;
+  --color-navy-dark: #111827;
+  --color-text-primary: #111827;
+  --color-text-secondary: #4B5563;
+  --color-border-light: #E5E7EB;
+  --color-bg-main: #FFFFFF;
+}
+
 @font-face {
   font-family: 'Batangas';
   src: local('Poppins Bold'), local('Poppins'), local('Inter');
@@ -6,3 +40,71 @@
   font-style: normal;
   font-display: swap;
 }
+
+/* ==========================================================================
+   SEMANTIC TYPOGRAPHY CLASSES (UI KIT SINGLE SOURCE OF TRUTH)
+   ========================================================================== */
+
+/* 1. Primary Headings (H1, H2): Satoshi Bold / Black, tight letter-spacing (-0.02em) */
+.font-heading,
+.font-h1,
+.font-h2 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+}
+
+/* 2. Subheadings & Buttons: Satoshi Medium / Medium Italic */
+.font-subheading,
+.font-button,
+.font-action,
+.font-nav {
+  font-family: var(--font-subheading);
+  font-weight: 500;
+}
+
+/* 3. App UI & Data Tables: DM Sans Regular / Medium */
+.font-ui,
+.font-data,
+.font-table {
+  font-family: var(--font-ui);
+}
+
+/* 4. Long-form Body Text: DM Sans Regular, standard line-height (1.5 - 1.6) */
+.font-body,
+.font-longform {
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.55;
+}
+
+/* Direct Font Family Helpers */
+.font-poppins {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.font-satoshi {
+  font-family: 'Poppins', 'Satoshi', sans-serif;
+}
+
+.font-fraunces {
+  font-family: 'Fraunces', serif;
+}
+
+.font-caveat {
+  font-family: 'Caveat', cursive;
+}
+
+.font-inter {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Backward-Compatibility Aliases mapped to single source of truth */
+.font-display {
+  font-family: 'Fraunces', Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+.font-sans {
+  font-family: 'Inter', sans-serif;
+}
+
