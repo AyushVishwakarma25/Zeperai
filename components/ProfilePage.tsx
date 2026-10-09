@@ -1,9 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from './ui/Icon.js';
 import { Button } from './ui/Button.js';
 import { SubscriptionManagement } from './SubscriptionManagement.js';
 import { View, UserActivity } from '../types.js';
+import { supabase } from '../services/supabaseClient.js';
+import { userService } from '../services/userService.js';
 
 interface UserProfile {
   id?: string;
@@ -14,6 +16,11 @@ interface UserProfile {
   location: string;
   avatarUrl: string;
   tier?: string;
+  companyName?: string;
+  billingAddress?: string;
+  billingState?: string;
+  billingPincode?: string;
+  gstin?: string;
 }
 
 interface ProfilePageProps {
@@ -32,13 +39,29 @@ interface GSTInvoice {
   id: string;
   invoiceNumber: string;
   date: string;
+  rawDate?: string;
   description: string;
   amount: number;
   taxableValue: number;
   cgst: number;
   sgst: number;
-  gstin: string;
+  igst?: number;
+  totalGst?: number;
+  gstRate?: number;
+  sacCode?: string;
+  placeOfSupply?: string;
+  supplierGstin?: string;
+  supplierName?: string;
+  supplierState?: string;
+  customerGstin?: string;
+  customerName?: string;
+  customerAddress?: string;
+  customerState?: string;
+  customerPincode?: string;
   status: 'Paid' | 'Pending';
+  invoiceUrl?: string | null;
+  paymentId?: string | null;
+  orderId?: string | null;
 }
 
 const formatTimeAgo = (timestamp: number) => {
@@ -74,33 +97,133 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   // Total Generations counter synced with credits used or actual activity logs
   const totalGenerations = Math.max(creditsUsed, recentActivity.length);
 
-  // Mock Invoice History (GST Compliant for Indian D2C / Agency users)
-  const invoices: GSTInvoice[] = [
-    {
-      id: 'inv_101',
-      invoiceNumber: 'ZPR-2026-0801',
-      date: 'Aug 1, 2026',
-      description: userTier === 'Agency' ? 'Agency Plan - 1,000 Credits' : 'Pro Subscription - 300 Credits',
-      amount: userTier === 'Agency' ? 4999 : 1999,
-      taxableValue: userTier === 'Agency' ? 4236.44 : 1694.07,
-      cgst: userTier === 'Agency' ? 381.28 : 152.47,
-      sgst: userTier === 'Agency' ? 381.28 : 152.47,
-      gstin: '27AAACZ1234F1Z9',
-      status: 'Paid'
-    },
-    {
-      id: 'inv_100',
-      invoiceNumber: 'ZPR-2026-0701',
-      date: 'Jul 1, 2026',
-      description: 'Credit Top-Up Pack (120 Credits)',
-      amount: 999,
-      taxableValue: 846.61,
-      cgst: 76.19,
-      sgst: 76.19,
-      gstin: '27AAACZ1234F1Z9',
-      status: 'Paid'
+  // Real GST Invoices State (Fetched from Supabase / Razorpay)
+  const [invoices, setInvoices] = useState<GSTInvoice[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [showBillingForm, setShowBillingForm] = useState(false);
+
+  // Billing & GST Details form state
+  const [companyName, setCompanyName] = useState(user.companyName || '');
+  const [gstin, setGstin] = useState(user.gstin || '');
+  const [billingAddress, setBillingAddress] = useState(user.billingAddress || '');
+  const [billingState, setBillingState] = useState(user.billingState || 'Maharashtra');
+  const [billingPincode, setBillingPincode] = useState(user.billingPincode || '');
+  const [savingBilling, setSavingBilling] = useState(false);
+  const [billingSavedMessage, setBillingSavedMessage] = useState<string | null>(null);
+
+  // Synchronize state when user prop updates
+  useEffect(() => {
+    if (user.companyName !== undefined) setCompanyName(user.companyName);
+    if (user.gstin !== undefined) setGstin(user.gstin);
+    if (user.billingAddress !== undefined) setBillingAddress(user.billingAddress);
+    if (user.billingState !== undefined) setBillingState(user.billingState);
+    if (user.billingPincode !== undefined) setBillingPincode(user.billingPincode);
+  }, [user]);
+
+  const fetchInvoices = async () => {
+    setLoadingInvoices(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        setLoadingInvoices(false);
+        return;
+      }
+
+      const res = await fetch('/api/user/invoices', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.invoices)) {
+          setInvoices(data.invoices);
+        }
+        if (data?.customer) {
+          if (data.customer.companyName) setCompanyName(data.customer.companyName);
+          if (data.customer.gstin) setGstin(data.customer.gstin);
+          if (data.customer.billingAddress) setBillingAddress(data.customer.billingAddress);
+          if (data.customer.billingState) setBillingState(data.customer.billingState);
+          if (data.customer.billingPincode) setBillingPincode(data.customer.billingPincode);
+        }
+      }
+    } catch (e: any) {
+      console.warn('Failed to load real invoices:', e);
+    } finally {
+      setLoadingInvoices(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    if (activeTab === 'invoices') {
+      fetchInvoices();
+    }
+  }, [activeTab]);
+
+  const handleSaveBillingDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingBilling(true);
+    setBillingSavedMessage(null);
+    try {
+      const trimmedGstin = gstin.trim().toUpperCase();
+      if (trimmedGstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(trimmedGstin)) {
+        alert('Invalid Indian GSTIN format. A standard GSTIN has 15 characters (e.g. 27AAAAA0000A1Z5).');
+        setSavingBilling(false);
+        return;
+      }
+
+      await userService.updateUserProfile({
+        companyName: companyName.trim(),
+        gstin: trimmedGstin,
+        billingAddress: billingAddress.trim(),
+        billingState: billingState.trim(),
+        billingPincode: billingPincode.trim()
+      });
+
+      setBillingSavedMessage('GST & Billing details saved! Future Razorpay tax invoices will reflect these details.');
+      setTimeout(() => setBillingSavedMessage(null), 5000);
+      fetchInvoices();
+    } catch (err: any) {
+      alert(err.message || 'Failed to save billing details.');
+    } finally {
+      setSavingBilling(false);
+    }
+  };
+
+  // Sample Invoice preview generator for users who haven't made a payment yet
+  const handlePreviewSampleInvoice = () => {
+    const sampleAmount = userTier === 'Agency' ? 4999 : userTier === 'PayAsYouGo' ? 999 : 1999;
+    const taxable = Math.round((sampleAmount / 1.18) * 100) / 100;
+    const gst = Math.round((sampleAmount - taxable) * 100) / 100;
+    const isMH = (billingState || 'Maharashtra').toLowerCase().includes('maharashtra');
+
+    setSelectedInvoice({
+      id: 'preview_sample',
+      invoiceNumber: `ZPR-${new Date().getFullYear()}-SAMPLE`,
+      date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      description: userTier === 'Agency' ? 'Agency Plan - 1,000 Credits/mo' : userTier === 'PayAsYouGo' ? 'Pay As You Go - 120 Credits Pack' : 'Pro Subscription - 300 Credits/mo',
+      amount: sampleAmount,
+      taxableValue: taxable,
+      cgst: isMH ? Math.round((gst / 2) * 100) / 100 : 0,
+      sgst: isMH ? Math.round((gst / 2) * 100) / 100 : 0,
+      igst: !isMH ? gst : 0,
+      totalGst: gst,
+      gstRate: 18,
+      sacCode: '998313',
+      placeOfSupply: `${billingState || 'Maharashtra'} (${isMH ? 'Intra-State: CGST+SGST' : 'Inter-State: IGST'})`,
+      supplierGstin: '27AAACZ1234F1Z9',
+      supplierName: 'ZeperAI Studio Pvt Ltd',
+      customerGstin: gstin || 'Unregistered (B2C)',
+      customerName: companyName || user.name,
+      customerAddress: billingAddress || user.location || 'India',
+      customerState: billingState || 'Maharashtra',
+      customerPincode: billingPincode || '',
+      status: 'Paid',
+      invoiceUrl: null
+    });
+  };
 
   // Tool Usage Breakdown
   const toolUsageData = [
@@ -381,56 +504,260 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         {/* BILLING & INVOICES TAB */}
         {activeTab === 'invoices' && (
           <div className="space-y-4">
+            {/* Business & GST Profile Settings Card */}
+            <div className="bg-white p-5 rounded-2xl border border-border-light shadow-xs space-y-4">
+              <div className="flex flex-wrap justify-between items-center gap-2">
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">Business & GST Details</h3>
+                  <p className="text-xs text-slate-500">Add your registered business information to claim GST Input Tax Credit (ITC) on Razorpay invoices</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowBillingForm(!showBillingForm)}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center"
+                >
+                  <Icon name="pencil" className="w-3.5 h-3.5 mr-1.5" />
+                  {showBillingForm ? 'Hide Form' : (gstin ? 'Edit GST Details' : 'Add GST Details')}
+                </button>
+              </div>
+
+              {/* Collapsible / Toggleable GST Details Form */}
+              {showBillingForm ? (
+                <form onSubmit={handleSaveBillingDetails} className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Company / Legal Name</label>
+                      <input
+                        type="text"
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        placeholder="e.g. Acme Media Technologies Pvt Ltd"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-hidden focus:border-primary text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        GSTIN (15 Characters) <span className="text-slate-400 font-normal">Optional for B2C</span>
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={15}
+                        value={gstin}
+                        onChange={(e) => setGstin(e.target.value.toUpperCase())}
+                        placeholder="e.g. 27AAACZ1234F1Z9"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-hidden focus:border-primary font-mono text-xs uppercase"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block font-semibold text-slate-700 mb-1">Registered Billing Address</label>
+                      <input
+                        type="text"
+                        value={billingAddress}
+                        onChange={(e) => setBillingAddress(e.target.value)}
+                        placeholder="e.g. 402, High Street Corporate Tower"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-hidden focus:border-primary text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">PIN Code</label>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        value={billingPincode}
+                        onChange={(e) => setBillingPincode(e.target.value.replace(/\D/g, ''))}
+                        placeholder="e.g. 400001"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-hidden focus:border-primary font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      State (Required for Place of Supply & Tax Calculation)
+                    </label>
+                    <select
+                      value={billingState}
+                      onChange={(e) => setBillingState(e.target.value)}
+                      className="w-full sm:w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-hidden focus:border-primary text-xs"
+                    >
+                      <option value="Maharashtra">Maharashtra (Intra-state: 9% CGST + 9% SGST)</option>
+                      <option value="Delhi">Delhi (Inter-state: 18% IGST)</option>
+                      <option value="Karnataka">Karnataka (Inter-state: 18% IGST)</option>
+                      <option value="Tamil Nadu">Tamil Nadu (Inter-state: 18% IGST)</option>
+                      <option value="Uttar Pradesh">Uttar Pradesh (Inter-state: 18% IGST)</option>
+                      <option value="Gujarat">Gujarat (Inter-state: 18% IGST)</option>
+                      <option value="West Bengal">West Bengal (Inter-state: 18% IGST)</option>
+                      <option value="Telangana">Telangana (Inter-state: 18% IGST)</option>
+                      <option value="Rajasthan">Rajasthan (Inter-state: 18% IGST)</option>
+                      <option value="Kerala">Kerala (Inter-state: 18% IGST)</option>
+                      <option value="Andhra Pradesh">Andhra Pradesh (Inter-state: 18% IGST)</option>
+                      <option value="Madhya Pradesh">Madhya Pradesh (Inter-state: 18% IGST)</option>
+                      <option value="Punjab">Punjab (Inter-state: 18% IGST)</option>
+                      <option value="Haryana">Haryana (Inter-state: 18% IGST)</option>
+                      <option value="Bihar">Bihar (Inter-state: 18% IGST)</option>
+                      <option value="Odisha">Odisha (Inter-state: 18% IGST)</option>
+                      <option value="Assam">Assam (Inter-state: 18% IGST)</option>
+                      <option value="Goa">Goa (Inter-state: 18% IGST)</option>
+                      <option value="Other">Other / Outside India</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <p className="text-[11px] text-slate-500">
+                      SAC Code: <strong>998313</strong> • Standard SaaS Rate: <strong>18% GST</strong>
+                    </p>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setShowBillingForm(false)}
+                        className="!py-1.5 !text-xs"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={savingBilling}
+                        className="!py-1.5 !text-xs !bg-primary text-white"
+                      >
+                        {savingBilling ? 'Saving...' : 'Save GST Details'}
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              ) : (
+                <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/60 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-primary">
+                      <Icon name="shield-check" className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-800">
+                        {companyName || user.name} {gstin && <span className="font-mono text-indigo-600 font-semibold ml-1.5">({gstin})</span>}
+                      </p>
+                      <p className="text-slate-500 text-[11px]">
+                        {billingAddress ? `${billingAddress}, ` : ''}{billingState || 'Maharashtra'} {billingPincode ? ` - ${billingPincode}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-slate-500 bg-white px-3 py-1 rounded-md border border-slate-200">
+                    SAC: <strong>998313</strong> • Supplier GSTIN: <strong>27AAACZ1234F1Z9</strong>
+                  </div>
+                </div>
+              )}
+
+              {billingSavedMessage && (
+                <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-medium flex items-center">
+                  <Icon name="check" className="w-4 h-4 mr-1.5 text-emerald-600" />
+                  {billingSavedMessage}
+                </div>
+              )}
+            </div>
+
+            {/* Invoices Table Card */}
             <div className="bg-white p-5 rounded-2xl border border-border-light shadow-xs space-y-4">
               <div className="flex flex-wrap justify-between items-center gap-2">
                 <div>
                   <h3 className="text-base font-bold text-slate-800">Billing & GST Tax Invoices</h3>
-                  <p className="text-xs text-slate-500">Download official tax invoices for accounting & GST credit compliance</p>
+                  <p className="text-xs text-slate-500">Official GST-compliant tax invoices automatically generated by Razorpay</p>
                 </div>
-                <div className="text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center">
-                  <Icon name="shield-check" className="w-4 h-4 text-emerald-600 mr-1.5" />
-                  <span>GSTIN: 27AAACZ1234F1Z9</span>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={handlePreviewSampleInvoice}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-200 font-semibold transition-colors flex items-center"
+                  >
+                    <Icon name="external-link" className="w-3.5 h-3.5 mr-1" />
+                    Preview Sample Invoice
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fetchInvoices}
+                    disabled={loadingInvoices}
+                    className="text-xs text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 transition-colors"
+                    title="Refresh invoices"
+                  >
+                    <Icon name="refresh" className={`w-3.5 h-3.5 ${loadingInvoices ? 'animate-spin' : ''}`} />
+                  </button>
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-400 uppercase tracking-wider text-[10px] font-bold bg-slate-50/50">
-                      <th className="p-3">Invoice #</th>
-                      <th className="p-3">Date</th>
-                      <th className="p-3">Description</th>
-                      <th className="p-3">Amount (INR)</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {invoices.map((inv) => (
-                      <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="p-3 font-mono font-semibold text-indigo-600">{inv.invoiceNumber}</td>
-                        <td className="p-3 text-slate-500">{inv.date}</td>
-                        <td className="p-3 font-medium text-slate-800">{inv.description}</td>
-                        <td className="p-3 font-bold text-slate-900">₹{inv.amount}.00</td>
-                        <td className="p-3">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            {inv.status}
-                          </span>
-                        </td>
-                        <td className="p-3 text-right">
-                          <button
-                            onClick={() => setSelectedInvoice(inv)}
-                            className="px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-semibold border border-indigo-200 transition-colors inline-flex items-center"
-                          >
-                            <Icon name="download" className="w-3 h-3 mr-1" />
-                            GST Invoice
-                          </button>
-                        </td>
+              {loadingInvoices ? (
+                <div className="py-12 text-center text-slate-400 text-xs">
+                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  Loading official tax invoices...
+                </div>
+              ) : invoices.length === 0 ? (
+                <div className="py-10 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200 p-6">
+                  <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
+                    <Icon name="shield-check" className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-800 mb-1">No Invoices Yet</h4>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto mb-4">
+                    When you subscribe to Pro, Agency, or top up credits, Razorpay automatically generates an official GST tax invoice with input tax credit for your records.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handlePreviewSampleInvoice}
+                    className="px-4 py-2 bg-white text-indigo-600 hover:bg-indigo-50 border border-indigo-200 text-xs font-bold rounded-lg transition-colors shadow-xs"
+                  >
+                    View Sample GST Tax Invoice
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-400 uppercase tracking-wider text-[10px] font-bold bg-slate-50/50">
+                        <th className="p-3">Invoice #</th>
+                        <th className="p-3">Date</th>
+                        <th className="p-3">Description</th>
+                        <th className="p-3">Amount (INR)</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3 text-right">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {invoices.map((inv) => (
+                        <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3 font-mono font-semibold text-indigo-600">{inv.invoiceNumber}</td>
+                          <td className="p-3 text-slate-500">{inv.date}</td>
+                          <td className="p-3 font-medium text-slate-800">{inv.description}</td>
+                          <td className="p-3 font-bold text-slate-900">₹{inv.amount}.00</td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              {inv.status}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right space-x-1.5">
+                            {inv.invoiceUrl ? (
+                              <a
+                                href={inv.invoiceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-semibold border border-emerald-200 transition-colors inline-flex items-center"
+                              >
+                                <Icon name="external-link" className="w-3 h-3 mr-1" />
+                                Razorpay PDF
+                              </a>
+                            ) : null}
+                            <button
+                              onClick={() => setSelectedInvoice(inv)}
+                              className="px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-semibold border border-indigo-200 transition-colors inline-flex items-center"
+                            >
+                              <Icon name="download" className="w-3 h-3 mr-1" />
+                              Tax Invoice
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -535,12 +862,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       {/* GST Tax Invoice Printable Modal */}
       {selectedInvoice && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in my-8">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in my-8 text-slate-800">
             <div className="flex justify-between items-start border-b border-slate-200 pb-4 mb-4">
               <div>
-                <div className="text-lg font-extrabold text-indigo-600 tracking-tight">ZeperAI Studio Pvt Ltd</div>
-                <p className="text-xs text-slate-500">GSTIN: {selectedInvoice.gstin} • HSN/SAC: 998313</p>
-                <p className="text-xs text-slate-500">Mumbai, Maharashtra, India</p>
+                <div className="text-lg font-extrabold text-indigo-600 tracking-tight">
+                  {selectedInvoice.supplierName || 'ZeperAI Studio Pvt Ltd'}
+                </div>
+                <p className="text-xs text-slate-500 font-mono">
+                  GSTIN: {selectedInvoice.supplierGstin || '27AAACZ1234F1Z9'} • HSN/SAC: {selectedInvoice.sacCode || '998313'}
+                </p>
+                <p className="text-xs text-slate-500">Mumbai, Maharashtra, India (State Code: 27)</p>
               </div>
               <div className="text-right">
                 <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-full uppercase border border-emerald-200">
@@ -551,45 +882,88 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
             </div>
 
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 mb-4 text-xs">
-              <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Billed To</p>
-              <p className="font-bold text-slate-800 mt-0.5">{user.name}</p>
-              <p className="text-slate-600">{user.email}</p>
-              <p className="text-slate-500">{user.location || 'India'}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-100 mb-4 text-xs">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Billed To (Recipient)</p>
+                <p className="font-bold text-slate-800 mt-0.5">{selectedInvoice.customerName || companyName || user.name}</p>
+                <p className="text-slate-600">{user.email}</p>
+                <p className="text-slate-500">{selectedInvoice.customerAddress || billingAddress || user.location || 'India'}</p>
+              </div>
+              <div className="sm:text-right">
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Tax Details</p>
+                <p className="font-semibold text-slate-800 mt-0.5">
+                  Recipient GSTIN:{' '}
+                  <span className="font-mono text-indigo-600 font-bold">
+                    {selectedInvoice.customerGstin || gstin || 'Unregistered (B2C)'}
+                  </span>
+                </p>
+                <p className="text-slate-500 text-[11px]">
+                  Place of Supply:{' '}
+                  <span className="font-medium text-slate-700">
+                    {selectedInvoice.customerState || billingState || 'Maharashtra'}
+                  </span>
+                </p>
+                <p className="text-slate-400 text-[10px]">Reverse Charge: No</p>
+              </div>
             </div>
 
             <div className="border border-slate-200 rounded-xl overflow-hidden mb-4">
               <table className="w-full text-xs text-left">
                 <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
                   <tr>
-                    <th className="p-2.5">Item</th>
+                    <th className="p-2.5">Item Description (SAC 998313)</th>
                     <th className="p-2.5 text-right">Taxable Val</th>
-                    <th className="p-2.5 text-right">CGST (9%)</th>
-                    <th className="p-2.5 text-right">SGST (9%)</th>
+                    {selectedInvoice.igst && selectedInvoice.igst > 0 ? (
+                      <th className="p-2.5 text-right">IGST (18%)</th>
+                    ) : (
+                      <>
+                        <th className="p-2.5 text-right">CGST (9%)</th>
+                        <th className="p-2.5 text-right">SGST (9%)</th>
+                      </>
+                    )}
                     <th className="p-2.5 text-right">Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
                   <tr>
                     <td className="p-2.5 font-medium">{selectedInvoice.description}</td>
-                    <td className="p-2.5 text-right font-mono">₹{selectedInvoice.taxableValue}</td>
-                    <td className="p-2.5 text-right font-mono">₹{selectedInvoice.cgst}</td>
-                    <td className="p-2.5 text-right font-mono">₹{selectedInvoice.sgst}</td>
-                    <td className="p-2.5 text-right font-bold font-mono">₹{selectedInvoice.amount}.00</td>
+                    <td className="p-2.5 text-right font-mono">₹{selectedInvoice.taxableValue.toFixed(2)}</td>
+                    {selectedInvoice.igst && selectedInvoice.igst > 0 ? (
+                      <td className="p-2.5 text-right font-mono">₹{selectedInvoice.igst.toFixed(2)}</td>
+                    ) : (
+                      <>
+                        <td className="p-2.5 text-right font-mono">₹{selectedInvoice.cgst.toFixed(2)}</td>
+                        <td className="p-2.5 text-right font-mono">₹{selectedInvoice.sgst.toFixed(2)}</td>
+                      </>
+                    )}
+                    <td className="p-2.5 text-right font-bold font-mono">₹{selectedInvoice.amount.toFixed(2)}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-200 pt-4">
-              <p className="text-[11px] text-slate-400">Includes 18% Goods and Services Tax (GST)</p>
+            <div className="flex flex-wrap items-center justify-between border-t border-slate-200 pt-4 gap-2">
+              <p className="text-[11px] text-slate-400">
+                GST Rate: 18% • Computer-generated legal tax invoice
+              </p>
               <div className="flex items-center space-x-2">
                 <Button variant="secondary" onClick={() => setSelectedInvoice(null)} className="!py-1.5 !text-xs">
                   Close
                 </Button>
-                <Button onClick={() => window.print()} className="!py-1.5 !text-xs">
+                {selectedInvoice.invoiceUrl && (
+                  <a
+                    href={selectedInvoice.invoiceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center"
+                  >
+                    <Icon name="external-link" className="w-3.5 h-3.5 mr-1" />
+                    Razorpay PDF
+                  </a>
+                )}
+                <Button onClick={() => window.print()} className="!py-1.5 !text-xs !bg-primary text-white">
                   <Icon name="download" className="w-3.5 h-3.5 mr-1" />
-                  Print / Download PDF
+                  Print / Save PDF
                 </Button>
               </div>
             </div>

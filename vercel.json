@@ -18,6 +18,10 @@
       "destination": "/api/user/profile"
     },
     {
+      "source": "/api/user/invoices",
+      "destination": "/api/user/invoices"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api"
     },

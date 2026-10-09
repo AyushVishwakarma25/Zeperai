@@ -13,6 +13,11 @@ export interface UserProfileData {
   avatarUrl: string;
   tier: 'Free' | 'PayAsYouGo' | 'Pro';
   isAdmin?: boolean;
+  companyName?: string;
+  billingAddress?: string;
+  billingState?: string;
+  billingPincode?: string;
+  gstin?: string;
 }
 
 export interface CreditBalance {
@@ -87,7 +92,12 @@ export const userService = {
           location: data.location || '',
           avatarUrl: data.avatar_url || '',
           tier: isProAdmin ? 'Pro' : ((data.tier as any) || 'Free'),
-          isAdmin: !!data.is_admin
+          isAdmin: !!data.is_admin,
+          companyName: data.company_name || '',
+          billingAddress: data.billing_address || '',
+          billingState: data.billing_state || '',
+          billingPincode: data.billing_pincode || '',
+          gstin: data.gstin || ''
       };
     } catch (dbErr) {
       console.warn('Profile fetch exception:', dbErr);
@@ -126,11 +136,16 @@ export const userService = {
 
     // Map camelCase to snake_case for DB
     const dbUpdates: any = {};
-    if (updates.name) dbUpdates.name = updates.name;
-    if (updates.bio) dbUpdates.bio = updates.bio;
-    if (updates.location) dbUpdates.location = updates.location;
-    if (updates.avatarUrl) dbUpdates.avatar_url = updates.avatarUrl;
-    if (updates.role) dbUpdates.role = updates.role;
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
+    if (updates.location !== undefined) dbUpdates.location = updates.location;
+    if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
+    if (updates.role !== undefined) dbUpdates.role = updates.role;
+    if (updates.companyName !== undefined) dbUpdates.company_name = updates.companyName;
+    if (updates.billingAddress !== undefined) dbUpdates.billing_address = updates.billingAddress;
+    if (updates.billingState !== undefined) dbUpdates.billing_state = updates.billingState;
+    if (updates.billingPincode !== undefined) dbUpdates.billing_pincode = updates.billingPincode;
+    if (updates.gstin !== undefined) dbUpdates.gstin = (updates.gstin || '').toUpperCase().trim();
 
     const { data, error } = await supabase
         .from('profiles')
@@ -149,7 +164,13 @@ export const userService = {
         bio: data.bio,
         location: data.location,
         avatarUrl: data.avatar_url,
-        tier: data.tier
+        tier: data.tier,
+        isAdmin: !!data.is_admin,
+        companyName: data.company_name || '',
+        billingAddress: data.billing_address || '',
+        billingState: data.billing_state || '',
+        billingPincode: data.billing_pincode || '',
+        gstin: data.gstin || ''
     };
   },
 

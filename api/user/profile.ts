@@ -83,7 +83,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         location: profile.location || '',
         avatarUrl: profile.avatar_url || '',
         tier: finalIsAdmin ? 'Pro' : (profile.tier || 'Free'),
-        isAdmin: finalIsAdmin
+        isAdmin: finalIsAdmin,
+        companyName: profile.company_name || '',
+        billingAddress: profile.billing_address || '',
+        billingState: profile.billing_state || '',
+        billingPincode: profile.billing_pincode || '',
+        gstin: profile.gstin || ''
       });
     }
 
@@ -96,6 +101,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
       if (updates.avatar_url !== undefined) dbUpdates.avatar_url = updates.avatar_url;
       if (updates.role !== undefined) dbUpdates.role = updates.role;
+      if (updates.companyName !== undefined) dbUpdates.company_name = updates.companyName;
+      if (updates.company_name !== undefined) dbUpdates.company_name = updates.company_name;
+      if (updates.billingAddress !== undefined) dbUpdates.billing_address = updates.billingAddress;
+      if (updates.billing_address !== undefined) dbUpdates.billing_address = updates.billing_address;
+      if (updates.billingState !== undefined) dbUpdates.billing_state = updates.billingState;
+      if (updates.billing_state !== undefined) dbUpdates.billing_state = updates.billing_state;
+      if (updates.billingPincode !== undefined) dbUpdates.billing_pincode = updates.billingPincode;
+      if (updates.billing_pincode !== undefined) dbUpdates.billing_pincode = updates.billing_pincode;
+      if (updates.gstin !== undefined) dbUpdates.gstin = (updates.gstin || '').toUpperCase().trim();
 
       const { data, error } = await supabase
         .from('profiles')
@@ -113,7 +127,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         location: savedData.location || '',
         avatarUrl: savedData.avatar_url || '',
         tier: isProAdmin ? 'Pro' : (savedData.tier || 'Free'),
-        isAdmin: isProAdmin
+        isAdmin: isProAdmin,
+        companyName: savedData.company_name || '',
+        billingAddress: savedData.billing_address || '',
+        billingState: savedData.billing_state || '',
+        billingPincode: savedData.billing_pincode || '',
+        gstin: savedData.gstin || ''
       });
     }
 

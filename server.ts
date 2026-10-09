@@ -3410,14 +3410,35 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
 
     const generatedReceipt = `rcpt_${(effectiveUserId || 'anon').substring(0, 10)}_${Date.now()}`.substring(0, 40);
+    let customerNotes: any = {
+      planId: (planId || 'pay-as-you-go').substring(0, 50),
+      userId: (effectiveUserId || '').substring(0, 50)
+    };
+
+    if (effectiveUserId) {
+      try {
+        const adminClient = await getAdminSupabaseClient();
+        const { data: uProfile } = await adminClient
+          .from('profiles')
+          .select('name, company_name, billing_address, billing_state, gstin')
+          .eq('id', effectiveUserId)
+          .maybeSingle();
+
+        if (uProfile) {
+          if (uProfile.company_name || uProfile.name) customerNotes.customerName = (uProfile.company_name || uProfile.name).substring(0, 50);
+          if (uProfile.billing_state) customerNotes.billingState = uProfile.billing_state.substring(0, 50);
+          if (uProfile.gstin) customerNotes.gstin = uProfile.gstin.substring(0, 20);
+        }
+      } catch (profErr) {
+        // Non-blocking
+      }
+    }
+
     const options = {
       amount: finalAmountPaise, // paise
       currency: currency,
       receipt: (receipt || generatedReceipt).substring(0, 40),
-      notes: {
-        planId: (planId || 'pay-as-you-go').substring(0, 50),
-        userId: (effectiveUserId || '').substring(0, 50)
-      }
+      notes: customerNotes
     };
 
     let order;
@@ -3691,11 +3712,60 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
       const effectivePlanAmount = SERVER_PRICING_CATALOG[resolvedPlanId]?.price || numAmount || (resolvedPlanId === 'agency' ? 4999 : resolvedPlanId === 'pro' ? 1999 : 999);
 
+      let razorpayInvoiceId: string | null = null;
+      let invoiceUrl: string | null = null;
+      let invoiceNumber: string | null = null;
+
+      const rzp = getRazorpay();
+      if (rzp && razorpayPaymentId) {
+        try {
+          const paymentData: any = await rzp.payments.fetch(razorpayPaymentId);
+          if (paymentData?.invoice_id) {
+            razorpayInvoiceId = paymentData.invoice_id;
+            try {
+              const invData: any = await rzp.invoices.fetch(paymentData.invoice_id);
+              if (invData) {
+                invoiceUrl = invData.short_url || null;
+                invoiceNumber = invData.invoice_number || null;
+              }
+            } catch (invErr) {
+              console.warn('[fulfillSuccessfulPayment] Could not fetch invoice details:', invErr);
+            }
+          }
+        } catch (payFetchErr) {
+          // Non-blocking
+        }
+      }
+
+      const taxableAmount = Math.round((effectivePlanAmount / 1.18) * 100) / 100;
+      const taxAmount = Math.round((effectivePlanAmount - taxableAmount) * 100) / 100;
+
       // 4. ATOMIC GATE: Insert into payment_transactions FIRST before adding any credits.
-      // If the unique constraint on razorpay_payment_id blocks it, we abort immediately.
-      const { error: txInsertErr } = await adminClient
+      const txPayload: any = {
+        user_id: userId,
+        razorpay_order_id: razorpayOrderId || null,
+        razorpay_payment_id: razorpayPaymentId,
+        plan_id: resolvedPlanId,
+        amount: effectivePlanAmount,
+        currency: 'INR',
+        credits_added: creditsToAdd,
+        status: 'paid',
+        created_at: new Date().toISOString()
+      };
+
+      if (razorpayInvoiceId) txPayload.razorpay_invoice_id = razorpayInvoiceId;
+      if (invoiceUrl) txPayload.invoice_url = invoiceUrl;
+      if (invoiceNumber) txPayload.invoice_number = invoiceNumber;
+      txPayload.taxable_amount = taxableAmount;
+      txPayload.tax_amount = taxAmount;
+
+      let { error: txInsertErr } = await adminClient
         .from('payment_transactions')
-        .insert({
+        .insert(txPayload);
+
+      // Resilient fallback if migration columns do not exist yet in Supabase
+      if (txInsertErr && (txInsertErr.message?.includes('column') || txInsertErr.code === '42703')) {
+        const basePayload = {
           user_id: userId,
           razorpay_order_id: razorpayOrderId || null,
           razorpay_payment_id: razorpayPaymentId,
@@ -3705,7 +3775,12 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           credits_added: creditsToAdd,
           status: 'paid',
           created_at: new Date().toISOString()
-        });
+        };
+        const retryRes = await adminClient
+          .from('payment_transactions')
+          .insert(basePayload);
+        txInsertErr = retryRes.error;
+      }
 
       if (txInsertErr) {
         // Code 23505 is PostgreSQL unique_violation
@@ -3873,12 +3948,175 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         }
       }
 
+      if (event.event === 'invoice.paid') {
+        const invoice = event.payload?.invoice?.entity;
+        if (invoice) {
+          const paymentId = invoice.payment_id;
+          const orderId = invoice.order_id;
+          const invoiceId = invoice.id;
+          const invoiceUrl = invoice.short_url;
+          const invoiceNumber = invoice.invoice_number;
+
+          try {
+            const adminClient = await getAdminSupabaseClient();
+            if (paymentId) {
+              await adminClient
+                .from('payment_transactions')
+                .update({
+                  razorpay_invoice_id: invoiceId,
+                  invoice_url: invoiceUrl,
+                  invoice_number: invoiceNumber
+                })
+                .eq('razorpay_payment_id', paymentId);
+            } else if (orderId) {
+              await adminClient
+                .from('payment_transactions')
+                .update({
+                  razorpay_invoice_id: invoiceId,
+                  invoice_url: invoiceUrl,
+                  invoice_number: invoiceNumber
+                })
+                .eq('razorpay_order_id', orderId);
+            }
+          } catch (invUpErr) {
+            console.warn('[Razorpay Webhook] Could not update invoice on payment_transactions:', invUpErr);
+          }
+        }
+      }
+
       res.status(200).json({ status: 'ok' });
     } catch (error: any) {
       console.error('Webhook Error:', error);
       res.status(500).json({ error: 'Webhook handler failed' });
     }
   });
+
+  // User GST Invoices API Endpoint (Indian Law SAC 998313 compliant)
+  app.get(['/api/user/invoices', '/api/invoices'], requireAuth, asyncHandler(async (req: any, res: any) => {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const adminClient = await getAdminSupabaseClient();
+
+    let profile: any = null;
+    try {
+      const { data: pData } = await adminClient
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      profile = pData;
+    } catch (e) {
+      // Continue
+    }
+
+    const customerName = profile?.company_name || profile?.name || req.user?.email?.split('@')[0] || 'Customer';
+    const customerGstin = profile?.gstin || '';
+    const customerState = (profile?.billing_state || profile?.location || 'Maharashtra').trim();
+    const customerAddress = profile?.billing_address || profile?.location || 'India';
+    const customerPincode = profile?.billing_pincode || '';
+
+    let transactions: any[] = [];
+    try {
+      const { data: txData, error: txError } = await adminClient
+        .from('payment_transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (!txError && txData) {
+        transactions = txData;
+      }
+    } catch (e) {
+      console.warn('[API: user/invoices] Error querying payment_transactions:', e);
+    }
+
+    const isIntraState = customerState.toLowerCase().includes('maharashtra') || customerState.toLowerCase().includes('mumbai');
+    const supplierGstin = process.env.COMPANY_GSTIN || '27AAACZ1234F1Z9';
+
+    const invoices = transactions.map((tx: any) => {
+      const totalAmount = Number(tx.amount) || 0;
+      const taxableValue = Math.round((totalAmount / 1.18) * 100) / 100;
+      const totalGst = Math.round((totalAmount - taxableValue) * 100) / 100;
+
+      let cgst = 0;
+      let sgst = 0;
+      let igst = 0;
+
+      if (isIntraState) {
+        cgst = Math.round((totalGst / 2) * 100) / 100;
+        sgst = Math.round((totalGst - cgst) * 100) / 100;
+      } else {
+        igst = totalGst;
+      }
+
+      const createdDate = new Date(tx.created_at || Date.now());
+      const formattedDate = createdDate.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+
+      const invoiceNumber = tx.invoice_number || tx.razorpay_invoice_id || `ZPR-${createdDate.getFullYear()}-${String(tx.id || '').substring(0, 8).toUpperCase()}`;
+
+      let description = 'AI Credits Pack';
+      if (tx.plan_id === 'agency') {
+        description = 'Agency Plan - 1,000 Credits/mo';
+      } else if (tx.plan_id === 'pro') {
+        description = 'Pro Subscription - 300 Credits/mo';
+      } else if (tx.plan_id === 'payg' || tx.plan_id === 'pay-as-you-go') {
+        description = 'Pay As You Go - 120 Credits Pack';
+      } else if (tx.plan_id === 'local-seo-10' || tx.plan_id === 'localseo10') {
+        description = 'Local SEO Audit Pack (10 Reports)';
+      }
+
+      return {
+        id: tx.id,
+        invoiceNumber,
+        date: formattedDate,
+        rawDate: tx.created_at,
+        description,
+        planId: tx.plan_id,
+        amount: totalAmount,
+        taxableValue,
+        cgst,
+        sgst,
+        igst,
+        totalGst,
+        gstRate: 18,
+        sacCode: '998313',
+        placeOfSupply: `${customerState} (${isIntraState ? 'Intra-State: CGST+SGST' : 'Inter-State: IGST'})`,
+        supplierGstin,
+        supplierName: 'ZeperAI Studio Pvt Ltd',
+        supplierState: 'Maharashtra',
+        customerGstin,
+        customerName,
+        customerAddress,
+        customerState,
+        customerPincode,
+        status: tx.status === 'paid' ? 'Paid' : 'Pending',
+        invoiceUrl: tx.invoice_url || null,
+        paymentId: tx.razorpay_payment_id || null,
+        orderId: tx.razorpay_order_id || null
+      };
+    });
+
+    return res.json({
+      success: true,
+      invoices,
+      customer: {
+        name: customerName,
+        email: req.user?.email,
+        companyName: profile?.company_name || '',
+        billingAddress: customerAddress,
+        billingState: customerState,
+        billingPincode: customerPincode,
+        gstin: customerGstin
+      }
+    });
+  }));
   
   // --- ANTI-SSRF HELPERS FOR MEDIA PROXY ---
   const BLOCKED_HOSTNAMES = new Set([
