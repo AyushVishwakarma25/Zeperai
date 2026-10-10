@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Icon } from './ui/Icon.js';
 import { Button } from './ui/Button.js';
 import { SubscriptionManagement } from './SubscriptionManagement.js';
@@ -7,7 +7,13 @@ import { View, UserActivity } from '../types.js';
 import { supabase } from '../services/supabaseClient.js';
 import { userService } from '../services/userService.js';
 import { findPlanById, PRICING_CATALOG } from '../config/pricingCatalog.js';
-import { resolveTaxBreakdown, DEFAULT_SUPPLIER_GSTIN } from '../utils/taxCalculator.js';
+import { 
+  resolveTaxBreakdown, 
+  DEFAULT_SUPPLIER_GSTIN, 
+  validateBillingForm, 
+  getGstStateList, 
+  GST_STATE_CODE_MAP 
+} from '../utils/taxCalculator.js';
 
 interface UserProfile {
   id?: string;
@@ -112,6 +118,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [billingPincode, setBillingPincode] = useState(user?.billingPincode || '');
   const [savingBilling, setSavingBilling] = useState(false);
   const [billingSavedMessage, setBillingSavedMessage] = useState<string | null>(null);
+  const [billingErrors, setBillingErrors] = useState<Record<string, string>>({});
+
+  // Dynamic state list derived from official 2-digit GST state codes & Place of Supply
+  const gstStateOptions = useMemo(() => getGstStateList(), []);
 
   // Synchronize state when user prop updates
   useEffect(() => {
@@ -121,6 +131,41 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     if (user?.billingState !== undefined) setBillingState(user.billingState);
     if (user?.billingPincode !== undefined) setBillingPincode(user.billingPincode);
   }, [user]);
+
+  // Dynamic GSTIN change handler: auto-detects State from first 2 digits
+  const handleGstinChange = (val: string) => {
+    const upper = val.toUpperCase().trim();
+    setGstin(upper);
+    if (billingErrors.gstin || billingErrors.form) {
+      setBillingErrors(prev => {
+        const next = { ...prev };
+        delete next.gstin;
+        delete next.form;
+        return next;
+      });
+    }
+    // Auto-detect state when user inputs 2+ characters
+    if (upper.length >= 2) {
+      const code = upper.substring(0, 2);
+      const matchedState = GST_STATE_CODE_MAP[code];
+      if (matchedState) {
+        setBillingState(matchedState);
+      }
+    }
+  };
+
+  // Generic field change handler that clears field-specific validation errors
+  const handleFieldChange = (field: string, setter: (val: string) => void, val: string) => {
+    setter(val);
+    if (billingErrors[field] || billingErrors.form) {
+      setBillingErrors(prev => {
+        const next = { ...prev };
+        delete next[field];
+        delete next.form;
+        return next;
+      });
+    }
+  };
 
   const fetchInvoices = async () => {
     setLoadingInvoices(true);
@@ -166,29 +211,39 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   const handleSaveBillingDetails = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavingBilling(true);
     setBillingSavedMessage(null);
-    try {
-      const trimmedGstin = gstin.trim().toUpperCase();
-      if (trimmedGstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(trimmedGstin)) {
-        alert('Invalid Indian GSTIN format. A standard GSTIN has 15 characters (e.g. 27AAAAA0000A1Z5).');
-        setSavingBilling(false);
-        return;
-      }
 
+    // Dynamic validation to prevent saving empty or invalid business records
+    const validation = validateBillingForm({
+      companyName,
+      gstin,
+      billingAddress,
+      billingState,
+      billingPincode
+    });
+
+    if (!validation.isValid) {
+      setBillingErrors(validation.errors);
+      return;
+    }
+
+    setBillingErrors({});
+    setSavingBilling(true);
+
+    try {
       await userService.updateUserProfile({
-        companyName: companyName.trim(),
-        gstin: trimmedGstin,
-        billingAddress: billingAddress.trim(),
-        billingState: billingState.trim(),
-        billingPincode: billingPincode.trim()
+        companyName: validation.sanitized.companyName,
+        gstin: validation.sanitized.gstin,
+        billingAddress: validation.sanitized.billingAddress,
+        billingState: validation.sanitized.billingState,
+        billingPincode: validation.sanitized.billingPincode
       });
 
       setBillingSavedMessage('GST & Billing details saved! Future Razorpay tax invoices will reflect these details.');
       setTimeout(() => setBillingSavedMessage(null), 5000);
       fetchInvoices();
     } catch (err: any) {
-      alert(err.message || 'Failed to save billing details.');
+      setBillingErrors({ form: err.message || 'Failed to save billing details.' });
     } finally {
       setSavingBilling(false);
     }

@@ -316,3 +316,210 @@ export function resolveTaxBreakdown(params: {
     });
   }
 }
+
+/**
+ * Result of GSTIN validation
+ */
+export interface GstinValidationResult {
+  isValid: boolean;
+  stateCode: string | null;
+  stateName: string | null;
+  error?: string;
+}
+
+/**
+ * Validates a 15-character Indian Goods & Services Tax Identification Number (GSTIN)
+ */
+export function validateGstin(gstin?: string): GstinValidationResult {
+  if (!gstin || !gstin.trim()) {
+    return { isValid: true, stateCode: null, stateName: null };
+  }
+  const clean = gstin.trim().toUpperCase();
+  if (clean.length !== 15) {
+    return {
+      isValid: false,
+      stateCode: null,
+      stateName: null,
+      error: `GSTIN must be exactly 15 characters (currently ${clean.length}).`
+    };
+  }
+  const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+  if (!gstRegex.test(clean)) {
+    return {
+      isValid: false,
+      stateCode: null,
+      stateName: null,
+      error: 'Invalid GSTIN structure. Expected format: 27AAAAA0000A1Z5.'
+    };
+  }
+  const code = clean.substring(0, 2);
+  const stateName = GST_STATE_CODE_MAP[code] || null;
+  if (!stateName) {
+    return {
+      isValid: false,
+      stateCode: code,
+      stateName: null,
+      error: `Invalid GST state code "${code}". Please verify the first 2 digits.`
+    };
+  }
+  return { isValid: true, stateCode: code, stateName };
+}
+
+/**
+ * Validates an Indian 6-digit postal PIN code
+ */
+export function validatePincode(pincode?: string): { isValid: boolean; error?: string } {
+  if (!pincode || !pincode.trim()) {
+    return { isValid: true };
+  }
+  const clean = pincode.trim();
+  if (!/^[1-9][0-9]{5}$/.test(clean)) {
+    return {
+      isValid: false,
+      error: 'PIN code must be a valid 6-digit number (e.g. 400001).'
+    };
+  }
+  return { isValid: true };
+}
+
+export interface GstStateOption {
+  code: string;
+  name: string;
+  isIntraState: boolean;
+  label: string;
+}
+
+/**
+ * Dynamically generates all Indian states and Union Territories with POS tax labels
+ */
+export function getGstStateList(options?: {
+  supplierState?: string;
+  supplierGstin?: string;
+}): GstStateOption[] {
+  const supplierState = options?.supplierState || DEFAULT_SUPPLIER_STATE;
+  const supplierGstin = options?.supplierGstin || DEFAULT_SUPPLIER_GSTIN;
+
+  return Object.entries(GST_STATE_CODE_MAP)
+    .map(([code, name]) => {
+      const isIntra = isPlaceOfSupplyIntraState({
+        customerState: name,
+        supplierState,
+        supplierGstin
+      });
+      const taxLabel = isIntra ? 'Intra-state: 9% CGST + 9% SGST' : 'Inter-state: 18% IGST';
+      return {
+        code,
+        name,
+        isIntraState: isIntra,
+        label: `${name} (${taxLabel})`
+      };
+    })
+    .sort((a, b) => {
+      if (a.name === supplierState) return -1;
+      if (b.name === supplierState) return 1;
+      return a.name.localeCompare(b.name);
+    });
+}
+
+export interface BillingFormValues {
+  companyName?: string;
+  gstin?: string;
+  billingAddress?: string;
+  billingState?: string;
+  billingPincode?: string;
+}
+
+export interface BillingFormValidationResult {
+  isValid: boolean;
+  isEmpty: boolean;
+  errors: {
+    companyName?: string;
+    gstin?: string;
+    billingAddress?: string;
+    billingState?: string;
+    billingPincode?: string;
+    form?: string;
+  };
+  sanitized: {
+    companyName: string;
+    gstin: string;
+    billingAddress: string;
+    billingState: string;
+    billingPincode: string;
+  };
+}
+
+/**
+ * Dynamically validates business & GST billing details before saving
+ */
+export function validateBillingForm(values: BillingFormValues): BillingFormValidationResult {
+  const companyName = (values.companyName || '').trim();
+  const gstin = (values.gstin || '').trim().toUpperCase();
+  const rawAddress = (values.billingAddress || '').trim();
+  const isGenericAddress = !rawAddress || rawAddress.toLowerCase() === 'india';
+  const billingAddress = isGenericAddress ? '' : rawAddress;
+  const billingPincode = (values.billingPincode || '').trim();
+  const billingState = (values.billingState || DEFAULT_SUPPLIER_STATE).trim();
+
+  const errors: BillingFormValidationResult['errors'] = {};
+
+  // Check if user has entered any meaningful business information
+  const isEmpty = !companyName && !gstin && !billingAddress && !billingPincode;
+  if (isEmpty) {
+    errors.form = 'Please enter your Company / Business Name or registered Billing Address before saving.';
+    return {
+      isValid: false,
+      isEmpty: true,
+      errors,
+      sanitized: { companyName, gstin, billingAddress, billingState, billingPincode }
+    };
+  }
+
+  // 1. GSTIN validation
+  if (gstin) {
+    const gstinCheck = validateGstin(gstin);
+    if (!gstinCheck.isValid) {
+      errors.gstin = gstinCheck.error || 'Invalid Indian GSTIN.';
+    }
+    if (!companyName) {
+      errors.companyName = 'Company / Legal Name is required when entering a GSTIN.';
+    }
+    if (!billingAddress) {
+      errors.billingAddress = 'Registered billing address is required for GST invoices.';
+    }
+  }
+
+  // 2. Company name length
+  if (companyName && companyName.length < 2) {
+    errors.companyName = 'Company / Business Name must be at least 2 characters.';
+  }
+
+  // 3. Billing Address requirements
+  if (companyName && !billingAddress && !gstin) {
+    errors.billingAddress = 'Please provide a registered street address or city for billing.';
+  }
+
+  // 4. PIN code validation
+  if (billingPincode) {
+    const pinCheck = validatePincode(billingPincode);
+    if (!pinCheck.isValid) {
+      errors.billingPincode = pinCheck.error || 'Invalid 6-digit PIN code.';
+    }
+  }
+
+  const isValid = Object.keys(errors).length === 0;
+
+  return {
+    isValid,
+    isEmpty: false,
+    errors,
+    sanitized: {
+      companyName,
+      gstin,
+      billingAddress: billingAddress || (companyName ? 'India' : ''),
+      billingState,
+      billingPincode
+    }
+  };
+}
+

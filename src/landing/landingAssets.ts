@@ -1,4 +1,16 @@
+const SUPABASE_STORAGE_BASE = "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/landing-assets";
+
 export const landingAssets = {
+  // Studio & Hero Media Assets
+  aiInfluencer: `${SUPABASE_STORAGE_BASE}/Ai%20Influencer.webp`,
+  ayushFounder: `${SUPABASE_STORAGE_BASE}/Ayush%20Vishwakarma%20Founder%20ZeperAi.jpeg`,
+  perfume: `${SUPABASE_STORAGE_BASE}/Perfume.jpg`,
+  productStudio: `${SUPABASE_STORAGE_BASE}/Product%20studio%20By%20zeperai.webp`,
+  shoe: `${SUPABASE_STORAGE_BASE}/Shoe%20Product%20shoot%20Zeperai.jpg`,
+  skincare: `${SUPABASE_STORAGE_BASE}/Skincare.jpg`,
+  watch: `${SUPABASE_STORAGE_BASE}/Watch.jpg`,
+  logo: `${SUPABASE_STORAGE_BASE}/zeperai-logo.png`,
+
   // Hero Section Images
   hero1: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/2151005655.jpg",
   hero2: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/2151039303.jpg",

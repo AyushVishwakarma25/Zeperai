@@ -8,8 +8,7 @@ import { ActionCarousel } from './ActionCarousel.js';
 import { CreativitySection } from './CreativitySection.js';
 import { Footer } from './Footer.js';
 import { BeforeAfterSlider } from './BeforeAfterSlider.js';
-import { landingAssets } from './landingAssets.js';
-import { Hero10, type Hero10Props } from '../../components/ui/hero-10.js';
+import { Hero } from './components/Hero.js';
 import { SEO } from '../../components/SEO.js';
 import { ProductSchema, OrganizationSchema, SoftwareAppSchema, FAQSchema } from '../../components/StructuredData.js';
 
@@ -60,39 +59,6 @@ export const LandingPage: React.FC = () => {
     }
   }, [location]);
 
-  const heroValues: Hero10Props = {
-    title: 'Stop Prompting.',
-    titleLine2Prefix: 'Start',
-    titleHighlight: 'Launching Winning Ads',
-    description:
-      'ZeperAI gives D2C brands, Shopify stores, and marketing teams autonomous AI campaign engines, studio product visuals, and high-CTR creatives in minutes.',
-    socialProof: 'Trusted by 2k+ D2C brands & growth teams',
-    badgeText: 'Built for Indian D2C Brands & E-Commerce',
-    images: [
-      landingAssets.hero2,
-      'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/Prustlr%20landing%20page%20image.webp',
-      landingAssets.hero6,
-    ],
-    imageAlts: [
-      'UGC Influencer Creative',
-      'Winning E-Commerce Product Visual',
-      'Commercial Studio Product Shoot',
-    ],
-    animation: 'subtle',
-    primaryCTA: {
-      ctaEnabled: true,
-      text: 'Get Free Credits',
-      variant: 'default',
-      size: 'default',
-    },
-    secondaryCTA: {
-      ctaEnabled: true,
-      text: 'Explore Studios',
-      variant: 'outline',
-      size: 'default',
-    },
-  };
-
   return (
     <>
       <SEO
@@ -140,14 +106,7 @@ export const LandingPage: React.FC = () => {
       <LandingHeader />
 
       <main id="main-content" role="main">
-        <Hero10
-          {...heroValues}
-          onPrimaryClick={() => navigate('/login')}
-          onSecondaryClick={() => {
-            const el = document.getElementById('creativity');
-            el?.scrollIntoView({ behavior: 'smooth' });
-          }}
-        />
+        <Hero />
 
       {/* STATS CARD BELOW HERO */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto mb-24">
