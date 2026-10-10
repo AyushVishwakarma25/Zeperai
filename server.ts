@@ -328,6 +328,45 @@ const sanitizeSecret = (val?: string): string => {
     .trim();
 };
 
+export const safelyParseServiceAccountJson = (raw: string | undefined | null): any => {
+  if (!raw || typeof raw !== 'string') return null;
+  let clean = raw.trim();
+  if (!clean) return null;
+
+  // Strip wrapping quotes if any (e.g. from Vercel env var editor or copy-paste)
+  if ((clean.startsWith("'") && clean.endsWith("'")) || (clean.startsWith('"') && clean.endsWith('"') && !clean.startsWith('{"'))) {
+    clean = clean.slice(1, -1).trim();
+  }
+
+  // Check if string is Base64 encoded
+  if (!clean.startsWith('{')) {
+    try {
+      const decoded = Buffer.from(clean, 'base64').toString('utf8').trim();
+      if (decoded.startsWith('{')) {
+        clean = decoded;
+      }
+    } catch (_) {}
+  }
+
+  try {
+    const parsed = JSON.parse(clean);
+    if (parsed && typeof parsed === 'object') {
+      if (parsed.private_key && typeof parsed.private_key === 'string') {
+        parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+      }
+      return parsed;
+    }
+  } catch (err) {
+    try {
+      const unescaped = JSON.parse(clean);
+      if (typeof unescaped === 'string') {
+        return safelyParseServiceAccountJson(unescaped);
+      }
+    } catch (_) {}
+  }
+  return null;
+};
+
 export const getAdminSecret = (): string => {
   return sanitizeSecret(process.env.ADMIN_SESSION_SECRET);
 };
@@ -3367,14 +3406,16 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
     if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
       try {
-        const p = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-        serviceAccountDetails = {
-          attached: true,
-          projectId: p.project_id || '',
-          clientEmail: p.client_email || '',
-          privateKeyIdMasked: p.private_key_id ? `${p.private_key_id.slice(0, 6)}••••${p.private_key_id.slice(-4)}` : 'Attached',
-          type: p.type || 'service_account'
-        };
+        const p = safelyParseServiceAccountJson(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+        if (p) {
+          serviceAccountDetails = {
+            attached: true,
+            projectId: p.project_id || '',
+            clientEmail: p.client_email || '',
+            privateKeyIdMasked: p.private_key_id ? `${p.private_key_id.slice(0, 6)}••••${p.private_key_id.slice(-4)}` : 'Attached',
+            type: p.type || 'service_account'
+          };
+        }
       } catch (_) {}
     }
 
@@ -3481,32 +3522,30 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         process.env.VERTEX_API_KEY = trimmed;
         updatedFields.push('VERTEX_API_KEY_AUTODETECTED');
       } else if (trimmed) {
-        try {
-          const parsed = JSON.parse(trimmed);
-          if (parsed.private_key && typeof parsed.private_key === 'string') {
-            parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
-          }
-          const normalizedJson = JSON.stringify(parsed, null, 2);
-          process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON = normalizedJson;
-
-          // Save physical service-account file for persistence across server restarts
-          const configDir = path.join(process.cwd(), 'config');
-          if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
-          const saFilePath = path.join(configDir, 'service-account.json');
-          fs.writeFileSync(saFilePath, normalizedJson, { mode: 0o600 });
-          process.env.GOOGLE_APPLICATION_CREDENTIALS = saFilePath;
-
-          if (parsed.project_id && (!process.env.VERTEX_PROJECT_ID || process.env.VERTEX_PROJECT_ID.trim() === '')) {
-            process.env.VERTEX_PROJECT_ID = parsed.project_id;
-            updatedFields.push('VERTEX_PROJECT_ID_AUTO');
-          }
-          updatedFields.push('GOOGLE_APPLICATION_CREDENTIALS_JSON');
-        } catch {
+        const parsed = safelyParseServiceAccountJson(trimmed);
+        if (!parsed) {
           return res.status(400).json({
             success: false,
-            error: 'Invalid Service Account JSON. Please paste the full valid JSON object or upload your .json credentials file.'
+            error: 'Invalid Service Account JSON. Please paste the full valid JSON object, base64 string, or upload your .json credentials file.'
           });
         }
+        const normalizedJson = JSON.stringify(parsed, null, 2);
+        process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON = normalizedJson;
+
+        // Save physical service-account file for persistence across server restarts
+        const configDir = path.join(process.cwd(), 'config');
+        if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+        const saFilePath = path.join(configDir, 'service-account.json');
+        try {
+          fs.writeFileSync(saFilePath, normalizedJson, { mode: 0o600 });
+          process.env.GOOGLE_APPLICATION_CREDENTIALS = saFilePath;
+        } catch (_) {}
+
+        if (parsed.project_id && (!process.env.VERTEX_PROJECT_ID || process.env.VERTEX_PROJECT_ID.trim() === '')) {
+          process.env.VERTEX_PROJECT_ID = parsed.project_id;
+          updatedFields.push('VERTEX_PROJECT_ID_AUTO');
+        }
+        updatedFields.push('GOOGLE_APPLICATION_CREDENTIALS_JSON');
       } else if (serviceAccountJson === '') {
         delete process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
         delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
@@ -3601,16 +3640,12 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           let saJson = pendingServiceAccountJson || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || '';
           let parsedSa: any = null;
           if (saJson) {
-            try {
-              parsedSa = JSON.parse(saJson);
-              if (parsedSa.private_key && typeof parsedSa.private_key === 'string') {
-                parsedSa.private_key = parsedSa.private_key.replace(/\\n/g, '\n');
-              }
-            } catch {
+            parsedSa = safelyParseServiceAccountJson(saJson);
+            if (!parsedSa) {
               return res.status(400).json({
                 success: false,
                 latencyMs: 0,
-                error: 'The Service Account JSON provided is not valid JSON. Please check the JSON format.'
+                error: 'The Service Account JSON provided is not valid JSON. Please check the JSON format or provide a base64-encoded string.'
               });
             }
           }
@@ -3666,8 +3701,11 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         targetProject = process.env.VERTEX_PROJECT_ID || '';
       }
 
+      const isVertexMode = targetProvider.includes('Vertex AI');
+      const testModel = isVertexMode ? 'gemini-2.5-flash' : 'gemini-3.8-flash';
+
       const result = await testClient.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: testModel,
         contents: [{ role: 'user', parts: [{ text: 'Respond with the single word "READY"' }] }],
         config: { maxOutputTokens: 10 }
       });
@@ -3679,7 +3717,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         latencyMs,
         provider: targetProvider,
         project: targetProject,
-        model: 'gemini-3.8-flash',
+        model: testModel,
         response: String(text).trim().slice(0, 50)
       });
     } catch (testErr: any) {
@@ -4785,6 +4823,12 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
 
     // Resolve aliases to canonical Google GenAI models
+    const isVertexActive = Boolean(
+      process.env.USE_VERTEX_AI === 'true' ||
+      (process.env.VERTEX_PROJECT_ID && !geminiKey) ||
+      (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON && !geminiKey)
+    );
+
     let resolvedModel = trimmedModel;
     if (trimmedModel === 'nano-banana-2-lite' || trimmedModel === 'gemini-2.5-flash-image' || trimmedModel === 'gemini-3.1-flash-lite-image') {
       resolvedModel = 'gemini-3.1-flash-lite-image';
@@ -4793,13 +4837,13 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     } else if (trimmedModel === 'nano-banana-pro' || trimmedModel === 'gemini-3-pro-image') {
       resolvedModel = 'gemini-3-pro-image';
     } else if (trimmedModel === 'gemini-3.1-flash-lite') {
-      resolvedModel = 'gemini-3.1-flash-lite';
-    } else if (trimmedModel === 'gemini-3-flash-preview' || trimmedModel === 'gemini-flash-latest' || trimmedModel === 'gemini-3.8-flash') {
-      resolvedModel = 'gemini-3.8-flash';
+      resolvedModel = isVertexActive ? 'gemini-2.5-flash' : 'gemini-3.1-flash-lite';
+    } else if (trimmedModel === 'gemini-3-flash-preview' || trimmedModel === 'gemini-flash-latest' || trimmedModel === 'gemini-3.8-flash' || trimmedModel === 'gemini-2.5-flash') {
+      resolvedModel = isVertexActive ? 'gemini-2.5-flash' : 'gemini-3.8-flash';
     } else if (trimmedModel === 'gemini-2.5-flash-preview-tts' || trimmedModel === 'gemini-3.1-flash-tts-preview' || trimmedModel === 'gemini-3.8-flash-lite-tts') {
-      resolvedModel = 'gemini-3.8-flash-lite-tts';
+      resolvedModel = isVertexActive ? 'gemini-2.5-flash' : 'gemini-3.8-flash-lite-tts';
     } else if (trimmedModel === 'gemini-3.1-pro-preview' || trimmedModel === 'gemini-2.5-pro') {
-      resolvedModel = 'gemini-3.1-pro-preview';
+      resolvedModel = isVertexActive ? 'gemini-2.5-pro' : 'gemini-3.1-pro-preview';
     }
 
     // Strict config sanitization (whitelisting safe properties only)

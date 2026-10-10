@@ -240,9 +240,35 @@ export default function PlatformSettingsManager() {
       return;
     }
 
+    // Auto-detect if user pasted a Base64-encoded Service Account JSON or wrapped in quotes
+    let candidate = trimmed;
+    if ((candidate.startsWith("'") && candidate.endsWith("'")) || (candidate.startsWith('"') && candidate.endsWith('"') && !candidate.startsWith('{"'))) {
+      candidate = candidate.slice(1, -1).trim();
+    }
+
+    if (!candidate.startsWith('{') && candidate.length > 40) {
+      try {
+        const decoded = atob(candidate);
+        if (decoded.trim().startsWith('{')) {
+          const parsed = JSON.parse(decoded);
+          if (parsed.type && parsed.project_id) {
+            setNewServiceAccountJson(JSON.stringify(parsed, null, 2));
+            if (!vertexProjectId || vertexProjectId.trim() === '') {
+              setVertexProjectId(parsed.project_id);
+            }
+            setFeedback({
+              type: 'success',
+              message: `Decoded Base64 Service Account JSON for project "${parsed.project_id}" successfully!`
+            });
+            return;
+          }
+        }
+      } catch (_) {}
+    }
+
     setNewServiceAccountJson(val);
     try {
-      const p = JSON.parse(val);
+      const p = JSON.parse(candidate);
       if (p.project_id && (!vertexProjectId || vertexProjectId.trim() === '')) {
         setVertexProjectId(p.project_id);
       }
