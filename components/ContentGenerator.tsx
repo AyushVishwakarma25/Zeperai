@@ -154,7 +154,14 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [showPricingTable, setShowPricingTable] = useState(false);
 
-  const isPaidUser = userTier === 'Pro' || userTier === 'Agency' || userTier === 'PayAsYouGo' || userTier === 'Standard';
+  const normalizedTier = (userTier || '').trim().toLowerCase();
+  const isPaidUser = normalizedTier === 'pro' || 
+                     normalizedTier === 'agency' || 
+                     normalizedTier === 'standard' || 
+                     normalizedTier === 'payasyougo' || 
+                     normalizedTier === 'pay_as_you_go' ||
+                     (Boolean(userTier) && normalizedTier !== 'free') ||
+                     (typeof credits === 'number' && credits > 10);
   
   const languages = [
       {label: 'English', value: 'English'},
@@ -292,7 +299,7 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                     {isPaidUser ? (
                         <span className="ml-4 px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full border border-indigo-200 flex items-center gap-1.5 shadow-sm">
                             <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
-                            {userTier} Plan {typeof credits === 'number' ? `• ${credits} Credits Available` : '• 1 Credit / Generation'}
+                            <span className="capitalize">{userTier && normalizedTier !== 'free' ? userTier : 'Pro'}</span> Plan {typeof credits === 'number' ? `• ${credits} Credits Available` : '• 1 Credit / Generation'}
                         </span>
                     ) : freeUsageCount < AI_WRITER_FREE_LIMIT ? (
                         <span className="ml-4 px-2.5 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200">
@@ -409,12 +416,18 @@ const ContentGenerator: React.FC<ContentGeneratorProps> = ({ onClose, onDeductCr
                     <div className="mt-8 pt-4 border-t border-slate-200">
                         <Button
                             onClick={handleGenerate}
-                            disabled={userTier !== 'Free' && (!isOnline || isLoading)}
+                            disabled={!isOnline || isLoading}
                             isLoading={isLoading}
                             fullWidth
                             className="!py-3 !text-base shadow-lg shadow-primary/20"
                         >
-                            {userTier === 'Free' ? 'Upgrade to Pro' : (isOnline ? (freeUsageCount < AI_WRITER_FREE_LIMIT ? 'Generate Content (Free)' : 'Generate Content (2 Credits)') : 'Offline')}
+                            {!isOnline
+                                ? 'Offline'
+                                : isPaidUser
+                                    ? 'Generate Content (1 Credit)'
+                                    : freeUsageCount < AI_WRITER_FREE_LIMIT
+                                        ? `Generate Content (Free • ${AI_WRITER_FREE_LIMIT - freeUsageCount} Left)`
+                                        : 'Upgrade to Pro'}
                         </Button>
                     </div>
                 </aside>

@@ -181,8 +181,10 @@ async function moderatePrompt(prompt: string): Promise<{ isAllowed: boolean, rea
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: `${systemInstruction}\n\nUser Prompt: "${prompt}"`,
-            config: { responseMimeType: "application/json" }
-        });
+            config: { responseMimeType: "application/json" },
+            purpose: 'system_safety_check',
+            isSystemOperation: true
+        } as any);
         const result = parseGeminiJson(response.text, { isAllowed: true });
         return result;
     } catch (e) {
@@ -230,7 +232,9 @@ async function optimizePromptWithBrandKit(originalPrompt: string, brandKit?: Bra
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: `${systemInstruction}\n\nUser Input: "${originalPrompt}"\n${modeContext}\n${brandContext}`,
-        });
+            purpose: 'system_prompt_optimization',
+            isSystemOperation: true
+        } as any);
         return response.text?.trim() || originalPrompt;
     } catch (e) {
         console.warn("Prompt optimization failed, using original.", e);
@@ -980,7 +984,13 @@ export const removeBackgroundPro = async (params: { imageUrl?: string, imageBase
     throw new Error(`Invalid server response format. Expected JSON but received: ${text.substring(0, 100)}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  if (typeof window !== 'undefined' && typeof data.remainingCredits === 'number') {
+    window.dispatchEvent(new CustomEvent('credits-updated', {
+      detail: { remainingCredits: data.remainingCredits }
+    }));
+  }
+  return data;
 };
 
 export const generateMoodBoard = async (description: string): Promise<MoodBoard> => {
@@ -1046,6 +1056,8 @@ export const analyzeProductContext = async (file: File): Promise<{
                     { text: prompt }
                 ]
             },
+            purpose: 'system_product_context',
+            isSystemOperation: true,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {

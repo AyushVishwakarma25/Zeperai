@@ -22,7 +22,6 @@ import { Layout } from './components/Layout.js';
 import { Spinner } from './components/ui/Spinner.js';
 import { SplashScreen } from './components/SplashScreen.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
-import { ChatBot } from './components/ChatBot.js';
 
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { LandingPage } from './src/landing/LandingPage.js';
@@ -105,7 +104,7 @@ const AppInternal: React.FC = () => {
   const [shopifyReport, setShopifyReport] = useState<ShopifyAnalysisResult | null>(null);
   const [isShopifyReportLoaded, setIsShopifyReportLoaded] = useState(false);
 
-  const userTier = (user?.tier as 'Free' | 'PayAsYouGo') || 'Free';
+  const userTier = (user?.tier as any) || 'Free';
 
   // Global Toast Event Listener
   useEffect(() => {
@@ -131,7 +130,7 @@ const AppInternal: React.FC = () => {
   const handleCheckCredits = useCallback((cost: number) => {
       const success = appData.checkAndDeductCredits(cost, false);
       if (!success) {
-          const isPaid = userTier === 'PayAsYouGo' || (user?.tier && user.tier !== 'Free');
+          const isPaid = (userTier && userTier !== 'Free') || (user?.tier && user.tier !== 'Free');
           const message = isPaid
             ? `You're out of credits! Required: ${cost}, available: ${appData.credits}. Buy a credit pack or upgrade.`
             : "You've reached your free trial limit. Start Pro to unlock 120 monthly credits & all studios!";
@@ -592,7 +591,7 @@ const AppInternal: React.FC = () => {
                 onCloseContentGenerator={modals.closeContentGenerator}
                 onDeductCredits={handleCheckCredits}
                 onRefundCredits={handleRefundCredits}
-                userId={user.id}
+                userId={user?.id}
                 credits={appData.credits}
 
                 isBrandKitModalOpen={modals.isBrandKitOpen}
@@ -620,12 +619,8 @@ const AppInternal: React.FC = () => {
                 
                 onGenerate={handleGenerateWrapper}
                 isGenerating={creative.isLoading}
-                userTier={userTier}
+                userTier={user?.tier || userTier}
                 onOpenPricingModal={modals.openPricing}
-            />
-            <ChatBot 
-                onDeductCredits={handleCheckCredits}
-                onRefundCredits={handleRefundCredits}
             />
           </>
         )

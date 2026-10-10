@@ -56,6 +56,33 @@ try {
   console.warn('Persisted service-account.json loading skipped:', saErr.message);
 }
 
+// Automatically load persisted AI settings from config/ai-settings.json if present
+try {
+  const aiSettingsPath = path.join(process.cwd(), 'config', 'ai-settings.json');
+  if (fs.existsSync(aiSettingsPath)) {
+    const rawSettings = fs.readFileSync(aiSettingsPath, 'utf8');
+    if (rawSettings.trim()) {
+      const parsed = JSON.parse(rawSettings);
+      if (parsed.GEMINI_API_KEY && !process.env.GEMINI_API_KEY) {
+        process.env.GEMINI_API_KEY = parsed.GEMINI_API_KEY;
+        process.env.GeminiAPI = parsed.GEMINI_API_KEY;
+      }
+      if (parsed.VERTEX_PROJECT_ID && !process.env.VERTEX_PROJECT_ID) {
+        process.env.VERTEX_PROJECT_ID = parsed.VERTEX_PROJECT_ID;
+      }
+      if (parsed.VERTEX_LOCATION && !process.env.VERTEX_LOCATION) {
+        process.env.VERTEX_LOCATION = parsed.VERTEX_LOCATION;
+      }
+      if (parsed.USE_VERTEX_AI !== undefined && process.env.USE_VERTEX_AI === undefined) {
+        process.env.USE_VERTEX_AI = parsed.USE_VERTEX_AI;
+      }
+      console.log('Successfully loaded persisted AI settings from config/ai-settings.json on server startup.');
+    }
+  }
+} catch (aiSetErr: any) {
+  console.warn('Persisted config/ai-settings.json loading skipped:', aiSetErr.message);
+}
+
 // Clean up any mismatched AI Studio keys mistakenly assigned to VERTEX_API_KEY
 if (process.env.VERTEX_API_KEY && process.env.VERTEX_API_KEY.startsWith('AQ.')) {
   console.log('Cleaning up mismatched Google AI Studio key from VERTEX_API_KEY (AI Studio keys cannot call Vertex AI).');
@@ -98,6 +125,30 @@ export function persistEnvUpdates(updates: Record<string, string | undefined>) {
   } catch (err: any) {
     console.warn('Failed to persist env updates to .env file:', err.message);
   }
+
+  // Redundant persistence to config/ai-settings.json across environment resets
+  try {
+    const configDir = path.join(process.cwd(), 'config');
+    if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+    const aiSettingsPath = path.join(configDir, 'ai-settings.json');
+    let currentSettings: Record<string, any> = {};
+    if (fs.existsSync(aiSettingsPath)) {
+      try {
+        currentSettings = JSON.parse(fs.readFileSync(aiSettingsPath, 'utf8'));
+      } catch (_) {}
+    }
+    const newSettings = { ...currentSettings };
+    for (const [k, v] of Object.entries(updates)) {
+      if (v !== undefined && v !== '') {
+        newSettings[k] = v;
+      } else {
+        delete newSettings[k];
+      }
+    }
+    fs.writeFileSync(aiSettingsPath, JSON.stringify(newSettings, null, 2), { mode: 0o600 });
+  } catch (saveErr: any) {
+    console.warn('Failed to persist settings to config/ai-settings.json:', saveErr.message);
+  }
 }
 
 // Default Supabase configuration fallback matching client defaults
@@ -119,7 +170,15 @@ import { findPlanById, resolvePlanByAmount, calculateDynamicCredits, PRICING_CAT
 setupProcessLevelHandlers();
 
 const multerInstance = (multer as any).default || multer;
-const upload = multerInstance({ storage: multerInstance.memoryStorage() });
+const upload = multerInstance({
+  storage: multerInstance.memoryStorage(),
+  limits: {
+    fileSize: 15 * 1024 * 1024, // 15 MB max per file
+    files: 5,                   // Maximum 5 files per request
+    fields: 20,
+    fieldSize: 2 * 1024 * 1024  // 2 MB max for text fields
+  }
+});
 
 export const app = express();
 
@@ -241,17 +300,19 @@ app.use(cors({
     if (
       !origin ||
       allowedOrigins.includes(origin) ||
+      origin === 'https://zeperai.in' ||
+      origin === 'https://www.zeperai.in' ||
+      origin.endsWith('.zeperai.in') ||
       origin.endsWith('.run.app') ||
       origin.endsWith('.googleusercontent.com') ||
       origin.includes('google') ||
       origin.includes('ai.studio') ||
-      origin.includes('localhost') ||
-      origin.includes('127.0.0.1') ||
-      process.env.NODE_ENV !== 'production'
+      (process.env.NODE_ENV !== 'production' && (origin.includes('localhost') || origin.includes('127.0.0.1')))
     ) {
       callback(null, true);
     } else {
-      callback(null, true);
+      // Reject origin cleanly without setting Access-Control-Allow-Origin
+      callback(null, false);
     }
   },
   credentials: true
@@ -285,11 +346,39 @@ export const getAdminAllowedEmails = (): string[] => {
   return raw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 };
 
+export const isAuthorizedAdminEmail = (email?: string): boolean => {
+  if (!email) return false;
+  const allowed = getAdminAllowedEmails();
+  if (allowed.length === 0) return false;
+  return allowed.includes(String(email).trim().toLowerCase());
+};
+
+export const checkUserAdminStatus = (userOrProfile: any): boolean => {
+  if (!userOrProfile) return false;
+  if (userOrProfile.is_admin === true) return true;
+  if (userOrProfile.user_metadata?.is_admin === true) return true;
+  return isAuthorizedAdminEmail(userOrProfile.email);
+};
+
+export const parseCookies = (cookieHeader?: string): Record<string, string> => {
+  const list: Record<string, string> = {};
+  if (!cookieHeader) return list;
+  cookieHeader.split(';').forEach(cookie => {
+    const parts = cookie.split('=');
+    const name = parts.shift()?.trim();
+    if (name) {
+      list[name] = decodeURIComponent(parts.join('=').trim());
+    }
+  });
+  return list;
+};
+
 export const generateAdminToken = (username: string): string | null => {
   const secret = getAdminSecret();
-  if (!secret) return null;
+  const configuredUser = getAdminUsername();
+  if (!secret || !configuredUser) return null;
   const payload = {
-    username: username || getAdminUsername() || 'admin',
+    username: username || configuredUser,
     role: 'admin',
     is_admin: true,
     exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
@@ -455,7 +544,8 @@ const isUuid = (str?: string) => {
 };
 
 const requireAuth = async (req: any, res: any, next: any) => {
-  const rawToken = req.headers.authorization || (req.query?.token as string) || '';
+  const cookies = parseCookies(req.headers.cookie);
+  const rawToken = req.headers.authorization || cookies['zeperai_admin_session'] || (req.query?.token as string) || '';
   const token = rawToken.replace(/^Bearer\s+/i, '').trim();
   if (!token) return res.status(401).json({ error: 'Not authenticated. Please log in to continue.' });
 
@@ -504,8 +594,13 @@ const requireAuth = async (req: any, res: any, next: any) => {
   }
 };
 
-// Increase payload limit to handle large base64 image uploads
-app.use(express.json({ limit: '50mb' }));
+// Increase payload limit to handle large base64 image uploads and preserve raw body for HMAC verification
+app.use(express.json({
+  limit: '50mb',
+  verify: (req: any, _res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 
@@ -584,6 +679,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           if (!token) {
             return res.status(500).json({ success: false, error: 'Admin session secret is not configured.' });
           }
+          const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+          res.setHeader('Set-Cookie', `zeperai_admin_session=${encodeURIComponent(token)}; Path=/; Max-Age=${7 * 24 * 60 * 60}; HttpOnly; SameSite=Strict${secureFlag}`);
           return res.json({
             success: true,
             token,
@@ -637,6 +734,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
               if (!token) {
                 return res.status(500).json({ success: false, error: 'Admin session secret is not configured.' });
               }
+              const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+              res.setHeader('Set-Cookie', `zeperai_admin_session=${encodeURIComponent(token)}; Path=/; Max-Age=${7 * 24 * 60 * 60}; HttpOnly; SameSite=Strict${secureFlag}`);
               return res.json({
                 success: true,
                 token,
@@ -669,7 +768,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const userId = req.user.id;
     const userEmail = req.user.email || '';
 
-    const isProAdmin = userEmail === 'reachtoayush25@gmail.com' || userEmail === 'sharma25ayush@gmail.com' || userId === 'f58676e8-e373-4c97-803b-57451272154c' || !!req.user.is_admin;
+    const isProAdmin = checkUserAdminStatus(req.user);
 
     let profile: any = null;
     try {
@@ -697,7 +796,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         bio: '',
         location: '',
         avatar_url: req.user.user_metadata?.avatar_url || '',
-        tier: isProAdmin ? 'Pro' : 'Free',
+        tier: isProAdmin ? 'Pro' : (req.user.user_metadata?.tier || req.user.user_metadata?.plan || 'Free'),
         is_admin: isProAdmin
       };
 
@@ -729,7 +828,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       }
     }
 
-    const finalIsAdmin = isProAdmin || profile.email === 'reachtoayush25@gmail.com' || profile.email === 'sharma25ayush@gmail.com' || profile.id === 'f58676e8-e373-4c97-803b-57451272154c' || !!profile.is_admin;
+    const finalIsAdmin = isProAdmin || checkUserAdminStatus(profile);
 
     return res.json({
       id: profile.id || userId,
@@ -739,7 +838,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       bio: profile.bio || '',
       location: profile.location || '',
       avatarUrl: profile.avatar_url || '',
-      tier: finalIsAdmin ? 'Pro' : (profile.tier || 'Free'),
+      tier: finalIsAdmin ? 'Pro' : (profile.tier || req.user.user_metadata?.tier || req.user.user_metadata?.plan || 'Free'),
       isAdmin: finalIsAdmin
     });
   }));
@@ -768,7 +867,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       return res.status(500).json({ error: error.message || 'Failed to update profile' });
     }
 
-    const isProAdmin = data.email === 'reachtoayush25@gmail.com' || data.email === 'sharma25ayush@gmail.com' || data.id === 'f58676e8-e373-4c97-803b-57451272154c' || !!data.is_admin;
+    const isProAdmin = checkUserAdminStatus(data);
 
     return res.json({
       id: data.id,
@@ -1955,40 +2054,41 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
   // --- 11. GLOBAL SEARCH ACROSS ACCOUNTS & RESOURCES ---
   app.get('/api/admin/search/global', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
-    const q = (req.query.q || '').trim();
-    if (!q || q.length < 2) {
+    const rawQ = (req.query.q || '').trim();
+    const cleanQ = rawQ.replace(/[,()"'\\%]/g, '').trim();
+    if (!cleanQ || cleanQ.length < 2) {
       return res.json({ success: true, results: { users: [], payments: [], subscriptions: [] } });
     }
 
     const adminClient = await getAdminSupabaseClient();
-    const isGuid = isUuid(q);
+    const isGuid = isUuid(cleanQ);
 
     // 1. Search Users
     let usersPromise = adminClient
       .from('profiles')
       .select('id, email, name, avatar_url, tier, is_admin, created_at')
-      .or(`email.ilike.%${q}%,name.ilike.%${q}%${isGuid ? `,id.eq.${q}` : ''}`)
+      .or(`email.ilike.%${cleanQ}%,name.ilike.%${cleanQ}%${isGuid ? `,id.eq.${cleanQ}` : ''}`)
       .limit(6);
 
     // 2. Search Payments
     let paymentsPromise = adminClient
       .from('payment_transactions')
       .select('id, user_id, razorpay_payment_id, razorpay_order_id, amount, status, plan_id, created_at')
-      .or(`razorpay_payment_id.ilike.%${q}%,razorpay_order_id.ilike.%${q}%,plan_id.ilike.%${q}%${isGuid ? `,id.eq.${q},user_id.eq.${q}` : ''}`)
+      .or(`razorpay_payment_id.ilike.%${cleanQ}%,razorpay_order_id.ilike.%${cleanQ}%,plan_id.ilike.%${cleanQ}%${isGuid ? `,id.eq.${cleanQ},user_id.eq.${cleanQ}` : ''}`)
       .limit(6);
 
     // 3. Search Subscriptions
     let subsPromise = adminClient
       .from('subscriptions')
       .select('id, user_id, plan_name, status, amount, razorpay_subscription_id, created_at')
-      .or(`plan_name.ilike.%${q}%,razorpay_subscription_id.ilike.%${q}%${isGuid ? `,id.eq.${q},user_id.eq.${q}` : ''}`)
+      .or(`plan_name.ilike.%${cleanQ}%,razorpay_subscription_id.ilike.%${cleanQ}%${isGuid ? `,id.eq.${cleanQ},user_id.eq.${cleanQ}` : ''}`)
       .limit(6);
 
     const [uRes, pRes, sRes] = await Promise.all([usersPromise, paymentsPromise, subsPromise]);
 
     res.json({
       success: true,
-      query: q,
+      query: cleanQ,
       results: {
         users: uRes.data || [],
         payments: pRes.data || [],
@@ -3188,11 +3288,19 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const targetUserId = req.params.id;
     const { confirmationEmail } = req.body;
 
+    if (targetUserId === req.user?.id) {
+      throw new AppError('Cannot delete your own administrative account.', 400);
+    }
+
     const adminClient = await getAdminSupabaseClient();
 
-    const { data: profile } = await adminClient.from('profiles').select('email').eq('id', targetUserId).single();
+    const { data: profile } = await adminClient.from('profiles').select('email, is_admin').eq('id', targetUserId).single();
     if (!profile) throw new AppError('User not found', 404);
     
+    if (checkUserAdminStatus(profile)) {
+      throw new AppError('Administrator accounts cannot be deleted directly.', 403);
+    }
+
     if (profile.email !== confirmationEmail) {
       throw new AppError('Confirmation email does not match', 400);
     }
@@ -3822,7 +3930,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
 
     const effectiveEmail = userEmail || userProfile?.email || '';
-    const isProAdmin = effectiveEmail === 'reachtoayush25@gmail.com' || effectiveEmail === 'sharma25ayush@gmail.com' || userId === 'f58676e8-e373-4c97-803b-57451272154c';
+    const isProAdmin = checkUserAdminStatus({ email: effectiveEmail, is_admin: req.user?.is_admin || userProfile?.is_admin });
 
     if (subData) {
       const endDate = subData.current_period_end ? new Date(subData.current_period_end) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -4152,19 +4260,67 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
     const digest = shasum.digest('hex');
 
-    if (digest !== razorpay_signature) {
+    const sigBuf = Buffer.from(String(razorpay_signature || ''));
+    const digestBuf = Buffer.from(digest);
+
+    if (sigBuf.length === 0 || sigBuf.length !== digestBuf.length || !crypto.timingSafeEqual(sigBuf, digestBuf)) {
       return res.status(400).json({ success: false, error: 'Signature verification failed.', message: 'Signature verification failed.' });
     }
 
-    console.log(`[Production] Verified Razorpay Payment: ${razorpay_payment_id} for Order: ${razorpay_order_id}`);
+    console.log(`[Production] Cryptographically Verified Razorpay Payment: ${razorpay_payment_id} for Order: ${razorpay_order_id}`);
 
-    const numAmount = Number(amount) || 0;
+    // Server-Authoritative Plan & Amount Resolution:
+    // We fetch the authoritative order and payment directly from Razorpay to prevent client-side plan spoofing
+    let authoritativeAmountInRupees = Number(amount) || 0;
+    let authoritativePlanId = planId;
+
+    const rzp = getRazorpay();
+    if (rzp) {
+      try {
+        const order = await rzp.orders.fetch(razorpay_order_id);
+        if (order) {
+          if (order.notes?.planId || order.notes?.plan_id) {
+            authoritativePlanId = order.notes.planId || order.notes.plan_id;
+          }
+          if (order.amount) {
+            authoritativeAmountInRupees = order.amount / 100;
+          }
+        }
+
+        const payment = await rzp.payments.fetch(razorpay_payment_id);
+        if (payment) {
+          if (payment.status !== 'captured' && payment.status !== 'authorized') {
+            return res.status(400).json({ success: false, error: 'Payment has not been captured.', message: 'Payment has not been captured.' });
+          }
+          if (payment.order_id && payment.order_id !== razorpay_order_id) {
+            return res.status(400).json({ success: false, error: 'Payment does not match requested order.', message: 'Payment does not match order.' });
+          }
+          if (payment.notes?.planId || payment.notes?.plan_id) {
+            authoritativePlanId = payment.notes.planId || payment.notes.plan_id;
+          }
+          if (payment.amount) {
+            authoritativeAmountInRupees = payment.amount / 100;
+          }
+        }
+      } catch (fetchErr: any) {
+        console.warn('[Razorpay Verify] Could not fetch order/payment directly from SDK:', fetchErr?.message || fetchErr);
+        // Fallback guard: ensure requested plan does not exceed the paid amount
+        if (authoritativePlanId && authoritativeAmountInRupees > 0) {
+          const expectedPlan = findPlanById(authoritativePlanId);
+          if (expectedPlan && expectedPlan.basePrice > 0 && authoritativeAmountInRupees < expectedPlan.basePrice * 0.9) {
+            const matchedByAmount = resolvePlanByAmount(authoritativeAmountInRupees);
+            authoritativePlanId = matchedByAmount.id;
+          }
+        }
+      }
+    }
+
     const fulfillment = await fulfillSuccessfulPayment({
       userId: effectiveUserId,
       razorpayPaymentId: razorpay_payment_id,
       razorpayOrderId: razorpay_order_id,
-      amountInRupees: numAmount,
-      planId: planId
+      amountInRupees: authoritativeAmountInRupees,
+      planId: authoritativePlanId
     });
 
     return res.json({ 
@@ -4176,7 +4332,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     });
   }));
 
-  app.post('/api/razorpay/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  app.post('/api/razorpay/webhook', async (req: any, res: any) => {
     try {
       const secret = cleanEnvKey(process.env.RAZORPAY_WEBHOOK_SECRET);
       if (!secret) {
@@ -4184,16 +4340,22 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         return res.status(500).json({ error: 'Webhook secret not configured' });
       }
 
+      // Preserve raw Buffer for HMAC validation to avoid stream consumption mismatch
+      const rawPayload: Buffer = req.rawBody || (Buffer.isBuffer(req.body) ? req.body : Buffer.from(typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {})));
       const shasum = crypto.createHmac('sha256', secret);
-      shasum.update(req.body);
+      shasum.update(rawPayload);
       const digest = shasum.digest('hex');
 
-      if (digest !== req.headers['x-razorpay-signature']) {
-        console.warn('Webhook signature mismatch');
+      const incomingSig = String(req.headers['x-razorpay-signature'] || '');
+      const sigBuf = Buffer.from(incomingSig);
+      const digestBuf = Buffer.from(digest);
+
+      if (sigBuf.length === 0 || sigBuf.length !== digestBuf.length || !crypto.timingSafeEqual(sigBuf, digestBuf)) {
+        console.warn('Webhook signature mismatch or timing violation');
         return res.status(400).json({ error: 'Invalid signature' });
       }
 
-      const event = JSON.parse(req.body.toString());
+      const event = typeof req.body === 'object' && !Buffer.isBuffer(req.body) ? req.body : JSON.parse(rawPayload.toString('utf-8'));
       console.log('Razorpay Webhook Event:', event.event);
 
       if (event.event === 'payment.captured') {
@@ -4715,18 +4877,30 @@ const requireAdmin = async (req: any, res: any, next: any) => {
                          resolvedModel === 'gemini-3-pro-image' || 
                          resolvedModel === 'gemini-2.5-flash-image' || 
                          resolvedModel === 'gemini-3.1-flash-image';
+
+    const purpose = String(req.body?.purpose || req.query?.purpose || '').toLowerCase();
+    const isFreeSystemAssist = 
+      req.body?.isSystemOperation === true ||
+      purpose.startsWith('system_') ||
+      purpose === 'prompt_safety' ||
+      purpose === 'prompt_optimization' ||
+      purpose === 'product_context';
+
     let creditCost = 0;
-    if (isImageModel) {
+    if (isFreeSystemAssist) {
+      creditCost = 0;
+    } else if (isImageModel) {
       creditCost = resolvedModel === 'gemini-3-pro-image' ? 2 : 1;
       if (sanitizedConfig.imageConfig?.imageSize === '2K') {
         creditCost += 1;
       }
     } else {
-      // Text and reasoning models cost 1 credit
+      // User-facing text and copywriting generations cost 1 credit
       creditCost = 1;
     }
 
     let didDeduct = false;
+    let deductionRemaining: number | undefined = undefined;
 
     // Server-side atomic credit check and deduction
     if (!isAdmin && creditCost > 0) {
@@ -4746,6 +4920,19 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         });
       }
       didDeduct = true;
+      deductionRemaining = deduction.remaining;
+    } else if (!isAdmin) {
+      try {
+        const adminClient = await getAdminSupabaseClient();
+        const { data: cData } = await adminClient
+          .from('user_credits')
+          .select('current_balance')
+          .eq('user_id', req.user.id)
+          .maybeSingle();
+        if (cData && typeof cData.current_balance === 'number') {
+          deductionRemaining = cData.current_balance;
+        }
+      } catch (_) {}
     }
 
     try {
@@ -4784,7 +4971,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         candidates: response.candidates,
         usageMetadata: response.usageMetadata,
         modelVersion: response.modelVersion,
-        promptFeedback: response.promptFeedback
+        promptFeedback: response.promptFeedback,
+        remainingCredits: deductionRemaining
       });
     } catch (genErr: any) {
       if (didDeduct) {
@@ -4939,48 +5127,79 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       return res.status(400).json({ success: false, error: "No files uploaded", message: "No files uploaded" });
     }
     const files = req.files as Express.Multer.File[];
-    const pythonServiceUrl = process.env.PYTHON_SERVICE_URL;
-    const internalSecret = process.env.PYTHON_SERVICE_SECRET || process.env.INTERNAL_SECRET || '';
 
-    let analysisResult: any = null;
+    // Server-side credit check & deduction (1 credit for Shopify Store AI Analysis)
+    const userEmail = (req.user?.email || '').toLowerCase().trim();
+    const isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
+    const creditCost = 1;
+    let didDeduct = false;
+    let deductionRemaining: number | undefined = undefined;
 
-    if (pythonServiceUrl) {
-      try {
-        const FormData = (await import('form-data')).default;
-        const axios = (await import('axios')).default;
-        const formData = new FormData();
-
-        for (const file of files) {
-          formData.append('files', file.buffer, {
-            filename: file.originalname,
-            contentType: file.mimetype || 'text/csv'
-          });
-        }
-
-        const response = await axios.post(`${pythonServiceUrl.replace(/\/$/, '')}/analyze`, formData, {
-          headers: {
-            ...formData.getHeaders(),
-            'X-Internal-Secret': internalSecret
-          },
-          timeout: 30000
+    if (!isAdmin) {
+      const deduction = await spendUserCredits(req.user.id, creditCost, 'Shopify Store AI Analysis');
+      if (!deduction.success) {
+        return res.status(402).json({
+          success: false,
+          error: `Insufficient credits. You need ${creditCost} credit, but have ${deduction.current}. Please purchase credits or upgrade your plan.`,
+          requiredCredits: creditCost,
+          currentCredits: deduction.current,
+          requiresPurchase: true
         });
-
-        analysisResult = response.data;
-      } catch (pyErr: any) {
-        console.warn('Python service call failed, using local server fallback calculation:', pyErr.message);
       }
+      didDeduct = true;
+      deductionRemaining = deduction.remaining;
     }
 
-    if (!analysisResult) {
-      analysisResult = parseShopifyCsvsLocally(files);
+    try {
+      const pythonServiceUrl = process.env.PYTHON_SERVICE_URL;
+      const internalSecret = process.env.PYTHON_SERVICE_SECRET || process.env.INTERNAL_SECRET || '';
+
+      let analysisResult: any = null;
+
+      if (pythonServiceUrl) {
+        try {
+          const FormData = (await import('form-data')).default;
+          const axios = (await import('axios')).default;
+          const formData = new FormData();
+
+          for (const file of files) {
+            formData.append('files', file.buffer, {
+              filename: file.originalname,
+              contentType: file.mimetype || 'text/csv'
+            });
+          }
+
+          const response = await axios.post(`${pythonServiceUrl.replace(/\/$/, '')}/analyze`, formData, {
+            headers: {
+              ...formData.getHeaders(),
+              'X-Internal-Secret': internalSecret
+            },
+            timeout: 30000
+          });
+
+          analysisResult = response.data;
+        } catch (pyErr: any) {
+          console.warn('Python service call failed, using local server fallback calculation:', pyErr.message);
+        }
+      }
+
+      if (!analysisResult) {
+        analysisResult = parseShopifyCsvsLocally(files);
+      }
+
+      // Generate server-side AI insights via Gemini
+      const aiInsights = await generateServerAIInsights(analysisResult);
+      analysisResult.aiInsights = aiInsights;
+      analysisResult.success = true;
+      analysisResult.remainingCredits = deductionRemaining;
+
+      res.json(analysisResult);
+    } catch (err: any) {
+      if (didDeduct) {
+        await refundUserCredits(req.user.id, creditCost, 'Refund for failed Shopify Analysis');
+      }
+      throw err;
     }
-
-    // Generate server-side AI insights via Gemini
-    const aiInsights = await generateServerAIInsights(analysisResult);
-    analysisResult.aiInsights = aiInsights;
-    analysisResult.success = true;
-
-    res.json(analysisResult);
   }));
 
   app.post(['/api/remove-bg-pro', '/remove-bg-pro'], requireAuth, aiLimiter, asyncHandler(async (req: any, res: any) => {
@@ -5001,6 +5220,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
     const creditCost = 2;
     let didDeduct = false;
+    let deductionRemaining: number | undefined = undefined;
 
     if (!isAdmin) {
       const deduction = await spendUserCredits(req.user.id, creditCost, 'Pro Background Removal');
@@ -5014,6 +5234,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         });
       }
       didDeduct = true;
+      deductionRemaining = deduction.remaining;
     }
 
     const FormData = (await import('form-data')).default;
@@ -5056,7 +5277,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       const base64Result = Buffer.from(response.data, 'binary').toString('base64');
       res.json({ 
         imageUrl: `data:image/png;base64,${base64Result}`,
-        success: true 
+        success: true,
+        remainingCredits: deductionRemaining
       });
     } catch (err: any) {
       if (didDeduct) {
@@ -5093,6 +5315,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
     const creditCost = 2;
     let didDeduct = false;
+    let deductionRemaining: number | undefined = undefined;
 
     if (!isAdmin) {
       const deduction = await spendUserCredits(req.user.id, creditCost, 'Pro Background Removal File Upload');
@@ -5106,6 +5329,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         });
       }
       didDeduct = true;
+      deductionRemaining = deduction.remaining;
     }
 
     const FormData = (await import('form-data')).default;
@@ -5157,6 +5381,10 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         
         res.set('Content-Type', upstreamContentType || 'image/png');
         res.set('Cache-Control', 'no-store');
+        if (typeof deductionRemaining === 'number') {
+          res.set('x-remaining-credits', String(deductionRemaining));
+          res.set('Access-Control-Expose-Headers', 'x-remaining-credits');
+        }
         res.send(Buffer.from(response.data, 'binary'));
     } catch (error: any) {
         if (didDeduct) {

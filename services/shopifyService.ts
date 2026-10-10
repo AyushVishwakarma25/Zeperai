@@ -23,7 +23,14 @@ export const shopifyService = {
             throw new Error(errData.error || `Server error: ${response.status}`);
         }
 
-        return await response.json();
+        const data = await response.json();
+        if (typeof window !== 'undefined' && typeof data.remainingCredits === 'number') {
+            window.dispatchEvent(new CustomEvent('credits-updated', {
+                detail: { remainingCredits: data.remainingCredits }
+            }));
+        }
+
+        return data;
     },
 
     // Legacy method compatibility

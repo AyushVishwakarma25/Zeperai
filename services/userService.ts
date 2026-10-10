@@ -11,7 +11,7 @@ export interface UserProfileData {
   bio: string;
   location: string;
   avatarUrl: string;
-  tier: 'Free' | 'PayAsYouGo' | 'Pro';
+  tier: 'Free' | 'PayAsYouGo' | 'Pro' | 'Agency' | 'Standard';
   isAdmin?: boolean;
   companyName?: string;
   billingAddress?: string;
@@ -81,7 +81,7 @@ export const userService = {
           return null;
       }
 
-      const isProAdmin = data.email === 'reachtoayush25@gmail.com' || data.email === 'sharma25ayush@gmail.com' || data.id === 'f58676e8-e373-4c97-803b-57451272154c';
+      const isProAdmin = !!data.is_admin;
 
       return {
           id: data.id,
@@ -91,8 +91,8 @@ export const userService = {
           bio: data.bio || '',
           location: data.location || '',
           avatarUrl: data.avatar_url || '',
-          tier: isProAdmin ? 'Pro' : ((data.tier as any) || 'Free'),
-          isAdmin: !!data.is_admin,
+          tier: (data.tier as any) || (isProAdmin ? 'Pro' : 'Free'),
+          isAdmin: isProAdmin,
           companyName: data.company_name || '',
           billingAddress: data.billing_address || '',
           billingState: data.billing_state || '',

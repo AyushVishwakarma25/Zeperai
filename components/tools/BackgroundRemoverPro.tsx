@@ -96,6 +96,12 @@ export default function BackgroundRemoverPro({ onDeductCredits, onRefundCredits,
       }
 
       const blob = await res.blob();
+      const remainingHeader = res.headers.get('x-remaining-credits');
+      if (remainingHeader !== null && !isNaN(Number(remainingHeader))) {
+        window.dispatchEvent(new CustomEvent('credits-updated', {
+          detail: { remainingCredits: Number(remainingHeader) }
+        }));
+      }
       setResultUrl(URL.createObjectURL(blob));
       setStatus("done");
     } catch (err) {
