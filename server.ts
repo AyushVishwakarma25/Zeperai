@@ -4758,9 +4758,16 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   // --- HARDENED GEMINI GENERATION ENDPOINT (VALIDATION + SERVER-SIDE CREDITS) ---
   app.post(['/api/gemini/generate', '/gemini/generate'], requireAuth, aiLimiter, asyncHandler(async (req: any, res: any) => {
     const geminiKey = process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.VITE_GeminiAPI;
-    
-    if (!geminiKey) {
-       throw new AppError("Gemini API Key is not configured on the server.", 500, "AI service configuration is incomplete.");
+    const isVertexConfigured = Boolean(
+      process.env.USE_VERTEX_AI === 'true' ||
+      process.env.VERTEX_PROJECT_ID ||
+      process.env.VERTEX_API_KEY ||
+      process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON ||
+      process.env.GOOGLE_APPLICATION_CREDENTIALS
+    );
+
+    if (!geminiKey && !isVertexConfigured) {
+       throw new AppError("AI service is not configured on the server. Please configure GEMINI_API_KEY or Vertex AI credentials in your environment variables.", 500, "AI service configuration is incomplete.");
     }
 
     const { model, contents, config } = req.body;

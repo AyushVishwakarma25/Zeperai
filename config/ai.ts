@@ -133,7 +133,19 @@ export const getAI = () => {
     let googleAuthOptions: any;
     if (saJson) {
         try {
-            const parsed = JSON.parse(saJson);
+            let cleanJson = saJson.trim();
+            if ((cleanJson.startsWith("'") && cleanJson.endsWith("'")) || (cleanJson.startsWith('"') && cleanJson.endsWith('"') && !cleanJson.startsWith('{"'))) {
+                cleanJson = cleanJson.slice(1, -1);
+            }
+            if (!cleanJson.startsWith('{') && cleanJson.length > 20) {
+                try {
+                    const decoded = Buffer.from(cleanJson, 'base64').toString('utf8');
+                    if (decoded.trim().startsWith('{')) {
+                        cleanJson = decoded.trim();
+                    }
+                } catch (_) {}
+            }
+            const parsed = JSON.parse(cleanJson);
             parsedSaProject = parsed.project_id || '';
             if (parsed.private_key && typeof parsed.private_key === 'string') {
                 parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
