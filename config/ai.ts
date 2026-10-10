@@ -6,6 +6,7 @@
 
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { supabase } from "../services/supabaseClient.js";
+import { safelyParseServiceAccountJson } from "../utils/serviceAccountParser.js";
 
 let genAIInstance: GoogleGenAI | null = null;
 let currentApiKey = '';
@@ -132,27 +133,12 @@ export const getAI = () => {
     let parsedSaProject = '';
     let googleAuthOptions: any;
     if (saJson) {
-        try {
-            let cleanJson = saJson.trim();
-            if ((cleanJson.startsWith("'") && cleanJson.endsWith("'")) || (cleanJson.startsWith('"') && cleanJson.endsWith('"') && !cleanJson.startsWith('{"'))) {
-                cleanJson = cleanJson.slice(1, -1);
-            }
-            if (!cleanJson.startsWith('{') && cleanJson.length > 20) {
-                try {
-                    const decoded = Buffer.from(cleanJson, 'base64').toString('utf8');
-                    if (decoded.trim().startsWith('{')) {
-                        cleanJson = decoded.trim();
-                    }
-                } catch (_) {}
-            }
-            const parsed = JSON.parse(cleanJson);
+        const parsed = safelyParseServiceAccountJson(saJson);
+        if (parsed) {
             parsedSaProject = parsed.project_id || '';
-            if (parsed.private_key && typeof parsed.private_key === 'string') {
-                parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
-            }
             googleAuthOptions = { credentials: parsed };
-        } catch {
-            throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON is not valid JSON. Please provide the valid service account JSON contents.");
+        } else {
+            throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON is not valid JSON. Please provide valid service account JSON contents or a base64-encoded credentials string.");
         }
     }
 

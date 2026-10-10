@@ -44,7 +44,7 @@ export const InfluencerControls: React.FC<InfluencerControlsProps> = ({
     const ugcStyleOptions = UGC_STYLE_OPTIONS.map(opt => ({
         label: opt.label,
         value: opt.value,
-        thumbnail: `https://placehold.co/300x300/f3e8ff/7e22ce?text=${encodeURIComponent(opt.label.split(' ')[0])}` // Placeholder
+        thumbnail: opt.thumbnail
     }));
 
     return (

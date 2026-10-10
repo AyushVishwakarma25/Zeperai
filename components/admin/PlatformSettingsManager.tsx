@@ -227,10 +227,11 @@ export default function PlatformSettingsManager() {
   };
 
   const handleServiceAccountJsonChange = (val: string) => {
-    const trimmed = val.trim();
+    let clean = val.replace(/^[\uFEFF\uFFFE]+/, '').trim();
+
     // Auto-detect if user mistakenly pasted an API Key (e.g. AIzaSy...) instead of JSON
-    if (trimmed.startsWith('AIza') && !trimmed.startsWith('{')) {
-      setNewVertexApiKey(trimmed);
+    if (clean.startsWith('AIza') && !clean.startsWith('{')) {
+      setNewVertexApiKey(clean);
       setShowVertexKeyInput(true);
       setNewServiceAccountJson('');
       setFeedback({
@@ -240,25 +241,50 @@ export default function PlatformSettingsManager() {
       return;
     }
 
-    // Auto-detect if user pasted a Base64-encoded Service Account JSON or wrapped in quotes
-    let candidate = trimmed;
-    if ((candidate.startsWith("'") && candidate.endsWith("'")) || (candidate.startsWith('"') && candidate.endsWith('"') && !candidate.startsWith('{"'))) {
-      candidate = candidate.slice(1, -1).trim();
+    // Strip wrapping quotes if any
+    for (let i = 0; i < 4; i++) {
+      clean = clean.trim();
+      if (
+        (clean.startsWith('"') && clean.endsWith('"') && clean.length >= 2) ||
+        (clean.startsWith("'") && clean.endsWith("'") && clean.length >= 2)
+      ) {
+        clean = clean.slice(1, -1);
+      } else {
+        break;
+      }
     }
 
-    if (!candidate.startsWith('{') && candidate.length > 40) {
+    // Auto-detect and decode Base64 using TextDecoder (supports UTF-8, multi-byte, BOM, UTF-16 from Windows PowerShell)
+    const compact = clean.replace(/\s+/g, '');
+    if (!clean.startsWith('{') && compact.length > 20) {
       try {
-        const decoded = atob(candidate);
-        if (decoded.trim().startsWith('{')) {
+        const binStr = atob(compact);
+        const bytes = new Uint8Array(binStr.length);
+        for (let i = 0; i < binStr.length; i++) {
+          bytes[i] = binStr.charCodeAt(i);
+        }
+
+        let decoded = '';
+        try {
+          decoded = new TextDecoder('utf-8').decode(bytes).replace(/^[\uFEFF\uFFFE]+/, '').trim();
+        } catch (_) {}
+
+        if (decoded.includes('\u0000')) {
+          try {
+            decoded = new TextDecoder('utf-16le').decode(bytes).replace(/^[\uFEFF\uFFFE]+/, '').trim();
+          } catch (_) {}
+        }
+
+        if (decoded.startsWith('{')) {
           const parsed = JSON.parse(decoded);
-          if (parsed.type && parsed.project_id) {
+          if (parsed && typeof parsed === 'object') {
             setNewServiceAccountJson(JSON.stringify(parsed, null, 2));
-            if (!vertexProjectId || vertexProjectId.trim() === '') {
+            if (parsed.project_id && (!vertexProjectId || vertexProjectId.trim() === '')) {
               setVertexProjectId(parsed.project_id);
             }
             setFeedback({
               type: 'success',
-              message: `Decoded Base64 Service Account JSON for project "${parsed.project_id}" successfully!`
+              message: `Decoded Base64 Service Account JSON for project "${parsed.project_id || 'Google Cloud'}" successfully!`
             });
             return;
           }
@@ -268,7 +294,7 @@ export default function PlatformSettingsManager() {
 
     setNewServiceAccountJson(val);
     try {
-      const p = JSON.parse(candidate);
+      const p = JSON.parse(clean);
       if (p.project_id && (!vertexProjectId || vertexProjectId.trim() === '')) {
         setVertexProjectId(p.project_id);
       }
@@ -292,8 +318,9 @@ export default function PlatformSettingsManager() {
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const text = event.target?.result as string;
-        const parsed = JSON.parse(text);
+        const rawText = (event.target?.result as string) || '';
+        const cleanText = rawText.replace(/^[\uFEFF\uFFFE]+/, '').trim();
+        const parsed = JSON.parse(cleanText);
         if (!parsed.type || !parsed.project_id) {
           setFeedback({
             type: 'error',
@@ -302,7 +329,7 @@ export default function PlatformSettingsManager() {
           return;
         }
 
-        setNewServiceAccountJson(text.trim());
+        setNewServiceAccountJson(JSON.stringify(parsed, null, 2));
         setServiceAccountFileName(file.name);
         // Auto-fill project ID if not already configured
         if (!vertexProjectId || vertexProjectId.trim() === '') {

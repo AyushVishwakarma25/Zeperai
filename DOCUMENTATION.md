@@ -109,6 +109,37 @@ Admins can manage platform AI infrastructure live from the dashboard:
 - Runs 100% on the user's GPU/device canvas with zero server API cost and zero network round-trip.
 - Produces pixel-perfect transparent PNG cutouts ready for immediate placement in Product Studio or Campaign Studio.
 
+### 4.4 Done-For-You Smart Fashion Studio Agent
+Located in `components/modes/FashionControls.tsx` and `services/geminiService.ts`:
+- **Dual-Mode Switcher:** Seamless toggle between **Done-For-You (ZeperAI Agent)** and **Manual Controls**.
+- **Autonomous Vision Ingestion (`analyzeFashionGarmentAgent`):**
+  - ZeperAI Agent analyzes uploaded apparel fabrics, cuts, collars, drape, and silhouette.
+  - Automatically classifies into gender, category, subcategory, and occasion.
+  - Curates an exact 4 or 5-pose commercial listing sequence (Hero Front, 3/4 Drape Angle, Full Back View, Macro Fabric/Embroidery Detail, and Candid Lifestyle Motion).
+  - Aligns framing with target marketplace specifications (Amazon, Myntra, Flipkart, Ajio, Shopify D2C).
+- **Persistent Model Persona & Facial Locking:**
+  - Automatically matches the garment to a regional Indian or global fashion model roster.
+  - Locks model identity (`modelLockId` / `modelSeedUrl`) across the entire multi-pose set for cohesive catalog presentation.
+- **Credit Allocation & Transparent Costing:**
+  - ZeperAI Agent Shoot Planning costs **1 Credit** (deducted upfront with explicit UI badge and balance check).
+  - Multi-pose image generation executes at discounted catalog batch rates (with automatic 20% bundle discount for 5-image sets).
+
+### 4.5 Festive Shoot ZeperAI Creative Director & Pinterest Vision Synthesis
+Located in `components/modes/FestivalControls.tsx` and `services/geminiService.ts`:
+- **Dual-Mode Switcher:** Toggle between **ZeperAI Creative Director (Chat & Direct)** and **Manual Presets**.
+- **Sleek Studio Interface:** Premium black creative director command box with blue accent selections.
+- **Chat-Based Interactive Art Director (`analyzeFestivalCreativeAgent`):**
+  - Serves as an interactive commercial creative director for both **Major Global/National Festivals** (Diwali, Holi, Durga Puja, Eid, Christmas, Ganesh Chaturthi, Navratri) and **Regional & Local Cultural Celebrations** (Chhath Puja, Onam, Pongal, Baisakhi, Karwa Chauth, Makar Sankranti, Bihu, Raksha Bandhan, Lohri, Teej, Bathukamma, Ugadi, Nuakhai, Losar, or any custom user-specified local festival).
+- **Pinterest & Moodboard Aesthetic Translation:**
+  - Allows users to upload an inspiration or aesthetic photo directly from Pinterest, Instagram, or their brand moodboard.
+  - ZeperAI Agent analyzes the reference photo's color grading, lighting dynamics (ambient candlelight, warm rim-light, volumetric glow, golden hour bokeh), composition (pedestal hero, flatlay, dramatic angle), and festive props.
+  - Generates a bespoke creative blueprint that harmonizes the user's exact physical product into the festival setting while replicating that Pinterest visual aesthetic.
+- **Structured Concept Blueprint:**
+  - Produces Theme Title, Creative Vibe, Cultural Context, Authentic Props (brass urlis, terracotta diyas, bamboo soop, fresh florals), Lighting Design, Camera Shot Angle, Color Swatches, and a ready-to-run master generation prompt.
+- **Credit Allocation & Margins:**
+  - Each ZeperAI Creative Director consultation / blueprint costs **1 Credit** (clearly marked on the action button).
+  - Protects healthy gross margins while providing transparent, predictable pricing to creators and merchants.
+
 ---
 
 ## 5. Development & Deployment

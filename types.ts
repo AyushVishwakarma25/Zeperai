@@ -269,6 +269,14 @@ export interface GenerateImageParams {
   hyperRealism?: boolean;
   festivalStyle?: string;
   festivalStylePresets?: string[];
+  festivalAgentMode?: 'ai' | 'manual';
+  festivalName?: string;
+  festivalReferenceImage?: File;
+  festivalReferenceImageUrl?: string;
+  festivalCreativeConcept?: string;
+  festivalSceneDescription?: string;
+  festivalLightingPrompt?: string;
+  festivalPropsPrompt?: string;
   adStylePreset?: string;
   competitorImage?: File;
   marketplacePreset?: MarketplacePreset;
@@ -276,6 +284,7 @@ export interface GenerateImageParams {
   fashionPose?: string[];
   catalogMode?: boolean;
   catalogSetSize?: number; // 4 or 5 — how many images in the auto-generated set
+  fashionAgentMode?: 'ai' | 'manual';
   applyBrandIdentity?: boolean;
   userDescribeText?: string;
   adCtaBgColor?: string;
@@ -454,4 +463,56 @@ export interface ProductZoneItem {
     revenue: number | string;
     quantity: number;
     margin?: number;
+}
+
+export interface FashionAgentOptions {
+    targetMarketplace?: string;
+    genderPreference?: string;
+    occasionPreference?: string;
+    setSize?: number;
+}
+
+export interface FashionAgentPlan {
+    garmentTitle: string;
+    gender: FashionGender;
+    category: string;
+    subCategory: string;
+    occasion: string;
+    fabricAndDetails: string;
+    recommendedModelId: string;
+    recommendedModelName: string;
+    regionalStyle?: RegionalStyle;
+    bodyType?: FashionBodyType;
+    ageBracket?: FashionAgeBracket;
+    poses: string[];
+    lightingAndScene: string;
+    marketplaceTips?: string;
+    marketplaceTarget?: string;
+}
+
+export interface FestivalCreativePlan {
+    festivalName: string;
+    themeTitle: string;
+    creativeVibe: string;
+    culturalContext: string;
+    pinterestAestheticMatch?: string;
+    backdropAndProps: string;
+    lightingSetup: string;
+    compositionAndAngle: string;
+    colorPalette: string[];
+    suggestedProductPlacement: string;
+    finalPrompt: string;
+}
+
+export interface FestivalChatMessage {
+    id: string;
+    sender: 'user' | 'director';
+    text: string;
+    timestamp: number;
+    conceptPlan?: FestivalCreativePlan;
+}
+
+export interface FestivalAgentResponse {
+    reply: string;
+    conceptPlan?: FestivalCreativePlan;
 }

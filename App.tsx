@@ -570,6 +570,8 @@ const AppInternal: React.FC = () => {
                     savedModels={appData.savedModels}
                     onReset={creative.handleResetParams}
                     brandKit={appData.brandKit}
+                    credits={appData.credits}
+                    onDeductCredits={handleCheckCredits}
                 />
             )}
             

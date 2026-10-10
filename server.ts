@@ -10,6 +10,7 @@ import multer from 'multer';
 import axios from 'axios';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
+import { safelyParseServiceAccountJson } from './utils/serviceAccountParser.js';
 
 // Manual backup parsing of local .env file to populate process.env before checking credentials
 try {
@@ -44,8 +45,8 @@ try {
       process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON = rawSa.trim();
       process.env.GOOGLE_APPLICATION_CREDENTIALS = saFilePath;
       try {
-        const parsed = JSON.parse(rawSa);
-        if (parsed.project_id && !process.env.VERTEX_PROJECT_ID) {
+        const parsed = safelyParseServiceAccountJson(rawSa);
+        if (parsed?.project_id && !process.env.VERTEX_PROJECT_ID) {
           process.env.VERTEX_PROJECT_ID = parsed.project_id;
         }
       } catch (_) {}
@@ -328,44 +329,7 @@ const sanitizeSecret = (val?: string): string => {
     .trim();
 };
 
-export const safelyParseServiceAccountJson = (raw: string | undefined | null): any => {
-  if (!raw || typeof raw !== 'string') return null;
-  let clean = raw.trim();
-  if (!clean) return null;
-
-  // Strip wrapping quotes if any (e.g. from Vercel env var editor or copy-paste)
-  if ((clean.startsWith("'") && clean.endsWith("'")) || (clean.startsWith('"') && clean.endsWith('"') && !clean.startsWith('{"'))) {
-    clean = clean.slice(1, -1).trim();
-  }
-
-  // Check if string is Base64 encoded
-  if (!clean.startsWith('{')) {
-    try {
-      const decoded = Buffer.from(clean, 'base64').toString('utf8').trim();
-      if (decoded.startsWith('{')) {
-        clean = decoded;
-      }
-    } catch (_) {}
-  }
-
-  try {
-    const parsed = JSON.parse(clean);
-    if (parsed && typeof parsed === 'object') {
-      if (parsed.private_key && typeof parsed.private_key === 'string') {
-        parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
-      }
-      return parsed;
-    }
-  } catch (err) {
-    try {
-      const unescaped = JSON.parse(clean);
-      if (typeof unescaped === 'string') {
-        return safelyParseServiceAccountJson(unescaped);
-      }
-    } catch (_) {}
-  }
-  return null;
-};
+export { safelyParseServiceAccountJson } from './utils/serviceAccountParser.js';
 
 export const getAdminSecret = (): string => {
   return sanitizeSecret(process.env.ADMIN_SESSION_SECRET);
@@ -3404,9 +3368,10 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       type?: string;
     } = { attached: false };
 
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+    const saEnvRaw = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    if (saEnvRaw) {
       try {
-        const p = safelyParseServiceAccountJson(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+        const p = safelyParseServiceAccountJson(saEnvRaw);
         if (p) {
           serviceAccountDetails = {
             attached: true,
@@ -3637,7 +3602,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         const isVertex = pendingUseVertexAI ?? (process.env.USE_VERTEX_AI === 'true');
         if (isVertex) {
           targetProvider = 'Gemini Enterprise Agent Platform (Vertex AI Postpay)';
-          let saJson = pendingServiceAccountJson || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || '';
+          let saJson = pendingServiceAccountJson || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS || '';
           let parsedSa: any = null;
           if (saJson) {
             parsedSa = safelyParseServiceAccountJson(saJson);

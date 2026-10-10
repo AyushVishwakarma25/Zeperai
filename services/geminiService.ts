@@ -9,8 +9,8 @@ import { getAI } from '../config/ai.js';
 import { supabase } from './supabaseClient.js';
 import { AI_SUGGESTED, PRO_PRODUCT_STYLE_PRESETS, UGC_STYLE_OPTIONS, AD_STYLE_PRESETS, FASHION_POSE_OPTIONS, FASHION_POSE_TEMPLATES, FASHION_MODEL_LOCKS, FESTIVAL_PRESETS, AD_TEMPLATES } from '../constants.js';
 import { AD_CREATIVE_PROMPT_LIBRARY } from '../components/modes/adCreativePromptLibrary.js';
-import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis, ABTestSuggestion } from '../types.js';
-import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, FashionGender, RegionalStyle, ProductCategory, ResolutionQuality, GenerationQuality, AdLayout, ImageModel } from '../types.js';
+import type { GenerateImageParams, GeneratedImage, EditImageParams, GenerateCaptionParams, BrandKit, MoodBoard, BrandAnalysis, ABTestSuggestion, FashionAgentPlan, FashionAgentOptions, FestivalCreativePlan, FestivalAgentResponse, FestivalChatMessage } from '../types.js';
+import { AspectRatio, AppMode, MarketplacePreset, FashionShootType, FashionGender, RegionalStyle, ProductCategory, ResolutionQuality, GenerationQuality, AdLayout, ImageModel, FashionBodyType, FashionAgeBracket } from '../types.js';
 import { resolveModelForGeneration } from '../src/config/modelConfig.js';
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -364,6 +364,15 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
             parts.push({ inlineData: { data: base64, mimeType: 'image/jpeg' } });
         }
 
+        if (appMode === AppMode.Festival && params.festivalReferenceImage) {
+            try {
+                const base64 = await fileToBase64(params.festivalReferenceImage);
+                parts.push({ inlineData: { data: base64, mimeType: params.festivalReferenceImage.type || 'image/jpeg' } });
+            } catch (e) {
+                console.warn("Could not encode festival reference image", e);
+            }
+        }
+
         switch (appMode) {
             case AppMode.Product:
             case AppMode.Festival:
@@ -371,7 +380,21 @@ GOAL: A final high-resolution creative where the TARGET PRODUCT looks natively e
                 let structuredComposition = "";
                 let finalPrompt = "";
 
-                if (appMode === AppMode.Festival && params.festivalStyle) {
+                if (appMode === AppMode.Festival && (params.festivalCreativeConcept || params.festivalSceneDescription)) {
+                    const festName = params.festivalName || 'Festive Celebration';
+                    const festDesc = params.festivalSceneDescription || params.festivalCreativeConcept || '';
+                    const festProps = params.festivalPropsPrompt ? `\n- Festive Props & Elements: ${params.festivalPropsPrompt}` : '';
+                    const festLighting = params.festivalLightingPrompt ? `\n- Lighting & Atmosphere: ${params.festivalLightingPrompt}` : '';
+                    structuredComposition = `
+                    1. PRIMARY PRODUCT SUBJECT:
+                       - Description: ${baseSubject}
+                       - Requirement: Maintain 100% exact product physical design, geometry, brand typography, and material texture. Never alter or distort the product.
+                    2. AI CREATIVE DIRECTOR FESTIVE SCENE & BACKDROP:
+                       - Cultural Theme: Authentic celebration of ${festName}.
+                       - Setting & Atmosphere: ${festDesc}${festProps}${festLighting}
+                       - Style Synthesis: Commercial festive advertising editorial. If a Pinterest or style reference image was attached, mirror its warm ambient lighting, depth-of-field, color palette, and premium festive composition while featuring this genuine product prominently.
+                    `.trim();
+                } else if (appMode === AppMode.Festival && params.festivalStyle) {
                     let searchName = params.festivalStyle.includes('|') ? params.festivalStyle.split('|')[1] : params.festivalStyle;
                     let foundPreset = null;
                     for (const cat of FESTIVAL_PRESETS) {
@@ -1087,6 +1110,301 @@ export const analyzeProductContext = async (file: File): Promise<{
         return { context: [], environments: ["Studio", "Lifestyle", "Nature"] };
     }
 };
+
+export const analyzeFashionGarmentAgent = async (
+    file: File,
+    options?: FashionAgentOptions
+): Promise<FashionAgentPlan> => {
+    const ai = getAI();
+    const base64 = await fileToBase64(file);
+    const targetSetSize = options?.setSize === 4 ? 4 : 5;
+    const marketplace = options?.targetMarketplace || 'Amazon & Myntra';
+    const userGenderHint = options?.genderPreference && options?.genderPreference !== 'Auto' ? options.genderPreference : '';
+    const userOccasionHint = options?.occasionPreference && options?.occasionPreference !== 'Auto' ? options.occasionPreference : '';
+
+    const fallbackGender = (userGenderHint as FashionGender) || FashionGender.Women;
+    const fallbackTemplate = FASHION_POSE_TEMPLATES[FashionShootType.ModelShoot] || [];
+    const fallbackPoses = fallbackTemplate.slice(0, targetSetSize);
+    const fallbackLocks = FASHION_MODEL_LOCKS[fallbackGender] || FASHION_MODEL_LOCKS[FashionGender.Women];
+    const defaultLock = fallbackLocks[0] || { id: 'W-Aria', name: 'Aria - Elegant Pro' };
+
+    const fallbackPlan: FashionAgentPlan = {
+        garmentTitle: "Apparel Garment",
+        gender: fallbackGender,
+        category: "Western Wear",
+        subCategory: "Dresses",
+        occasion: userOccasionHint || "Casual & Everyday",
+        fabricAndDetails: "Contemporary fashion fabric with tailored silhouette",
+        recommendedModelId: defaultLock.id,
+        recommendedModelName: defaultLock.name,
+        regionalStyle: RegionalStyle.None,
+        bodyType: FashionBodyType.Regular,
+        ageBracket: FashionAgeBracket.Adult,
+        poses: fallbackPoses,
+        lightingAndScene: "High-key minimalist fashion studio with clean white/neutral background compliant with Amazon/Myntra guidelines.",
+        marketplaceTips: "Amazon and Myntra favor clean front-facing hero shots with clear garment silhouette on neutral background.",
+        marketplaceTarget: marketplace
+    };
+
+    const prompt = `ACT AS AN EXPERT VIRTUAL FASHION ART DIRECTOR AND E-COMMERCE LISTING SPECIALIST (Amazon, Myntra, Flipkart, Ajio, Shopify, Instagram D2C).
+Analyze the clothing item in this image and synthesize a complete professional listing shoot plan for Catalog Mode (${targetSetSize} images).
+
+${userGenderHint ? `USER GENDER OVERRIDE: ${userGenderHint}` : ''}
+${userOccasionHint ? `USER OCCASION OVERRIDE: ${userOccasionHint}` : ''}
+TARGET MARKETPLACE: ${marketplace}
+
+Please analyze and return JSON with:
+1. "garmentTitle": Specific descriptive name (e.g., "Embroidered Chanderi Silk Kurta Set", "Oversized Vintage Cotton Graphic T-Shirt", "Floral Tiered Midi Dress").
+2. "gender": Exactly one of "Women", "Men", "Kids", "Unisex".
+3. "category": Best matching fashion category ("Indian & Fusion Wear", "Western Wear", "Topwear", "Indian & Festive Wear", "Bottomwear").
+4. "subCategory": Specific apparel type (e.g., "Kurtas & Suits", "T-shirts", "Dresses", "Sarees", "Casual Shirts", "Jackets", "Co-ords").
+5. "occasion": Occasion/use-case (e.g., "Festive & Wedding", "Casual Daywear", "Formal Office", "Party & Nightwear", "Streetwear & Contemporary", "Athleisure").
+6. "fabricAndDetails": 1-2 sentence description of fabric texture, weave, pattern, neckline, cuts and embroidery.
+7. "recommendedModelId": Select the best model ID from:
+   - For Women: 'W-Aria', 'W-Zara', 'W-Diya', 'W-Meera', 'W-Simran', 'W-Ananya', 'W-Kavya', 'W-Fatima'
+   - For Men: 'M-Kabir', 'M-Leo', 'M-Arjun', 'M-Rohan', 'M-Vikram', 'M-Aditya'
+   - For Kids: 'K-Noah', 'K-Mia', 'K-Advait', 'K-Anaya'
+8. "recommendedModelName": Friendly name of the chosen model.
+9. "regionalStyle": Cultural accent if applicable ("South Indian", "Punjabi", "Rajasthani", "Bengali", or "None").
+10. "bodyType": "Regular", "Slim", "Plus Size", "Petite", or "Muscular".
+11. "ageBracket": "Adult", "Teen", "Child", or "Senior".
+12. "poses": Array of EXACTLY ${targetSetSize} distinct, high-converting professional listing poses customized to highlight this garment:
+    - Pose 1: Confident hero front view showing the entire garment drape and front details.
+    - Pose 2: 3/4 angle showing garment silhouette, sleeves, and cut.
+    - Pose 3: Full length back view showing back styling, cut, or embroidery.
+    - Pose 4: Macro close-up on fabric texture, stitching, collar, or embroidery detail.
+    ${targetSetSize === 5 ? '- Pose 5: Elegant candid or lifestyle motion shot capturing natural fabric movement.' : ''}
+13. "lightingAndScene": Professional lighting and studio background setup.
+14. "marketplaceTips": 1-sentence tip for high e-commerce conversion on ${marketplace}.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: {
+                parts: [
+                    { inlineData: { data: base64, mimeType: file.type || 'image/jpeg' } },
+                    { text: prompt }
+                ]
+            },
+            purpose: 'fashion_agent_plan',
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        garmentTitle: { type: Type.STRING },
+                        gender: { type: Type.STRING },
+                        category: { type: Type.STRING },
+                        subCategory: { type: Type.STRING },
+                        occasion: { type: Type.STRING },
+                        fabricAndDetails: { type: Type.STRING },
+                        recommendedModelId: { type: Type.STRING },
+                        recommendedModelName: { type: Type.STRING },
+                        regionalStyle: { type: Type.STRING },
+                        bodyType: { type: Type.STRING },
+                        ageBracket: { type: Type.STRING },
+                        poses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        lightingAndScene: { type: Type.STRING },
+                        marketplaceTips: { type: Type.STRING }
+                    },
+                    required: ['garmentTitle', 'gender', 'category', 'subCategory', 'poses', 'recommendedModelId']
+                }
+            }
+        });
+
+        const parsed = parseGeminiJson<Partial<FashionAgentPlan>>(response.text, {});
+        
+        // Ensure poses length matches targetSetSize
+        let finalPoses = Array.isArray(parsed.poses) && parsed.poses.length > 0 ? parsed.poses : fallbackPoses;
+        if (finalPoses.length < targetSetSize) {
+            const extra = fallbackPoses.slice(finalPoses.length, targetSetSize);
+            finalPoses = [...finalPoses, ...extra];
+        } else if (finalPoses.length > targetSetSize) {
+            finalPoses = finalPoses.slice(0, targetSetSize);
+        }
+
+        const resolvedGender = (parsed.gender && Object.values(FashionGender).includes(parsed.gender as FashionGender))
+            ? (parsed.gender as FashionGender)
+            : fallbackGender;
+
+        return {
+            garmentTitle: parsed.garmentTitle || fallbackPlan.garmentTitle,
+            gender: resolvedGender,
+            category: parsed.category || fallbackPlan.category,
+            subCategory: parsed.subCategory || fallbackPlan.subCategory,
+            occasion: parsed.occasion || fallbackPlan.occasion,
+            fabricAndDetails: parsed.fabricAndDetails || fallbackPlan.fabricAndDetails,
+            recommendedModelId: parsed.recommendedModelId || fallbackPlan.recommendedModelId,
+            recommendedModelName: parsed.recommendedModelName || fallbackPlan.recommendedModelName,
+            regionalStyle: (parsed.regionalStyle as RegionalStyle) || fallbackPlan.regionalStyle,
+            bodyType: (parsed.bodyType as FashionBodyType) || fallbackPlan.bodyType,
+            ageBracket: (parsed.ageBracket as FashionAgeBracket) || fallbackPlan.ageBracket,
+            poses: finalPoses,
+            lightingAndScene: parsed.lightingAndScene || fallbackPlan.lightingAndScene,
+            marketplaceTips: parsed.marketplaceTips || fallbackPlan.marketplaceTips,
+            marketplaceTarget: marketplace
+        };
+    } catch (e) {
+        console.warn("Failed to generate AI Fashion Agent Plan, using fallback plan:", e);
+        return fallbackPlan;
+    }
+};
+
+export const analyzeFestivalCreativeAgent = async (options: {
+    productImage?: File;
+    referenceImage?: File;
+    referenceImageUrl?: string;
+    festivalName?: string;
+    userPrompt?: string;
+    chatHistory?: Array<{ sender: 'user' | 'director'; text: string }>;
+}): Promise<FestivalAgentResponse> => {
+    const ai = getAI();
+    const parts: any[] = [];
+
+    // 1. Ingest Product Image if present
+    if (options.productImage) {
+        try {
+            const productBase64 = await fileToBase64(options.productImage);
+            parts.push({
+                inlineData: {
+                    data: productBase64,
+                    mimeType: options.productImage.type || 'image/jpeg'
+                }
+            });
+        } catch (e) {
+            console.warn("Could not encode product image for festival agent", e);
+        }
+    }
+
+    // 2. Ingest Pinterest / Style Reference Image if present
+    if (options.referenceImage) {
+        try {
+            const refBase64 = await fileToBase64(options.referenceImage);
+            parts.push({
+                inlineData: {
+                    data: refBase64,
+                    mimeType: options.referenceImage.type || 'image/jpeg'
+                }
+            });
+        } catch (e) {
+            console.warn("Could not encode reference image for festival agent", e);
+        }
+    } else if (options.referenceImageUrl) {
+        try {
+            const refBase64 = await urlToBase64(options.referenceImageUrl);
+            parts.push({
+                inlineData: {
+                    data: refBase64,
+                    mimeType: 'image/png'
+                }
+            });
+        } catch (e) {
+            console.warn("Could not load reference image URL for festival agent", e);
+        }
+    }
+
+    const festivalName = options.festivalName || 'Festive Celebration';
+    const userPrompt = options.userPrompt || `Create an extraordinary commercial photoshoot concept for ${festivalName}.`;
+    
+    const conversationContext = (options.chatHistory || [])
+        .map(msg => `${msg.sender === 'user' ? 'Client' : 'Creative Director'}: ${msg.text}`)
+        .join('\n');
+
+    const prompt = `
+YOU ARE A WORLD-CLASS FESTIVAL CREATIVE DIRECTOR & COMMERCIAL PHOTOGRAPHER.
+You specialize in blending authentic cultural festivities across India and global traditions into high-converting, luxury e-commerce visuals.
+
+FESTIVAL IN FOCUS: "${festivalName}" (Can be a major festival like Diwali, Holi, Eid, Christmas, Durga Puja, or any regional/local festival like Chhath Puja, Onam, Pongal, Baisakhi, Karwa Chauth, Makar Sankranti, Bihu, Raksha Bandhan, Lohri, Teej, Bathukamma, Ugadi, Nuakhai, Losar, or user's custom festival).
+
+VISION ANALYSIS INSTRUCTIONS:
+1. PRODUCT INSPECTION (First attached image, if provided):
+   Analyze the product's shape, packaging material, labels, reflective highlights, and natural commercial placement.
+2. PINTEREST / AESTHETIC REFERENCE INGESTION (Second attached image, if provided):
+   Critically evaluate its mood, lighting atmosphere (e.g. warm golden glow, candle flame, soft rim lights, moody shadows), camera composition (elevated flatlay, pedestal hero, low-angle drama), color grading, and textures.
+   Translate that Pinterest aesthetic seamlessly into the cultural context of ${festivalName} WITHOUT altering or distorting the user's authentic product!
+3. CLIENT'S BRIEF & CONVERSATION:
+   "${userPrompt}"
+   ${conversationContext ? `Prior conversation:\n${conversationContext}` : ''}
+
+TASK:
+Provide:
+1. "reply": A warm, artistic, authoritative message from the Creative Director explaining the creative shoot vision, lighting strategy, and prop setup.
+2. "conceptPlan": A structured creative blueprint including:
+   - "festivalName": "${festivalName}"
+   - "themeTitle": An evocative commercial title (e.g. "Royal Amrit Golden Sanctum", "Sunrise Arghya on Sacred Ghats", "Minimalist Pastel Holi Whispers", "Pookkalam Marigold Mosaic")
+   - "creativeVibe": 1-2 sentence aesthetic summary
+   - "culturalContext": Authentic cultural nuances of this festival
+   - "pinterestAestheticMatch": If reference image was provided, describe how its lighting and mood were captured
+   - "backdropAndProps": 4-6 specific props (e.g. Brass urli with floating petals, terracotta diyas, bamboo soop winnowing baskets, burning camphor, raw silk fabric, sandalwood paste)
+   - "lightingSetup": Specific commercial lighting setup (e.g. Warm amber sidelight with soft candle flicker and diffused golden hour back-rim)
+   - "compositionAndAngle": Specific camera shot (e.g. 45-degree angle pedestal shot with deep depth of field)
+   - "colorPalette": 3-5 hex codes or color names matching the mood
+   - "suggestedProductPlacement": Where the product sits firmly in the scene
+   - "finalPrompt": The complete, highly descriptive production prompt ready to feed into image generation!
+`.trim();
+
+    parts.push({ text: prompt });
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts },
+            purpose: 'festive_director_agent',
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        reply: { type: Type.STRING },
+                        conceptPlan: {
+                            type: Type.OBJECT,
+                            properties: {
+                                festivalName: { type: Type.STRING },
+                                themeTitle: { type: Type.STRING },
+                                creativeVibe: { type: Type.STRING },
+                                culturalContext: { type: Type.STRING },
+                                pinterestAestheticMatch: { type: Type.STRING },
+                                backdropAndProps: { type: Type.STRING },
+                                lightingSetup: { type: Type.STRING },
+                                compositionAndAngle: { type: Type.STRING },
+                                colorPalette: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                suggestedProductPlacement: { type: Type.STRING },
+                                finalPrompt: { type: Type.STRING }
+                            },
+                            required: ['festivalName', 'themeTitle', 'creativeVibe', 'backdropAndProps', 'lightingSetup', 'finalPrompt']
+                        }
+                    },
+                    required: ['reply', 'conceptPlan']
+                }
+            }
+        });
+
+        const parsed = parseGeminiJson<FestivalAgentResponse>(response.text, {
+            reply: `Here is a custom festive shoot direction for ${festivalName}!`,
+            conceptPlan: undefined
+        });
+
+        return parsed;
+    } catch (e) {
+        console.warn("Failed to generate Festival Creative Agent response, falling back:", e);
+        return {
+            reply: `I've prepared a traditional, premium commercial shoot plan for ${festivalName}. We'll highlight your product on an elegant pedestal with authentic celebratory props and warm festival lighting.`,
+            conceptPlan: {
+                festivalName,
+                themeTitle: `${festivalName} Celebration Edit`,
+                creativeVibe: `Warm, festive, authentic celebratory atmosphere with ambient bokeh lighting.`,
+                culturalContext: `Celebrates the cultural heritage and joy of ${festivalName}.`,
+                backdropAndProps: `Traditional festive decorations, decorative brass elements, warm ambient lights, celebratory festive motifs.`,
+                lightingSetup: `Warm 3200K side-lighting with soft candle/diya bokeh and natural fill.`,
+                compositionAndAngle: `Hero product front 45-degree angle on solid festive podium.`,
+                colorPalette: ['#D97706', '#B45309', '#F59E0B', '#FDF6B2'],
+                suggestedProductPlacement: `Centered prominently on elevated platform with festive props framing the sides.`,
+                finalPrompt: `Commercial festive photoshoot of [product] for ${festivalName}. Warm celebratory lighting, decorative festive props, soft golden bokeh background, high-end commercial advertising quality.`
+            }
+        };
+    }
+};
+
 
 export const getABTestSuggestions = async (image: GeneratedImage): Promise<ABTestSuggestion[]> => {
     const ai = getAI();

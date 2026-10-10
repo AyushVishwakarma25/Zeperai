@@ -55,6 +55,8 @@ interface CreativeModalProps {
   savedModels: SavedModel[];
   onReset: () => void;
   brandKit: BrandKit | null;
+  credits?: number;
+  onDeductCredits?: (cost: number) => boolean;
 }
 
 export const CreativeModal: React.FC<CreativeModalProps> = ({ 
@@ -65,7 +67,7 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
     remixProductImagePreview, setRemixProductImagePreview,
     onGenerateVariants, storyboardSourceImage, onClearStoryboardSource,
     userTier, onOpenPricingModal, freeGenerationsUsed,
-    savedModels, onReset, brandKit
+    savedModels, onReset, brandKit, credits, onDeductCredits
 }) => {
   const isOnline = useNetworkStatus();
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -299,7 +301,24 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                 <div className="flex-1 p-4 md:p-6 md:overflow-y-auto scrollbar-thin">
                     {mode === AppMode.Remix ? (
                         <RemixControls params={params} handleParamChange={handleParamChange} />
-                     ) : (
+                    ) : isFashion ? (
+                        <FashionControls 
+                            params={params} 
+                            handleParamChange={handleParamChange} 
+                            isHyperRealismLocked={userTier === 'Free'} 
+                            onOpenPricingModal={onOpenPricingModal} 
+                            userTier={userTier} 
+                            credits={credits}
+                            onDeductCredits={onDeductCredits}
+                        />
+                    ) : mode === AppMode.Festival ? (
+                        <FestivalControls 
+                            params={params} 
+                            handleParamChange={handleParamChange} 
+                            credits={credits}
+                            onDeductCredits={onDeductCredits}
+                        />
+                    ) : (
                         <>
                             <SectionTitle title="CREATIVE SETTINGS" />
 
@@ -339,14 +358,12 @@ export const CreativeModal: React.FC<CreativeModalProps> = ({
                                     <span className="text-xs font-bold uppercase tracking-wider">Analyzing Product Context...</span>
                                 </div>
                             )}
+
+                            {isInfluencerMode && <InfluencerControls params={params} handleParamChange={handleParamChange} onGenerateVariants={onGenerateVariants} savedModels={savedModels} />}
+                            {mode === AppMode.Product && <ProductControls params={params} handleParamChange={handleParamChange} handleAngleChange={handleAngleChange} />}
+                            {isAdCreative && <AdCreativeControls params={params} handleParamChange={handleParamChange} />}
                         </>
                     )}
-
-                    {isInfluencerMode && <InfluencerControls params={params} handleParamChange={handleParamChange} onGenerateVariants={onGenerateVariants} savedModels={savedModels} />}
-                    {mode === AppMode.Product && <ProductControls params={params} handleParamChange={handleParamChange} handleAngleChange={handleAngleChange} />}
-                    {isAdCreative && <AdCreativeControls params={params} handleParamChange={handleParamChange} />}
-                    {mode === AppMode.Festival && <FestivalControls params={params} handleParamChange={handleParamChange} />}
-                    {isFashion && <FashionControls params={params} handleParamChange={handleParamChange} isHyperRealismLocked={userTier === 'Free'} onOpenPricingModal={onOpenPricingModal} userTier={userTier} />}
                     
                     <CommonControls 
                         params={params}
