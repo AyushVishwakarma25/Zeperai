@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@google/genai": "^1.19.0",
+    "@hugeicons/core-free-icons": "^4.3.5",
+    "@hugeicons/react": "^1.1.10",
     "@imgly/background-removal": "^1.7.0",
     "@react-three/drei": "^9.106.0",
     "@react-three/fiber": "^8.16.8",
@@ -38,6 +40,7 @@
     "helmet": "^8.3.0",
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.8.0",
+    "motion": "^14.1.0",
     "multer": "^2.1.1",
     "onnxruntime-web": "^1.21.0",
     "papaparse": "5.4.1",

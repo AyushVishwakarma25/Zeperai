@@ -1,4 +1,5 @@
 const SUPABASE_STORAGE_BASE = "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/landing-assets";
+const SUPABASE_THUMBNAILS_BASE = "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets";
 
 export const landingAssets = {
   // Studio & Hero Media Assets
@@ -12,31 +13,27 @@ export const landingAssets = {
   logo: `${SUPABASE_STORAGE_BASE}/zeperai-logo.png`,
 
   // Hero Section Images
-  hero1: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/2151005655.jpg",
-  hero2: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/2151039303.jpg",
-  hero3: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/design-bold-sunlight-shadow.png",
-  hero4: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/design-vibrant-breakfast-scene.webp",
-  hero5: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/edited-1776709225903.png",
-  hero6: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/edited-1776709458495.png",
-  hero7: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/shot-hero-box-reach.png",
+  hero1: `${SUPABASE_THUMBNAILS_BASE}/2151005655.jpg`,
+  hero2: `${SUPABASE_THUMBNAILS_BASE}/2151039303.jpg`,
+  hero3: `${SUPABASE_THUMBNAILS_BASE}/design-bold-sunlight-shadow.png`,
+  hero4: `${SUPABASE_THUMBNAILS_BASE}/design-vibrant-breakfast-scene.webp`,
+  hero5: `${SUPABASE_THUMBNAILS_BASE}/edited-1776709225903.png`,
+  hero6: `${SUPABASE_THUMBNAILS_BASE}/edited-1776709458495.png`,
+  hero7: `${SUPABASE_THUMBNAILS_BASE}/shot-hero-box-reach.png`,
 
-  // WorkCarousel Images
-  work1: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80",
-  work2: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&q=80",
-  work3: "https://images.unsplash.com/photo-1492288991661-058aa541ff43?w=600&q=80",
-  work4: "https://images.unsplash.com/photo-1584916201218-f4242ceb4809?w=600&q=80",
-  work5: "https://images.unsplash.com/photo-1593030761757-71fae45fa0e7?w=600&q=80",
-  work6: "https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=600&q=80",
-
-  // ActionCarousel Images
-  action1: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/action%20image%20.webp",
-  action2: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/action%20image%202.webp",
-  action3: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/Skincareinfluencer.webp",
-  action4: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/action%20image%20.webp",
-  action5: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/action%20image%202.webp",
-  action6: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/Skincareinfluencer.webp",
-  action7: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/action%20image%20.webp",
-  action8: "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/thumbnails/Landing%20Pgae%20Assets/action%20image%202.webp",
+  // ActionCarousel Images - Distinct images from Supabase storage bucket
+  action1: `${SUPABASE_THUMBNAILS_BASE}/action%20image%20.webp`,
+  action2: `${SUPABASE_THUMBNAILS_BASE}/action%20image%202.webp`,
+  action3: `${SUPABASE_THUMBNAILS_BASE}/Skincareinfluencer.webp`,
+  action4: `${SUPABASE_THUMBNAILS_BASE}/design-bold-sunlight-shadow.png`,
+  action5: `${SUPABASE_THUMBNAILS_BASE}/design-vibrant-breakfast-scene.webp`,
+  action6: `${SUPABASE_THUMBNAILS_BASE}/2151005655.jpg`,
+  action7: `${SUPABASE_THUMBNAILS_BASE}/2151039303.jpg`,
+  action8: `${SUPABASE_THUMBNAILS_BASE}/Prustlr%20landing%20page%20image.webp`,
+  action9: `${SUPABASE_STORAGE_BASE}/Shoe%20Product%20shoot%20Zeperai.jpg`,
+  action10: `${SUPABASE_STORAGE_BASE}/Product%20studio%20By%20zeperai.webp`,
+  action11: `${SUPABASE_STORAGE_BASE}/Watch.jpg`,
+  action12: `${SUPABASE_STORAGE_BASE}/Perfume.jpg`,
   
   // CreativitySection Images
   creativityBefore: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80",

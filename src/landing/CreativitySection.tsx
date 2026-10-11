@@ -67,9 +67,11 @@ export const CreativitySection: React.FC = () => {
       {/* Center Content */}
       <div className="relative z-10 max-w-4xl mx-auto px-4">
         <h2 className="text-4xl md:text-6xl font-black text-slate-900 leading-tight tracking-tight">
-          We believe creativity shouldn't<br className="hidden md:block" />
-          feel like work.
+          We believe creativity shouldn't<br className="hidden md:inline" /> feel like work.
         </h2>
+        <p className="mt-6 text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
+          Produce scroll-stopping product photos in seconds. No studios, no cameras, no complicated design software.
+        </p>
       </div>
     </section>
   );
