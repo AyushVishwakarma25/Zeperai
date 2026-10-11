@@ -3395,13 +3395,17 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || '';
     const hasServiceAccountJson = serviceAccountDetails.attached || Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
 
-    const useVertex = Boolean(
-      process.env.USE_VERTEX_AI === 'true' ||
-      vertexProjectId ||
+    // Only activate Vertex AI mode if explicitly requested AND configured, OR if valid Vertex credentials (SA / non-AQ key) are present.
+    // If only an AI Studio key is configured without Service Account or Vertex Key, stay in AI Studio mode.
+    const hasExplicitVertexCreds = Boolean(
       hasServiceAccountJson ||
-      vertexApiKey ||
-      (!geminiApiKey && process.env.GOOGLE_CLOUD_PROJECT)
+      (vertexApiKey && !vertexApiKey.startsWith('AQ.')) ||
+      (vertexProjectId && process.env.GOOGLE_APPLICATION_CREDENTIALS)
     );
+
+    const useVertex = process.env.USE_VERTEX_AI !== undefined
+      ? process.env.USE_VERTEX_AI === 'true'
+      : (hasExplicitVertexCreds || (!geminiApiKey && Boolean(vertexProjectId)));
 
     const maskKey = (key: string) => {
       if (!key) return '';
@@ -3599,7 +3603,17 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         Boolean(pendingVertexProjectId);
 
       if (hasPendingOverrides) {
-        const isVertex = pendingUseVertexAI ?? (process.env.USE_VERTEX_AI === 'true');
+        // If pendingUseVertexAI was explicitly specified in request, obey it.
+        // Otherwise determine based on active or staged credentials.
+        let isVertex = false;
+        if (pendingUseVertexAI !== undefined) {
+          isVertex = pendingUseVertexAI;
+        } else if (process.env.USE_VERTEX_AI !== undefined) {
+          isVertex = process.env.USE_VERTEX_AI === 'true';
+        } else {
+          isVertex = Boolean(pendingServiceAccountJson || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+        }
+
         if (isVertex) {
           targetProvider = 'Gemini Enterprise Agent Platform (Vertex AI Postpay)';
           let saJson = pendingServiceAccountJson || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS || '';
@@ -3628,7 +3642,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
             });
           } else if (vKey && !vKey.startsWith('AQ.')) {
             testClient = new GoogleGenAI({ vertexai: true, apiKey: vKey });
-          } else if (proj) {
+          } else if (proj && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
             testClient = new GoogleGenAI({
               vertexai: true,
               project: proj,
@@ -3638,7 +3652,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
             return res.status(400).json({
               success: false,
               latencyMs: 0,
-              error: 'Please upload or paste your Google Cloud Service Account JSON file (or valid Vertex Express API key) to test.'
+              error: 'Please upload or paste your Google Cloud Service Account JSON file (or provide a Vertex Express API key) to test Vertex AI mode. If you are using Google AI Studio API key, select "Google AI Studio (API Key Mode)" instead.'
             });
           }
         } else {
@@ -3656,12 +3670,11 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       } else {
         // Test current active instance
         testClient = getAI();
-        const useVertex = Boolean(
-          process.env.USE_VERTEX_AI === 'true' ||
-          process.env.VERTEX_PROJECT_ID ||
-          process.env.VERTEX_API_KEY ||
-          process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
-        );
+        const hasSa = Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS);
+        const hasVKey = Boolean(process.env.VERTEX_API_KEY && !process.env.VERTEX_API_KEY.startsWith('AQ.'));
+        const useVertex = process.env.USE_VERTEX_AI !== undefined
+          ? process.env.USE_VERTEX_AI === 'true'
+          : Boolean(hasSa || hasVKey);
         targetProvider = useVertex ? 'Gemini Enterprise Agent Platform (Vertex AI Postpay)' : 'Google AI Studio';
         targetProject = process.env.VERTEX_PROJECT_ID || '';
       }
