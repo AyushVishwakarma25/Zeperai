@@ -149,20 +149,19 @@ export const getAI = () => {
         vertexProjectId
     );
 
-    const useVertex = isVertexExplicitlyRequested || (Boolean(vertexProjectId || vertexApiKey) && !apiKey);
-    const effectiveProject = vertexProjectId || parsedSaProject || (useVertex && !saJson && !vertexApiKey ? gcpProject : '');
+    const useVertex = process.env.USE_VERTEX_AI !== 'false';
+    const effectiveProject = vertexProjectId || parsedSaProject || '';
 
     if (useVertex) {
         if (!hasExplicitVertexCreds) {
             throw new Error(
-                "Google Vertex AI (Postpay) is enabled, but no Google Cloud credentials or Project ID were provided. " +
-                "To bill directly to your Google Cloud Billing account, please provide your Google Cloud Project ID (VERTEX_PROJECT_ID) " +
-                "and either a Service Account JSON (GOOGLE_APPLICATION_CREDENTIALS_JSON) or Vertex Express API Key (VERTEX_API_KEY) in Admin Settings > AI."
+                "Google Cloud Vertex AI is selected as primary, but no Google Cloud credentials were provided. " +
+                "Please provide your Google Cloud Project ID and Service Account JSON (or Vertex API Key) in Admin Settings > AI."
             );
         }
     } else if (!apiKey) {
         console.error("Missing Gemini API Key in environment variables!");
-        throw new Error("Missing GEMINI_API_KEY / GeminiAPI. Please configure your API key in Settings > Secrets or enable Vertex AI Postpay in Admin Settings > AI.");
+        throw new Error("Missing GEMINI_API_KEY. Please configure your API key in Settings > Secrets or enable Vertex AI in Admin Settings > AI.");
     }
 
     const cacheKey = useVertex ? `vertex:${effectiveProject}:${location}:${vertexApiKey || (saJson ? 'sa' : 'adc')}` : `studio:${apiKey}`;
@@ -265,11 +264,32 @@ export const getAI = () => {
 
                 // Use the modern models.generateContent API
                 const fallbackTextModel = useVertex ? 'gemini-2.5-flash' : 'gemini-3.8-flash';
-                return await ai.models.generateContent({ 
-                    model: realModelName || (hasImageConfig ? 'gemini-nano-banana-2.1' : fallbackTextModel),
-                    contents: normalizedContents,
-                    config: finalConfig 
-                });
+                const targetModel = realModelName || (hasImageConfig ? 'gemini-nano-banana-2.1' : fallbackTextModel);
+                try {
+                    return await ai.models.generateContent({ 
+                        model: targetModel,
+                        contents: normalizedContents,
+                        config: finalConfig 
+                    });
+                } catch (callErr: any) {
+                    const cMsg = callErr?.message || '';
+                    if (useVertex && (cMsg.includes('404') || cMsg.includes('NOT_FOUND') || cMsg.includes('no longer available')) && targetModel === 'gemini-2.5-flash') {
+                        try {
+                            return await ai.models.generateContent({
+                                model: 'gemini-2.0-flash',
+                                contents: normalizedContents,
+                                config: finalConfig
+                            });
+                        } catch (_) {
+                            return await ai.models.generateContent({
+                                model: 'gemini-1.5-flash',
+                                contents: normalizedContents,
+                                config: finalConfig
+                            });
+                        }
+                    }
+                    throw callErr;
+                }
             }
         }
     };

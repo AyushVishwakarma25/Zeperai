@@ -64,24 +64,25 @@ try {
     const rawSettings = fs.readFileSync(aiSettingsPath, 'utf8');
     if (rawSettings.trim()) {
       const parsed = JSON.parse(rawSettings);
-      if (parsed.GEMINI_API_KEY && !process.env.GEMINI_API_KEY) {
-        process.env.GEMINI_API_KEY = parsed.GEMINI_API_KEY;
-        process.env.GeminiAPI = parsed.GEMINI_API_KEY;
-      }
       if (parsed.VERTEX_PROJECT_ID && !process.env.VERTEX_PROJECT_ID) {
         process.env.VERTEX_PROJECT_ID = parsed.VERTEX_PROJECT_ID;
       }
       if (parsed.VERTEX_LOCATION && !process.env.VERTEX_LOCATION) {
         process.env.VERTEX_LOCATION = parsed.VERTEX_LOCATION;
       }
-      if (parsed.USE_VERTEX_AI !== undefined && process.env.USE_VERTEX_AI === undefined) {
-        process.env.USE_VERTEX_AI = parsed.USE_VERTEX_AI;
+      if (parsed.USE_VERTEX_AI !== undefined) {
+        process.env.USE_VERTEX_AI = parsed.USE_VERTEX_AI ? 'true' : 'false';
       }
       console.log('Successfully loaded persisted AI settings from config/ai-settings.json on server startup.');
     }
   }
 } catch (aiSetErr: any) {
   console.warn('Persisted config/ai-settings.json loading skipped:', aiSetErr.message);
+}
+
+// Ensure Vertex AI is the primary provider by default
+if (process.env.USE_VERTEX_AI === undefined) {
+  process.env.USE_VERTEX_AI = 'true';
 }
 
 // Clean up any mismatched AI Studio keys mistakenly assigned to VERTEX_API_KEY
@@ -3389,23 +3390,22 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       delete process.env.VERTEX_API_KEY;
     }
 
-    const vertexProjectId = process.env.VERTEX_PROJECT_ID || serviceAccountDetails.projectId || process.env.GOOGLE_CLOUD_PROJECT || '';
-    const vertexLocation = process.env.VERTEX_LOCATION || process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+    const vertexProjectId = process.env.VERTEX_PROJECT_ID || serviceAccountDetails.projectId || '';
+    const vertexLocation = process.env.VERTEX_LOCATION || 'us-central1';
     const vertexApiKey = process.env.VERTEX_API_KEY || '';
     const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || '';
     const hasServiceAccountJson = serviceAccountDetails.attached || Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
 
-    // Only activate Vertex AI mode if explicitly requested AND configured, OR if valid Vertex credentials (SA / non-AQ key) are present.
-    // If only an AI Studio key is configured without Service Account or Vertex Key, stay in AI Studio mode.
     const hasExplicitVertexCreds = Boolean(
       hasServiceAccountJson ||
       (vertexApiKey && !vertexApiKey.startsWith('AQ.')) ||
       (vertexProjectId && process.env.GOOGLE_APPLICATION_CREDENTIALS)
     );
 
+    // Primary provider is Vertex AI by default unless explicitly disabled
     const useVertex = process.env.USE_VERTEX_AI !== undefined
       ? process.env.USE_VERTEX_AI === 'true'
-      : (hasExplicitVertexCreds || (!geminiApiKey && Boolean(vertexProjectId)));
+      : true;
 
     const maskKey = (key: string) => {
       if (!key) return '';
@@ -3605,13 +3605,11 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       if (hasPendingOverrides) {
         // If pendingUseVertexAI was explicitly specified in request, obey it.
         // Otherwise determine based on active or staged credentials.
-        let isVertex = false;
+        let isVertex = true;
         if (pendingUseVertexAI !== undefined) {
           isVertex = pendingUseVertexAI;
         } else if (process.env.USE_VERTEX_AI !== undefined) {
           isVertex = process.env.USE_VERTEX_AI === 'true';
-        } else {
-          isVertex = Boolean(pendingServiceAccountJson || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
         }
 
         if (isVertex) {
@@ -3624,7 +3622,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
               return res.status(400).json({
                 success: false,
                 latencyMs: 0,
-                error: 'The Service Account JSON provided is not valid JSON. Please check the JSON format or provide a base64-encoded string.'
+                error: 'The Service Account JSON provided is not valid JSON. Please check that you copied the complete JSON file or upload your downloaded service-account.json credentials file directly.'
               });
             }
           }
@@ -3652,7 +3650,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
             return res.status(400).json({
               success: false,
               latencyMs: 0,
-              error: 'Please upload or paste your Google Cloud Service Account JSON file (or provide a Vertex Express API key) to test Vertex AI mode. If you are using Google AI Studio API key, select "Google AI Studio (API Key Mode)" instead.'
+              error: 'Please upload or paste your Google Cloud Service Account JSON credentials file (or provide a Vertex Express API key) to test Vertex AI mode.'
             });
           }
         } else {
@@ -3670,23 +3668,49 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       } else {
         // Test current active instance
         testClient = getAI();
-        const hasSa = Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS);
-        const hasVKey = Boolean(process.env.VERTEX_API_KEY && !process.env.VERTEX_API_KEY.startsWith('AQ.'));
         const useVertex = process.env.USE_VERTEX_AI !== undefined
           ? process.env.USE_VERTEX_AI === 'true'
-          : Boolean(hasSa || hasVKey);
+          : true;
         targetProvider = useVertex ? 'Gemini Enterprise Agent Platform (Vertex AI Postpay)' : 'Google AI Studio';
         targetProject = process.env.VERTEX_PROJECT_ID || '';
       }
 
       const isVertexMode = targetProvider.includes('Vertex AI');
-      const testModel = isVertexMode ? 'gemini-2.5-flash' : 'gemini-3.8-flash';
+      let testModel = isVertexMode ? 'gemini-2.5-flash' : 'gemini-3.8-flash';
+      let result: any = null;
 
-      const result = await testClient.models.generateContent({
-        model: testModel,
-        contents: [{ role: 'user', parts: [{ text: 'Respond with the single word "READY"' }] }],
-        config: { maxOutputTokens: 10 }
-      });
+      if (isVertexMode) {
+        const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+        let lastErr: any = null;
+        for (const cand of candidateModels) {
+          try {
+            result = await testClient.models.generateContent({
+              model: cand,
+              contents: [{ role: 'user', parts: [{ text: 'Respond with the single word "READY"' }] }],
+              config: { maxOutputTokens: 10 }
+            });
+            testModel = cand;
+            lastErr = null;
+            break;
+          } catch (mErr: any) {
+            lastErr = mErr;
+            const mMsg = mErr?.message || '';
+            if (mMsg.includes('404') || mMsg.includes('NOT_FOUND') || mMsg.includes('not supported') || mMsg.includes('no longer available')) {
+              continue;
+            }
+            throw mErr;
+          }
+        }
+        if (lastErr && !result) {
+          throw lastErr;
+        }
+      } else {
+        result = await testClient.models.generateContent({
+          model: testModel,
+          contents: [{ role: 'user', parts: [{ text: 'Respond with the single word "READY"' }] }],
+          config: { maxOutputTokens: 10 }
+        });
+      }
       const latencyMs = Date.now() - startTime;
       const text = result?.text?.() || result?.response?.text?.() || 'READY';
 
@@ -5006,6 +5030,15 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     } catch (genErr: any) {
       if (didDeduct) {
         await refundUserCredits(req.user.id, creditCost, 'Refund for failed generation');
+      }
+      const errMsg = genErr?.message || String(genErr);
+      const is402 = genErr?.status === 402 || genErr?.statusCode === 402 || errMsg.includes('402') || errMsg.includes('prepayment credits') || errMsg.includes('RESOURCE_EXHAUSTED');
+      if (is402) {
+        return res.status(402).json({
+          success: false,
+          error: "Your Google AI Studio prepayment credits are depleted (Error 402). Please add credits in AI Studio or select a paid API key.",
+          code: "CREDITS_DEPLETED"
+        });
       }
       throw genErr;
     }

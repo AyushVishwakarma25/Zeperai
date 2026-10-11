@@ -80,8 +80,15 @@ const recursivelyParseJson = (input: any, maxDepth = 5): any => {
 
     // Try handling unescaped newlines in private_key
     try {
-      const fixedNewlines = candidate.replace(/(?<!\\)\r?\n/g, '\\n');
-      return JSON.parse(fixedNewlines);
+      const fixedNewlines = candidate.replace(/"private_key"\s*:\s*"([\s\S]*?)"/g, (_, p1) => {
+        const esc = p1.replace(/\r?\n/g, '\\n');
+        return `"private_key": "${esc}"`;
+      });
+      const parsedFixed = JSON.parse(fixedNewlines);
+      if (typeof parsedFixed === 'string') {
+        return recursivelyParseJson(parsedFixed, maxDepth - 1);
+      }
+      return parsedFixed;
     } catch (_) {}
   }
   return null;
@@ -90,11 +97,12 @@ const recursivelyParseJson = (input: any, maxDepth = 5): any => {
 /**
  * Robustly parses a Google Cloud Service Account JSON from any format:
  * - Direct JS Object
- * - Raw JSON string (single-line or multi-line)
+ * - Raw JSON string (single-line or multi-line with literal newlines in private_key)
  * - Base64 encoded string (UTF-8 or UTF-16 LE from Windows PowerShell)
  * - Base64 string with UTF-8 BOM (starts with 77u/)
  * - Path to a credentials file on the local filesystem
  * - String wrapped in quotes or escaped JSON
+ * - Slightly malformed/truncated JSON (via regex field extraction)
  * 
  * Returns the normalized ParsedServiceAccount object with real newlines in private_key,
  * or null if the string cannot be parsed into a valid Service Account object.
@@ -136,14 +144,27 @@ export const safelyParseServiceAccountJson = (raw: any): ParsedServiceAccount | 
     if (normalized) return normalized;
   }
 
-  // 4. Base64 Detection & Decoding
+  // 4. Try fixing literal unescaped newlines in private_key
+  try {
+    const fixed = text.replace(/"private_key"\s*:\s*"([\s\S]*?)"/g, (_, p1) => {
+      const esc = p1.replace(/\r?\n/g, '\\n');
+      return `"private_key": "${esc}"`;
+    });
+    const p = JSON.parse(fixed);
+    if (p && typeof p === 'object') {
+      const normalized = normalizeServiceAccountObject(p);
+      if (normalized) return normalized;
+    }
+  } catch (_) {}
+
+  // 5. Base64 Detection & Decoding
   // If not starting with '{' or if it looks like Base64 (base64 string might start with 77u/ if it has UTF-8 BOM)
   const compact = text.replace(/\s+/g, '');
   if (!text.startsWith('{') && compact.length > 20) {
     try {
       const buf = Buffer.from(compact, 'base64');
 
-      // 4a. Try UTF-8 decoding (stripping BOM)
+      // 5a. Try UTF-8 decoding (stripping BOM)
       const utf8Text = stripBom(buf.toString('utf8')).trim();
       // If it contains null bytes (\u0000), it is likely UTF-16 LE from Windows PowerShell
       if (utf8Text.includes('\u0000')) {
@@ -160,7 +181,7 @@ export const safelyParseServiceAccountJson = (raw: any): ParsedServiceAccount | 
     } catch (_) {}
   }
 
-  // 5. Try URL decoding in case encoded in transit
+  // 6. Try URL decoding in case encoded in transit
   if (text.includes('%7B') || text.includes('%22')) {
     try {
       const decodedUrl = decodeURIComponent(text);
@@ -171,6 +192,43 @@ export const safelyParseServiceAccountJson = (raw: any): ParsedServiceAccount | 
       }
     } catch (_) {}
   }
+
+  // 7. Robust Regex extraction for slightly malformed JSON, unclosed braces, or trailing commas
+  try {
+    const fields: Record<string, string> = {};
+    const standardKeys = [
+      'type',
+      'project_id',
+      'private_key_id',
+      'private_key',
+      'client_email',
+      'client_id',
+      'auth_uri',
+      'token_uri',
+      'auth_provider_x509_cert_url',
+      'client_x509_cert_url',
+      'universe_domain'
+    ];
+
+    for (const k of standardKeys) {
+      if (k === 'private_key') {
+        const pkMatch = text.match(/["']?private_key["']?\s*[:=]\s*["']([\s\S]*?)["'](?=\s*[,}\n]|$)/);
+        if (pkMatch) {
+          fields.private_key = pkMatch[1];
+        }
+      } else {
+        const m = text.match(new RegExp(`["']?${k}["']?\\s*[:=]\\s*["']([^"'\\r\\n]+)["']`));
+        if (m) {
+          fields[k] = m[1].trim();
+        }
+      }
+    }
+
+    if (fields.project_id || fields.client_email || fields.private_key) {
+      const normalized = normalizeServiceAccountObject(fields);
+      if (normalized) return normalized;
+    }
+  } catch (_) {}
 
   return null;
 };
