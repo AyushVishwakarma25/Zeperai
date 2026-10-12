@@ -17,7 +17,6 @@ import { ContactPage } from './src/landing/ContactPage.js';
 import { TermsPage } from './src/landing/TermsPage.js';
 import { PrivacyPolicyPage } from './src/landing/PrivacyPolicyPage.js';
 import { CookiePolicyPage } from './src/landing/CookiePolicyPage.js';
-import { BlogPage } from './src/landing/BlogPage.js';
 import { BackgroundRemoverLandingPage } from './src/landing/BackgroundRemoverLandingPage.js';
 
 const routeComponents: Record<string, React.FC<any>> = {
@@ -25,7 +24,6 @@ const routeComponents: Record<string, React.FC<any>> = {
   '/pricing': PricingPage,
   '/about': AboutUsPage,
   '/contact': ContactPage,
-  '/blog': BlogPage,
   '/tools/background-remover': BackgroundRemoverLandingPage,
   '/background-remover': BackgroundRemoverLandingPage,
   '/terms': TermsPage,

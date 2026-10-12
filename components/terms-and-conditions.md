@@ -65,7 +65,7 @@ You may stop using the Services or delete your account at any time. We may suspe
 
 ### 11. Governing law and disputes
 
-These Terms are governed by the laws of India. Any disputes arising out of or relating to these Terms will be subject to the exclusive jurisdiction of the courts at Lucknow, Uttar Pradesh, India. We encourage you to first contact us at growth@zeperai.in to resolve any issue informally.
+These Terms are governed by the laws of India. Any disputes arising out of or relating to these Terms will be subject to the exclusive jurisdiction of the courts at Lucknow, Uttar Pradesh, India. We encourage you to first contact us at team@Zeperai.in to resolve any issue informally.
 
 ### 12. Changes to these Terms
 
@@ -74,5 +74,5 @@ We may update these Terms from time to time. If we make material changes, we'll 
 ### 13. Contact us
 
 **Falcon Canvas AI (operating as ZeperAI)**
-Email: growth@zeperai.in
+Email: team@Zeperai.in
 Registered address: Lucknow, Uttar Pradesh, India

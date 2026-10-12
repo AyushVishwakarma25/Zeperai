@@ -5,43 +5,32 @@ import { BrandLogo } from '../../components/ui/BrandLogo.js';
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="bg-slate-950 text-slate-400 py-16 px-4 sm:px-6 lg:px-8 border-t border-slate-900">
+    <footer className="bg-zinc-950 text-zinc-400 py-16 px-4 sm:px-6 lg:px-8 border-t border-zinc-900 font-manrope">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
         <div className="md:col-span-2">
           <div className="mb-6">
             <BrandLogo variant="full" color="white" className="w-32 md:w-40 h-auto" />
           </div>
-          <p className="text-sm max-w-sm mb-6">
-            ZeperAi is the ultimate Pinterest for ads. Instantly generate high-converting ad creatives, product visuals, and campaigns that drive real ROAS.
+          <p className="text-sm max-w-sm mb-6 text-zinc-400 font-normal">
+            ZeperAI is the AI creative platform for D2C brands and e-commerce leaders. Instantly generate high-converting ad creatives, product visuals, and campaigns that drive real ROAS.
           </p>
-          <div className="flex gap-4">
+          <div className="flex gap-3">
             <a 
               href="https://www.linkedin.com/company/zeperai/" 
               target="_blank" 
               rel="noopener noreferrer" 
-              title="LinkedIn"
+              title="ZeperAI on LinkedIn"
               aria-label="Visit ZeperAI on LinkedIn"
-              className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center hover:bg-[#4452FB] hover:text-white transition-colors"
+              className="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
             >
               <span className="sr-only">LinkedIn</span>
-              <Icon name="linkedin" className="w-5 h-5" />
-            </a>
-            <a 
-              href="https://www.instagram.com/zeperai/" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              title="Instagram"
-              aria-label="Visit ZeperAI on Instagram"
-              className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center hover:bg-[#4452FB] hover:text-white transition-colors"
-            >
-              <span className="sr-only">Instagram</span>
-              <Icon name="instagram" className="w-5 h-5" />
+              <Icon name="linkedin" className="w-4 h-4" />
             </a>
           </div>
         </div>
         
         <div>
-          <h4 className="text-white font-bold mb-4">Product</h4>
+          <h4 className="text-white font-bold mb-4 text-sm tracking-wide">Product</h4>
           <ul className="space-y-3 text-sm">
             <li>
               <Link 
@@ -66,10 +55,9 @@ export const Footer: React.FC = () => {
         </div>
 
         <div>
-          <h4 className="text-white font-bold mb-4">Company & Legal</h4>
+          <h4 className="text-white font-bold mb-4 text-sm tracking-wide">Company &amp; Legal</h4>
           <ul className="space-y-3 text-sm">
             <li><Link to="/about" className="hover:text-white transition-colors">About Us</Link></li>
-            <li><Link to="/blog" className="hover:text-white transition-colors">Blog</Link></li>
             <li><Link to="/contact" className="hover:text-white transition-colors">Contact</Link></li>
             <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
             <li><Link to="/terms" className="hover:text-white transition-colors">Terms and Conditions</Link></li>
@@ -78,9 +66,9 @@ export const Footer: React.FC = () => {
         </div>
       </div>
       
-      <div className="max-w-7xl mx-auto pt-8 border-t border-slate-900 flex flex-col md:flex-row justify-between items-center gap-4 text-sm">
-        <div>© {new Date().getFullYear()} ZeperAi. All rights reserved.</div>
-        <div className="font-medium text-slate-400">AI is your partner, not your replacement.</div>
+      <div className="max-w-7xl mx-auto pt-8 border-t border-zinc-900 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-zinc-500">
+        <div>© {new Date().getFullYear()} ZeperAI. All rights reserved.</div>
+        <div className="font-medium text-zinc-500">AI is your partner, not your replacement.</div>
       </div>
     </footer>
   );

@@ -465,7 +465,7 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
       onReportUpdate?.(updatedReport);
     } catch (err: any) {
       console.error('Failed to generate AI insights:', err);
-      setError(err?.message || 'Failed to generate AI insights via Gemini. Please try again.');
+      setError(err?.message || 'Failed to generate AI insights via ZeperAI. Please try again.');
     } finally {
       setIsGeneratingAI(false);
     }
@@ -753,7 +753,7 @@ export const ShopifyDashboard: React.FC<ShopifyDashboardProps> = ({
             <div className="max-w-2xl">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="w-5 h-5 text-amber-300 animate-pulse mt-0.5" />
-                <span className="text-xs font-bold uppercase tracking-widest text-violet-200">Google Gemini Strategy Assistant</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-violet-200">ZeperAI Strategy Assistant</span>
               </div>
               <h2 className="text-2xl font-extrabold tracking-tight">E-Commerce Playbook & Campaign Suggestions</h2>
               <p className="text-violet-100 mt-2 text-sm leading-relaxed font-medium">

@@ -135,8 +135,8 @@ export const CookiePolicyPage: React.FC = () => {
             <h2 className="text-lg font-bold text-slate-900">6. Contact us</h2>
             <p className="text-sm text-slate-700">
               Questions about our use of cookies? Email us at{' '}
-              <a href="mailto:growth@zeperai.in" className="text-[#4452FB] font-bold hover:underline">
-                growth@zeperai.in
+              <a href="mailto:team@Zeperai.in" className="text-[#4452FB] font-bold hover:underline">
+                team@Zeperai.in
               </a>.
             </p>
             <p className="text-xs text-slate-500 pt-1">

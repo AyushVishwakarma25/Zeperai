@@ -155,7 +155,7 @@ export const TermsPage: React.FC = () => {
           <section className="space-y-3">
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900">11. Governing Law and Disputes</h2>
             <p>
-              These Terms are governed by the laws of India. Any disputes arising out of or relating to these Terms will be subject to the exclusive jurisdiction of the courts at Lucknow, Uttar Pradesh, India. We encourage you to first contact us at <a href="mailto:growth@zeperai.in" className="text-[#4452FB] underline font-semibold">growth@zeperai.in</a> to resolve any issue informally.
+              These Terms are governed by the laws of India. Any disputes arising out of or relating to these Terms will be subject to the exclusive jurisdiction of the courts at Lucknow, Uttar Pradesh, India. We encourage you to first contact us at <a href="mailto:team@Zeperai.in" className="text-[#4452FB] underline font-semibold">team@Zeperai.in</a> to resolve any issue informally.
             </p>
           </section>
 
@@ -173,8 +173,8 @@ export const TermsPage: React.FC = () => {
             <p className="font-semibold text-slate-800">Falcon Canvas AI (operating as ZeperAI)</p>
             <p className="text-sm text-slate-600">
               Email:{' '}
-              <a href="mailto:growth@zeperai.in" className="text-[#4452FB] font-bold hover:underline">
-                growth@zeperai.in
+              <a href="mailto:team@Zeperai.in" className="text-[#4452FB] font-bold hover:underline">
+                team@Zeperai.in
               </a>
             </p>
             <p className="text-sm text-slate-600">

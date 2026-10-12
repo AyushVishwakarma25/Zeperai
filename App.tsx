@@ -38,7 +38,6 @@ const CookiePolicyPage = React.lazy(() => import('./src/landing/CookiePolicyPage
 const PricingPage = React.lazy(() => import('./src/landing/PricingPage.js').then(m => ({ default: m.PricingPage })));
 const AboutUsPage = React.lazy(() => import('./src/landing/AboutUsPage.js').then(m => ({ default: m.AboutUsPage })));
 const ContactPage = React.lazy(() => import('./src/landing/ContactPage.js').then(m => ({ default: m.ContactPage })));
-const BlogPage = React.lazy(() => import('./src/landing/BlogPage.js').then(m => ({ default: m.BlogPage })));
 
 const dataURLToParts = (dataURL: string) => {
     const parts = dataURL.split(',');
@@ -460,7 +459,7 @@ const AppInternal: React.FC = () => {
       <Route path="/local-seo-audit" element={<Navigate to="/" replace />} />
       <Route path="/about" element={<AboutUsPage />} />
       <Route path="/contact" element={<ContactPage />} />
-      <Route path="/blog" element={<BlogPage />} />
+      <Route path="/blog" element={<Navigate to="/" replace />} />
       <Route path="/login" element={!user ? <LoginPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to={getReturnPath()} replace />} />
       <Route path="/signup" element={!user ? <SignupPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to={getReturnPath()} replace />} />
       <Route path="/dashboard" element={

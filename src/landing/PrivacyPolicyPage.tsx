@@ -54,8 +54,8 @@ export const PrivacyPolicyPage: React.FC = () => {
 
           <div className="p-4 bg-indigo-50/60 border border-indigo-100 rounded-2xl text-slate-800 font-medium text-xs sm:text-sm">
             If you have any questions about this Policy or how we handle your data, contact us at{' '}
-            <a href="mailto:growth@zeperai.in" className="text-[#4452FB] font-bold hover:underline">
-              growth@zeperai.in
+            <a href="mailto:team@Zeperai.in" className="text-[#4452FB] font-bold hover:underline">
+              team@Zeperai.in
             </a>.
           </div>
 
@@ -256,8 +256,8 @@ export const PrivacyPolicyPage: React.FC = () => {
 
             <div className="p-4 bg-indigo-50/60 border border-indigo-100 rounded-2xl text-slate-800 font-medium text-xs sm:text-sm">
               <strong>To exercise any privacy rights:</strong> Email our Data Protection team at{' '}
-              <a href="mailto:growth@zeperai.in" className="text-[#4452FB] font-bold hover:underline">
-                growth@zeperai.in
+              <a href="mailto:team@Zeperai.in" className="text-[#4452FB] font-bold hover:underline">
+                team@Zeperai.in
               </a>. We acknowledge all requests promptly and fulfill statutory obligations within 30 days.
             </div>
           </section>
@@ -292,8 +292,8 @@ export const PrivacyPolicyPage: React.FC = () => {
             <p className="text-sm text-slate-700 font-semibold">Falcon Canvas AI (operating as ZeperAI)</p>
             <p className="text-sm text-slate-600">
               Email:{' '}
-              <a href="mailto:growth@zeperai.in" className="text-[#4452FB] font-bold hover:underline">
-                growth@zeperai.in
+              <a href="mailto:team@Zeperai.in" className="text-[#4452FB] font-bold hover:underline">
+                team@Zeperai.in
               </a>
             </p>
             <p className="text-sm text-slate-600">

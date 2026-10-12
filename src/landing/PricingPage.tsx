@@ -142,154 +142,178 @@ export const PricingPage: React.FC = () => {
     <>
       <SEO
         title="Pricing | ZeperAi Studio"
-        description="Simple, transparent pricing for ZeperAi Studio's AI creative tools. Choose the plan that fits your brand's growth, with no hidden fees."
+        description="Simple, transparent pricing for ZeperAi Studio's AI creative platform. Choose credits or subscriptions that fit your brand's growth, with zero hidden fees."
         canonicalUrl="https://zeperai.in/pricing"
       />
       <PricingProductSchema />
-      <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#C8CEFE]">
-      <LandingHeader />
+      <div className="min-h-screen bg-stone-50/40 text-zinc-900 font-manrope selection:bg-[#C8CEFE]">
+        <LandingHeader />
 
-      <main className="pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <h1 className="text-4xl md:text-6xl font-black tracking-tight text-slate-900 mb-6">
-            Simple, transparent pricing
-          </h1>
-          <p className="text-xl text-slate-600">
-            Choose the plan that fits your brand's growth. No hidden fees.
-          </p>
-        </div>
-
-        {/* Four plans: Free / Pay As You Go / Pro / Agency */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto items-stretch">
-          {PLANS.map((plan) => (
-            <div
-              key={plan.id}
-              className={
-                plan.highlight
-                  ? 'bg-[#4452FB] border border-[#4452FB] rounded-3xl p-8 shadow-2xl relative flex flex-col transform md:-translate-y-6'
-                  : 'bg-white border border-slate-200 rounded-3xl p-8 shadow-sm hover:shadow-md transition-shadow flex flex-col group hover:border-[#4452FB]/30'
-              }
-            >
-              {plan.badge && (
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white text-[#4452FB] px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-xl whitespace-nowrap">
-                  {plan.badge}
-                </div>
-              )}
-
-              <h3 className={`text-2xl font-bold mb-2 ${plan.highlight ? 'text-white' : 'text-slate-900'}`}>
-                {plan.name}
-              </h3>
-              <p className={`mb-6 text-sm ${plan.highlight ? 'text-blue-100 opacity-90' : 'text-slate-500'}`}>
-                {plan.tagline}
-              </p>
-
-              <div className="mb-1">
-                <span className={`text-5xl font-black ${plan.highlight ? 'text-white' : 'text-slate-900'}`}>
-                  {plan.price}
-                </span>
-                <span className={`text-sm ml-1 ${plan.highlight ? 'text-blue-100' : 'text-slate-500'}`}>
-                  {plan.cadence}
-                </span>
-              </div>
-              {plan.id !== 'free' ? (
-                <div className={`text-xs font-medium mb-6 ${plan.highlight ? 'text-blue-100/90' : 'text-slate-500'}`}>
-                  + 18% GST (SAC 998313)
-                </div>
-              ) : (
-                <div className="mb-6 h-4" />
-              )}
-
-              <div
-                className={
-                  plan.highlight
-                    ? 'bg-white/10 backdrop-blur-md rounded-xl p-3 mb-6 text-center border border-white/20 flex items-center justify-center'
-                    : 'bg-slate-50 rounded-xl p-3 mb-6 text-center border border-slate-100 flex items-center justify-center'
-                }
-              >
-                <span className={`font-bold ${plan.highlight ? 'text-white text-lg' : 'text-slate-700'}`}>
-                  {plan.creditsLabel}
-                </span>
-              </div>
-
-              <ul className="space-y-4 mb-8 flex-1">
-                {plan.features.map((feature, idx) => (
-                  <li
-                    key={idx}
-                    className={`flex items-start gap-3 ${feature.muted ? 'text-slate-400' : ''}`}
-                  >
-                    <Icon
-                      name={feature.muted ? 'info' : 'check'}
-                      className={`w-5 h-5 shrink-0 mt-0.5 ${
-                        feature.muted ? '' : plan.highlight ? 'text-white' : 'text-green-500'
-                      }`}
-                    />
-                    <span
-                      className={
-                        feature.muted
-                          ? 'text-xs italic'
-                          : plan.highlight
-                          ? 'text-white text-sm'
-                          : 'text-slate-700 text-sm'
-                      }
-                    >
-                      {feature.text}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              <button
-                onClick={() => navigate('/signup')}
-                className={
-                  plan.highlight
-                    ? 'w-full py-4 px-4 bg-white text-[#4452FB] hover:bg-blue-50 font-black rounded-xl transition-all shadow-xl'
-                    : 'w-full py-4 px-4 bg-slate-900 text-white hover:bg-slate-800 font-bold rounded-xl transition-all shadow-lg shadow-slate-200'
-                }
-              >
-                {plan.cta}
-              </button>
-            </div>
-          ))}
-        </div>
-
-        {/* Model picker: 6 options, credits scale with real generation cost */}
-        <div className="mt-20 max-w-6xl mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-3">Pick your AI model per image (6 Options Offered)</h2>
-            <p className="text-slate-500 max-w-2xl mx-auto">
-              Choose from 6 flagship AI models across Google, OpenAI, and Banana Vision. Spend fewer credits on drafts, choose Pro models for production assets.
+        <main className="pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <span className="text-xs uppercase tracking-widest font-semibold text-stone-500 mb-3 block">
+              Predictable Investment · Zero Hidden Fees
+            </span>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-zinc-950 font-lora mb-4">
+              Simple, transparent pricing
+            </h1>
+            <p className="text-base sm:text-lg text-stone-600 max-w-2xl mx-auto leading-relaxed">
+              Choose the tier that matches your creative velocity. Recharge on-demand or unlock unlimited studio capabilities with zero lock-in.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {IMAGE_MODELS.map((model) => (
-              <div
-                key={model.id}
-                className="bg-slate-50 border border-slate-200 rounded-2xl p-6 hover:border-[#4452FB]/40 hover:shadow-sm transition-all"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#4452FB] bg-[#4452FB]/10 px-2.5 py-1 rounded-full">
-                    {model.badge}
-                  </span>
-                  <span className="text-sm font-black text-slate-900">
-                    {model.credits} {model.credits === 1 ? 'Credit' : 'Credits'}
-                  </span>
+          {/* Four plans: 3 Neutral Surfaces + 1 Dark Contrast Recommended Card */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto items-stretch">
+            {PLANS.map((plan) => {
+              const isRecommended = Boolean(plan.highlight);
+              return (
+                <div
+                  key={plan.id}
+                  className={
+                    isRecommended
+                      ? 'bg-zinc-950 text-white border border-zinc-800 rounded-3xl p-7 sm:p-8 shadow-xl relative flex flex-col transform md:-translate-y-3 transition-all'
+                      : 'bg-white text-zinc-900 border border-stone-200/90 rounded-3xl p-7 sm:p-8 shadow-xs hover:border-stone-300 transition-all flex flex-col'
+                  }
+                >
+                  {isRecommended && (
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-[#4452FB] text-white px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm whitespace-nowrap">
+                      {plan.badge || 'Recommended'}
+                    </div>
+                  )}
+
+                  <div className="mb-4">
+                    <h2 className={`text-xl font-bold font-manrope tracking-tight mb-1.5 ${isRecommended ? 'text-white' : 'text-zinc-950'}`}>
+                      {plan.name}
+                    </h2>
+                    <p className={`text-xs min-h-[32px] leading-relaxed ${isRecommended ? 'text-zinc-400' : 'text-stone-500'}`}>
+                      {plan.tagline}
+                    </p>
+                  </div>
+
+                  <div className="mb-1 flex items-baseline">
+                    <span className={`text-4xl sm:text-5xl font-extrabold tracking-tight font-manrope ${isRecommended ? 'text-white' : 'text-zinc-950'}`}>
+                      {plan.price}
+                    </span>
+                    <span className={`text-sm ml-1.5 font-normal ${isRecommended ? 'text-zinc-400' : 'text-stone-500'}`}>
+                      {plan.cadence}
+                    </span>
+                  </div>
+
+                  {plan.id !== 'free' ? (
+                    <div className={`text-xs font-medium mb-6 ${isRecommended ? 'text-zinc-400' : 'text-stone-500'}`}>
+                      + 18% GST (SAC 998313)
+                    </div>
+                  ) : (
+                    <div className="mb-6 h-4" />
+                  )}
+
+                  {/* Credits Highlight */}
+                  <div
+                    className={
+                      isRecommended
+                        ? 'bg-zinc-900 border border-zinc-800 rounded-xl p-3 mb-6 text-center flex items-center justify-center'
+                        : 'bg-stone-50 border border-stone-200/80 rounded-xl p-3 mb-6 text-center flex items-center justify-center'
+                    }
+                  >
+                    <span className={`font-bold text-sm tracking-wide ${isRecommended ? 'text-white' : 'text-zinc-800'}`}>
+                      {plan.creditsLabel}
+                    </span>
+                  </div>
+
+                  {/* Features List */}
+                  <ul className="space-y-3.5 mb-8 flex-1 text-sm">
+                    {plan.features.map((feature, idx) => (
+                      <li
+                        key={idx}
+                        className={`flex items-start gap-3 ${feature.muted ? (isRecommended ? 'text-zinc-400' : 'text-stone-500') : ''}`}
+                      >
+                        <Icon
+                          name={feature.muted ? 'info' : 'check'}
+                          className={`w-4 h-4 shrink-0 mt-0.5 ${
+                            feature.muted
+                              ? (isRecommended ? 'text-zinc-400' : 'text-stone-500')
+                              : isRecommended
+                              ? 'text-emerald-400'
+                              : 'text-zinc-800'
+                          }`}
+                        />
+                        <span
+                          className={
+                            feature.muted
+                              ? 'text-xs italic'
+                              : isRecommended
+                              ? 'text-zinc-200 text-sm'
+                              : 'text-stone-700 text-sm'
+                          }
+                        >
+                          {feature.text}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* CTA Button */}
+                  <button
+                    onClick={() => navigate('/signup')}
+                    className={
+                      isRecommended
+                        ? 'w-full py-3.5 px-4 bg-[#4452FB] hover:bg-[#3641C9] text-white font-bold rounded-xl transition-all shadow-md text-sm cursor-pointer'
+                        : plan.id === 'free'
+                        ? 'w-full py-3.5 px-4 bg-stone-100 hover:bg-stone-200 text-zinc-900 border border-stone-200 font-bold rounded-xl transition-all text-sm cursor-pointer'
+                        : 'w-full py-3.5 px-4 bg-zinc-950 hover:bg-zinc-800 text-white font-bold rounded-xl transition-all shadow-xs text-sm cursor-pointer'
+                    }
+                  >
+                    {plan.cta}
+                  </button>
                 </div>
-                <h4 className="font-bold text-slate-900 text-lg mb-1">{model.name}</h4>
-                <p className="text-xs text-slate-400 font-semibold mb-3">{model.apiModel}</p>
-                <p className="text-sm text-slate-600 leading-relaxed">{model.description}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          <div className="mt-6 text-center text-xs text-slate-400 italic">
-            * Credits are billed per output image. Multi-pose and bulk generations charge one credit set per image, not per click.
-          </div>
-        </div>
-      </main>
+          {/* Model picker & Generation Economics */}
+          <div className="mt-24 max-w-6xl mx-auto border-t border-stone-200 pt-16">
+            <div className="text-center mb-12">
+              <span className="text-xs uppercase tracking-widest font-semibold text-stone-500 mb-2 block">
+                ZeperAI Engine Architecture
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-normal font-lora text-zinc-950 mb-3">
+                Select your generation precision per image
+              </h2>
+              <p className="text-stone-600 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
+                Choose from fine-tuned diffusion models tailored for product photography, lifestyle scenes, and high-impact advertising assets. Spend fewer credits on drafting, upgrade to Pro for production deliverables.
+              </p>
+            </div>
 
-      <Footer />
-    </div>
-  </>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {IMAGE_MODELS.map((model) => (
+                <div
+                  key={model.id}
+                  className="bg-white border border-stone-200/90 rounded-2xl p-6 shadow-xs hover:border-stone-300 transition-all"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-700 bg-stone-100 px-2.5 py-1 rounded-md border border-stone-200">
+                      {model.badge}
+                    </span>
+                    <span className="text-sm font-extrabold text-zinc-950 font-manrope">
+                      {model.credits} {model.credits === 1 ? 'Credit' : 'Credits'}
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-zinc-950 text-base mb-1">{model.name}</h3>
+                  <p className="text-xs text-stone-500 font-medium mb-3">{model.apiModel}</p>
+                  <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">{model.description}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 text-center text-xs text-stone-500">
+              Credits are billed strictly per generated creative asset. Background removals, variations, and high-res exports are clearly itemized before generation.
+            </div>
+          </div>
+        </main>
+
+        <Footer />
+      </div>
+    </>
   );
 };
