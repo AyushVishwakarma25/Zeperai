@@ -200,8 +200,64 @@ export const BounceCardsSection: React.FC = () => {
         })}
       </div>
 
-      {/* Mobile & Tablet Interactive Responsive Grid/Scroll */}
-      <div className="lg:hidden flex flex-col sm:grid sm:grid-cols-2 gap-8 max-w-2xl mx-auto">
+      {/* Mobile Touch Snap Carousel (<640px) */}
+      <div className="sm:hidden -mx-3.5 px-3.5">
+        <div className="flex items-center justify-center gap-1 text-[11px] font-semibold text-stone-500 mb-2">
+          <span>👈 Swipe to read founder reviews 👉</span>
+        </div>
+        <div className="flex gap-3.5 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth pb-4 px-2">
+          {TESTIMONIALS.map((item) => (
+            <div
+              key={item.id}
+              className="w-[84vw] max-w-[310px] shrink-0 snap-center rounded-2xl p-5 shadow-2xs border border-stone-200/90 flex flex-col justify-between"
+              style={{
+                backgroundColor: item.bgColor,
+                color: item.textColor,
+              }}
+            >
+              <div>
+                <div className="flex items-center gap-1 mb-2.5">
+                  {[...Array(5)].map((_, i) => (
+                    <Star 
+                      key={i} 
+                      className="w-3.5 h-3.5 fill-current" 
+                      style={{ color: item.starColor }} 
+                    />
+                  ))}
+                </div>
+                <p className="text-xs leading-relaxed font-medium mb-5">
+                  {item.review}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-2.5 border-t border-current/15">
+                <div>
+                  <h4 className="font-bold text-xs">
+                    {item.author}
+                  </h4>
+                  {item.role && (
+                    <span className="text-[10px] opacity-75">
+                      {item.role}
+                    </span>
+                  )}
+                </div>
+                <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-stone-300 shadow-2xs">
+                  <img 
+                    src={item.image} 
+                    alt={item.author} 
+                    className="w-full h-full object-cover" 
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tablet Interactive Responsive Grid (640px to 1024px) */}
+      <div className="hidden sm:grid sm:grid-cols-2 lg:hidden gap-6 max-w-2xl mx-auto">
         {TESTIMONIALS.map((item, idx) => (
           <motion.div
             key={item.id}

@@ -4,6 +4,43 @@
       "maxDuration": 60
     }
   },
+  "redirects": [
+    {
+      "source": "/background-remover",
+      "destination": "/tools/background-remover",
+      "permanent": true
+    },
+    {
+      "source": "/background-remove",
+      "destination": "/tools/background-remover",
+      "permanent": true
+    },
+    {
+      "source": "/tools/background-remove",
+      "destination": "/tools/background-remover",
+      "permanent": true
+    },
+    {
+      "source": "/cookie-policy",
+      "destination": "/cookies",
+      "permanent": true
+    },
+    {
+      "source": "/legal/cookie-policy",
+      "destination": "/cookies",
+      "permanent": true
+    },
+    {
+      "source": "/blog",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/blog/:path*",
+      "destination": "/",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/admin/login",
@@ -24,30 +61,6 @@
     {
       "source": "/api/(.*)",
       "destination": "/api"
-    },
-    {
-      "source": "/pricing",
-      "destination": "/pricing/index.html"
-    },
-    {
-      "source": "/about",
-      "destination": "/about/index.html"
-    },
-    {
-      "source": "/contact",
-      "destination": "/contact/index.html"
-    },
-    {
-      "source": "/terms",
-      "destination": "/terms/index.html"
-    },
-    {
-      "source": "/privacy",
-      "destination": "/privacy/index.html"
-    },
-    {
-      "source": "/cookies",
-      "destination": "/cookies/index.html"
     },
     {
       "source": "/ai-catalog.json",

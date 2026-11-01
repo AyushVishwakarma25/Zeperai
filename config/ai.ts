@@ -149,7 +149,7 @@ export const getAI = () => {
         vertexProjectId
     );
 
-    const useVertex = process.env.USE_VERTEX_AI !== 'false';
+    const useVertex = process.env.USE_VERTEX_AI === 'true' || (process.env.USE_VERTEX_AI !== 'false' && hasExplicitVertexCreds);
     const effectiveProject = vertexProjectId || parsedSaProject || '';
 
     if (useVertex) {
@@ -190,7 +190,14 @@ export const getAI = () => {
                 });
             }
         } else {
-            genAIInstance = new GoogleGenAI({ apiKey: apiKey || '' });
+            genAIInstance = new GoogleGenAI({
+                apiKey: apiKey || '',
+                httpOptions: {
+                    headers: {
+                        'User-Agent': 'aistudio-build',
+                    },
+                },
+            });
         }
     }
 

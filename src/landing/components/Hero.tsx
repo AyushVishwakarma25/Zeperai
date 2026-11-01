@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Star, Sparkles, ChevronDown, ArrowRight } from 'lucide-react';
+import { Star, Sparkles, ChevronDown, ArrowRight, Check } from 'lucide-react';
 import { landingAssets } from '../landingAssets.js';
 
 interface MediaCard {
@@ -24,8 +24,8 @@ const HERO_MEDIA_CARDS: MediaCard[] = [
     image: landingAssets.skincare,
     alt: 'Clean Skincare Product Shoot',
     rotation: '-rotate-[3deg] sm:-rotate-[4deg]',
-    offsetY: 'translate-y-4 sm:translate-y-6',
-    heightClass: 'h-48 sm:h-64 md:h-76 lg:h-84',
+    offsetY: 'translate-y-2 sm:translate-y-6',
+    heightClass: 'h-52 sm:h-64 md:h-76 lg:h-84',
   },
   {
     id: '02',
@@ -35,8 +35,8 @@ const HERO_MEDIA_CARDS: MediaCard[] = [
     image: landingAssets.shoe,
     alt: 'Footwear Commercial Shoot',
     rotation: 'rotate-[2deg] sm:rotate-[2.5deg]',
-    offsetY: '-translate-y-1 sm:-translate-y-2',
-    heightClass: 'h-52 sm:h-72 md:h-84 lg:h-92',
+    offsetY: '-translate-y-0.5 sm:-translate-y-2',
+    heightClass: 'h-56 sm:h-72 md:h-84 lg:h-92',
   },
   {
     id: '03',
@@ -46,8 +46,8 @@ const HERO_MEDIA_CARDS: MediaCard[] = [
     image: landingAssets.productStudio,
     alt: 'Studio Product Creative Preview',
     rotation: '-rotate-[1deg]',
-    offsetY: '-translate-y-3 sm:-translate-y-5',
-    heightClass: 'h-56 sm:h-76 md:h-88 lg:h-96',
+    offsetY: '-translate-y-2 sm:-translate-y-5',
+    heightClass: 'h-60 sm:h-76 md:h-88 lg:h-96',
   },
   {
     id: '04',
@@ -58,7 +58,7 @@ const HERO_MEDIA_CARDS: MediaCard[] = [
     alt: 'Watch Editorial Shoot',
     rotation: 'rotate-[2deg]',
     offsetY: 'translate-y-0 sm:translate-y-1',
-    heightClass: 'h-52 sm:h-70 md:h-82 lg:h-90',
+    heightClass: 'h-56 sm:h-70 md:h-82 lg:h-90',
   },
   {
     id: '05',
@@ -68,8 +68,8 @@ const HERO_MEDIA_CARDS: MediaCard[] = [
     image: landingAssets.perfume,
     alt: 'Perfume Studio Shoot',
     rotation: '-rotate-[2.5deg] sm:-rotate-[3deg]',
-    offsetY: 'translate-y-3 sm:translate-y-4',
-    heightClass: 'h-48 sm:h-66 md:h-78 lg:h-86',
+    offsetY: 'translate-y-1.5 sm:translate-y-4',
+    heightClass: 'h-52 sm:h-66 md:h-78 lg:h-86',
   },
   {
     id: '06',
@@ -79,8 +79,8 @@ const HERO_MEDIA_CARDS: MediaCard[] = [
     image: landingAssets.aiInfluencer,
     alt: 'AI Influencer UGC Shoot',
     rotation: 'rotate-[3.5deg]',
-    offsetY: 'translate-y-6 sm:translate-y-8',
-    heightClass: 'h-44 sm:h-60 md:h-72 lg:h-80',
+    offsetY: 'translate-y-3 sm:translate-y-8',
+    heightClass: 'h-48 sm:h-60 md:h-72 lg:h-80',
   },
 ];
 
@@ -91,9 +91,9 @@ export const Hero: React.FC = () => {
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const heroRef = useRef<HTMLElement>(null);
 
-  // Subtle mouse movement parallax
+  // Subtle mouse movement parallax (guarded for non-touch pointers)
   const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
-    if (!heroRef.current) return;
+    if (!heroRef.current || window.matchMedia('(pointer: coarse)').matches) return;
     const rect = heroRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width - 0.5;
     const y = (e.clientY - rect.top) / rect.height - 0.5;
@@ -113,28 +113,28 @@ export const Hero: React.FC = () => {
     <section
       ref={heroRef}
       onMouseMove={handleMouseMove}
-      className="relative pt-6 sm:pt-10 md:pt-14 pb-16 sm:pb-24 md:pb-28 px-4 sm:px-6 lg:px-8 w-full max-w-[1440px] mx-auto text-center font-manrope overflow-hidden select-none"
+      className="relative pt-4 xs:pt-6 sm:pt-10 md:pt-14 pb-14 sm:pb-24 md:pb-28 px-3.5 sm:px-6 lg:px-8 w-full max-w-[1440px] mx-auto text-center font-manrope overflow-hidden select-none"
     >
       {/* Subtle Warm Neutral Background Wash */}
       <div
-        className="absolute top-12 left-1/2 -translate-x-1/2 w-[700px] sm:w-[950px] h-[480px] bg-gradient-to-b from-stone-100/60 via-zinc-50/40 to-transparent blur-[100px] rounded-full pointer-events-none -z-10"
+        className="absolute top-8 sm:top-12 left-1/2 -translate-x-1/2 w-[340px] xs:w-[480px] sm:w-[750px] md:w-[950px] h-[360px] sm:h-[480px] bg-gradient-to-b from-stone-100/70 via-zinc-50/40 to-transparent blur-[80px] sm:blur-[100px] rounded-full pointer-events-none -z-10"
         aria-hidden="true"
       />
 
       {/* ==================================================================== */}
       {/* 01. TRUST BADGE PILL                                                */}
       {/* ==================================================================== */}
-      <div className="flex justify-center mb-5 sm:mb-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-        <div className="inline-flex items-center gap-2.5 px-3.5 sm:px-4 py-1.5 rounded-full bg-white border border-stone-200 shadow-sm hover:border-stone-300 transition-all hover:scale-[1.01]">
+      <div className="flex justify-center mb-4 sm:mb-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="inline-flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full bg-white border border-stone-200 shadow-2xs hover:border-stone-300 transition-all hover:scale-[1.01]">
           {/* Gold Stars */}
           <div className="flex items-center gap-0.5 text-amber-500" aria-hidden="true">
             {[...Array(5)].map((_, i) => (
-              <Star key={i} className="w-3.5 h-3.5 fill-current" />
+              <Star key={i} className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-current" />
             ))}
           </div>
 
           {/* Badge Label */}
-          <span className="text-xs sm:text-[13px] font-semibold text-zinc-900 tracking-tight">
+          <span className="text-[11px] sm:text-[13px] font-semibold text-zinc-900 tracking-tight">
             Trusted by 50+ Indian D2C Brands
           </span>
         </div>
@@ -143,15 +143,15 @@ export const Hero: React.FC = () => {
       {/* ==================================================================== */}
       {/* 02. HEADLINE (EDITORIAL LORA SERIF + ACCENTS)                       */}
       {/* ==================================================================== */}
-      <div className="max-w-4xl mx-auto relative px-2">
-        <h1 className="font-lora text-4xl sm:text-6xl md:text-7xl lg:text-[76px] font-bold text-zinc-900 leading-[1.08] tracking-tight animate-in fade-in slide-in-from-bottom-3 duration-700">
+      <div className="max-w-4xl mx-auto relative px-1 sm:px-2">
+        <h1 className="font-lora text-[32px] xs:text-[38px] sm:text-6xl md:text-7xl lg:text-[76px] font-bold text-zinc-900 leading-[1.12] sm:leading-[1.08] tracking-tight animate-in fade-in slide-in-from-bottom-3 duration-700">
           <span className="block">Create Studio-Quality</span>
-          <span className="relative inline-block mt-1 sm:mt-2">
+          <span className="relative inline-block mt-0.5 sm:mt-2">
             <span>Ad Creatives in Minutes</span>
             
             {/* Hand-drawn Underline Doodle below 'in Minutes' */}
             <svg
-              className="absolute -bottom-2 sm:-bottom-3 left-0 w-full h-3 sm:h-4 overflow-visible text-[#4452FB] pointer-events-none"
+              className="absolute -bottom-1.5 sm:-bottom-3 left-0 w-full h-2.5 sm:h-4 overflow-visible text-[#4452FB] pointer-events-none"
               viewBox="0 0 400 20"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -190,43 +190,41 @@ export const Hero: React.FC = () => {
       {/* ==================================================================== */}
       {/* 03. SUBHEADLINE (WARM NEUTRAL, 1-2 LINES)                            */}
       {/* ==================================================================== */}
-      <div className="max-w-2xl mx-auto mt-5 sm:mt-6 px-2 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
-        <p className="font-manrope text-base sm:text-lg md:text-[19px] text-zinc-600 leading-relaxed font-normal">
+      <div className="max-w-2xl mx-auto mt-4 sm:mt-6 px-2 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
+        <p className="font-manrope text-sm xs:text-base sm:text-lg md:text-[19px] text-zinc-600 leading-relaxed font-normal">
           Turn simple phone photos into high-converting packshots, lifestyle scenes, and Reels for Meta, Amazon, and Blinkit in seconds.
         </p>
       </div>
 
       {/* ==================================================================== */}
-      {/* 04. CTAS & HAND-DRAWN DOODLE ANNOTATIONS                            */}
+      {/* 04. CTAS & REASSURANCE                                               */}
       {/* ==================================================================== */}
-      <div className="relative mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4 max-w-lg mx-auto z-20">
+      <div className="relative mt-7 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 max-w-lg mx-auto z-20">
         
         {/* Primary CTA (Signature Brand Blue #4452FB) */}
         <button
           onClick={() => navigate('/login')}
-          className="group relative w-full sm:w-auto h-13 sm:h-14 px-8 sm:px-9 rounded-full bg-[#4452FB] hover:bg-[#3442E8] text-white font-manrope font-bold text-base sm:text-[17px] tracking-tight shadow-sm hover:shadow-md hover:scale-[1.01] active:scale-[0.98] transition-all duration-200 cursor-pointer inline-flex items-center justify-center gap-2"
+          className="group relative w-full sm:w-auto h-12 xs:h-13 sm:h-14 px-6 sm:px-9 rounded-full bg-[#4452FB] hover:bg-[#3442E8] text-white font-manrope font-bold text-base sm:text-[17px] tracking-tight shadow-sm hover:shadow-md hover:scale-[1.01] active:scale-[0.98] transition-all duration-200 cursor-pointer inline-flex items-center justify-center gap-2"
         >
           <span>Start Creating Free</span>
-          <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+          <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" />
         </button>
 
         {/* Secondary CTA (Explore Features) */}
         <button
           onClick={handleScrollToNext}
-          className="w-full sm:w-auto h-13 sm:h-14 px-7 sm:px-8 rounded-full bg-white hover:bg-stone-50 text-zinc-900 border border-stone-200 hover:border-stone-300 font-manrope font-semibold text-base sm:text-[16px] shadow-sm hover:scale-[1.01] active:scale-[0.98] transition-all duration-200 cursor-pointer inline-flex items-center justify-center gap-2.5"
+          className="w-full sm:w-auto h-12 xs:h-13 sm:h-14 px-6 sm:px-8 rounded-full bg-white hover:bg-stone-50 text-zinc-900 border border-stone-200 hover:border-stone-300 font-manrope font-semibold text-sm sm:text-base shadow-2xs hover:scale-[1.01] active:scale-[0.98] transition-all duration-200 cursor-pointer inline-flex items-center justify-center gap-2"
         >
-          <span>Explore features</span>
+          <span>Explore Features</span>
         </button>
 
-        {/* Hand-Drawn Doodle Annotation: Arrow pointing at Primary CTA */}
+        {/* Hand-Drawn Doodle Annotation: Arrow pointing at Primary CTA (Desktop) */}
         <div className="hidden md:flex absolute -bottom-11 -left-36 lg:-left-44 items-center gap-2 pointer-events-none text-zinc-900 z-30 select-none">
-          {/* Handwritten Text Note */}
           <div className="font-caveat text-xl sm:text-2xl font-bold text-zinc-900 tracking-wide -rotate-6">
             <span>No credit card needed</span>
             <span className="block text-xs font-semibold text-[#4452FB] font-manrope uppercase tracking-widest">Free tier included</span>
           </div>
 
-          {/* Playful Curving SVG Arrow pointing to Primary CTA button */}
           <svg
             className="w-16 h-12 text-[#4452FB] rotate-6"
             viewBox="0 0 64 48"
@@ -254,15 +252,33 @@ export const Hero: React.FC = () => {
 
       </div>
 
-      {/* ==================================================================== */}
-      {/* 05. VISUAL CENTERPIECE — THUMBNAIL / MEDIA STRIP (4-6 CARDS)        */}
-      {/* ==================================================================== */}
-      <div className="relative mt-12 sm:mt-16 md:mt-20 max-w-[1360px] mx-auto">
+      {/* Mobile Trust & No-Friction Reassurance Bar */}
+      <div className="mt-3.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-stone-500 font-medium">
+        <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+          <Check className="w-3.5 h-3.5" /> No credit card required
+        </span>
+        <span className="text-stone-300">•</span>
+        <span>10 free credits instantly</span>
+        <span className="text-stone-300 hidden xs:inline">•</span>
+        <span className="hidden xs:inline">Instant browser cutouts</span>
+      </div>
 
-        {/* Overlapping Horizontal Strip with Staggered Heights and Slight Rotation */}
-        <div className="relative pt-4 pb-8 px-2 flex items-center justify-center overflow-x-auto sm:overflow-visible no-scrollbar">
+      {/* ==================================================================== */}
+      {/* 05. VISUAL CENTERPIECE — THUMBNAIL / MEDIA STRIP (TOUCH & DESKTOP)   */}
+      {/* ==================================================================== */}
+      <div className="relative mt-8 xs:mt-10 sm:mt-16 md:mt-20 max-w-[1360px] mx-auto">
+        
+        {/* Mobile Swipe Hint */}
+        <div className="sm:hidden flex items-center justify-center gap-1.5 text-[11px] font-semibold text-stone-500 mb-2.5">
+          <span className="inline-flex items-center gap-1 bg-stone-100 border border-stone-200 px-2.5 py-0.5 rounded-full">
+            👆 Swipe to explore 6 studio engines
+          </span>
+        </div>
+
+        {/* Horizontal Strip: Swipeable snap-scroller on Mobile, Staggered Overlap on Desktop */}
+        <div className="relative pt-2 pb-6 px-3 sm:px-2 flex items-center overflow-x-auto sm:overflow-visible no-scrollbar snap-x snap-mandatory scroll-smooth">
           <div
-            className="flex items-center justify-center -space-x-4 sm:-space-x-7 md:-space-x-9 lg:-space-x-11 select-none transition-transform duration-300 ease-out"
+            className="flex items-center gap-3 sm:gap-0 sm:-space-x-7 md:-space-x-9 lg:-space-x-11 select-none transition-transform duration-300 ease-out mx-auto sm:mx-auto"
             style={{
               transform: `translate3d(${mousePos.x * 12}px, ${mousePos.y * 8}px, 0)`,
             }}
@@ -271,14 +287,15 @@ export const Hero: React.FC = () => {
               return (
                 <div
                   key={card.id}
-                  className={`relative shrink-0 transition-all duration-300 ease-out group ${card.rotation} ${card.offsetY} hover:!rotate-0 hover:!-translate-y-4 hover:!scale-105 hover:!z-40`}
+                  className={`relative shrink-0 snap-center transition-all duration-300 ease-out group sm:${card.rotation} sm:${card.offsetY} hover:!rotate-0 hover:!-translate-y-4 hover:!scale-105 hover:!z-40`}
                   style={{
                     zIndex: 10 + (idx < 3 ? idx * 2 : (5 - idx) * 2),
                   }}
+                  onClick={() => navigate('/login')}
                 >
                   {/* Card Shell */}
                   <div
-                    className={`w-32 sm:w-44 md:w-52 lg:w-58 ${card.heightClass} rounded-2xl sm:rounded-3xl overflow-hidden bg-white border border-stone-200/90 shadow-sm relative transition-all duration-300 group-hover:shadow-lg group-hover:border-stone-300`}
+                    className={`w-36 xs:w-40 sm:w-44 md:w-52 lg:w-58 ${card.heightClass} rounded-2xl sm:rounded-3xl overflow-hidden bg-white border border-stone-200/90 shadow-2xs relative transition-all duration-300 group-hover:shadow-md group-hover:border-stone-300 cursor-pointer`}
                   >
                     {/* Visual Asset (Pure Image) */}
                     <div className="w-full h-full relative overflow-hidden bg-stone-50">
@@ -286,22 +303,22 @@ export const Hero: React.FC = () => {
                         src={card.image}
                         alt={card.alt}
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                        loading="eager"
+                        loading={idx < 3 ? 'eager' : 'lazy'}
                       />
                     </div>
 
                     {/* Top Right Card Badge */}
-                    <div className="absolute top-2.5 right-2.5 bg-white/95 backdrop-blur-xs text-zinc-900 font-manrope text-[9px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full shadow-xs border border-stone-200">
+                    <div className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 bg-white/95 backdrop-blur-xs text-zinc-900 font-manrope text-[9px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full shadow-2xs border border-stone-200">
                       {card.badge}
                     </div>
 
                     {/* Top Left Tag Category */}
-                    <div className="absolute top-2.5 left-2.5 bg-zinc-900/90 backdrop-blur-xs text-white font-manrope text-[8px] sm:text-[10px] font-medium px-2 py-0.5 rounded-full shadow-xs">
+                    <div className="absolute top-2 left-2 sm:top-2.5 sm:left-2.5 bg-zinc-900/90 backdrop-blur-xs text-white font-manrope text-[8px] sm:text-[10px] font-medium px-2 py-0.5 rounded-full shadow-2xs">
                       {card.title}
                     </div>
 
                     {/* Bottom Metadata */}
-                    <div className="absolute inset-x-0 bottom-0 p-2 sm:p-2.5 bg-gradient-to-t from-zinc-950/80 to-transparent text-left opacity-90 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute inset-x-0 bottom-0 p-2 sm:p-2.5 bg-gradient-to-t from-zinc-950/85 to-transparent text-left opacity-90 group-hover:opacity-100 transition-opacity">
                       <p className="text-[9px] sm:text-[11px] font-semibold text-white font-manrope truncate">
                         {card.category}
                       </p>

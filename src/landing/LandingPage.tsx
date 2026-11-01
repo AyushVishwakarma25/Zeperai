@@ -6,7 +6,8 @@ import {
   Check, 
   ChevronDown, 
   Star, 
-  Quote 
+  Quote,
+  X
 } from 'lucide-react';
 import { Icon } from '../../components/ui/Icon.js';
 import { LandingHeader } from './LandingHeader.js';
@@ -32,10 +33,10 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, color, ac
   return (
     <div
       onClick={onClick}
-      className="group flex flex-col bg-white rounded-2xl overflow-hidden shadow-2xs hover:shadow-md transition-all duration-300 border border-stone-200 hover:border-stone-300 cursor-pointer text-left"
+      className="group flex flex-col bg-white rounded-2xl overflow-hidden shadow-2xs hover:shadow-md transition-all duration-300 border border-stone-200 hover:border-stone-300 cursor-pointer text-left active:scale-[0.99]"
     >
       <div 
-        className="h-44 sm:h-48 relative overflow-hidden flex items-center justify-center transition-colors duration-300 bg-stone-100"
+        className="h-40 sm:h-48 relative overflow-hidden flex items-center justify-center transition-colors duration-300 bg-stone-100"
         style={{ backgroundColor: color }}
       >
         {thumbnail ? (
@@ -48,24 +49,27 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, color, ac
             <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors duration-300" />
           </div>
         ) : (
-          <div className="relative w-14 h-14 bg-white rounded-xl shadow-xs transform group-hover:scale-105 transition-transform duration-300 flex items-center justify-center border border-stone-200">
+          <div className="relative w-12 h-12 sm:w-14 sm:h-14 bg-white rounded-xl shadow-xs transform group-hover:scale-105 transition-transform duration-300 flex items-center justify-center border border-stone-200">
             <div style={{ color: accentColor }}>
-              <Icon name={iconName} className="w-7 h-7" />
+              <Icon name={iconName} className="w-6 h-6 sm:w-7 sm:h-7" />
             </div>
           </div>
         )}
       </div>
 
-      <div className="p-5 flex flex-col flex-grow">
-        <h3 className="text-base font-bold mb-1.5 text-zinc-900 group-hover:text-zinc-950 transition-colors font-manrope">
+      <div className="p-4 sm:p-5 flex flex-col flex-grow">
+        <h3 className="text-base font-bold mb-1 text-zinc-900 group-hover:text-zinc-950 transition-colors font-manrope">
           {title}
         </h3>
-        <p className="text-stone-600 text-xs sm:text-sm leading-relaxed mb-4 flex-grow font-normal">
+        <p className="text-stone-600 text-xs sm:text-sm leading-relaxed mb-3 sm:mb-4 flex-grow font-normal">
           {description}
         </p>
-        <div className="flex items-center justify-end mt-auto pt-2">
-          <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center group-hover:bg-zinc-900 transition-all duration-200 border border-stone-200 group-hover:border-zinc-900">
-            <ArrowRight className="w-4 h-4 text-stone-700 group-hover:text-white transition-colors" />
+        <div className="flex items-center justify-between mt-auto pt-2">
+          <span className="text-[11px] font-semibold text-[#4452FB] group-hover:underline">
+            Try in Studio →
+          </span>
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-stone-100 flex items-center justify-center group-hover:bg-zinc-900 transition-all duration-200 border border-stone-200 group-hover:border-zinc-900">
+            <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-700 group-hover:text-white transition-colors" />
           </div>
         </div>
       </div>
@@ -77,6 +81,8 @@ export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showMobileFloatingCta, setShowMobileFloatingCta] = useState(false);
+  const [dismissedFloatingCta, setDismissedFloatingCta] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
   const toggleFaq = (index: number) => {
@@ -85,9 +91,11 @@ export const LandingPage: React.FC = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 500);
+      const scrollY = window.scrollY;
+      setShowScrollTop(scrollY > 500);
+      setShowMobileFloatingCta(scrollY > 480);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -211,21 +219,21 @@ export const LandingPage: React.FC = () => {
       <SoftwareAppSchema />
       <FAQSchema />
 
-      <div className="min-h-screen bg-white text-zinc-900 font-manrope selection:bg-zinc-900 selection:text-white">
+      <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-white text-zinc-900 font-manrope selection:bg-zinc-900 selection:text-white">
         
         {/* Floating Header */}
         <LandingHeader />
 
-        <main id="main-content" role="main">
+        <main id="main-content" role="main" className="w-full max-w-full overflow-x-hidden">
           
           {/* Hero Section */}
           <Hero />
 
-          {/* Value Prop Marquee Ticker directly below Hero */}
-          <div className="bg-zinc-950 text-white py-3.5 overflow-hidden whitespace-nowrap relative z-20 border-y border-zinc-800">
-            <div className="flex animate-marquee gap-10 items-center text-sm sm:text-base font-semibold tracking-wide" style={{ animationDuration: '22s' }}>
+          {/* Value Prop Marquee Ticker directly below Hero (Responsive Sizing) */}
+          <div className="bg-zinc-950 text-white py-2.5 sm:py-3.5 overflow-hidden whitespace-nowrap relative z-20 border-y border-zinc-800">
+            <div className="flex animate-marquee gap-8 sm:gap-10 items-center text-xs sm:text-base font-semibold tracking-wide" style={{ animationDuration: '26s' }}>
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex gap-10 items-center shrink-0">
+                <div key={i} className="flex gap-8 sm:gap-10 items-center shrink-0">
                   <span className="text-amber-400 font-bold flex items-center gap-1.5">
                     <span>✨</span> 10 Free Credits on Signup
                   </span>
@@ -248,20 +256,20 @@ export const LandingPage: React.FC = () => {
           </div>
 
           {/* Features Section */}
-          <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-stone-200">
-            <div className="text-center max-w-3xl mx-auto mb-14">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-stone-100 text-zinc-900 border border-stone-200 text-xs font-bold uppercase tracking-wider mb-3">
+          <section id="features" className="py-14 sm:py-20 px-3.5 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-stone-200">
+            <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-14">
+              <div className="inline-flex items-center gap-2 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-stone-100 text-zinc-900 border border-stone-200 text-[11px] sm:text-xs font-bold uppercase tracking-wider mb-2.5 sm:mb-3">
                 <span>Features</span>
               </div>
-              <h2 className="font-lora text-3xl sm:text-5xl font-bold text-zinc-900 tracking-tight">
+              <h2 className="font-lora text-2xl xs:text-3xl sm:text-5xl font-bold text-zinc-900 tracking-tight leading-tight">
                 Everything You Need to Create High-Converting Visuals
               </h2>
-              <p className="mt-4 text-base sm:text-lg text-stone-600 font-normal">
+              <p className="mt-3 sm:mt-4 text-sm sm:text-lg text-stone-600 font-normal">
                 From standalone packshots to full multi-channel ad campaigns, ZeperAI brings professional creative tools straight to your browser.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
               {studioFeatures.map((tool) => (
                 <FeatureCard 
                   key={tool.title}
@@ -281,33 +289,33 @@ export const LandingPage: React.FC = () => {
           <BounceCardsSection />
 
           {/* FAQ Accordion */}
-          <section id="faq" className="py-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto border-t border-stone-200">
-            <div className="text-center mb-12">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-stone-100 text-zinc-900 border border-stone-200 text-xs font-bold uppercase tracking-wider mb-3">
+          <section id="faq" className="py-14 sm:py-20 px-3.5 sm:px-6 lg:px-8 max-w-4xl mx-auto border-t border-stone-200">
+            <div className="text-center mb-8 sm:mb-12">
+              <div className="inline-flex items-center gap-2 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-stone-100 text-zinc-900 border border-stone-200 text-[11px] sm:text-xs font-bold uppercase tracking-wider mb-2.5 sm:mb-3">
                 <span>FAQ</span>
               </div>
-              <h2 className="font-lora text-3xl sm:text-4xl font-bold text-zinc-900 tracking-tight">
+              <h2 className="font-lora text-2xl xs:text-3xl sm:text-4xl font-bold text-zinc-900 tracking-tight">
                 Frequently Asked Questions
               </h2>
             </div>
 
-            <div className="space-y-3.5">
+            <div className="space-y-3 sm:space-y-3.5">
               {faqs.map((faq, idx) => (
                 <div 
                   key={idx} 
-                  className="bg-white border border-stone-200 rounded-2xl overflow-hidden transition-all shadow-2xs"
+                  className="bg-white border border-stone-200 rounded-xl sm:rounded-2xl overflow-hidden transition-all shadow-2xs"
                 >
                   <button
                     onClick={() => toggleFaq(idx)}
-                    className="w-full p-5 sm:p-6 text-left flex items-center justify-between gap-4 font-bold text-base sm:text-lg text-zinc-900 focus:outline-none cursor-pointer"
+                    className="w-full p-4 sm:p-6 text-left flex items-center justify-between gap-3 font-bold text-sm sm:text-lg text-zinc-900 focus:outline-none cursor-pointer"
                   >
                     <span>{faq.q}</span>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-stone-50 border border-stone-200 transition-transform duration-200 shrink-0 ${openFaqIndex === idx ? 'rotate-180 bg-stone-100 border-stone-300' : ''}`}>
-                      <ChevronDown className="w-4 h-4 text-stone-700" />
+                    <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center bg-stone-50 border border-stone-200 transition-transform duration-200 shrink-0 ${openFaqIndex === idx ? 'rotate-180 bg-stone-100 border-stone-300' : ''}`}>
+                      <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-700" />
                     </div>
                   </button>
                   {openFaqIndex === idx && (
-                    <div className="px-5 sm:px-6 pb-6 pt-1 text-stone-600 leading-relaxed text-sm sm:text-base border-t border-stone-100 font-normal">
+                    <div className="px-4 sm:px-6 pb-5 sm:pb-6 pt-1 text-stone-600 leading-relaxed text-xs sm:text-base border-t border-stone-100 font-normal">
                       {faq.a}
                     </div>
                   )}
@@ -317,28 +325,28 @@ export const LandingPage: React.FC = () => {
           </section>
 
           {/* Final Call to Action */}
-          <section className="py-24 bg-zinc-950 text-white text-center px-4 sm:px-6 lg:px-8 relative overflow-hidden border-t border-zinc-900">
-            <div className="max-w-4xl mx-auto relative z-10 space-y-6">
-              <h2 className="font-lora text-3xl sm:text-5xl font-bold leading-tight tracking-tight text-white">
+          <section className="py-16 sm:py-24 bg-zinc-950 text-white text-center px-4 sm:px-6 lg:px-8 relative overflow-hidden border-t border-zinc-900">
+            <div className="max-w-4xl mx-auto relative z-10 space-y-4 sm:space-y-6">
+              <h2 className="font-lora text-2xl xs:text-3xl sm:text-5xl font-bold leading-tight tracking-tight text-white">
                 Ready to Upgrade Your Product Creative?
               </h2>
-              <p className="text-base sm:text-lg text-zinc-400 max-w-2xl mx-auto font-normal">
+              <p className="text-sm sm:text-lg text-zinc-400 max-w-2xl mx-auto font-normal">
                 Start generating studio-grade product photos and ads in seconds. 10 free credits included with zero setup.
               </p>
-              <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <div className="pt-2 sm:pt-4 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
                 <button 
                   onClick={() => navigate('/login')}
-                  className="w-full sm:w-auto bg-[#4452FB] hover:bg-[#3641C9] text-white px-8 py-4 rounded-full font-bold text-base transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full sm:w-auto bg-[#4452FB] hover:bg-[#3641C9] active:scale-98 text-white px-6 sm:px-8 py-3.5 sm:py-4 rounded-full font-bold text-sm sm:text-base transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span>Start Free with 10 Credits</span>
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
                 <button
                   onClick={() => {
                     const el = document.getElementById('features');
                     if (el) el.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className="w-full sm:w-auto bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-800 px-7 py-4 rounded-full font-semibold text-base transition-all cursor-pointer"
+                  className="w-full sm:w-auto bg-zinc-900 hover:bg-zinc-800 active:scale-98 text-white border border-zinc-800 px-6 sm:px-7 py-3.5 sm:py-4 rounded-full font-semibold text-sm sm:text-base transition-all cursor-pointer"
                 >
                   <span>Explore Features</span>
                 </button>
@@ -355,12 +363,43 @@ export const LandingPage: React.FC = () => {
         {showScrollTop && (
           <button 
             onClick={scrollToTop}
-            className="fixed bottom-8 right-8 w-11 h-11 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-[100] cursor-pointer"
+            className="fixed bottom-5 right-3.5 sm:bottom-8 sm:right-8 w-10 h-10 sm:w-11 sm:h-11 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-[90] cursor-pointer"
             title="Scroll to top"
             aria-label="Scroll to top"
           >
-            <Icon name="arrow-up" className="w-5 h-5" />
+            <Icon name="arrow-up" className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
+        )}
+
+        {/* Mobile Persistent Floating Quick-Start Bar (Displays when scrolled on mobile, dismissable) */}
+        {showMobileFloatingCta && !dismissedFloatingCta && (
+          <div className="lg:hidden fixed bottom-3 inset-x-3 z-50 animate-in fade-in slide-in-from-bottom-3 duration-300 pointer-events-auto">
+            <div className="bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 shadow-2xl rounded-2xl p-2.5 px-3.5 flex items-center justify-between gap-2.5 font-manrope">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white truncate">10 Free Credits on Signup</p>
+                  <p className="text-[10px] text-zinc-400 truncate">No credit card required</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => navigate('/login')}
+                  className="bg-[#4452FB] hover:bg-[#3442E8] active:scale-95 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Claim Free</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setDismissedFloatingCta(true)}
+                  className="p-1 text-zinc-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                  aria-label="Dismiss banner"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </>

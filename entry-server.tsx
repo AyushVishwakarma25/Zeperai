@@ -25,7 +25,6 @@ const routeComponents: Record<string, React.FC<any>> = {
   '/about': AboutUsPage,
   '/contact': ContactPage,
   '/tools/background-remover': BackgroundRemoverLandingPage,
-  '/background-remover': BackgroundRemoverLandingPage,
   '/terms': TermsPage,
   '/privacy': PrivacyPolicyPage,
   '/cookies': CookiePolicyPage,

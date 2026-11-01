@@ -222,20 +222,21 @@ export const LandingHeader: React.FC = () => {
                   )}
                 </div>
               ) : (
-                /* Primary CTA: "Get 10 Free Credits" */
+                /* Primary CTA: "Get 10 Free Credits" (responsive for small phone screens) */
                 <button 
                   onClick={() => navigate('/login')}
-                  className="group relative overflow-hidden bg-[#4452FB] hover:bg-[#3641C9] text-white px-3.5 py-1.5 md:px-4 md:py-1.5 rounded-full text-xs md:text-[13px] font-bold transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                  className="group relative overflow-hidden bg-[#4452FB] hover:bg-[#3641C9] text-white px-2.5 xs:px-3.5 py-1.5 md:px-4 md:py-1.5 rounded-full text-xs md:text-[13px] font-bold transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 active:scale-95 flex items-center gap-1.5 cursor-pointer"
                 >
                   <Sparkles className="w-3 h-3 text-amber-300 shrink-0 relative z-10 transition-transform duration-200 group-hover:scale-110" />
-                  <span className="relative z-10">Get 10 Free Credits</span>
+                  <span className="relative z-10 hidden xs:inline">Get 10 Free Credits</span>
+                  <span className="relative z-10 xs:hidden">10 Credits Free</span>
                   <ArrowRight className="w-3 h-3 transition-transform duration-200 group-hover:translate-x-0.5 shrink-0 hidden sm:inline relative z-10" />
                 </button>
               )}
               
-              {/* Mobile Animated Hamburger Button */}
+              {/* Mobile Animated Hamburger Button (Accessible 44px Hit Target) */}
               <button 
-                className="lg:hidden p-2 rounded-full text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors focus:outline-none cursor-pointer"
+                className="lg:hidden w-10 h-10 rounded-full text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors focus:outline-none cursor-pointer flex items-center justify-center shrink-0"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 aria-label={isMobileMenuOpen ? "Close Navigation Menu" : "Open Navigation Menu"}
               >

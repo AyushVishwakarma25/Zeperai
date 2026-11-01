@@ -450,16 +450,19 @@ const AppInternal: React.FC = () => {
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/cookies" element={<CookiePolicyPage />} />
-      <Route path="/cookie-policy" element={<CookiePolicyPage />} />
-      <Route path="/legal/cookie-policy" element={<CookiePolicyPage />} />
+      <Route path="/cookie-policy" element={<Navigate to="/cookies" replace />} />
+      <Route path="/legal/cookie-policy" element={<Navigate to="/cookies" replace />} />
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/tools/background-remover" element={<BackgroundRemoverLandingPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
-      <Route path="/background-remover" element={<BackgroundRemoverLandingPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
+      <Route path="/background-remover" element={<Navigate to="/tools/background-remover" replace />} />
+      <Route path="/background-remove" element={<Navigate to="/tools/background-remover" replace />} />
+      <Route path="/tools/background-remove" element={<Navigate to="/tools/background-remover" replace />} />
       <Route path="/tools/local-seo-audit" element={<Navigate to="/" replace />} />
       <Route path="/local-seo-audit" element={<Navigate to="/" replace />} />
       <Route path="/about" element={<AboutUsPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/blog" element={<Navigate to="/" replace />} />
+      <Route path="/blog/*" element={<Navigate to="/" replace />} />
       <Route path="/login" element={!user ? <LoginPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to={getReturnPath()} replace />} />
       <Route path="/signup" element={!user ? <SignupPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to={getReturnPath()} replace />} />
       <Route path="/dashboard" element={

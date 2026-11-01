@@ -27,7 +27,10 @@ try {
         } else if (val.startsWith("'") && val.endsWith("'")) {
           val = val.substring(1, val.length - 1);
         }
-        process.env[key] = val.trim();
+        const trimmedVal = val.trim();
+        if (trimmedVal !== '') {
+          process.env[key] = trimmedVal;
+        }
       }
     });
     console.log('Successfully loaded environment variables from physical .env file.');
@@ -70,8 +73,11 @@ try {
       if (parsed.VERTEX_LOCATION && !process.env.VERTEX_LOCATION) {
         process.env.VERTEX_LOCATION = parsed.VERTEX_LOCATION;
       }
+      if (parsed.GEMINI_API_KEY && !process.env.GEMINI_API_KEY) {
+        process.env.GEMINI_API_KEY = parsed.GEMINI_API_KEY;
+      }
       if (parsed.USE_VERTEX_AI !== undefined) {
-        process.env.USE_VERTEX_AI = parsed.USE_VERTEX_AI ? 'true' : 'false';
+        process.env.USE_VERTEX_AI = (parsed.USE_VERTEX_AI === true || parsed.USE_VERTEX_AI === 'true') ? 'true' : 'false';
       }
       console.log('Successfully loaded persisted AI settings from config/ai-settings.json on server startup.');
     }
@@ -80,9 +86,15 @@ try {
   console.warn('Persisted config/ai-settings.json loading skipped:', aiSetErr.message);
 }
 
-// Ensure Vertex AI is the primary provider by default
+// Use Vertex AI by default when Vertex credentials are configured; otherwise default to Google AI Studio
 if (process.env.USE_VERTEX_AI === undefined) {
-  process.env.USE_VERTEX_AI = 'true';
+  const hasVertexCredsOnStartup = Boolean(
+    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON ||
+    process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+    process.env.VERTEX_PROJECT_ID ||
+    (process.env.VERTEX_API_KEY && !process.env.VERTEX_API_KEY.startsWith('AQ.'))
+  );
+  process.env.USE_VERTEX_AI = hasVertexCredsOnStartup ? 'true' : 'false';
 }
 
 // Clean up any mismatched AI Studio keys mistakenly assigned to VERTEX_API_KEY
@@ -3654,16 +3666,23 @@ const requireAdmin = async (req: any, res: any, next: any) => {
             });
           }
         } else {
-          targetProvider = 'Google AI Studio (API Key)';
-          const gKey = pendingGeminiApiKey || process.env.GEMINI_API_KEY || '';
+          targetProvider = 'Google AI Studio (Built-in / API Key)';
+          const gKey = pendingGeminiApiKey || process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || process.env.GOOGLE_API_KEY || '';
           if (!gKey) {
             return res.status(400).json({
               success: false,
               latencyMs: 0,
-              error: 'Please enter a Gemini API Key to test AI Studio mode.'
+              error: 'No Gemini API Key found in environment or input. Please enter a Gemini API Key to test AI Studio mode.'
             });
           }
-          testClient = new GoogleGenAI({ apiKey: gKey });
+          testClient = new GoogleGenAI({
+            apiKey: gKey,
+            httpOptions: {
+              headers: {
+                'User-Agent': 'aistudio-build',
+              },
+            },
+          });
         }
       } else {
         // Test current active instance
@@ -3707,12 +3726,12 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       } else {
         result = await testClient.models.generateContent({
           model: testModel,
-          contents: [{ role: 'user', parts: [{ text: 'Respond with the single word "READY"' }] }],
-          config: { maxOutputTokens: 10 }
+          contents: 'Respond with the single word "READY"',
         });
       }
       const latencyMs = Date.now() - startTime;
-      const text = result?.text?.() || result?.response?.text?.() || 'READY';
+      const rawText = typeof result?.text === 'function' ? result.text() : result?.text;
+      const text = rawText || (typeof result?.response?.text === 'function' ? result.response.text() : result?.response?.text) || 'READY';
 
       res.json({
         success: true,

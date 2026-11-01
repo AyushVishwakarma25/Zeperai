@@ -45,10 +45,22 @@ try {
       let html = template.replace('<div id="root"></div>', `<div id="root">${appHtml}</div>`);
 
       if (helmet) {
-        const headInjection = [helmet.title.toString(), helmet.meta.toString(), helmet.link.toString()].join(
-          '\n    '
-        );
-        html = html.replace(/<title>.*?<\/title>/, headInjection);
+        const titleStr = helmet.title ? helmet.title.toString() : '';
+        const metaStr = helmet.meta ? helmet.meta.toString() : '';
+        const linkStr = helmet.link ? helmet.link.toString() : '';
+        const scriptStr = helmet.script ? helmet.script.toString() : '';
+        const headInjection = [titleStr, metaStr, linkStr, scriptStr].filter(Boolean).join('\n    ');
+
+        if (titleStr) {
+          html = html.replace(/<title[\s\S]*?<\/title>/i, '');
+        }
+        if (metaStr) {
+          html = html.replace(/<meta\s+name="description"[\s\S]*?>/i, '');
+          html = html.replace(/<meta\s+property="og:title"[\s\S]*?>/i, '');
+          html = html.replace(/<meta\s+property="og:description"[\s\S]*?>/i, '');
+        }
+
+        html = html.replace('</head>', `    ${headInjection}\n  </head>`);
       }
 
       const outDir = routePath === '/' ? distDir : path.join(distDir, routePath);
