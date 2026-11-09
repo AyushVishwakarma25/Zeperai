@@ -17,7 +17,7 @@ export const ContactPage: React.FC = () => {
       <SEO
         title="Contact Us | ZeperAi Studio"
         description="Get in touch with the ZeperAi Studio team — we're here to help with questions about our AI creative platform."
-        canonicalUrl="https://zeperai.in/contact"
+        canonicalUrl="/contact"
       />
       <LandingHeader />
       

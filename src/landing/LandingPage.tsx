@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { Icon } from '../../components/ui/Icon.js';
 import { LandingHeader } from './LandingHeader.js';
-import { ActionCarousel } from './ActionCarousel.js';
 import { ShopifyAnalyticsSection } from './ShopifyAnalyticsSection.js';
 import { BounceCardsSection } from './BounceCardsSection.js';
 import { Footer } from './Footer.js';
@@ -281,9 +280,6 @@ export const LandingPage: React.FC = () => {
 
           {/* Shopify Data Analytics Feature Showcase */}
           <ShopifyAnalyticsSection />
-
-          {/* Action Carousel with Supabase Landing Page Storage Images */}
-          <ActionCarousel />
 
           {/* Bounce Cards Testimonial Section with Interactive Spring Animation */}
           <BounceCardsSection />

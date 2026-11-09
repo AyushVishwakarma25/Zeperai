@@ -4,7 +4,7 @@ const SUPABASE_THUMBNAILS_BASE = "https://kvqzfiezakcbnxbagxjs.supabase.co/stora
 export const landingAssets = {
   // Studio & Hero Media Assets
   aiInfluencer: `${SUPABASE_STORAGE_BASE}/Ai%20Influencer.webp`,
-  ayushFounder: `${SUPABASE_STORAGE_BASE}/Ayush%20Vishwakarma%20Founder%20ZeperAi.jpeg`,
+  ayushFounder: `${SUPABASE_STORAGE_BASE}/Ayush%20Vishwakarma%20Founder%20ZeperAi.png`,
   perfume: `${SUPABASE_STORAGE_BASE}/Perfume.jpg`,
   productStudio: `${SUPABASE_STORAGE_BASE}/Product%20studio%20By%20zeperai.webp`,
   shoe: `${SUPABASE_STORAGE_BASE}/Shoe%20Product%20shoot%20Zeperai.jpg`,

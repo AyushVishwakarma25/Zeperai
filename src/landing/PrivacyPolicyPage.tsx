@@ -13,7 +13,7 @@ export const PrivacyPolicyPage: React.FC = () => {
     <SEO
         title="Privacy Policy | ZeperAi Studio"
         description="Read ZeperAi Studio's privacy policy to understand how we collect, use, and protect your data."
-        canonicalUrl="https://zeperai.in/privacy"
+        canonicalUrl="/privacy"
       />
       <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#4452FB] selection:text-white flex flex-col">
       <LandingHeader />

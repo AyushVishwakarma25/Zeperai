@@ -4,6 +4,7 @@ Allow: /pricing
 Allow: /about
 Allow: /contact
 Allow: /tools/background-remover
+Allow: /tools/
 Allow: /privacy
 Allow: /terms
 Allow: /cookies

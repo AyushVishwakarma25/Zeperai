@@ -18,33 +18,64 @@ export const SEO: React.FC<SEOProps> = ({
 }) => {
   const schemas = schema ? (Array.isArray(schema) ? schema : [schema]) : [];
 
-  // Determine canonical URL dynamically:
-  // 1. In browser runtime: align with active origin (prevents circular redirects between apex & www).
-  // 2. In SSR / prerender: default to 'https://www.zeperai.in' because Vercel forwards zeperai.in -> www.zeperai.in.
+  // Strictly enforce canonical domain https://www.zeperai.in
   const resolvedCanonical = React.useMemo(() => {
-    if (!canonicalUrl) return undefined;
-    if (typeof window !== 'undefined' && window.location?.origin) {
+    let path = canonicalUrl || '';
+    if (path.startsWith('http://') || path.startsWith('https://')) {
       try {
-        const parsed = new URL(canonicalUrl, window.location.origin);
-        if (parsed.hostname === 'zeperai.in' || parsed.hostname === 'www.zeperai.in') {
-          return `${window.location.origin}${parsed.pathname}${parsed.search}`;
-        }
-        return parsed.href;
+        const u = new URL(path);
+        path = u.pathname + u.search;
       } catch {
-        return canonicalUrl;
+        path = '';
       }
     }
-    try {
-      const parsed = new URL(canonicalUrl);
-      if (parsed.hostname === 'zeperai.in') {
-        parsed.hostname = 'www.zeperai.in';
-        return parsed.href;
-      }
-    } catch {
-      // fallback
-    }
-    return canonicalUrl;
+    if (!path.startsWith('/')) path = '/' + path;
+    
+    // Always resolve to primary canonical domain
+    return `https://www.zeperai.in${path}`;
   }, [canonicalUrl]);
+
+  // Construct BreadcrumbList schema for structured search navigation
+  const breadcrumbSchema = React.useMemo(() => {
+    if (!resolvedCanonical || resolvedCanonical === 'https://www.zeperai.in/') return null;
+    const urlObj = new URL(resolvedCanonical);
+    const segments = urlObj.pathname.split('/').filter(Boolean);
+    
+    const items = [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: 'https://www.zeperai.in/',
+      },
+    ];
+
+    let currentPath = '';
+    segments.forEach((seg, idx) => {
+      currentPath += `/${seg}`;
+      const name = seg
+        .split('-')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+      items.push({
+        '@type': 'ListItem',
+        position: idx + 2,
+        name,
+        item: `https://www.zeperai.in${currentPath}`,
+      });
+    });
+
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: items,
+    };
+  }, [resolvedCanonical]);
+
+  const allSchemas = [
+    ...(breadcrumbSchema ? [breadcrumbSchema] : []),
+    ...schemas,
+  ];
 
   return (
     <Helmet>
@@ -52,24 +83,25 @@ export const SEO: React.FC<SEOProps> = ({
       <title>{title}</title>
       <meta name="title" content={title} />
       <meta name="description" content={description} />
-      {resolvedCanonical && <link rel="canonical" href={resolvedCanonical} />}
+      <link rel="canonical" href={resolvedCanonical} />
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content="website" />
-      {resolvedCanonical && <meta property="og:url" content={resolvedCanonical} />}
+      <meta property="og:url" content={resolvedCanonical} />
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={ogImage} />
+      <meta property="og:site_name" content="ZeperAI Studio" />
 
       {/* Twitter */}
       <meta property="twitter:card" content="summary_large_image" />
-      {resolvedCanonical && <meta property="twitter:url" content={resolvedCanonical} />}
+      <meta property="twitter:url" content={resolvedCanonical} />
       <meta property="twitter:title" content={title} />
       <meta property="twitter:description" content={description} />
       <meta property="twitter:image" content={ogImage} />
 
       {/* Structured JSON-LD Schemas */}
-      {schemas.map((s, index) => (
+      {allSchemas.map((s, index) => (
         <script key={`seo-schema-${index}`} type="application/ld+json">
           {JSON.stringify(s)}
         </script>

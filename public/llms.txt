@@ -4,19 +4,22 @@
 
 ZeperAi enables brands and agencies to transform raw product photography and brand websites into full-funnel marketing campaigns, high-converting ad creatives, commercial lifestyle studio shots, and transparent cutouts in seconds. By combining multi-agent creative orchestration, automated copywriting, professional typography layout blueprints, and multi-format aspect ratios (1:1, 9:16, 16:9, 4:5), ZeperAi eliminates expensive multi-week photoshoots and empowers growth marketers to rapidly test winning ad variants across Meta, Google, TikTok, and Shopify.
 
-## Strategic Pages
+## Strategic Pages & Tools
 
-- [Homepage](https://zeperai.in/): Primary AI Creative Studio dashboard, interactive before/after showcases, and creative generation playground.
-- [AI Background Remover](https://zeperai.in/tools/background-remover): High-precision, zero-halo background removal tool for instant transparent PNG cutouts of product photos.
-- [Pricing](https://zeperai.in/pricing): Transparent pricing tiers, free trial credits, pay-as-you-go packs (₹999 / 120 credits), Pro subscription (₹1,999 / mo), and Agency volume plans.
-- [About Us & Founder Note](https://zeperai.in/about): Background on ZeperAi, founder mission by Ayush Vishwakarma, and direct contact details.
-- [Blog & Creative Guides](https://zeperai.in/blog): Actionable e-commerce growth strategies, ROAS optimization tips, and AI creative intelligence tutorials.
-- [Contact](https://zeperai.in/contact): Support desk, enterprise custom pipelines, and direct developer communication.
-- [Sign Up](https://zeperai.in/signup): Create a free account with instant trial credits.
-- [Log In](https://zeperai.in/login): Secure user authentication and project workspace access.
-- [Privacy Policy](https://zeperai.in/privacy): Data protection standards, user privacy guidelines, and cloud security rules.
-- [Terms & Conditions](https://zeperai.in/terms): Commercial licensing rights, service terms, and billing policies.
-- [Cookie Policy](https://zeperai.in/cookie-policy): Cookie governance, consent management, and analytics tracking disclosure.
+- [Homepage](https://www.zeperai.in/): Primary AI Creative Studio dashboard, interactive before/after showcases, and creative generation playground.
+- [Free E-Commerce Tools Hub](https://www.zeperai.in/tools): Central directory of free interactive business calculators and studio image processing tools.
+- [AI Background Remover Pro](https://www.zeperai.in/tools/background-remover): High-precision, zero-halo background removal tool for instant transparent PNG cutouts of product photos.
+- [Indian D2C ROAS & RTO Calculator](https://www.zeperai.in/tools/roas-rto-calculator): Calculate true break-even ROAS and max affordable CAC factoring in COD delivery ratios, return logistics, courier fees, and payment gateways.
+- [Meta Ad Creative Fatigue Simulator](https://www.zeperai.in/tools/meta-creative-fatigue): Simulate ad impression burn, CPM inflation, and audience saturation to calculate required weekly ad variation drop cadence.
+- [Quick-Commerce Margin Calculator](https://www.zeperai.in/tools/quick-commerce-margin-calculator): Calculate unit economics, dark store commissions, trade margins, CM1, and net CM2 profit for Blinkit, Zepto, and Instamart sellers.
+- [Pricing](https://www.zeperai.in/pricing): Transparent pricing tiers, free trial credits, pay-as-you-go packs (₹999 / 120 credits), Pro subscription (₹1,999 / mo), and Agency volume plans.
+- [About Us & Founder Note](https://www.zeperai.in/about): Background on ZeperAi, founder mission by Ayush Vishwakarma, and direct contact details.
+- [Contact](https://www.zeperai.in/contact): Support desk, enterprise custom pipelines, and direct developer communication.
+- [Sign Up](https://www.zeperai.in/signup): Create a free account with instant trial credits.
+- [Log In](https://www.zeperai.in/login): Secure user authentication and project workspace access.
+- [Privacy Policy](https://www.zeperai.in/privacy): Data protection standards, user privacy guidelines, and cloud security rules.
+- [Terms & Conditions](https://www.zeperai.in/terms): Commercial licensing rights, service terms, and billing policies.
+- [Cookie Policy](https://www.zeperai.in/cookies): Cookie governance, consent management, and analytics tracking disclosure.
 
 ## Core Capabilities & Studios
 
@@ -24,6 +27,7 @@ ZeperAi enables brands and agencies to transform raw product photography and bra
 - **Product Studio**: Place isolated products into photorealistic commercial environments (e.g., luxury marble, minimalist studio, outdoor nature, bathroom vanity, neon tech).
 - **Influencer & Fashion Studio**: Generate on-model product placement and digital fashion styling with relatable Indian and global models without organizing costly talent casting.
 - **Background Remover Pro**: Zero-cost, client-side WebAssembly/WebGL accelerated background extraction preserving fine edges, hair, glass reflections, and intricate packaging.
+- **Interactive Business Calculators**: Real-time financial modeling for e-commerce unit economics, COD freight loss, Meta ad frequency decay, and quick-commerce dark store contracts.
 - **CGI & 3D Lighting Studio**: Studio-grade lighting rigs, reflections, and 3D composition for cutting-edge product staging.
 - **Festival & Seasonal Campaigns**: Ready-to-use themed backdrops for Black Friday, Diwali, Christmas, Summer Sales, and flash promotions.
 - **AI Copywriter & Scorecard**: Generate persuasive hooks, primary text, and headlines graded by predicted conversion scores.

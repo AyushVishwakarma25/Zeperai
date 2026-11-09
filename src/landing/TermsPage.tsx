@@ -13,7 +13,7 @@ export const TermsPage: React.FC = () => {
     <SEO
         title="Terms and Conditions | ZeperAi Studio"
         description="Read the terms and conditions for using ZeperAi Studio's AI creative platform and services."
-        canonicalUrl="https://zeperai.in/terms"
+        canonicalUrl="/terms"
       />
       <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#4452FB] selection:text-white flex flex-col">
       <LandingHeader />

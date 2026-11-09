@@ -1,81 +1,93 @@
-# Implementation Plan: Editorial Design System for Pricing & About Pages
+# Implementation Plan: Light Theme UI Kit Alignment for Tools Hub & E-Commerce Calculators
 
-This plan covers extending the **ZeperAI visual design system** to the **Pricing Page** and **About Page**, restructuring the About page into a sleek editorial magazine format, updating social links (removing Instagram, adding personal and company LinkedIn), removing the Blog page, and standardizing the contact email to **`team@Zeperai.in`**.
-
----
-
-## 1. User Decisions & Design Invariants
-
-- **Editorial Structure for About Page**: Modern magazine layout featuring a bold manifesto, founder highlight card for Ayush Vishwakarma, 3-act narrative story with editorial pull quotes, studio services showcase, and clean contact cards.
-- **LinkedIn Links**: Feature both Ayush Vishwakarma's founder LinkedIn profile and the official ZeperAI company LinkedIn page (`https://www.linkedin.com/company/zeperai/`). Remove `@sup_madman` Instagram link.
-- **Pricing Page 80/15/5 Palette**:
-  - **80% Neutral Surfaces**: Free Trial, Pay-As-You-Go, and Agency tier cards rendered in crisp `#ffffff` and `stone-50` with hairline `border-stone-200` borders and subtle `shadow-2xs`.
-  - **15% Dark Contrast**: The **Pro Subscription (Recommended / Most Popular)** tier highlighted in a sleek dark contrast card (`bg-zinc-950 border border-zinc-800 text-white shadow-xl md:-translate-y-4`).
-  - **5% Accent**: Refined `#4452FB` accent for primary actions and badge highlights.
-  - **Removal of Decorative Neon Gradients**: Remove saturated blue/purple radial halos and button gradients.
-  - **Typography**: Editorial **Lora** serif for page headings and tier titles; **Manrope** for pricing figures, feature checklists, and action buttons.
-- **Email Standardization**: Update all contact links and legal references from old emails to **`team@Zeperai.in`**.
-- **Blog Page Removal**: Remove the `/blog` route from `App.tsx` (redirecting any incoming traffic to `/`), remove the Blog link from `Footer.tsx`, and remove `BlogPage` import.
+Restyle the `/tools` hub and all interactive calculators (`/tools/roas-rto-calculator`, `/tools/meta-creative-fatigue`, `/tools/quick-commerce-margin-calculator`) to a clean, production-grade **Light Theme UI Kit** matching the main ZeperAI landing page. Additionally, implement robust local WebAssembly client-side fallbacks for the background remover tool to handle remote service or disk availability errors gracefully.
 
 ---
 
-## 2. Proposed Architectural & Code Changes
+## User Review & Confirmed Decisions
 
-### A. About Page Overhaul (`src/landing/AboutUsPage.tsx`)
-- **Header & Meta**: Scoped with `font-manrope` and `font-lora`, clean editorial kicker `FOUNDER MANIFESTO · 01`.
-- **Manifesto Headline**: Large editorial title in Lora serif: *"Built solo. The hard way."*
-- **Sleek Founder Profile**:
-  - Image of Ayush Vishwakarma with high-resolution styling and verified badges (`Solo Founder & Lead Engineer`).
-  - Personal bio with architectural hairline borders and dark contrast accent.
-- **Narrative Columns & Pull Quotes**:
-  - Act 1: *The Problem with Traditional Commercial Creative* (cost, speed, friction).
-  - Act 2: *Building the Machine at 3 AM* (pipelines, models, GPU orchestration, and edge cases).
-  - Act 3: *The Solo Founder Advantage* (no corporate bureaucracy, fast shipping, direct contact).
-  - Pull Quote: Elegant Lora serif italic quote with subtle vertical accent line.
-- **Studio Services Showcase**:
-  - Clean 2-column or 3-column editorial cards outlining both ZeperAI (the software platform) and custom design/marketing studio execution for high-growth D2C brands.
-- **Connect & Contact**:
-  - Direct email: `team@Zeperai.in` with copy/email button.
-  - LinkedIn: Ayush Vishwakarma Personal LinkedIn & ZeperAI Official Company LinkedIn (`https://www.linkedin.com/company/zeperai/`).
-  - Completely eliminate Instagram handle `@sup_madman`.
+> [!IMPORTANT]
+> Confirmed Phase 1 choices from user interview:
 
-### B. Pricing Page Refinement (`src/landing/PricingPage.tsx`)
-- **Typography & Canvas**:
-  - Apply `font-manrope` body and `font-lora` headings.
-  - Warm neutral canvas (`bg-white` with `stone-50` rhythm).
-- **Plan Cards Grid**:
-  - Free Trial (₹0): Clean stone card, `border-stone-200`, `text-zinc-900`.
-  - Pay As You Go (₹999): Clean stone card, `border-stone-200`, `text-zinc-900`.
-  - Pro Subscription (₹1,999): Dark contrast hero tier (`bg-zinc-950 border border-zinc-800 text-white shadow-xl md:-translate-y-4`), solid white CTA button.
-  - Agency Plan (₹4,999): Clean stone card, `border-stone-200`, `text-zinc-900`.
-- **Model Breakdown Section**:
-  - Model cards in `bg-stone-50 border border-stone-200 rounded-2xl p-6` (no neon glows).
-  - Replace any generic model naming with clean, authoritative model tier cards.
-- **No Neon Gradients**: Replace multi-gradient CTA backgrounds with solid accent buttons.
-
-### C. Remove Blog Page
-- **`App.tsx`**:
-  - Remove `const BlogPage = ...` import.
-  - Replace `<Route path="/blog" element={<BlogPage />} />` with `<Route path="/blog" element={<Navigate to="/" replace />} />`.
-- **`src/landing/Footer.tsx`**:
-  - Remove `<li><Link to="/blog" ...>Blog</Link></li>`.
-- **`public/llms.txt`**:
-  - Remove Blog page reference and update contact email to `team@Zeperai.in`.
-
-### D. Global Email Update to `team@Zeperai.in`
-- Update email in:
-  - `src/landing/AboutUsPage.tsx`
-  - `src/landing/ContactPage.tsx`
-  - `src/landing/PrivacyPolicyPage.tsx`
-  - `src/landing/TermsPage.tsx`
-  - `public/llms.txt`
+- **Confirmed Decision 1 (Visual Aesthetics)**: Clean white canvas (`bg-white` / `bg-slate-50`) with sharp emerald accents (`emerald-600`), crisp hairline borders (`border-slate-200`), and high-contrast dark slate typography (`text-slate-900`, `text-slate-600`).
+- **Confirmed Decision 2 (Theme Scope)**: Pure light theme across the central `/tools` directory, individual calculator pages, and shared calculator components.
+- **Confirmed Decision 3 (Service Resilience)**: Fall back to in-browser local WebAssembly background removal engine with a polite toast notification whenever GCP / remote service calls fail or time out.
 
 ---
 
-## 3. Strict Guardrails & Verification
+## 1. Overview & Core Concept
 
-1. **Mandatory `.js` Extensions**: Verify that every relative import across all modified files strictly ends with `.js` (e.g. `import { LandingHeader } from './LandingHeader.js'`).
-2. **Zero-Trust Security**: Ensure no changes to authentication guards, admin comparisons (`crypto.timingSafeEqual`), or environment variable checks.
-3. **Compilation & Linting**:
-   - Run `compile_applet` to confirm zero Vite build errors.
-   - Run `lint_applet` (`tsc --noEmit`) to verify 100% clean TypeScript validation.
+- **Goal**: Unify the visual posture of all marketing acquisition tools (`/tools`, `/tools/roas-rto-calculator`, `/tools/meta-creative-fatigue`, `/tools/quick-commerce-margin-calculator`) into a light-mode UI kit that aligns with the main landing page brand identity.
+- **Key Value**: Provides a seamless, professional experience for Indian D2C founders, performance marketers, and quick-commerce sellers while ensuring zero broken features during server outages.
+
+---
+
+## 2. User Experience & Visual Design
+
+### Light Theme UI Kit Specifications
+- **Canvas & Surfaces**:
+  - Main background: `bg-slate-50` / `bg-white`
+  - Cards & containers: `bg-white border border-slate-200/90 shadow-sm rounded-2xl`
+  - Input fields: `bg-slate-100/80 border border-slate-200 text-slate-900 focus:border-emerald-600 focus:bg-white`
+- **Typography & Contrast**:
+  - Headings: `text-slate-900 font-extrabold tracking-tight`
+  - Subtitles & body: `text-slate-600 font-normal leading-relaxed`
+  - Unboxed metadata: Quiet inline text `text-slate-500` with typographic dot separators (`·`)
+- **Accent Budget (10%)**:
+  - Primary accents: Rich emerald (`emerald-600` / `emerald-700`) for primary buttons, active slider tracks, and positive financial highlights.
+  - Secondary accents: Soft indigo (`indigo-600`) for ad fatigue metrics, amber (`amber-600`) for platform commissions, and rose (`rose-600`) for RTO losses.
+- **Interactive Component Light Restyling**:
+  - `CurrencyInput.tsx`: Light slate input field with dark font, currency prefix (`₹`), and `+`/`-` step buttons.
+  - `PercentageInput.tsx`: Synchronized slider with emerald track and numeric box.
+  - `MetricCard.tsx`: Crisp white elevated card with light border, dark numeric value, and status badges.
+  - `NativeCharts.tsx`: High-contrast light theme charts (dark slate labels, emerald/amber/rose SVG arcs, white track rings).
+  - `StudioHandoffCard.tsx`: Light emerald gradient container (`from-emerald-50 via-white to-slate-50`), dark text, and solid emerald CTA.
+  - `CalculatorLayout.tsx`: Light breadcrumbs, white FAQ accordions (`bg-white border-slate-200`), and light editorial guide sections.
+
+---
+
+## 3. Technical Architecture & Component Hierarchy
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             LandingHeader (Light)                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                       │
+         ┌─────────────────────────────┴─────────────────────────────┐
+         ▼                                                           ▼
+┌─────────────────────────────────┐                         ┌─────────────────┐
+│       ToolsHubPage (Light)      │                         │ CalculatorLayout│
+│ - Category filter buttons       │                         │ - Light Nav     │
+│ - Light card grid               │                         │ - Breadcrumbs   │
+│ - ZeperAI Studio Callout        │                         │ - FAQ Accordion │
+└─────────────────────────────────┘                         └─────────────────┘
+                                                                     │
+         ┌───────────────────────────────────────────────────────────┴──────────────────────────────────────────┐
+         ▼                                                           ▼                                          ▼
+┌──────────────────────────────┐                         ┌───────────────────────┐                  ┌──────────────────────────────┐
+│  RoasRtoCalculatorPage       │                         │CreativeFatiguePage    │                  │QuickCommerceCalculatorPage   │
+│ - Light Currency & % Inputs  │                         │- Impression Math      │                  │- Blinkit/Zepto presets       │
+│ - Light Waterfall Chart      │                         │- Ad Velocity Scenarios│                  │- Donut Margin Breakdown      │
+│ - Light ROAS Gauge           │                         │- Light Metric Cards   │                  │- Light Unit Waterfall        │
+└──────────────────────────────┘                         └───────────────────────┘                  └──────────────────────────────┘
+```
+
+---
+
+## 4. Background Remover Error Handling & Fallback Strategy
+
+1. **Service Diagnostics & Resilience**:
+   - In `BackgroundRemoverPro.tsx` and `NicheBackgroundRemoverTool.tsx`, handle any remote API / GCP service exceptions, timeouts, or disk errors.
+2. **Seamless In-Browser Fallback**:
+   - Automatically fall back to `@imgly/background-removal` local client-side WebAssembly execution without halting the user workflow.
+3. **User Feedback**:
+   - Display a clean, informative toast: *"Remote service unavailable. Processing image locally via browser WebAssembly."*
+
+---
+
+## 5. Verification & Quality Gates - Status: Complete ✅
+
+- **Light Theme UI Kit Alignment**: Converted `/tools` directory hub, `CalculatorLayout.tsx`, `CurrencyInput.tsx`, `PercentageInput.tsx`, `MetricCard.tsx`, `NativeCharts.tsx`, `StudioHandoffCard.tsx`, `RoasRtoCalculatorPage.tsx`, `CreativeFatigueCalculatorPage.tsx`, and `QuickCommerceCalculatorPage.tsx` to a clean light theme (`bg-slate-50`, `bg-white border-slate-200`, `text-slate-900`, `emerald-600` accents).
+- **Background Remover Fallback**: Integrated in-browser `@imgly/background-removal` WebAssembly fallback into `BackgroundRemoverPro.tsx` that refunds credits and processes images locally whenever remote GCP server APIs return errors or time out.
+- **Lint & Compilation**: `tsc --noEmit` and `compile_applet` passed with zero errors.
+- **Static Build**: `npm run build` completed cleanly; all tool routes verified returning HTTP 200.

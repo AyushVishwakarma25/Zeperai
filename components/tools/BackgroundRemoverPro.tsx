@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
+import { removeBackground } from "@imgly/background-removal";
 import { supabase } from "../../services/supabaseClient.js";
 import { FeaturePricingTable } from "../FeaturePricingTable.js";
 import { compressForUpload } from "../../utils/images.js";
@@ -106,8 +107,17 @@ export default function BackgroundRemoverPro({ onDeductCredits, onRefundCredits,
       setStatus("done");
     } catch (err) {
       onRefundCredits(2);
-      setErrorMsg(err instanceof Error ? err.message : "Something went wrong");
-      setStatus("error");
+      console.warn("Pro server endpoint unavailable, executing in-browser WebAssembly fallback:", err);
+      try {
+        setErrorMsg("Server process unavailable (credits refunded). Running local browser AI engine...");
+        const fallbackBlob = await removeBackground(file);
+        setResultUrl(URL.createObjectURL(fallbackBlob));
+        setStatus("done");
+        setErrorMsg("Server was offline (2 credits refunded). Image processed locally via browser WebAssembly.");
+      } catch (fallbackErr: any) {
+        setErrorMsg(err instanceof Error ? err.message : "Something went wrong processing image");
+        setStatus("error");
+      }
     }
   };
 

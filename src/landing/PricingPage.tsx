@@ -110,24 +110,24 @@ interface ImageModel {
 
 const IMAGE_MODELS: ImageModel[] = [
   {
-    id: 'nano-banana-2-lite',
-    name: 'Nano Banana 2 Lite',
-    apiModel: 'Cheapest & Fastest • Default for Free Accounts',
+    id: 'basic',
+    name: 'Basic',
+    apiModel: 'Fastest Generation • Default for Free Accounts',
     credits: 1,
     badge: 'Fast & Free',
     description: 'Cheapest and fastest generation for simple backgrounds, basic variations, quick drafts, and high-volume iterations.',
   },
   {
-    id: 'nano-banana-2',
-    name: 'Nano Banana 2',
+    id: 'standard',
+    name: 'Standard',
     apiModel: 'Balanced Quality & Speed • Standard for Paid Accounts',
     credits: 1,
     badge: 'Standard Quality',
     description: 'Balanced studio quality, speed, and cost. General-purpose workhorse for product photography, lifestyle scenes, and ads.',
   },
   {
-    id: 'nano-banana-pro',
-    name: 'Nano Banana Pro',
+    id: 'premium',
+    name: 'Premium',
     apiModel: 'Flagship Photorealism • Pro for Paid Accounts',
     credits: 2,
     badge: 'Pro Flagship',
@@ -143,7 +143,7 @@ export const PricingPage: React.FC = () => {
       <SEO
         title="Pricing | ZeperAi Studio"
         description="Simple, transparent pricing for ZeperAi Studio's AI creative platform. Choose credits or subscriptions that fit your brand's growth, with zero hidden fees."
-        canonicalUrl="https://zeperai.in/pricing"
+        canonicalUrl="/pricing"
       />
       <PricingProductSchema />
       <div className="min-h-screen bg-stone-50/40 text-zinc-900 font-manrope selection:bg-[#C8CEFE]">

@@ -102,6 +102,26 @@ export const LandingHeader: React.FC = () => {
                 <span className="absolute bottom-0.5 left-2.5 right-2.5 h-[1.5px] bg-zinc-400 rounded-full origin-left scale-x-0 transition-transform duration-200 ease-out group-hover:scale-x-100 pointer-events-none" />
               </Link>
 
+              {/* Free Calculators & Growth Tools */}
+              <Link 
+                to="/tools" 
+                className={`group relative px-3 py-1 rounded-full transition-colors duration-200 flex items-center gap-1.5 ${
+                  location.pathname.startsWith('/tools') && !isRouteActive('/tools/background-remover')
+                    ? 'text-white font-semibold'
+                    : 'text-zinc-300 hover:text-white'
+                }`}
+              >
+                <span className="relative z-10">Calculators</span>
+                <span className="relative z-10 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-emerald-950 text-emerald-400 border border-emerald-800">
+                  New
+                </span>
+                <span className={`absolute bottom-0.5 left-2.5 right-2.5 h-[1.5px] bg-zinc-400 rounded-full origin-left transition-transform duration-200 ease-out pointer-events-none ${
+                  location.pathname.startsWith('/tools') && !isRouteActive('/tools/background-remover')
+                    ? 'scale-x-100'
+                    : 'scale-x-0 group-hover:scale-x-100'
+                }`} />
+              </Link>
+
               {/* Background Remover Free Tool */}
               <Link 
                 to="/tools/background-remover" 
@@ -281,6 +301,20 @@ export const LandingHeader: React.FC = () => {
                 className="group flex items-center justify-between py-2.5 px-3 rounded-xl text-base font-semibold text-zinc-200 hover:text-white hover:bg-zinc-900 transition-colors"
               >
                 <span>Features</span>
+                <ChevronRight className="w-4 h-4 text-zinc-500 transition-transform duration-200 group-hover:translate-x-1 group-hover:text-white" />
+              </Link>
+
+              <Link 
+                to="/tools" 
+                className="group flex items-center justify-between py-2.5 px-3 rounded-xl text-base font-semibold text-zinc-200 hover:text-white hover:bg-zinc-900 transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <div className="flex items-center gap-2">
+                  <span>Calculators & Tools</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-950 text-emerald-400 border border-emerald-800">
+                    New
+                  </span>
+                </div>
                 <ChevronRight className="w-4 h-4 text-zinc-500 transition-transform duration-200 group-hover:translate-x-1 group-hover:text-white" />
               </Link>
 

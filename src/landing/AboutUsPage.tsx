@@ -11,7 +11,7 @@ export const AboutUsPage: React.FC = () => {
       <SEO
         title="About Us | The ZeperAI Manifesto"
         description="Built solo. The hard way. Read the founder story, engineering manifesto, and design philosophy behind ZeperAI Studio."
-        canonicalUrl="https://zeperai.in/about"
+        canonicalUrl="/about"
       />
       <OrganizationSchema />
       
@@ -42,7 +42,7 @@ export const AboutUsPage: React.FC = () => {
             <div className="pt-6 border-t border-stone-200 flex flex-wrap items-center justify-between gap-4 text-xs text-stone-500">
               <div className="flex items-center gap-3">
                 <img
-                  src="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/landing-assets/Ayush%20Vishwakarma%20Founder%20ZeperAi.jpeg"
+                  src="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/landing-assets/Ayush%20Vishwakarma%20Founder%20ZeperAi.png"
                   alt="Ayush Vishwakarma"
                   className="w-9 h-9 rounded-full object-cover border border-stone-200 shadow-xs"
                   referrerPolicy="no-referrer"
@@ -199,7 +199,7 @@ export const AboutUsPage: React.FC = () => {
               <div className="bg-white border border-stone-200/90 rounded-3xl p-6 sm:p-7 shadow-xs">
                 <div className="relative mb-5">
                   <img
-                    src="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/landing-assets/Ayush%20Vishwakarma%20Founder%20ZeperAi.jpeg"
+                    src="https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/landing-assets/Ayush%20Vishwakarma%20Founder%20ZeperAi.png"
                     alt="Ayush Vishwakarma | Founder | ZeperAI"
                     className="w-full aspect-square object-cover rounded-2xl border border-stone-200 shadow-xs"
                     referrerPolicy="no-referrer"

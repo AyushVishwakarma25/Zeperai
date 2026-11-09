@@ -13,7 +13,7 @@ export const CookiePolicyPage: React.FC = () => {
     <SEO
         title="Cookie Policy | ZeperAi Studio"
         description="Read ZeperAi Studio's cookie policy to understand how we use cookies on our website."
-        canonicalUrl="https://zeperai.in/cookies"
+        canonicalUrl="/cookies"
       />
       <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#4452FB] selection:text-white flex flex-col">
       <LandingHeader />

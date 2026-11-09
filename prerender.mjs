@@ -67,6 +67,9 @@ try {
       fs.mkdirSync(outDir, { recursive: true });
       fs.writeFileSync(path.join(outDir, 'index.html'), html);
       ok++;
+      if (ok % 10 === 0 || ok === prerenderRoutes.length) {
+        console.log(`prerender progress: ${ok}/${prerenderRoutes.length} pages generated`);
+      }
     } catch (err) {
       failed++;
       console.error(`prerender FAILED for ${routePath}:`, err);

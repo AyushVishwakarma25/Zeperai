@@ -7,37 +7,42 @@
   "redirects": [
     {
       "source": "/background-remover",
-      "destination": "/tools/background-remover",
+      "destination": "https://www.zeperai.in/tools/background-remover",
       "permanent": true
     },
     {
       "source": "/background-remove",
-      "destination": "/tools/background-remover",
+      "destination": "https://www.zeperai.in/tools/background-remover",
       "permanent": true
     },
     {
       "source": "/tools/background-remove",
-      "destination": "/tools/background-remover",
+      "destination": "https://www.zeperai.in/tools/background-remover",
+      "permanent": true
+    },
+    {
+      "source": "/remove-background-for-:slug",
+      "destination": "https://www.zeperai.in/tools/remove-background-for-:slug",
       "permanent": true
     },
     {
       "source": "/cookie-policy",
-      "destination": "/cookies",
+      "destination": "https://www.zeperai.in/cookies",
       "permanent": true
     },
     {
       "source": "/legal/cookie-policy",
-      "destination": "/cookies",
+      "destination": "https://www.zeperai.in/cookies",
       "permanent": true
     },
     {
       "source": "/blog",
-      "destination": "/",
+      "destination": "https://www.zeperai.in/",
       "permanent": true
     },
     {
       "source": "/blog/:path*",
-      "destination": "/",
+      "destination": "https://www.zeperai.in/",
       "permanent": true
     }
   ],

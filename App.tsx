@@ -28,16 +28,43 @@ import { LandingPage } from './src/landing/LandingPage.js';
 import { LoginPage } from './components/LoginPage.js';
 import { SignupPage } from './components/SignupPage.js';
 
+// Retry helper for dynamic imports to prevent chunk load errors during dev server re-bundling
+function lazyWithRetry<P = {}>(
+  componentImport: () => Promise<any>
+): React.LazyExoticComponent<React.ComponentType<P>> {
+  return React.lazy(async () => {
+    try {
+      const component = await componentImport();
+      sessionStorage.removeItem('zeperai_lazy_retry');
+      return component && component.default
+        ? { default: component.default }
+        : { default: component ? Object.values(component)[0] : null };
+    } catch (error) {
+      const pageHasAlreadyBeenReloaded = sessionStorage.getItem('zeperai_lazy_retry');
+      if (!pageHasAlreadyBeenReloaded) {
+        sessionStorage.setItem('zeperai_lazy_retry', 'true');
+        window.location.reload();
+      }
+      throw error;
+    }
+  });
+}
+
 // Lazy load secondary routes & admin suite to drastically reduce initial landing bundle size
-const AdminDashboard = React.lazy(() => import('./components/admin/AdminDashboard.js'));
-const AdminLoginPage = React.lazy(() => import('./components/admin/AdminLoginPage.js').then(m => ({ default: m.AdminLoginPage })));
-const BackgroundRemoverLandingPage = React.lazy(() => import('./src/landing/BackgroundRemoverLandingPage.js').then(m => ({ default: m.BackgroundRemoverLandingPage })));
-const PrivacyPolicyPage = React.lazy(() => import('./src/landing/PrivacyPolicyPage.js').then(m => ({ default: m.PrivacyPolicyPage })));
-const TermsPage = React.lazy(() => import('./src/landing/TermsPage.js').then(m => ({ default: m.TermsPage })));
-const CookiePolicyPage = React.lazy(() => import('./src/landing/CookiePolicyPage.js').then(m => ({ default: m.CookiePolicyPage })));
-const PricingPage = React.lazy(() => import('./src/landing/PricingPage.js').then(m => ({ default: m.PricingPage })));
-const AboutUsPage = React.lazy(() => import('./src/landing/AboutUsPage.js').then(m => ({ default: m.AboutUsPage })));
-const ContactPage = React.lazy(() => import('./src/landing/ContactPage.js').then(m => ({ default: m.ContactPage })));
+const AdminDashboard = lazyWithRetry<any>(() => import('./components/admin/AdminDashboard.js'));
+const AdminLoginPage = lazyWithRetry<any>(() => import('./components/admin/AdminLoginPage.js'));
+const BackgroundRemoverLandingPage = lazyWithRetry<any>(() => import('./src/landing/BackgroundRemoverLandingPage.js'));
+const NicheBackgroundRemoverPage = lazyWithRetry<any>(() => import('./src/landing/NicheBackgroundRemoverPage.js'));
+const ToolsHubPage = lazyWithRetry(() => import('./src/landing/ToolsHubPage.js'));
+const RoasRtoCalculatorPage = lazyWithRetry(() => import('./src/landing/RoasRtoCalculatorPage.js'));
+const CreativeFatigueCalculatorPage = lazyWithRetry(() => import('./src/landing/CreativeFatigueCalculatorPage.js'));
+const QuickCommerceCalculatorPage = lazyWithRetry(() => import('./src/landing/QuickCommerceCalculatorPage.js'));
+const PrivacyPolicyPage = lazyWithRetry(() => import('./src/landing/PrivacyPolicyPage.js'));
+const TermsPage = lazyWithRetry(() => import('./src/landing/TermsPage.js'));
+const CookiePolicyPage = lazyWithRetry(() => import('./src/landing/CookiePolicyPage.js'));
+const PricingPage = lazyWithRetry(() => import('./src/landing/PricingPage.js'));
+const AboutUsPage = lazyWithRetry(() => import('./src/landing/AboutUsPage.js'));
+const ContactPage = lazyWithRetry(() => import('./src/landing/ContactPage.js'));
 
 const dataURLToParts = (dataURL: string) => {
     const parts = dataURL.split(',');
@@ -453,7 +480,16 @@ const AppInternal: React.FC = () => {
       <Route path="/cookie-policy" element={<Navigate to="/cookies" replace />} />
       <Route path="/legal/cookie-policy" element={<Navigate to="/cookies" replace />} />
       <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/tools" element={<ToolsHubPage />} />
+      <Route path="/tools/roas-rto-calculator" element={<RoasRtoCalculatorPage />} />
+      <Route path="/tools/meta-creative-fatigue" element={<CreativeFatigueCalculatorPage />} />
+      <Route path="/tools/quick-commerce-margin-calculator" element={<QuickCommerceCalculatorPage />} />
+      <Route path="/roas-rto-calculator" element={<Navigate to="/tools/roas-rto-calculator" replace />} />
+      <Route path="/meta-creative-fatigue" element={<Navigate to="/tools/meta-creative-fatigue" replace />} />
+      <Route path="/quick-commerce-margin-calculator" element={<Navigate to="/tools/quick-commerce-margin-calculator" replace />} />
       <Route path="/tools/background-remover" element={<BackgroundRemoverLandingPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
+      <Route path="/tools/remove-background-for/:slug" element={<NicheBackgroundRemoverPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
+      <Route path="/tools/:slug" element={<NicheBackgroundRemoverPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
       <Route path="/background-remover" element={<Navigate to="/tools/background-remover" replace />} />
       <Route path="/background-remove" element={<Navigate to="/tools/background-remover" replace />} />
       <Route path="/tools/background-remove" element={<Navigate to="/tools/background-remover" replace />} />
