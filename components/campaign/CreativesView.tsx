@@ -5,6 +5,7 @@ import { Button } from '../ui/Button.js';
 import { Icon } from '../ui/Icon.js';
 import { Spinner } from '../ui/Spinner.js';
 import { Chip, Notice } from './shared.js';
+import { QualityScoreBadge } from './QualityScoreBadge.js';
 
 interface Props {
   runId: string;
@@ -49,11 +50,31 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
     }
   };
 
+  const handleTargetedFix = async (creativeIndex: number, component: string, instructions: string) => {
+    setBusyIndex(creativeIndex);
+    setErrorMsg(null);
+    try {
+      await campaignApi.targetedRegenerateCreative(runId, creativeIndex, {
+        component: component as any,
+        instructions,
+      });
+      if (notify) notify(`Applied targeted fix to ${component} on Creative #${creativeIndex}`);
+      if (onRefresh) await onRefresh();
+    } catch (err: any) {
+      setErrorMsg(err.message || `Failed to apply fix on creative #${creativeIndex}`);
+    } finally {
+      setBusyIndex(null);
+    }
+  };
+
   const downloadImage = (asset: CampaignAsset) => {
-    if (!asset.image_url) return;
+    const overlay = (asset.overlay || {}) as CreativeOverlay;
+    const downloadUrl = overlay.renderedCompositeUrl || asset.image_url;
+    if (!downloadUrl) return;
+    const isSvg = downloadUrl.startsWith('data:image/svg+xml');
     const a = document.createElement('a');
-    a.href = asset.image_url;
-    a.download = `campaign-creative-${asset.creative_index}.png`;
+    a.href = downloadUrl;
+    a.download = `campaign-creative-${asset.creative_index}.${isSvg ? 'svg' : 'png'}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -125,6 +146,11 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
                   <span className="text-xs font-bold text-slate-800">
                     Creative #{asset.creative_index}
                   </span>
+                  {overlay.document?.advertisingFormat && (
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                      {overlay.document.advertisingFormat}
+                    </span>
+                  )}
                   {asset.version > 1 && (
                     <span className="text-[10px] text-slate-400 font-medium">
                       v{asset.version}
@@ -132,6 +158,11 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
                   )}
                 </div>
                 <div className="flex items-center gap-2">
+                  {overlay.document?.layers && (
+                    <span className="text-[10px] font-mono text-slate-400">
+                      {overlay.document.layers.length} layers
+                    </span>
+                  )}
                   {asset.status === 'ready' && <Chip tone="good">Ready</Chip>}
                   {asset.status === 'generating' && (
                     <Chip tone="warn">
@@ -147,8 +178,8 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
                 </div>
               </div>
 
-              {/* Reference Photo Status Badge */}
-              <div className="px-4 py-2 bg-slate-50/60 border-b border-border-light flex items-center justify-between text-[11px]">
+              {/* Status Sub-header: Reference Photo + Quality Score Badge */}
+              <div className="px-4 py-2 bg-slate-50/60 border-b border-border-light flex items-center justify-between gap-2 text-[11px]">
                 {refCount > 0 ? (
                   <span
                     className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80"
@@ -163,9 +194,15 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
                     title="No uploaded product reference photos were attached — the model approximated the product appearance from prompt descriptions alone."
                   >
                     <Icon name="sparkles" className="w-3.5 h-3.5 text-amber-600" />
-                    <span>no reference photo — AI approximated the product</span>
+                    <span>no reference photo</span>
                   </span>
                 )}
+
+                <QualityScoreBadge
+                  evaluation={overlay.evaluation}
+                  onTargetedFix={(comp, fix) => handleTargetedFix(asset.creative_index, comp, fix)}
+                  isBusy={isBusy}
+                />
               </div>
 
               {/* Visual Preview Container */}
@@ -178,13 +215,13 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
                 ) : asset.status === 'ready' && asset.image_url ? (
                   <>
                     <img
-                      src={asset.image_url}
+                      src={showOverlay && overlay.renderedCompositeUrl ? overlay.renderedCompositeUrl : asset.image_url}
                       alt={overlay.headline || `Creative ${asset.creative_index}`}
                       className="w-full h-full object-cover select-none"
                     />
 
-                    {/* Clean Overlay */}
-                    {showOverlay && (
+                    {/* Clean Overlay (Only displayed if no deterministic composite is embedded) */}
+                    {showOverlay && !overlay.renderedCompositeUrl && (
                       <div className="absolute inset-0 p-5 flex flex-col justify-between pointer-events-none bg-gradient-to-t from-black/75 via-transparent to-black/40">
                         {/* Top / Headline */}
                         <div className="space-y-1">
@@ -373,12 +410,16 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
             <div className="relative aspect-square w-full">
               {expandedAsset.image_url && (
                 <img
-                  src={expandedAsset.image_url}
+                  src={
+                    showOverlay && (expandedAsset.overlay as CreativeOverlay)?.renderedCompositeUrl
+                      ? (expandedAsset.overlay as CreativeOverlay).renderedCompositeUrl!
+                      : expandedAsset.image_url
+                  }
                   alt="Creative preview"
                   className="w-full h-full object-cover"
                 />
               )}
-              {showOverlay && (
+              {showOverlay && !(expandedAsset.overlay as CreativeOverlay)?.renderedCompositeUrl && (
                 <div className="absolute inset-0 p-8 flex flex-col justify-between pointer-events-none bg-gradient-to-t from-black/80 via-transparent to-black/50">
                   <div className="space-y-2">
                     <h3 className="text-xl sm:text-2xl font-black text-white leading-tight">

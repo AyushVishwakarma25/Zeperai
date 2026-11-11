@@ -413,3 +413,82 @@ export function validateAddProductImageInput(body: unknown): ValidationResult<Ad
   };
 }
 
+// ---------------------------------------------------------------------------
+// Advertising References validation (Phase 2)
+// ---------------------------------------------------------------------------
+
+export const ALLOWED_REFERENCE_MODES = ['inspiration', 'layout', 'style_transfer'] as const;
+export const ALLOWED_REFERENCE_ROLES = ['layout', 'typography', 'color', 'photography', 'general'] as const;
+
+export interface AddReferenceInput {
+  runId?: string | null;
+  conceptId?: string | null;
+  imageUrl: string;
+  storagePath?: string | null;
+  referenceMode: 'inspiration' | 'layout' | 'style_transfer';
+  referenceRole: 'layout' | 'typography' | 'color' | 'photography' | 'general';
+  metadata?: Record<string, unknown>;
+}
+
+export function validateAddReferenceInput(body: unknown): ValidationResult<AddReferenceInput> {
+  if (!body || typeof body !== 'object') {
+    return { ok: false, error: 'Request body must be a JSON object.' };
+  }
+  const b = body as Record<string, any>;
+
+  const imageUrl = typeof b.imageUrl === 'string' ? b.imageUrl.trim() : '';
+  if (!imageUrl) {
+    return { ok: false, error: 'imageUrl is required.' };
+  }
+
+  if (imageUrl.startsWith('data:image/')) {
+    if (imageUrl.length > 10 * 1024 * 1024) {
+      return { ok: false, error: 'Embedded reference image is too large (max 10MB).' };
+    }
+  } else {
+    try {
+      const u = new URL(imageUrl);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+        return { ok: false, error: 'imageUrl must use http or https.' };
+      }
+    } catch {
+      return { ok: false, error: 'imageUrl is not a valid URL.' };
+    }
+  }
+
+  const storagePath = typeof b.storagePath === 'string' ? b.storagePath.trim().slice(0, 500) : null;
+
+  let runId: string | null = null;
+  if (b.runId) {
+    if (!isUuid(b.runId)) {
+      return { ok: false, error: 'runId must be a valid UUID.' };
+    }
+    runId = String(b.runId);
+  }
+
+  const conceptId = typeof b.conceptId === 'string' ? b.conceptId.trim().slice(0, 80) : null;
+
+  const rawMode = String(b.referenceMode || 'inspiration').toLowerCase();
+  const referenceMode = (ALLOWED_REFERENCE_MODES as readonly string[]).includes(rawMode)
+    ? (rawMode as 'inspiration' | 'layout' | 'style_transfer')
+    : 'inspiration';
+
+  const rawRole = String(b.referenceRole || 'general').toLowerCase();
+  const referenceRole = (ALLOWED_REFERENCE_ROLES as readonly string[]).includes(rawRole)
+    ? (rawRole as 'layout' | 'typography' | 'color' | 'photography' | 'general')
+    : 'general';
+
+  return {
+    ok: true,
+    value: {
+      runId,
+      conceptId,
+      imageUrl,
+      storagePath,
+      referenceMode,
+      referenceRole,
+      metadata: typeof b.metadata === 'object' && b.metadata !== null ? b.metadata : {},
+    },
+  };
+}
+

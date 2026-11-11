@@ -20,7 +20,16 @@
 import { AppError } from '../../../../utils/errorHandler.js';
 import { getAI } from '../../../../config/ai.js';
 import { resolveModelForGeneration } from '../../../config/modelConfig.js';
-import type { CampaignAsset, MasterPrompt, MasterPrompts } from '../../types.js';
+import type {
+  BrandContext,
+  CampaignAsset,
+  CreativeBlueprint,
+  CreativeDirection,
+  CreativeDocument,
+  CreativeEvaluation,
+  MasterPrompt,
+  MasterPrompts,
+} from '../../types.js';
 import {
   insertAsset,
   maxAssetVersion,
@@ -31,6 +40,9 @@ import {
 } from '../db.js';
 import type { GenAIClientLike } from '../gemini.js';
 import { safeFetch as defaultSafeFetch, type SafeFetcher } from '../safeFetch.js';
+import { buildCreativeDocument, composeFinalCreative } from '../composition/compositor.js';
+import { renderCreativeDocumentToSvg, svgToDataUri } from '../composition/svgRenderer.js';
+import { validateDeterministicQuality } from '../evaluation/qualityRules.js';
 import type { AgentImpl, AgentRunContext, AgentRunResult } from './types.js';
 
 export interface CreativesStepOutput {
@@ -170,10 +182,14 @@ export interface GenerateSingleCreativeParams {
   imageClient?: GenAIClientLike;
   feedback?: string | null;
   fetcher?: SafeFetcher;
+  blueprint?: CreativeBlueprint;
+  brandName?: string;
+  brandColors?: string[];
+  logoUrl?: string;
 }
 
 export async function generateSingleCreative(params: GenerateSingleCreativeParams): Promise<CampaignAsset> {
-  const { runId, userId, creativeIndex, prompt, quality, client, imageClient, feedback, fetcher } = params;
+  const { runId, userId, creativeIndex, prompt, quality, client, imageClient, feedback, fetcher, blueprint, brandName, brandColors, logoUrl } = params;
 
   // Fetch product reference photos (if any) once up front, so their count is known for the
   // stored overlay and the same fetched bytes are reused in the actual generation call below.
@@ -289,17 +305,135 @@ export async function generateSingleCreative(params: GenerateSingleCreativeParam
       referenceParts,
     });
 
+    // 6. Build layer-based CreativeDocument & render deterministic composite
+    let creativeDoc: CreativeDocument | undefined = undefined;
+    let compositeUrl: string | undefined = undefined;
+
+    try {
+      if (blueprint) {
+        const compRes = await composeFinalCreative({
+          blueprint,
+          backgroundUrl: imageUrl,
+          productImageUrl: prompt.referenceImageUrls?.[0],
+          logoUrl,
+          brandName: brandName || 'Brand',
+          brandColors: brandColors || ['#0A0A0A', '#F59E0B'],
+        });
+        creativeDoc = compRes.document;
+        compositeUrl = compRes.compositeUrl;
+      } else {
+        const fallbackDoc = buildCreativeDocument({
+          blueprint: {
+            id: `bp-${prompt.conceptId}`,
+            conceptId: prompt.conceptId,
+            version: 1,
+            status: 'draft',
+            marketingAngle: prompt.pillar,
+            advertisingFormat: 'Promotional Product Advertisement',
+            designIntensity: 'balanced',
+            designConcept: prompt.headline,
+            visualNarrative: prompt.subheadline || '',
+            canvas: { width: 1080, height: 1080, aspectRatio: prompt.aspectRatio },
+            artDirection: {
+              visualStyle: 'Commercial advertising',
+              mood: 'bold, clean',
+              background: prompt.imagePrompt,
+              colorPalette: brandColors || ['#0A0A0A', '#F59E0B'],
+              photographyStyle: 'Clean commercial strobe photography',
+              lighting: 'Balanced studio lighting',
+            },
+            layout: {
+              composition: 'Balanced commercial composition',
+              readingOrder: ['main_headline', 'product', 'cta'],
+              productPlacement: 'Center anchor with ground shadow',
+              productScale: 0.6,
+              safeZones: [],
+              elements: [
+                { element: 'main_headline', x: 0.08, y: 0.12, width: 0.84, height: 0.18 },
+                { element: 'product', x: 0.15, y: 0.35, width: 0.70, height: 0.45 },
+                { element: 'cta', x: 0.08, y: 0.86, width: 0.45, height: 0.07 },
+              ],
+            },
+            typography: {
+              headlineStyle: { fontFamily: 'Poppins', fontWeight: 800, fontSizeHint: 'hero', color: '#FFFFFF' },
+              hierarchy: [],
+            },
+            copy: {
+              headline: prompt.headline,
+              subheadline: prompt.subheadline,
+              cta: prompt.cta,
+            },
+            graphicElements: [],
+            assets: { productAssetIds: [], referenceIds: [] },
+            constraints: {
+              preserveProductPackaging: true,
+              preserveLogo: true,
+              exactCopyRequired: true,
+              prohibitInventedClaims: true,
+            },
+          },
+          backgroundUrl: imageUrl,
+          productImageUrl: prompt.referenceImageUrls?.[0],
+          logoUrl,
+          brandName: brandName || 'Brand',
+          brandColors: brandColors || ['#0A0A0A', '#F59E0B'],
+        });
+        creativeDoc = fallbackDoc;
+        const svg = renderCreativeDocumentToSvg(fallbackDoc);
+        compositeUrl = svgToDataUri(svg);
+      }
+    } catch (compErr) {
+      console.warn('[campaign-studio] composite composition failed, using raw image:', compErr);
+    }
+
+    // 7. Run initial deterministic quality evaluation if document is available
+    let evaluation: CreativeEvaluation | undefined = undefined;
+    if (creativeDoc) {
+      try {
+        const deterministicResult = validateDeterministicQuality(creativeDoc, blueprint);
+        const totalScore = deterministicResult.passed ? 92 : 65;
+        evaluation = {
+          creativeId: creativeDoc.id,
+          totalScore,
+          status: deterministicResult.passed ? 'ready_for_review' : 'rejected',
+          scores: {
+            visualHierarchy: 18,
+            productAccuracy: deterministicResult.failures.some((f) => f.includes('product')) ? 4 : 19,
+            brandConsistency: deterministicResult.failures.some((f) => f.includes('logo')) ? 5 : 14,
+            typography: deterministicResult.failures.some((f) => f.includes('headline')) ? 6 : 14,
+            visualQuality: 14,
+            messageClarity: deterministicResult.failures.some((f) => f.includes('offer')) ? 3 : 9,
+            technicalCompliance: deterministicResult.passed ? 5 : 0,
+          },
+          issues: deterministicResult.issues,
+          hardRuleFailures: deterministicResult.failures,
+          passed: deterministicResult.passed,
+          evaluatedAt: new Date().toISOString(),
+        };
+      } catch (evalErr) {
+        console.warn('[campaign-studio] initial quality validation skipped:', evalErr);
+      }
+    }
+
+    const updatedOverlay = {
+      ...asset.overlay,
+      document: creativeDoc,
+      renderedCompositeUrl: compositeUrl,
+      evaluation,
+    };
+
     // Success! Update asset to ready
     if (client) {
       const updated = await updateAsset(client, userId, runId, creativeIndex, nextVersion, {
         status: 'ready',
         image_url: imageUrl,
+        overlay: updatedOverlay as Record<string, unknown>,
         credits_charged: creditCost,
         error: null,
       });
-      return updated ?? { ...asset, status: 'ready', image_url: imageUrl, credits_charged: creditCost };
+      return updated ?? { ...asset, status: 'ready', image_url: imageUrl, overlay: updatedOverlay, credits_charged: creditCost };
     }
-    return { ...asset, status: 'ready', image_url: imageUrl, credits_charged: creditCost };
+    return { ...asset, status: 'ready', image_url: imageUrl, overlay: updatedOverlay, credits_charged: creditCost };
   } catch (genErr: any) {
     const errMsg = genErr.message || 'Image generation failed.';
     // Refund credits if they were charged
@@ -352,10 +486,18 @@ export const creativesAgent: AgentImpl = {
     const assetResults: CampaignAsset[] = [];
     const client = ctx.client;
 
+    const cd = ctx.upstream.creative_direction as CreativeDirection | undefined;
+    const brand = ctx.upstream.brand_analysis as BrandContext | undefined;
+    const brandName = brand?.brandName || 'Brand';
+    const brandColors = brand?.visualIdentity?.colors?.map((c) => c.hex) || ['#0A0A0A', '#F59E0B'];
+    const logoUrl = brand?.visualIdentity?.logoUrl;
+
     // Generate each creative sequentially to respect rate limits & atomic credit spend
     for (let i = 0; i < masterPrompts.prompts.length; i++) {
       const prompt = masterPrompts.prompts[i];
       const creativeIndex = i + 1;
+      const matchingConcept = cd?.concepts?.find((c) => c.id === prompt.conceptId);
+      const blueprint = matchingConcept?.blueprint;
 
       const asset = await generateSingleCreative({
         runId: ctx.run.id,
@@ -367,6 +509,10 @@ export const creativesAgent: AgentImpl = {
         imageClient: ctx.imageClient || ctx.geminiClient,
         feedback: ctx.feedback,
         fetcher: ctx.fetcher,
+        blueprint,
+        brandName,
+        brandColors,
+        logoUrl,
       });
 
       assetResults.push(asset);

@@ -26,12 +26,22 @@ import { REVIEW_GATES, type CampaignAgent, type CampaignRun, type CampaignStep }
 import { AGENT_IMPLS } from './agents/index.js';
 import type { AgentImpl } from './agents/types.js';
 import { MAX_REGENERATIONS_PER_STEP, STALE_RUNNING_MS, getStepDeadlineMs } from './config.js';
-import { getRun, getStepFull, insertStep, listProductImages, listStepsLight, updateRun, updateStep, updateStepsWhere } from './db.js';
+import {
+  getRun,
+  getStepFull,
+  insertStep,
+  listProductImages,
+  listReferences,
+  listStepsLight,
+  updateRun,
+  updateStep,
+  updateStepsWhere,
+} from './db.js';
 import { GeminiCallError, type GenAIClientLike } from './gemini.js';
 import type { SafeFetcher } from './safeFetch.js';
 import { SiteReadError } from './siteReader.js';
 import { generateSingleCreative } from './agents/creatives.js';
-import type { CampaignAsset, MasterPrompts } from '../types.js';
+import type { CampaignAsset, CampaignReference, MasterPrompts } from '../types.js';
 
 export interface EngineContext {
   client: SupabaseClient;
@@ -228,6 +238,18 @@ async function executeAgent(
     }
   }
 
+  let references: CampaignReference[] | undefined;
+  if (agent === 'creative_direction') {
+    try {
+      const refs = await listReferences(ctx.client, ctx.userId, run.id);
+      if (refs && refs.length > 0) {
+        references = refs;
+      }
+    } catch (err) {
+      console.warn('[campaign-studio] Could not load advertising references for run:', err);
+    }
+  }
+
   let result;
   try {
     result = await impl.run({
@@ -242,6 +264,7 @@ async function executeAgent(
       userId: ctx.userId,
       imageClient: ctx.imageClient,
       productImages,
+      references,
     });
   } catch (err) {
     const mapped = mapAgentError(err);

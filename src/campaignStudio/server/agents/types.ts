@@ -5,7 +5,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { CampaignAgent, CampaignRun } from '../../types.js';
+import type { CampaignAgent, CampaignReference, CampaignRun } from '../../types.js';
 import type { GenAIClientLike, TokenUsage } from '../gemini.js';
 import type { SafeFetcher } from '../safeFetch.js';
 
@@ -28,6 +28,8 @@ export interface AgentRunContext {
   imageClient?: GenAIClientLike;
   /** Optional reference product photos for this run. */
   productImages?: { url: string; label?: string }[];
+  /** Optional advertising references uploaded by the user (Phase 2). */
+  references?: CampaignReference[];
 }
 
 export interface AgentRunResult {

@@ -10,7 +10,19 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { AppError } from '../../../utils/errorHandler.js';
 import { MAX_ACTIVE_RUNS_PER_USER } from './config.js';
 import type { CreateRunInput } from './validation.js';
-import type { AssetStatus, CampaignAgent, CampaignAsset, CampaignProductImage, CampaignRun, CampaignStep, RunStatus, StepStatus } from '../types.js';
+import type {
+  AssetStatus,
+  CampaignAgent,
+  CampaignAsset,
+  CampaignProductImage,
+  CampaignReference,
+  CampaignRun,
+  CampaignStep,
+  ReferenceMode,
+  ReferenceRole,
+  RunStatus,
+  StepStatus,
+} from '../types.js';
 
 /** Columns returned to the client for a run list (no heavy jsonb). */
 const RUN_LIST_COLUMNS = 'id, title, input_type, website_url, goal, status, current_step, settings, credits_spent, created_at, updated_at';
@@ -511,5 +523,113 @@ export async function countProductImages(
   if (error) fail('count product images', error, 'Could not count product photos.');
   return count ?? 0;
 }
+
+// ---------------------------------------------------------------------------
+// Advertising References (Phase 2)
+// ---------------------------------------------------------------------------
+
+export async function createReference(
+  client: SupabaseClient,
+  userId: string,
+  input: {
+    runId?: string | null;
+    conceptId?: string | null;
+    imageUrl: string;
+    storagePath?: string | null;
+    referenceMode?: ReferenceMode;
+    referenceRole?: ReferenceRole;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<CampaignReference> {
+  const { data, error } = await client
+    .from('campaign_references')
+    .insert({
+      user_id: userId,
+      run_id: input.runId ?? null,
+      concept_id: input.conceptId ?? null,
+      image_url: input.imageUrl,
+      storage_path: input.storagePath ?? null,
+      reference_mode: input.referenceMode ?? 'inspiration',
+      reference_role: input.referenceRole ?? 'general',
+      analysis_status: 'pending',
+      design_dna: {},
+      metadata: input.metadata ?? {},
+    })
+    .select('*')
+    .single();
+
+  if (error || !data) fail('create reference', error, 'Could not save advertising reference.');
+  return data as CampaignReference;
+}
+
+export async function listReferences(
+  client: SupabaseClient,
+  userId: string,
+  runId?: string,
+): Promise<CampaignReference[]> {
+  let q = client
+    .from('campaign_references')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (runId) {
+    q = q.eq('run_id', runId);
+  }
+
+  const { data, error } = await q;
+  if (error) fail('list references', error, 'Could not load advertising references.');
+  return (data || []) as CampaignReference[];
+}
+
+export async function getReference(
+  client: SupabaseClient,
+  userId: string,
+  referenceId: string,
+): Promise<CampaignReference | null> {
+  const { data, error } = await client
+    .from('campaign_references')
+    .select('*')
+    .eq('id', referenceId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) fail('get reference', error, 'Could not load advertising reference.');
+  return (data as CampaignReference | null) ?? null;
+}
+
+export async function updateReference(
+  client: SupabaseClient,
+  userId: string,
+  referenceId: string,
+  patch: Partial<Pick<CampaignReference, 'analysis_status' | 'design_dna' | 'reference_mode' | 'reference_role' | 'concept_id' | 'metadata'>>,
+): Promise<CampaignReference> {
+  const { data, error } = await client
+    .from('campaign_references')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', referenceId)
+    .eq('user_id', userId)
+    .select('*')
+    .single();
+
+  if (error || !data) fail('update reference', error, 'Could not update advertising reference.');
+  return data as CampaignReference;
+}
+
+export async function deleteReference(
+  client: SupabaseClient,
+  userId: string,
+  referenceId: string,
+): Promise<boolean> {
+  const { error } = await client
+    .from('campaign_references')
+    .delete()
+    .eq('id', referenceId)
+    .eq('user_id', userId);
+
+  if (error) fail('delete reference', error, 'Could not delete advertising reference.');
+  return true;
+}
+
 
 

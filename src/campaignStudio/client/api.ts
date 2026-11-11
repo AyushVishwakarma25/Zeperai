@@ -7,15 +7,22 @@
  */
 
 import type {
+  AdvertisingFormatDefinition,
   CampaignAgent,
   CampaignAsset,
   CampaignGoal,
   CampaignInputType,
   CampaignPlatform,
   CampaignProductImage,
+  CampaignReference,
   CampaignRun,
   CampaignSettings,
   CampaignStep,
+  CreativeDocument,
+  CreativeEvaluation,
+  CreativeLayer,
+  ReferenceMode,
+  ReferenceRole,
 } from '../types.js';
 
 export class CampaignApiError extends Error {
@@ -128,11 +135,69 @@ export function createCampaignApi(deps: CampaignApiDeps) {
       (await request<{ success: true; image: CampaignProductImage }>('POST', `/runs/${enc(runId)}/product-images`, payload)).image,
     deleteProductImage: async (runId: string, imageId: string) =>
       request<{ success: true }>('DELETE', `/runs/${enc(runId)}/product-images/${enc(imageId)}`).then(() => undefined),
+    getFormats: async () => (await request<{ success: true; formats: AdvertisingFormatDefinition[] }>('GET', '/formats')).formats,
+    addReference: async (payload: {
+      runId?: string;
+      conceptId?: string;
+      imageUrl: string;
+      storagePath?: string;
+      referenceMode?: ReferenceMode;
+      referenceRole?: ReferenceRole;
+      metadata?: Record<string, unknown>;
+    }) => (await request<{ success: true; reference: CampaignReference }>('POST', '/references', payload)).reference,
+    listReferences: async (runId?: string) =>
+      (await request<{ success: true; references: CampaignReference[] }>('GET', `/references${runId ? `?runId=${enc(runId)}` : ''}`)).references,
+    getReference: (refId: string) => request<{ success: true; reference: CampaignReference }>('GET', `/references/${enc(refId)}`),
+    deleteReference: (refId: string) => request<{ success: true }>('DELETE', `/references/${enc(refId)}`),
+    analyzeReference: (refId: string) => request<{ success: true; reference: CampaignReference }>('POST', `/references/${enc(refId)}/analyze`),
     runStep: (runId: string, agent: CampaignAgent) => request<StepResult>('POST', `/runs/${enc(runId)}/steps/${enc(agent)}/run`),
     regenerateStep: (runId: string, agent: CampaignAgent, feedback: string) =>
       request<StepResult>('POST', `/runs/${enc(runId)}/steps/${enc(agent)}/regenerate`, { feedback }),
     regenerateCreative: (runId: string, creativeIndex: number, feedback?: string) =>
       request<{ success: true; asset: CampaignAsset }>('POST', `/runs/${enc(runId)}/creatives/${creativeIndex}/regenerate`, { feedback }),
+    getCreativeDocument: (runId: string, creativeIndex: number) =>
+      request<{ success: true; document: CreativeDocument; renderedCompositeUrl?: string }>(
+        'GET',
+        `/runs/${enc(runId)}/creatives/${creativeIndex}/document`,
+      ),
+    updateCreativeDocument: (
+      runId: string,
+      creativeIndex: number,
+      payload: { document?: CreativeDocument; layerId?: string; patch?: Partial<CreativeLayer> },
+    ) =>
+      request<{ success: true; document: CreativeDocument; compositeUrl: string }>(
+        'PUT',
+        `/runs/${enc(runId)}/creatives/${creativeIndex}/document`,
+        payload,
+      ),
+    evaluateCreative: (runId: string, creativeIndex: number) =>
+      request<{ success: true; evaluation: CreativeEvaluation }>(
+        'POST',
+        `/runs/${enc(runId)}/creatives/${creativeIndex}/evaluate`,
+      ),
+    getCreativeEvaluation: (runId: string, creativeIndex: number) =>
+      request<{ success: true; evaluation: CreativeEvaluation }>(
+        'GET',
+        `/runs/${enc(runId)}/creatives/${creativeIndex}/evaluation`,
+      ),
+    targetedRegenerateCreative: (
+      runId: string,
+      creativeIndex: number,
+      payload: {
+        component: 'headline' | 'background' | 'product' | 'badge' | 'cta' | 'subheadline';
+        instructions?: string;
+        newAssetUrl?: string;
+        patchStyles?: Record<string, unknown>;
+        newContent?: string;
+      },
+    ) =>
+      request<{
+        success: true;
+        document: CreativeDocument;
+        compositeUrl: string;
+        evaluation: CreativeEvaluation;
+        actionTaken: string;
+      }>('POST', `/runs/${enc(runId)}/creatives/${creativeIndex}/targeted-regenerate`, payload),
     editStep: (runId: string, agent: CampaignAgent, output: unknown) =>
       request<StepResult>('PUT', `/runs/${enc(runId)}/steps/${enc(agent)}/output`, { output }),
     approveStep: (runId: string, agent: CampaignAgent) => request<ApproveResult>('POST', `/runs/${enc(runId)}/steps/${enc(agent)}/approve`),

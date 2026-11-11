@@ -12,12 +12,19 @@ import { AppError, asyncHandler } from '../../../utils/errorHandler.js';
 import {
   countProductImages,
   createProductImage,
+  createReference,
   createRun,
   deleteProductImage,
+  deleteReference,
+  getReference,
   getRun,
   getRunDetail,
+  listAssets,
   listProductImages,
+  listReferences,
   listRuns,
+  updateAsset,
+  updateReference,
   updateRunKnownFacts,
 } from './db.js';
 import { approveGate, cancelRun, editAgentOutput, regenerateAgentStep, regenerateSingleCreativeStep, runAgentStep, type EngineContext } from './engine.js';
@@ -31,11 +38,18 @@ import {
   isUuid,
   parseAgentParam,
   validateAddProductImageInput,
+  validateAddReferenceInput,
   validateCreateRunInput,
   validateFeedback,
   validateKnownFacts,
 } from './validation.js';
 import { DEFAULT_CAMPAIGN_SETTINGS, MAX_CREATIVES_PER_RUN, MAX_PRODUCT_IMAGES_PER_RUN } from '../types.js';
+import { listAdvertisingFormats } from './formatLibrary.js';
+import { analyzeReferenceImage } from './agents/referenceAnalyst.js';
+import { renderCreativeDocumentToSvg, svgToDataUri } from './composition/svgRenderer.js';
+import { updateLayerInDocument } from './composition/compositor.js';
+import { evaluateCreative } from './evaluation/qualityEvaluator.js';
+import { targetedRegenerateCreative } from './evaluation/targetedRegenerator.js';
 
 export interface CampaignStudioDeps {
   /** server.ts requireAuth: sets req.user (Supabase user, or the master-admin stub). */
@@ -239,6 +253,128 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
   );
 
   // ---------------------------------------------------------------------------
+  // Advertising Formats & References routes (Phase 2)
+  // ---------------------------------------------------------------------------
+
+  app.get(
+    `${BASE}/formats`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (_req: Request, res: Response) => {
+      res.json({ success: true, formats: listAdvertisingFormats() });
+    }),
+  );
+
+  app.post(
+    `${BASE}/references`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const parsed = validateAddReferenceInput(req.body);
+      if (!parsed.ok) {
+        return res.status(400).json({ success: false, error: parsed.error });
+      }
+      const client = await deps.getAdminSupabaseClient();
+      if (parsed.value.runId) {
+        const run = await getRun(client, userId(req), parsed.value.runId);
+        if (!run) {
+          throw new AppError('Run not found', 404, 'Campaign not found.');
+        }
+      }
+      const reference = await createReference(client, userId(req), parsed.value);
+      return res.status(201).json({ success: true, reference });
+    }),
+  );
+
+  app.get(
+    `${BASE}/references`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const runId = typeof req.query.runId === 'string' && isUuid(req.query.runId) ? req.query.runId : undefined;
+      const client = await deps.getAdminSupabaseClient();
+      const references = await listReferences(client, userId(req), runId);
+      return res.json({ success: true, references });
+    }),
+  );
+
+  app.get(
+    `${BASE}/references/:refId`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const refId = String(req.params.refId || '');
+      if (!isUuid(refId)) {
+        throw new AppError('Invalid reference id', 400, 'Invalid reference id.');
+      }
+      const client = await deps.getAdminSupabaseClient();
+      const reference = await getReference(client, userId(req), refId);
+      if (!reference) {
+        return res.status(404).json({ success: false, error: 'Reference not found.' });
+      }
+      return res.json({ success: true, reference });
+    }),
+  );
+
+  app.delete(
+    `${BASE}/references/:refId`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const refId = String(req.params.refId || '');
+      if (!isUuid(refId)) {
+        throw new AppError('Invalid reference id', 400, 'Invalid reference id.');
+      }
+      const client = await deps.getAdminSupabaseClient();
+      const existing = await getReference(client, userId(req), refId);
+      if (!existing) {
+        return res.status(404).json({ success: false, error: 'Reference not found.' });
+      }
+      await deleteReference(client, userId(req), refId);
+      return res.json({ success: true });
+    }),
+  );
+
+  app.post(
+    `${BASE}/references/:refId/analyze`,
+    deps.requireAuth,
+    campaignGate,
+    deps.aiLimiter,
+    asyncHandler(async (req: Request, res: Response) => {
+      const refId = String(req.params.refId || '');
+      if (!isUuid(refId)) {
+        throw new AppError('Invalid reference id', 400, 'Invalid reference id.');
+      }
+      const client = await deps.getAdminSupabaseClient();
+      const existing = await getReference(client, userId(req), refId);
+      if (!existing) {
+        return res.status(404).json({ success: false, error: 'Reference not found.' });
+      }
+
+      await updateReference(client, userId(req), refId, { analysis_status: 'analyzing' });
+
+      try {
+        const dna = await analyzeReferenceImage({
+          imageUrl: existing.image_url,
+          referenceRole: existing.reference_role,
+          client: deps.overrides?.geminiClient,
+          fetcher: deps.overrides?.fetcher,
+        });
+
+        const updated = await updateReference(client, userId(req), refId, {
+          analysis_status: 'completed',
+          design_dna: dna,
+        });
+
+        return res.json({ success: true, reference: updated });
+      } catch (err: any) {
+        await updateReference(client, userId(req), refId, { analysis_status: 'failed' });
+        throw new AppError('Analysis failed', 500, err?.message || 'Could not analyze reference image.');
+      }
+    }),
+  );
+
+  // ---------------------------------------------------------------------------
   // Step engine routes (chunk 3)
   // ---------------------------------------------------------------------------
 
@@ -296,6 +432,228 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         : null;
       const asset = await regenerateSingleCreativeStep(await engineCtx(req), runIdOf(req), creativeIndex, feedback);
       return res.status(201).json({ success: true, asset });
+    }),
+  );
+
+  // ---------------------------------------------------------------------------
+  // Creative Document & Layer Manipulation routes (Phase 3)
+  // ---------------------------------------------------------------------------
+
+  app.get(
+    `${BASE}/runs/:runId/creatives/:creativeIndex/document`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const creativeIndex = parseInt(String(req.params.creativeIndex || ''), 10);
+      if (isNaN(creativeIndex) || creativeIndex < 1 || creativeIndex > MAX_CREATIVES_PER_RUN) {
+        throw new AppError('Invalid creative index', 400, 'Invalid creative index.');
+      }
+      const client = await deps.getAdminSupabaseClient();
+      const assets = await listAssets(client, userId(req), runIdOf(req));
+      const latest = assets
+        .filter((a) => a.creative_index === creativeIndex && a.status !== 'superseded')
+        .sort((a, b) => b.version - a.version)[0];
+      if (!latest) {
+        return res.status(404).json({ success: false, error: 'Creative asset not found.' });
+      }
+      const overlay = (latest.overlay || {}) as Record<string, any>;
+      const document = overlay.document;
+      if (!document) {
+        return res.status(404).json({ success: false, error: 'Layer document not available for this creative.' });
+      }
+      return res.json({ success: true, document, renderedCompositeUrl: overlay.renderedCompositeUrl });
+    }),
+  );
+
+  app.put(
+    `${BASE}/runs/:runId/creatives/:creativeIndex/document`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const creativeIndex = parseInt(String(req.params.creativeIndex || ''), 10);
+      if (isNaN(creativeIndex) || creativeIndex < 1 || creativeIndex > MAX_CREATIVES_PER_RUN) {
+        throw new AppError('Invalid creative index', 400, 'Invalid creative index.');
+      }
+      const client = await deps.getAdminSupabaseClient();
+      const assets = await listAssets(client, userId(req), runIdOf(req));
+      const latest = assets
+        .filter((a) => a.creative_index === creativeIndex && a.status !== 'superseded')
+        .sort((a, b) => b.version - a.version)[0];
+      if (!latest) {
+        return res.status(404).json({ success: false, error: 'Creative asset not found.' });
+      }
+
+      const overlay = (latest.overlay || {}) as Record<string, any>;
+      let doc = overlay.document;
+      if (!doc) {
+        return res.status(404).json({ success: false, error: 'Layer document not available for this creative.' });
+      }
+
+      if (req.body?.layerId && req.body?.patch) {
+        doc = updateLayerInDocument(doc, req.body.layerId, req.body.patch);
+      } else if (req.body?.document && typeof req.body.document === 'object') {
+        doc = { ...req.body.document, updatedAt: new Date().toISOString() };
+      } else {
+        return res.status(400).json({ success: false, error: 'Send either document or layerId + patch.' });
+      }
+
+      const svg = renderCreativeDocumentToSvg(doc);
+      const compositeUrl = svgToDataUri(svg);
+      const updatedOverlay = {
+        ...overlay,
+        document: doc,
+        renderedCompositeUrl: compositeUrl,
+      };
+
+      await updateAsset(client, userId(req), runIdOf(req), creativeIndex, latest.version, {
+        overlay: updatedOverlay,
+      });
+
+      return res.json({ success: true, document: doc, compositeUrl });
+    }),
+  );
+
+  // ---------------------------------------------------------------------------
+  // Quality Evaluation & Targeted Regeneration routes (Phase 4)
+  // ---------------------------------------------------------------------------
+
+  app.post(
+    `${BASE}/runs/:runId/creatives/:creativeIndex/evaluate`,
+    deps.requireAuth,
+    campaignGate,
+    deps.aiLimiter,
+    asyncHandler(async (req: Request, res: Response) => {
+      const creativeIndex = parseInt(String(req.params.creativeIndex || ''), 10);
+      if (isNaN(creativeIndex) || creativeIndex < 1 || creativeIndex > MAX_CREATIVES_PER_RUN) {
+        throw new AppError('Invalid creative index', 400, 'Invalid creative index.');
+      }
+      const client = await deps.getAdminSupabaseClient();
+      const assets = await listAssets(client, userId(req), runIdOf(req));
+      const latest = assets
+        .filter((a) => a.creative_index === creativeIndex && a.status !== 'superseded')
+        .sort((a, b) => b.version - a.version)[0];
+      if (!latest) {
+        return res.status(404).json({ success: false, error: 'Creative asset not found.' });
+      }
+
+      const overlay = (latest.overlay || {}) as Record<string, any>;
+      const doc = overlay.document;
+      if (!doc) {
+        return res.status(404).json({ success: false, error: 'Layer document not available for evaluation.' });
+      }
+
+      const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
+      const evaluation = await evaluateCreative({
+        doc,
+        brand: runDetail?.run?.brand_context,
+        client: deps.overrides?.geminiClient,
+      });
+
+      const updatedOverlay = {
+        ...overlay,
+        evaluation,
+      };
+
+      await updateAsset(client, userId(req), runIdOf(req), creativeIndex, latest.version, {
+        overlay: updatedOverlay,
+      });
+
+      return res.json({ success: true, evaluation });
+    }),
+  );
+
+  app.get(
+    `${BASE}/runs/:runId/creatives/:creativeIndex/evaluation`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const creativeIndex = parseInt(String(req.params.creativeIndex || ''), 10);
+      if (isNaN(creativeIndex) || creativeIndex < 1 || creativeIndex > MAX_CREATIVES_PER_RUN) {
+        throw new AppError('Invalid creative index', 400, 'Invalid creative index.');
+      }
+      const client = await deps.getAdminSupabaseClient();
+      const assets = await listAssets(client, userId(req), runIdOf(req));
+      const latest = assets
+        .filter((a) => a.creative_index === creativeIndex && a.status !== 'superseded')
+        .sort((a, b) => b.version - a.version)[0];
+      if (!latest) {
+        return res.status(404).json({ success: false, error: 'Creative asset not found.' });
+      }
+
+      const overlay = (latest.overlay || {}) as Record<string, any>;
+      const evaluation = overlay.evaluation;
+      if (!evaluation) {
+        return res.status(404).json({ success: false, error: 'Evaluation not found for this creative.' });
+      }
+
+      return res.json({ success: true, evaluation });
+    }),
+  );
+
+  app.post(
+    `${BASE}/runs/:runId/creatives/:creativeIndex/targeted-regenerate`,
+    deps.requireAuth,
+    campaignGate,
+    deps.aiLimiter,
+    asyncHandler(async (req: Request, res: Response) => {
+      const creativeIndex = parseInt(String(req.params.creativeIndex || ''), 10);
+      if (isNaN(creativeIndex) || creativeIndex < 1 || creativeIndex > MAX_CREATIVES_PER_RUN) {
+        throw new AppError('Invalid creative index', 400, 'Invalid creative index.');
+      }
+      const component = String(req.body?.component || '');
+      if (!['headline', 'background', 'product', 'badge', 'cta', 'subheadline'].includes(component)) {
+        throw new AppError('Invalid component', 400, 'Valid component required (headline, background, product, badge, cta, subheadline).');
+      }
+
+      const client = await deps.getAdminSupabaseClient();
+      const assets = await listAssets(client, userId(req), runIdOf(req));
+      const latest = assets
+        .filter((a) => a.creative_index === creativeIndex && a.status !== 'superseded')
+        .sort((a, b) => b.version - a.version)[0];
+      if (!latest) {
+        return res.status(404).json({ success: false, error: 'Creative asset not found.' });
+      }
+
+      const overlay = (latest.overlay || {}) as Record<string, any>;
+      const doc = overlay.document;
+      if (!doc) {
+        return res.status(404).json({ success: false, error: 'Layer document not available for targeted regeneration.' });
+      }
+
+      const regenResult = targetedRegenerateCreative({
+        doc,
+        component: component as any,
+        instructions: typeof req.body?.instructions === 'string' ? req.body.instructions : undefined,
+        newAssetUrl: typeof req.body?.newAssetUrl === 'string' ? req.body.newAssetUrl : undefined,
+        patchStyles: typeof req.body?.patchStyles === 'object' ? req.body.patchStyles : undefined,
+        newContent: typeof req.body?.newContent === 'string' ? req.body.newContent : undefined,
+      });
+
+      const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
+      const newEvaluation = await evaluateCreative({
+        doc: regenResult.document,
+        brand: runDetail?.run?.brand_context,
+        client: deps.overrides?.geminiClient,
+      });
+
+      const updatedOverlay = {
+        ...overlay,
+        document: regenResult.document,
+        renderedCompositeUrl: regenResult.compositeUrl,
+        evaluation: newEvaluation,
+      };
+
+      await updateAsset(client, userId(req), runIdOf(req), creativeIndex, latest.version, {
+        overlay: updatedOverlay,
+      });
+
+      return res.json({
+        success: true,
+        document: regenResult.document,
+        compositeUrl: regenResult.compositeUrl,
+        evaluation: newEvaluation,
+        actionTaken: regenResult.actionTaken,
+      });
     }),
   );
 

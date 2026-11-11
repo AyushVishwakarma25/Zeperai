@@ -184,7 +184,160 @@ export interface CampaignProductImage {
 
 export const MAX_PRODUCT_IMAGES_PER_RUN = 8;
 
-/** Text/logo layer composited on top of a generated image (applied client-side). */
+// ---------------------------------------------------------------------------
+// Advertising References & Format Intelligence (Phase 2)
+// ---------------------------------------------------------------------------
+
+export type ReferenceMode = 'inspiration' | 'layout' | 'style_transfer';
+export type ReferenceRole = 'layout' | 'typography' | 'color' | 'photography' | 'general';
+export type ReferenceAnalysisStatus = 'pending' | 'analyzing' | 'completed' | 'failed';
+
+export interface ReferenceDesignDNA {
+  layoutType: string;
+  composition: string;
+  visualHierarchy: string[];
+  colorRelationships: string[];
+  typography: {
+    style: string;
+    weight: string;
+    scale: string;
+    positioning: string;
+  };
+  productPlacement: string;
+  photographyStyle: string;
+  graphicElements: string[];
+  backgroundTreatment: string;
+  visualDensity: string;
+  readingOrder: string[];
+  designCharacteristics: string[];
+}
+
+export interface CampaignReference {
+  id: string;
+  user_id: string;
+  run_id?: string | null;
+  concept_id?: string | null;
+  image_url: string;
+  storage_path?: string | null;
+  reference_mode: ReferenceMode;
+  reference_role: ReferenceRole;
+  analysis_status: ReferenceAnalysisStatus;
+  design_dna: ReferenceDesignDNA | Record<string, never>;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdvertisingFormatDefinition {
+  id: string;
+  name: string;
+  description: string;
+  suitableObjectives: CampaignGoal[];
+  suitableIndustries: string[];
+  recommendedVisualHierarchy: string[];
+  compositionCharacteristics: string;
+  typographyRecommendations: string;
+  productPlacementGuidance: string;
+  suitableGraphicElements: string[];
+  commonMistakesToAvoid: string[];
+  defaultLayoutElements?: NormalizedBoundingBox[];
+}
+
+export type CreativeLayerType =
+  | 'background'
+  | 'image'
+  | 'product'
+  | 'text'
+  | 'shape'
+  | 'badge'
+  | 'logo'
+  | 'cta'
+  | 'divider';
+
+export interface CreativeLayerPosition {
+  /** 0.0 to 1.0 relative to canvas width */
+  x: number;
+  /** 0.0 to 1.0 relative to canvas height */
+  y: number;
+  /** 0.0 to 1.0 relative to canvas width */
+  width: number;
+  /** 0.0 to 1.0 relative to canvas height */
+  height: number;
+  rotation?: number;
+}
+
+export interface CreativeLayer {
+  id: string;
+  name: string;
+  type: CreativeLayerType;
+  zIndex: number;
+  position: CreativeLayerPosition;
+  assetId?: string;
+  content?: string;
+  styles: Record<string, unknown>;
+  locked?: boolean;
+  visible?: boolean;
+}
+
+export interface CreativeDocument {
+  id: string;
+  blueprintId?: string;
+  conceptId: string;
+  campaignId?: string;
+  version: number;
+  advertisingFormat: string;
+  designIntensity: DesignIntensity;
+  canvas: {
+    width: number;
+    height: number;
+    aspectRatio: string;
+  };
+  layers: CreativeLayer[];
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type IssueSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type EvaluationStatus = 'ready_for_review' | 'needs_improvement' | 'rejected';
+
+export interface CreativeQualityScores {
+  /** Visual hierarchy, reading order, and composition (0 to 20) */
+  visualHierarchy: number;
+  /** Product fidelity, label clarity, and packaging accuracy (0 to 20) */
+  productAccuracy: number;
+  /** Adherence to brand colors, tone, and visual guidelines (0 to 15) */
+  brandConsistency: number;
+  /** Typography readability, font pairing, and kerning (0 to 15) */
+  typography: number;
+  /** Lighting, shadow realism, textures, and aesthetic polish (0 to 15) */
+  visualQuality: number;
+  /** Clarity of hook, offer, and CTA actionability (0 to 10) */
+  messageClarity: number;
+  /** Dimension correctness, safe zones, and aspect ratio compliance (0 to 5) */
+  technicalCompliance: number;
+}
+
+export interface QualityIssue {
+  category: string;
+  severity: IssueSeverity;
+  description: string;
+  affectedLayerId?: string;
+  suggestedFix: string;
+}
+
+export interface CreativeEvaluation {
+  creativeId: string;
+  totalScore: number;
+  status: EvaluationStatus;
+  scores: CreativeQualityScores;
+  issues: QualityIssue[];
+  hardRuleFailures: string[];
+  passed: boolean;
+  evaluatedAt: string;
+}
+
+/** Text/logo layer composited on top of a generated image. */
 export interface CreativeOverlay {
   headline?: string;
   subheading?: string;
@@ -193,6 +346,12 @@ export interface CreativeOverlay {
   textPlacement?: 'top' | 'bottom' | 'center' | 'clean_overlay';
   /** How many uploaded product reference photos were actually attached when this image was generated. */
   referenceImageCount?: number;
+  /** V2 editable multi-layer advertising document */
+  document?: CreativeDocument;
+  /** Standalone rendered advertisement image URL (SVG data URI or PNG) */
+  renderedCompositeUrl?: string;
+  /** V2 Quality Evaluation score & issue diagnostics */
+  evaluation?: CreativeEvaluation;
 }
 
 // ---------------------------------------------------------------------------
@@ -314,8 +473,126 @@ export interface CampaignStrategy {
 }
 
 // ---------------------------------------------------------------------------
-// Agents 5-6 output: creative direction and master prompts
+// Agents 5-6 output: creative direction, creative blueprints and master prompts
 // ---------------------------------------------------------------------------
+
+export type DesignIntensity = 'minimal' | 'balanced' | 'bold' | 'experimental';
+
+export interface NormalizedBoundingBox {
+  element: string;
+  /** 0.0 to 1.0 (from left edge) */
+  x: number;
+  /** 0.0 to 1.0 (from top edge) */
+  y: number;
+  /** 0.0 to 1.0 */
+  width: number;
+  /** 0.0 to 1.0 */
+  height: number;
+  alignment?: 'left' | 'center' | 'right';
+  layer?: number;
+}
+
+export interface BlueprintGraphicElement {
+  type: string;
+  description: string;
+  position: NormalizedBoundingBox;
+  style: {
+    backgroundColor?: string;
+    textColor?: string;
+    borderColor?: string;
+    borderRadius?: number;
+    opacity?: number;
+  };
+}
+
+/** Strongly typed Creative Blueprint (V2 Advertising Design Specification). */
+export interface CreativeBlueprint {
+  id: string;
+  campaignId?: string;
+  conceptId: string;
+  version: number;
+  status: 'draft' | 'approved' | 'superseded';
+
+  marketingAngle: string;
+  advertisingFormat: string;
+  designIntensity: DesignIntensity;
+
+  designConcept: string;
+  visualNarrative: string;
+
+  canvas: {
+    width: number;
+    height: number;
+    aspectRatio: string;
+  };
+
+  artDirection: {
+    visualStyle: string;
+    mood: string;
+    background: string;
+    colorPalette: string[];
+    photographyStyle: string;
+    lighting: string;
+  };
+
+  layout: {
+    composition: string;
+    readingOrder: string[];
+    productPlacement: string;
+    productScale: number;
+    safeZones: NormalizedBoundingBox[];
+    elements: NormalizedBoundingBox[];
+  };
+
+  typography: {
+    headlineStyle: {
+      fontFamily: string;
+      fontWeight: string | number;
+      fontSizeHint: string;
+      color: string;
+      letterSpacing?: string;
+      lineHeight?: string;
+      textTransform?: 'uppercase' | 'none' | 'capitalize';
+    };
+    subheadlineStyle?: {
+      fontFamily: string;
+      fontWeight: string | number;
+      fontSizeHint?: string;
+      color: string;
+    };
+    bodyStyle?: {
+      fontFamily: string;
+      fontWeight: string | number;
+      color: string;
+    };
+    hierarchy: Array<{ level: string; priority: number; role: string }>;
+  };
+
+  copy: {
+    headline: string;
+    subheadline?: string;
+    body?: string;
+    offer?: string;
+    price?: string;
+    cta?: string;
+    disclaimer?: string;
+  };
+
+  graphicElements: BlueprintGraphicElement[];
+
+  assets: {
+    productAssetIds: string[];
+    referenceIds: string[];
+    logoAssetId?: string;
+  };
+
+  constraints: {
+    preserveProductPackaging: boolean;
+    preserveLogo: boolean;
+    exactCopyRequired: boolean;
+    prohibitInventedClaims: boolean;
+  };
+}
 
 /** One creative concept within a content pillar. */
 export interface CreativeConcept {
@@ -328,9 +605,11 @@ export interface CreativeConcept {
   storyline: string;
   cta: string;
   composition: string;
+  /** V2 Creative Blueprint advertising design specification. */
+  blueprint?: CreativeBlueprint;
 }
 
-/** Agent 5 (creative_direction). Concepts must cover the strategy's creativeMix exactly (validated). */
+/** Agent 5 (creative_direction / AI Art Director). Concepts must cover the strategy's creativeMix exactly (validated). */
 export interface CreativeDirection {
   visualTheme: string;
   moodKeywords: string[];
@@ -339,6 +618,8 @@ export interface CreativeDirection {
   photographyStyle: string;
   concepts: CreativeConcept[];
   thingsToAvoid: string[];
+  /** V2 structured blueprints for every concept in the creative direction. */
+  blueprints?: CreativeBlueprint[];
 }
 
 /** Agent 6 (master_prompts). One prompt per concept, ready for the image model. */
