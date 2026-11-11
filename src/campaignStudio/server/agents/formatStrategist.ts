@@ -24,8 +24,12 @@ export function assignFormatsToConcepts(params: {
   strategy?: CampaignStrategy;
   goal?: CampaignGoal | string;
   category?: string;
-}): FormatAssignment[] {
-  const { concepts, strategy, goal = 'sales', category = 'd2c' } = params;
+} | CreativeConcept[]): FormatAssignment[] {
+  const isArray = Array.isArray(params);
+  const concepts = isArray ? params : (params?.concepts || []);
+  const strategy = isArray ? undefined : params?.strategy;
+  const goal = (isArray ? 'sales' : params?.goal) || 'sales';
+  const category = (isArray ? 'd2c' : params?.category) || 'd2c';
   const assignments: FormatAssignment[] = [];
   const usedFormatIds: string[] = [];
 
