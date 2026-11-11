@@ -694,7 +694,7 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         const creativeDirStep = runDetail?.steps?.find((s) => s.agent === 'creative_direction' && s.status === 'approved');
         const direction = (creativeDirStep?.output as any)?.blueprints?.[creativeIndex - 1];
 
-        const headline = overlay.headline || direction?.copy?.headline || 'Exclusive Offer';
+        const headline = overlay.headline || direction?.copy?.headline || (brand?.brandName ? `${brand.brandName} Essential` : 'Featured Product');
         const subheadline = overlay.subheading || direction?.copy?.subheadline || '';
         const cta = overlay.cta || direction?.copy?.cta || 'Shop Now';
         const brandName = brand?.brandName || 'Brand';
@@ -786,7 +786,7 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
 
       const pkg = buildMetaCampaignPackage({
         run: runDetail.run,
-        brand,
+        brand: brand as BrandContext,
         strategy: strategyStep?.output as any,
         prompts: (masterPromptsStep?.output as any)?.prompts || [],
         blueprints: (creativeDirectionStep?.output as any)?.blueprints || [],
@@ -821,7 +821,7 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
 
       const pkg = buildMetaCampaignPackage({
         run: runDetail.run,
-        brand,
+        brand: brand as BrandContext,
         strategy: strategyStep?.output as any,
         prompts: (masterPromptsStep?.output as any)?.prompts || [],
         blueprints: (creativeDirectionStep?.output as any)?.blueprints || [],

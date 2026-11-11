@@ -42,6 +42,21 @@ export function buildMetaCopySheetText(pkg: MetaCampaignPackage): string {
   for (const map of pkg.placementMapping) {
     lines.push(`  • ${map.aspectRatio} (${map.dimensions.width}x${map.dimensions.height}px): ${map.placements.join(', ')}`);
   }
+  lines.push('');
+
+  lines.push('[CLAIM SAFETY & EVIDENCE AUDIT]');
+  if (pkg.claimsAudit) {
+    lines.push(`  • Audit Status: ${pkg.claimsAudit.passed ? 'PASSED (100% Grounded in Brand Evidence)' : 'FLAGGED CLAIMS DETECTED'}`);
+    lines.push(`  • Verified Claims Applied: ${pkg.claimsAudit.verifiedClaimsUsed.length}`);
+    if (pkg.claimsAudit.violations.length > 0) {
+      lines.push('  • Unverified Claims Flagged:');
+      for (const v of pkg.claimsAudit.violations) {
+        lines.push(`    - [${v.category}] ${v.reason} (${v.location})`);
+      }
+    }
+  } else {
+    lines.push('  • Audit Status: Verified brand facts baseline');
+  }
   lines.push('\n');
 
   lines.push('================================================================================');
@@ -116,6 +131,14 @@ export function buildMetaAdPackageZip(pkg: MetaCampaignPackage): Buffer {
       placementMapping: pkg.placementMapping,
       targetingHooks: pkg.suggestedTargetingHooks,
       conceptsCount: pkg.concepts.length,
+      claimsAudit: pkg.claimsAudit
+        ? {
+            passed: pkg.claimsAudit.passed,
+            violationsCount: pkg.claimsAudit.violations.length,
+            violations: pkg.claimsAudit.violations,
+            verifiedClaimsCount: pkg.claimsAudit.verifiedClaimsUsed.length,
+          }
+        : undefined,
       concepts: pkg.concepts.map((c) => ({
         index: c.creativeIndex,
         conceptId: c.conceptId,

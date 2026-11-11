@@ -415,7 +415,62 @@ export interface MetaCampaignPackage {
   concepts: MetaConceptAdPackage[];
   placementMapping: MetaPlacementMapping[];
   suggestedTargetingHooks: string[];
+  claimsAudit?: ClaimSafetyAuditResult;
+  unverifiedClaimsGaps?: string[];
   generatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Verified Claims System & Advertising Safety
+// ---------------------------------------------------------------------------
+
+export type ClaimCategory =
+  | 'product_feature'
+  | 'product_benefit'
+  | 'certification'
+  | 'rating_and_review'
+  | 'shipping_and_delivery'
+  | 'discount_and_pricing'
+  | 'scarcity_and_urgency'
+  | 'performance_and_metric';
+
+export type ClaimEvidenceSource =
+  | 'user_provided'
+  | 'product_catalog'
+  | 'shopify'
+  | 'approved_offer'
+  | 'confirmed_testimonial';
+
+export type ClaimVerificationStatus = 'verified' | 'unverified' | 'rejected';
+export type ClaimApprovalStatus = 'approved' | 'pending_approval' | 'rejected';
+export type ClaimTier = 'verified_fact' | 'brand_approved_marketing' | 'ai_suggestion_requiring_approval';
+
+export interface VerifiedClaim {
+  id: string;
+  claimText: string;
+  category: ClaimCategory;
+  source: ClaimEvidenceSource;
+  verificationStatus: ClaimVerificationStatus;
+  approvalStatus: ClaimApprovalStatus;
+  tier: ClaimTier;
+  confidenceScore?: number;
+  expiryDate?: string;
+  evidenceRef?: string;
+}
+
+export interface ClaimSafetyViolation {
+  claimText: string;
+  category: ClaimCategory;
+  reason: string;
+  location: string;
+}
+
+export interface ClaimSafetyAuditResult {
+  passed: boolean;
+  violations: ClaimSafetyViolation[];
+  unverifiedClaimsOmitted: string[];
+  missingEvidenceGaps: string[];
+  verifiedClaimsUsed: VerifiedClaim[];
 }
 
 // ---------------------------------------------------------------------------
@@ -458,6 +513,8 @@ export interface BrandContext {
   sources: string[];
   /** Things the analyst could not determine. Shown at review so the user can fill them in. */
   gaps?: string[];
+  /** Structured, verified claims registry (features, benefits, ratings, shipping, certifications). */
+  verifiedClaims?: VerifiedClaim[];
 }
 
 // ---------------------------------------------------------------------------
