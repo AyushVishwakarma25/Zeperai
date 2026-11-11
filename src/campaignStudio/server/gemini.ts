@@ -240,12 +240,16 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
   const jsonInstruction =
     '\n\nRespond with ONLY a single valid JSON object. No markdown fences, no commentary before or after.';
 
+  let activeModel = opts.model;
+  let activeThinking = opts.thinkingLevel;
+  const fallbackModel = 'gemini-flash-latest';
+
   const buildConfig = (withTools: boolean): Record<string, unknown> => {
     const config: Record<string, unknown> = {
       systemInstruction: withTools ? opts.systemInstruction + jsonInstruction : opts.systemInstruction,
     };
     if (opts.temperature !== undefined) config.temperature = opts.temperature;
-    if (opts.thinkingLevel) config.thinkingConfig = { thinkingLevel: THINKING_MAP[opts.thinkingLevel] };
+    if (activeThinking) config.thinkingConfig = { thinkingLevel: THINKING_MAP[activeThinking] };
     if (withTools) {
       const tools: Record<string, unknown>[] = [];
       if (opts.tools?.googleSearch) tools.push({ googleSearch: {} });
@@ -275,7 +279,7 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
     try {
       const resp = await Promise.race([
         client.models.generateContent({
-          model: opts.model,
+          model: activeModel,
           contents,
           config: { ...config, abortSignal: controller.signal },
         }),
@@ -317,7 +321,19 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
     try {
       resp = await callOnce(userContents, buildConfig(usesTools), Math.min(timeoutMs, left));
       break;
-    } catch (err) {
+    } catch (err: any) {
+      if (
+        err instanceof GeminiCallError &&
+        activeThinking !== undefined &&
+        (err.kind === 'bad_request' || err.kind === 'unknown') &&
+        (err.message.toLowerCase().includes('thinking') || err.message.toLowerCase().includes('invalid_argument'))
+      ) {
+        console.warn(
+          `[campaign-studio] ThinkingConfig error for ${activeModel} (${err.message}), retrying without thinkingConfig...`
+        );
+        activeThinking = undefined;
+        continue;
+      }
       if (!(err instanceof GeminiCallError) || err.kind !== 'transient' || attempt >= maxAttempts) throw err;
       const wait = backoffMs * 2 ** (attempt - 1) + Math.floor(Math.random() * 250);
       if (wait >= remaining() - minRemaining) throw err; // no time left to retry
@@ -332,7 +348,7 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
   // ---- Phase 2: parse + validate, with ONE repair pass ----
   let firstError: string;
   try {
-    return { data: opts.parse(extractJson(firstText)), model: opts.model, usage, attempts: calls, sources };
+    return { data: opts.parse(extractJson(firstText)), model: activeModel, usage, attempts: calls, sources };
   } catch (err: any) {
     firstError = String(err?.message || err).slice(0, 600);
   }
@@ -357,7 +373,7 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
   try {
     return {
       data: opts.parse(extractJson(readText(repairResp))),
-      model: opts.model,
+      model: activeModel,
       usage,
       attempts: calls,
       sources,

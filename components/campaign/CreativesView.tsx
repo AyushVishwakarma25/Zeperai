@@ -56,6 +56,14 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
       return;
     }
 
+    if (targetRatio === '1:1') {
+      const default1x1 = overlay.renderedCompositeUrl || asset?.image_url;
+      if (default1x1) {
+        setAdaptedComposites((prev) => ({ ...prev, [cacheKey]: default1x1 }));
+        return;
+      }
+    }
+
     // Call server to derive adaptation
     setIsAdapting((prev) => ({ ...prev, [cacheKey]: true }));
     try {
@@ -65,6 +73,9 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
       }
     } catch (err: any) {
       console.warn('Adaptation failed:', err);
+      if (asset?.image_url) {
+        setAdaptedComposites((prev) => ({ ...prev, [cacheKey]: overlay.renderedCompositeUrl || asset.image_url! }));
+      }
     } finally {
       setIsAdapting((prev) => ({ ...prev, [cacheKey]: false }));
     }

@@ -47,7 +47,7 @@ import { DEFAULT_CAMPAIGN_SETTINGS, MAX_CREATIVES_PER_RUN, MAX_PRODUCT_IMAGES_PE
 import { listAdvertisingFormats } from './formatLibrary.js';
 import { analyzeReferenceImage } from './agents/referenceAnalyst.js';
 import { renderCreativeDocumentToSvg, svgToDataUri } from './composition/svgRenderer.js';
-import { updateLayerInDocument } from './composition/compositor.js';
+import { buildCreativeDocument, updateLayerInDocument } from './composition/compositor.js';
 import { evaluateCreative } from './evaluation/qualityEvaluator.js';
 import { targetedRegenerateCreative } from './evaluation/targetedRegenerator.js';
 import { adaptCreativeDocument } from './adaptation/creativeAdapter.js';
@@ -686,9 +686,57 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
       }
 
       const overlay = (latest.overlay || {}) as Record<string, any>;
-      const doc = overlay.document;
+      let doc = overlay.document;
       if (!doc) {
-        return res.status(404).json({ success: false, error: 'Layer document not available for adaptation.' });
+        // Construct fallback document on the fly so adaptation succeeds seamlessly on any creative
+        const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
+        const brand = runDetail?.run?.brand_context;
+        const creativeDirStep = runDetail?.steps?.find((s) => s.agent === 'creative_direction' && s.status === 'approved');
+        const direction = (creativeDirStep?.output as any)?.blueprints?.[creativeIndex - 1];
+
+        const headline = overlay.headline || direction?.copy?.headline || 'Exclusive Offer';
+        const subheadline = overlay.subheading || direction?.copy?.subheadline || '';
+        const cta = overlay.cta || direction?.copy?.cta || 'Shop Now';
+        const brandName = brand?.brandName || 'Brand';
+        const brandColors = brand?.visualIdentity?.colors?.map((c: any) => c.hex) || ['#0F172A', '#F59E0B'];
+        const productImageUrl = runDetail?.productImages?.[0]?.image_url || '';
+
+        doc = buildCreativeDocument({
+          blueprint: direction || {
+            id: `bp-${runIdOf(req)}-${creativeIndex}`,
+            conceptId: `concept-${creativeIndex}`,
+            version: 1,
+            status: 'draft',
+            marketingAngle: 'General',
+            advertisingFormat: 'Promotional Retail Poster',
+            canvas: { width: 1080, height: 1080, aspectRatio: '1:1' },
+            visualHierarchy: ['main_headline', 'product', 'cta'],
+            colorPalette: {
+              background: brandColors[0] || '#0F172A',
+              foreground: '#FFFFFF',
+              text: '#FFFFFF',
+              accent: brandColors[1] || '#F59E0B',
+            },
+            backgroundPrompt: latest.prompt || 'Studio commercial background',
+            style: { mood: ['bold'], lighting: 'studio', colorHarmony: 'high-contrast' },
+            layout: { composition: 'Center', safeZones: [] },
+            typography: { headlineStyle: { fontFamily: 'Poppins', fontWeight: 800, color: '#FFFFFF' } },
+            copy: { headline, subheadline, cta },
+            graphicElements: [],
+            assets: { productAssetIds: [], referenceIds: [] },
+            constraints: {
+              preserveProductPackaging: true,
+              preserveLogo: true,
+              exactCopyRequired: true,
+              prohibitInventedClaims: true,
+            },
+          },
+          backgroundUrl: latest.image_url || '',
+          productImageUrl,
+          brandName,
+          brandColors,
+        });
+        overlay.document = doc;
       }
 
       const adapted = adaptCreativeDocument(doc, targetRatio);

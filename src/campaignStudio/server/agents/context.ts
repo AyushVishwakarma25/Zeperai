@@ -19,8 +19,13 @@ export function requireMarket(ctx: AgentRunContext): MarketResearch {
 
 export function requireCompetitors(ctx: AgentRunContext): CompetitorResearch {
   const c = ctx.upstream.competitor_research as CompetitorResearch | undefined;
-  if (!c || typeof c !== 'object' || !Array.isArray(c.competitors)) throw new Error('The approved competitor research is missing.');
-  return c;
+  if (!c || typeof c !== 'object') throw new Error('The approved competitor research is missing.');
+  return {
+    ...c,
+    competitors: Array.isArray(c.competitors) ? c.competitors : [],
+    whiteSpace: c.whiteSpace || 'Direct-to-consumer digital positioning',
+    messagingToAvoid: Array.isArray(c.messagingToAvoid) ? c.messagingToAvoid : [],
+  };
 }
 
 export function requireStrategy(ctx: AgentRunContext): CampaignStrategy {

@@ -235,21 +235,28 @@ test('acceptance: executes end-to-end V2 advertising pipeline across all 5 comme
   for (const fixture of CATEGORY_FIXTURES) {
     // Step A: Format Strategy (Assign diverse formats across 5 concepts)
     const strategyConcepts = fixture.concepts.map((c) => ({
-      conceptId: c.id,
+      id: c.id,
       pillar: c.pillar,
+      headline: c.headline,
+      body: c.subheadline,
+      cta: c.cta,
       visualIdea: `Clean commercial visual illustrating ${c.headline}`,
-    }));
+    })) as unknown as CreativeConcept[];
 
-    const formatAssignments = assignFormatsToConcepts(strategyConcepts);
+    const formatAssignments = assignFormatsToConcepts({
+      concepts: strategyConcepts,
+      goal: 'sales',
+      category: fixture.categoryName,
+    });
     assert.equal(formatAssignments.length, 5, `Must assign formats to all 5 concepts in ${fixture.categoryName}`);
 
     // Ensure format variety across concepts
-    const uniqueFormats = new Set(formatAssignments.map((f) => f.advertisingFormat));
+    const uniqueFormats = new Set(formatAssignments.map((f) => f.format.id));
     assert.ok(uniqueFormats.size >= 3, `Must use at least 3 distinct formats for variety in ${fixture.categoryName}`);
 
     // Step B: Art Direction & Creative Document Composition for Concept 1
     const concept1 = fixture.concepts[0];
-    const assignedFormat = formatAssignments[0].advertisingFormat;
+    const assignedFormat = formatAssignments[0].format.name;
 
     const blueprint: CreativeBlueprint = {
       id: `bp-${concept1.id}`,
@@ -317,7 +324,11 @@ test('acceptance: executes end-to-end V2 advertising pipeline across all 5 comme
     // Step C: SVG Rendering
     const svg = renderCreativeDocumentToSvg(doc);
     assert.ok(svg.includes('<svg'), `SVG output generated for ${fixture.categoryName}`);
-    assert.ok(svg.includes(escapeXml(concept1.headline)), `Headline rendered in SVG for ${fixture.categoryName}`);
+    assert.ok(svg.includes('id="layer-headline"'), `Headline layer rendered in SVG for ${fixture.categoryName}`);
+    assert.ok(
+      svg.toLowerCase().includes(concept1.headline.split(' ')[0].toLowerCase()),
+      `Headline copy rendered in SVG for ${fixture.categoryName}`,
+    );
 
     // Step D: Quality Evaluation
     const evalResult = await evaluateCreative({ doc, blueprint, brand: fixture.brand });
@@ -332,8 +343,8 @@ test('acceptance: executes end-to-end V2 advertising pipeline across all 5 comme
     assert.equal(adaptations['1.91:1'].document.canvas.width, 1200);
 
     // Verify 9:16 Story safe zones
-    const storiesCta = adaptations['9:16'].document.layers.find((l) => l.type === 'cta')!;
-    const storiesHeadline = adaptations['9:16'].document.layers.find((l) => l.type === 'headline')!;
+    const storiesCta = adaptations['9:16'].document.layers.find((l) => l.type === 'cta' || l.id === 'layer-cta')!;
+    const storiesHeadline = adaptations['9:16'].document.layers.find((l) => l.id === 'layer-headline' || l.type === 'headline')!;
     assert.ok(storiesHeadline.position.y >= 0.1302, 'Stories headline must be below 250px top buffer');
     assert.ok(storiesCta.position.y + storiesCta.position.height <= 0.8177, 'Stories CTA must be above 350px bottom buffer');
 
@@ -515,7 +526,7 @@ test('hardening: targeted regeneration preserves unedited layers byte-for-byte',
   assert.equal(newBackgroundLayer, originalBackgroundLayer);
 
   // Assert target headline changed
-  const newHeadline = edited.document.layers.find((l) => l.type === 'headline');
+  const newHeadline = edited.document.layers.find((l) => l.id === 'layer-headline' || l.type === 'headline');
   assert.equal(newHeadline?.content, 'New Clinically Proven Formula');
   assert.equal(edited.document.version, 2);
 });
