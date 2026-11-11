@@ -50,6 +50,10 @@ import { renderCreativeDocumentToSvg, svgToDataUri } from './composition/svgRend
 import { updateLayerInDocument } from './composition/compositor.js';
 import { evaluateCreative } from './evaluation/qualityEvaluator.js';
 import { targetedRegenerateCreative } from './evaluation/targetedRegenerator.js';
+import { adaptCreativeDocument } from './adaptation/creativeAdapter.js';
+import { buildMetaCampaignPackage } from './export/metaPackageGenerator.js';
+import { buildMetaAdPackageZip } from './export/exportArchive.js';
+import type { StandardAspectRatio } from '../types.js';
 
 export interface CampaignStudioDeps {
   /** server.ts requireAuth: sets req.user (Supabase user, or the master-admin stub). */
@@ -654,6 +658,135 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         evaluation: newEvaluation,
         actionTaken: regenResult.actionTaken,
       });
+    }),
+  );
+
+  // Phase 5: Multi-Aspect Ratio Creative Adaptation (1:1, 4:5, 9:16, 1.91:1)
+  app.post(
+    `${BASE}/runs/:runId/creatives/:creativeIndex/adapt`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const creativeIndex = parseInt(String(req.params.creativeIndex || ''), 10);
+      if (isNaN(creativeIndex) || creativeIndex < 1 || creativeIndex > MAX_CREATIVES_PER_RUN) {
+        throw new AppError('Invalid creative index', 400, 'Invalid creative index.');
+      }
+      const targetRatio = String(req.body?.targetRatio || '') as StandardAspectRatio;
+      if (!['1:1', '4:5', '9:16', '1.91:1'].includes(targetRatio)) {
+        throw new AppError('Invalid aspect ratio', 400, 'Valid targetRatio required (1:1, 4:5, 9:16, 1.91:1).');
+      }
+
+      const client = await deps.getAdminSupabaseClient();
+      const assets = await listAssets(client, userId(req), runIdOf(req));
+      const latest = assets
+        .filter((a) => a.creative_index === creativeIndex && a.status !== 'superseded')
+        .sort((a, b) => b.version - a.version)[0];
+      if (!latest) {
+        return res.status(404).json({ success: false, error: 'Creative asset not found.' });
+      }
+
+      const overlay = (latest.overlay || {}) as Record<string, any>;
+      const doc = overlay.document;
+      if (!doc) {
+        return res.status(404).json({ success: false, error: 'Layer document not available for adaptation.' });
+      }
+
+      const adapted = adaptCreativeDocument(doc, targetRatio);
+      const existingAdaptations = overlay.adaptations || {};
+      const updatedOverlay = {
+        ...overlay,
+        adaptations: {
+          ...existingAdaptations,
+          [targetRatio]: adapted,
+        },
+      };
+
+      await updateAsset(client, userId(req), runIdOf(req), creativeIndex, latest.version, {
+        overlay: updatedOverlay,
+      });
+
+      return res.json({
+        success: true,
+        document: adapted.document,
+        compositeUrl: adapted.compositeUrl,
+        aspectRatio: targetRatio,
+      });
+    }),
+  );
+
+  // Phase 5: Generate Meta Ad Package (Ad copy variations & campaign metadata)
+  app.post(
+    `${BASE}/runs/:runId/meta-package`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const client = await deps.getAdminSupabaseClient();
+      const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
+      if (!runDetail?.run) {
+        return res.status(404).json({ success: false, error: 'Run not found.' });
+      }
+
+      const brand = runDetail.run.brand_context;
+      if (!brand) {
+        return res.status(400).json({ success: false, error: 'Approved brand context is required.' });
+      }
+
+      const assets = await listAssets(client, userId(req), runIdOf(req));
+      const masterPromptsStep = runDetail.steps.find((s) => s.agent === 'master_prompts' && s.status === 'approved');
+      const creativeDirectionStep = runDetail.steps.find((s) => s.agent === 'creative_direction' && s.status === 'approved');
+      const strategyStep = runDetail.steps.find((s) => s.agent === 'strategy' && s.status === 'approved');
+
+      const pkg = buildMetaCampaignPackage({
+        run: runDetail.run,
+        brand,
+        strategy: strategyStep?.output as any,
+        prompts: (masterPromptsStep?.output as any)?.prompts || [],
+        blueprints: (creativeDirectionStep?.output as any)?.blueprints || [],
+        assets,
+      });
+
+      return res.json({ success: true, package: pkg });
+    }),
+  );
+
+  // Phase 5: Download Complete Meta Ad Package as ZIP Archive
+  app.get(
+    `${BASE}/runs/:runId/export-zip`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const client = await deps.getAdminSupabaseClient();
+      const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
+      if (!runDetail?.run) {
+        return res.status(404).json({ success: false, error: 'Run not found.' });
+      }
+
+      const brand = runDetail.run.brand_context;
+      if (!brand) {
+        return res.status(400).json({ success: false, error: 'Approved brand context is required.' });
+      }
+
+      const assets = await listAssets(client, userId(req), runIdOf(req));
+      const masterPromptsStep = runDetail.steps.find((s) => s.agent === 'master_prompts' && s.status === 'approved');
+      const creativeDirectionStep = runDetail.steps.find((s) => s.agent === 'creative_direction' && s.status === 'approved');
+      const strategyStep = runDetail.steps.find((s) => s.agent === 'strategy' && s.status === 'approved');
+
+      const pkg = buildMetaCampaignPackage({
+        run: runDetail.run,
+        brand,
+        strategy: strategyStep?.output as any,
+        prompts: (masterPromptsStep?.output as any)?.prompts || [],
+        blueprints: (creativeDirectionStep?.output as any)?.blueprints || [],
+        assets,
+      });
+
+      const zipBuffer = buildMetaAdPackageZip(pkg);
+      const filename = `campaign-${runIdOf(req).slice(0, 8)}-meta-package.zip`;
+
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', zipBuffer.length.toString());
+      return res.send(zipBuffer);
     }),
   );
 

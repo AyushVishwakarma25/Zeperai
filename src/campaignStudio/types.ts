@@ -352,6 +352,70 @@ export interface CreativeOverlay {
   renderedCompositeUrl?: string;
   /** V2 Quality Evaluation score & issue diagnostics */
   evaluation?: CreativeEvaluation;
+  /** V2 Phase 5 adapted creative documents across placements (1:1, 4:5, 9:16, 1.91:1) */
+  adaptations?: Record<string, { document: CreativeDocument; compositeUrl: string }>;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: Multi-Aspect Ratio Adaptation & Meta Export Types
+// ---------------------------------------------------------------------------
+
+export type StandardAspectRatio = '1:1' | '4:5' | '9:16' | '1.91:1';
+
+export type MetaCtaType =
+  | 'SHOP_NOW'
+  | 'LEARN_MORE'
+  | 'ORDER_NOW'
+  | 'GET_OFFER'
+  | 'SIGN_UP'
+  | 'BOOK_TRAVEL'
+  | 'CONTACT_US';
+
+export interface MetaCopyPackage {
+  /** 3 variations: hook-driven, benefit-driven, question-driven (max 250 chars) */
+  primaryText: string[];
+  /** 3 variations: punchy benefit / value proposition (max 40 chars) */
+  headlines: string[];
+  /** High-intent sub-copy variations (max 30 chars) */
+  descriptions: string[];
+  callToAction: MetaCtaType;
+}
+
+export interface MetaPlacementMapping {
+  aspectRatio: StandardAspectRatio;
+  placements: string[];
+  dimensions: { width: number; height: number };
+  safeZones: {
+    topBufferPx: number;
+    bottomBufferPx: number;
+    sideBufferPx: number;
+  };
+}
+
+export interface AdaptedCreativeVariation {
+  aspectRatio: StandardAspectRatio;
+  document: CreativeDocument;
+  compositeUrl: string;
+}
+
+export interface MetaConceptAdPackage {
+  conceptId: string;
+  creativeIndex: number;
+  title: string;
+  marketingAngle: string;
+  advertisingFormat: string;
+  copy: MetaCopyPackage;
+  variations: Record<StandardAspectRatio, AdaptedCreativeVariation>;
+}
+
+export interface MetaCampaignPackage {
+  runId: string;
+  brandName: string;
+  campaignObjective: 'Sales' | 'Leads' | 'Traffic' | 'Awareness';
+  concepts: MetaConceptAdPackage[];
+  placementMapping: MetaPlacementMapping[];
+  suggestedTargetingHooks: string[];
+  generatedAt: string;
 }
 
 // ---------------------------------------------------------------------------

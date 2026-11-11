@@ -21,8 +21,10 @@ import type {
   CreativeDocument,
   CreativeEvaluation,
   CreativeLayer,
+  MetaCampaignPackage,
   ReferenceMode,
   ReferenceRole,
+  StandardAspectRatio,
 } from '../types.js';
 
 export class CampaignApiError extends Error {
@@ -198,6 +200,16 @@ export function createCampaignApi(deps: CampaignApiDeps) {
         evaluation: CreativeEvaluation;
         actionTaken: string;
       }>('POST', `/runs/${enc(runId)}/creatives/${creativeIndex}/targeted-regenerate`, payload),
+    adaptCreative: (runId: string, creativeIndex: number, targetRatio: StandardAspectRatio) =>
+      request<{
+        success: true;
+        document: CreativeDocument;
+        compositeUrl: string;
+        aspectRatio: StandardAspectRatio;
+      }>('POST', `/runs/${enc(runId)}/creatives/${creativeIndex}/adapt`, { targetRatio }),
+    getMetaPackage: (runId: string) =>
+      request<{ success: true; package: MetaCampaignPackage }>('POST', `/runs/${enc(runId)}/meta-package`),
+    getExportZipUrl: (runId: string) => `/api/campaign/runs/${enc(runId)}/export-zip`,
     editStep: (runId: string, agent: CampaignAgent, output: unknown) =>
       request<StepResult>('PUT', `/runs/${enc(runId)}/steps/${enc(agent)}/output`, { output }),
     approveStep: (runId: string, agent: CampaignAgent) => request<ApproveResult>('POST', `/runs/${enc(runId)}/steps/${enc(agent)}/approve`),
