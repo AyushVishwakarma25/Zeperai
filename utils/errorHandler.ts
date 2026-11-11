@@ -98,6 +98,8 @@ export const globalErrorHandler = (
     safeMessage = 'Access denied. You do not have permission to perform this action.';
   } else if (statusCode === 404) {
     safeMessage = 'The requested resource was not found.';
+  } else if (statusCode === 402) {
+    safeMessage = 'AI service prepayment credits are depleted (Error 402). Please add credits in Google AI Studio or select a paid API key.';
   } else if (statusCode === 429) {
     safeMessage = 'Too many requests. Please slow down and try again shortly.';
   }

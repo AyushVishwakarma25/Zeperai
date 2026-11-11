@@ -22,24 +22,49 @@ import { Layout } from './components/Layout.js';
 import { Spinner } from './components/ui/Spinner.js';
 import { SplashScreen } from './components/SplashScreen.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
-import { ChatBot } from './components/ChatBot.js';
 
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { LandingPage } from './src/landing/LandingPage.js';
+import { LoginPage } from './components/LoginPage.js';
+import { SignupPage } from './components/SignupPage.js';
+
+// Retry helper for dynamic imports to prevent chunk load errors during dev server re-bundling
+function lazyWithRetry<P = {}>(
+  componentImport: () => Promise<any>
+): React.LazyExoticComponent<React.ComponentType<P>> {
+  return React.lazy(async () => {
+    try {
+      const component = await componentImport();
+      sessionStorage.removeItem('zeperai_lazy_retry');
+      return component && component.default
+        ? { default: component.default }
+        : { default: component ? Object.values(component)[0] : null };
+    } catch (error) {
+      const pageHasAlreadyBeenReloaded = sessionStorage.getItem('zeperai_lazy_retry');
+      if (!pageHasAlreadyBeenReloaded) {
+        sessionStorage.setItem('zeperai_lazy_retry', 'true');
+        window.location.reload();
+      }
+      throw error;
+    }
+  });
+}
 
 // Lazy load secondary routes & admin suite to drastically reduce initial landing bundle size
-const LoginPage = React.lazy(() => import('./components/LoginPage.js').then(m => ({ default: m.LoginPage })));
-const SignupPage = React.lazy(() => import('./components/SignupPage.js').then(m => ({ default: m.SignupPage })));
-const AdminDashboard = React.lazy(() => import('./components/admin/AdminDashboard.js'));
-const AdminLoginPage = React.lazy(() => import('./components/admin/AdminLoginPage.js').then(m => ({ default: m.AdminLoginPage })));
-const BackgroundRemoverLandingPage = React.lazy(() => import('./src/landing/BackgroundRemoverLandingPage.js').then(m => ({ default: m.BackgroundRemoverLandingPage })));
-const PrivacyPolicyPage = React.lazy(() => import('./src/landing/PrivacyPolicyPage.js').then(m => ({ default: m.PrivacyPolicyPage })));
-const TermsPage = React.lazy(() => import('./src/landing/TermsPage.js').then(m => ({ default: m.TermsPage })));
-const CookiePolicyPage = React.lazy(() => import('./src/landing/CookiePolicyPage.js').then(m => ({ default: m.CookiePolicyPage })));
-const PricingPage = React.lazy(() => import('./src/landing/PricingPage.js').then(m => ({ default: m.PricingPage })));
-const AboutUsPage = React.lazy(() => import('./src/landing/AboutUsPage.js').then(m => ({ default: m.AboutUsPage })));
-const ContactPage = React.lazy(() => import('./src/landing/ContactPage.js').then(m => ({ default: m.ContactPage })));
-const BlogPage = React.lazy(() => import('./src/landing/BlogPage.js').then(m => ({ default: m.BlogPage })));
+const AdminDashboard = lazyWithRetry<any>(() => import('./components/admin/AdminDashboard.js'));
+const AdminLoginPage = lazyWithRetry<any>(() => import('./components/admin/AdminLoginPage.js'));
+const BackgroundRemoverLandingPage = lazyWithRetry<any>(() => import('./src/landing/BackgroundRemoverLandingPage.js'));
+const NicheBackgroundRemoverPage = lazyWithRetry<any>(() => import('./src/landing/NicheBackgroundRemoverPage.js'));
+const ToolsHubPage = lazyWithRetry(() => import('./src/landing/ToolsHubPage.js'));
+const RoasRtoCalculatorPage = lazyWithRetry(() => import('./src/landing/RoasRtoCalculatorPage.js'));
+const CreativeFatigueCalculatorPage = lazyWithRetry(() => import('./src/landing/CreativeFatigueCalculatorPage.js'));
+const QuickCommerceCalculatorPage = lazyWithRetry(() => import('./src/landing/QuickCommerceCalculatorPage.js'));
+const PrivacyPolicyPage = lazyWithRetry(() => import('./src/landing/PrivacyPolicyPage.js'));
+const TermsPage = lazyWithRetry(() => import('./src/landing/TermsPage.js'));
+const CookiePolicyPage = lazyWithRetry(() => import('./src/landing/CookiePolicyPage.js'));
+const PricingPage = lazyWithRetry(() => import('./src/landing/PricingPage.js'));
+const AboutUsPage = lazyWithRetry(() => import('./src/landing/AboutUsPage.js'));
+const ContactPage = lazyWithRetry(() => import('./src/landing/ContactPage.js'));
 
 const dataURLToParts = (dataURL: string) => {
     const parts = dataURL.split(',');
@@ -105,7 +130,7 @@ const AppInternal: React.FC = () => {
   const [shopifyReport, setShopifyReport] = useState<ShopifyAnalysisResult | null>(null);
   const [isShopifyReportLoaded, setIsShopifyReportLoaded] = useState(false);
 
-  const userTier = (user?.tier as 'Free' | 'PayAsYouGo') || 'Free';
+  const userTier = (user?.tier as any) || 'Free';
 
   // Global Toast Event Listener
   useEffect(() => {
@@ -131,7 +156,7 @@ const AppInternal: React.FC = () => {
   const handleCheckCredits = useCallback((cost: number) => {
       const success = appData.checkAndDeductCredits(cost, false);
       if (!success) {
-          const isPaid = userTier === 'PayAsYouGo' || (user?.tier && user.tier !== 'Free');
+          const isPaid = (userTier && userTier !== 'Free') || (user?.tier && user.tier !== 'Free');
           const message = isPaid
             ? `You're out of credits! Required: ${cost}, available: ${appData.credits}. Buy a credit pack or upgrade.`
             : "You've reached your free trial limit. Start Pro to unlock 120 monthly credits & all studios!";
@@ -452,16 +477,28 @@ const AppInternal: React.FC = () => {
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/cookies" element={<CookiePolicyPage />} />
-      <Route path="/cookie-policy" element={<CookiePolicyPage />} />
-      <Route path="/legal/cookie-policy" element={<CookiePolicyPage />} />
+      <Route path="/cookie-policy" element={<Navigate to="/cookies" replace />} />
+      <Route path="/legal/cookie-policy" element={<Navigate to="/cookies" replace />} />
       <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/tools" element={<ToolsHubPage />} />
+      <Route path="/tools/roas-rto-calculator" element={<RoasRtoCalculatorPage />} />
+      <Route path="/tools/meta-creative-fatigue" element={<CreativeFatigueCalculatorPage />} />
+      <Route path="/tools/quick-commerce-margin-calculator" element={<QuickCommerceCalculatorPage />} />
+      <Route path="/roas-rto-calculator" element={<Navigate to="/tools/roas-rto-calculator" replace />} />
+      <Route path="/meta-creative-fatigue" element={<Navigate to="/tools/meta-creative-fatigue" replace />} />
+      <Route path="/quick-commerce-margin-calculator" element={<Navigate to="/tools/quick-commerce-margin-calculator" replace />} />
       <Route path="/tools/background-remover" element={<BackgroundRemoverLandingPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
-      <Route path="/background-remover" element={<BackgroundRemoverLandingPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
+      <Route path="/tools/remove-background-for/:slug" element={<NicheBackgroundRemoverPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
+      <Route path="/tools/:slug" element={<NicheBackgroundRemoverPage user={user} onDeductCredits={handleCheckCredits} onRefundCredits={handleRefundCredits} />} />
+      <Route path="/background-remover" element={<Navigate to="/tools/background-remover" replace />} />
+      <Route path="/background-remove" element={<Navigate to="/tools/background-remover" replace />} />
+      <Route path="/tools/background-remove" element={<Navigate to="/tools/background-remover" replace />} />
       <Route path="/tools/local-seo-audit" element={<Navigate to="/" replace />} />
       <Route path="/local-seo-audit" element={<Navigate to="/" replace />} />
       <Route path="/about" element={<AboutUsPage />} />
       <Route path="/contact" element={<ContactPage />} />
-      <Route path="/blog" element={<BlogPage />} />
+      <Route path="/blog" element={<Navigate to="/" replace />} />
+      <Route path="/blog/*" element={<Navigate to="/" replace />} />
       <Route path="/login" element={!user ? <LoginPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to={getReturnPath()} replace />} />
       <Route path="/signup" element={!user ? <SignupPage onLoginSuccess={(session) => setUserProfile(session.user)} /> : <Navigate to={getReturnPath()} replace />} />
       <Route path="/dashboard" element={
@@ -571,6 +608,8 @@ const AppInternal: React.FC = () => {
                     savedModels={appData.savedModels}
                     onReset={creative.handleResetParams}
                     brandKit={appData.brandKit}
+                    credits={appData.credits}
+                    onDeductCredits={handleCheckCredits}
                 />
             )}
             
@@ -592,7 +631,8 @@ const AppInternal: React.FC = () => {
                 onCloseContentGenerator={modals.closeContentGenerator}
                 onDeductCredits={handleCheckCredits}
                 onRefundCredits={handleRefundCredits}
-                userId={user.id}
+                userId={user?.id}
+                credits={appData.credits}
 
                 isBrandKitModalOpen={modals.isBrandKitOpen}
                 onCloseBrandKit={modals.closeBrandKit}
@@ -619,12 +659,8 @@ const AppInternal: React.FC = () => {
                 
                 onGenerate={handleGenerateWrapper}
                 isGenerating={creative.isLoading}
-                userTier={userTier}
+                userTier={user?.tier || userTier}
                 onOpenPricingModal={modals.openPricing}
-            />
-            <ChatBot 
-                onDeductCredits={handleCheckCredits}
-                onRefundCredits={handleRefundCredits}
             />
           </>
         )

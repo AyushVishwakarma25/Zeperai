@@ -10,7 +10,7 @@ export const getGoogleProductSchema = () => ({
   "@type": "Product",
   "name": "ZeperAi Studio - AI Ad Creative & Product Photography Suite",
   "image": [
-    "https://zeperai.in/og-image.jpg",
+    "https://www.zeperai.in/og-image.jpg",
     "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/landing-assets/Ayush%20Vishwakarma%20Founder%20ZeperAi.jpeg"
   ],
   "description": "All-in-one AI creative platform for D2C brands and e-commerce growth. Generate conversion-optimized ad creatives, lifestyle product photography, and instant transparent cutouts in seconds.",
@@ -30,7 +30,7 @@ export const getGoogleProductSchema = () => ({
   },
   "offers": {
     "@type": "AggregateOffer",
-    "url": "https://zeperai.in/pricing",
+    "url": "https://www.zeperai.in/pricing",
     "priceCurrency": "INR",
     "lowPrice": "0",
     "highPrice": "4999",
@@ -45,7 +45,7 @@ export const getGoogleProductSchema = () => ({
         "priceValidUntil": "2027-12-31",
         "availability": "https://schema.org/InStock",
         "itemCondition": "https://schema.org/NewCondition",
-        "url": "https://zeperai.in/signup",
+        "url": "https://www.zeperai.in/signup",
         "seller": {
           "@type": "Organization",
           "name": "ZeperAi"
@@ -59,7 +59,7 @@ export const getGoogleProductSchema = () => ({
         "priceValidUntil": "2027-12-31",
         "availability": "https://schema.org/InStock",
         "itemCondition": "https://schema.org/NewCondition",
-        "url": "https://zeperai.in/pricing",
+        "url": "https://www.zeperai.in/pricing",
         "seller": {
           "@type": "Organization",
           "name": "ZeperAi"
@@ -73,7 +73,7 @@ export const getGoogleProductSchema = () => ({
         "priceValidUntil": "2027-12-31",
         "availability": "https://schema.org/InStock",
         "itemCondition": "https://schema.org/NewCondition",
-        "url": "https://zeperai.in/pricing",
+        "url": "https://www.zeperai.in/pricing",
         "seller": {
           "@type": "Organization",
           "name": "ZeperAi"
@@ -87,7 +87,7 @@ export const getGoogleProductSchema = () => ({
         "priceValidUntil": "2027-12-31",
         "availability": "https://schema.org/InStock",
         "itemCondition": "https://schema.org/NewCondition",
-        "url": "https://zeperai.in/pricing",
+        "url": "https://www.zeperai.in/pricing",
         "seller": {
           "@type": "Organization",
           "name": "ZeperAi"
@@ -105,7 +105,7 @@ export const getBackgroundRemoverProductSchema = () => ({
   "@type": "Product",
   "name": "ZeperAi Instant Background Remover Pro",
   "image": [
-    "https://zeperai.in/og-image.jpg"
+    "https://www.zeperai.in/og-image.jpg"
   ],
   "description": "High-precision AI background removal tool for e-commerce products, fashion models, and marketing assets. Instant transparent PNG download with zero halo artifacts.",
   "sku": "ZEPER-BG-REMOVER",
@@ -129,7 +129,7 @@ export const getBackgroundRemoverProductSchema = () => ({
     "priceValidUntil": "2027-12-31",
     "availability": "https://schema.org/InStock",
     "itemCondition": "https://schema.org/NewCondition",
-    "url": "https://zeperai.in/tools/background-remover",
+    "url": "https://www.zeperai.in/tools/background-remover",
     "seller": {
       "@type": "Organization",
       "name": "ZeperAi"
@@ -154,7 +154,7 @@ export const getPricingProductsSchema = () => [
       "priceCurrency": "INR",
       "availability": "https://schema.org/InStock",
       "priceValidUntil": "2027-12-31",
-      "url": "https://zeperai.in/signup"
+      "url": "https://www.zeperai.in/signup"
     }
   },
   {
@@ -170,7 +170,7 @@ export const getPricingProductsSchema = () => [
       "priceCurrency": "INR",
       "availability": "https://schema.org/InStock",
       "priceValidUntil": "2027-12-31",
-      "url": "https://zeperai.in/pricing"
+      "url": "https://www.zeperai.in/pricing"
     }
   },
   {
@@ -193,7 +193,7 @@ export const getPricingProductsSchema = () => [
       "priceCurrency": "INR",
       "availability": "https://schema.org/InStock",
       "priceValidUntil": "2027-12-31",
-      "url": "https://zeperai.in/pricing"
+      "url": "https://www.zeperai.in/pricing"
     }
   },
   {
@@ -209,7 +209,7 @@ export const getPricingProductsSchema = () => [
       "priceCurrency": "INR",
       "availability": "https://schema.org/InStock",
       "priceValidUntil": "2027-12-31",
-      "url": "https://zeperai.in/pricing"
+      "url": "https://www.zeperai.in/pricing"
     }
   }
 ];
@@ -219,8 +219,8 @@ export const OrganizationSchema: React.FC = () => {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "ZeperAi",
-    "url": "https://zeperai.in",
-    "logo": "https://zeperai.in/og-image.jpg",
+    "url": "https://www.zeperai.in",
+    "logo": "https://www.zeperai.in/og-image.jpg",
     "founder": {
       "@type": "Person",
       "name": "Ayush Vishwakarma",
@@ -228,7 +228,8 @@ export const OrganizationSchema: React.FC = () => {
       "image": "https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/landing-assets/Ayush%20Vishwakarma%20Founder%20ZeperAi.jpeg"
     },
     "sameAs": [
-      "https://instagram.com/sup_madman"
+      "https://instagram.com/sup_madman",
+      "https://www.linkedin.com/company/zeperai"
     ]
   };
 
@@ -257,28 +258,26 @@ export const BackgroundRemoverProductSchema: React.FC = () => {
   );
 };
 
-export const getLocalSeoAuditProductSchema = () => ({
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  "name": "ZeperAi Local SEO Audit Engine & Schema Generator",
-  "applicationCategory": "BusinessApplication",
-  "operatingSystem": "Web Browser",
-  "description": "AI-powered Local SEO audit tool for businesses and agencies. Extract NAP entities, generate Google Business Profile optimization strategies, uncover high-intent geo-keywords, and generate valid LocalBusiness JSON-LD schema.",
-  "url": "https://zeperai.in/tools/local-seo-audit",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "INR"
-  },
-  "creator": {
-    "@type": "Organization",
-    "name": "ZeperAi",
-    "url": "https://zeperai.in"
-  }
-});
-
 export const LocalSeoAuditProductSchema: React.FC = () => {
-  const schema = getLocalSeoAuditProductSchema();
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "ZeperAi Local SEO Audit Engine & Schema Generator",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web Browser",
+    "description": "AI-powered Local SEO audit tool for businesses and agencies.",
+    "url": "https://www.zeperai.in/tools",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "INR"
+    },
+    "creator": {
+      "@type": "Organization",
+      "name": "ZeperAi",
+      "url": "https://www.zeperai.in"
+    }
+  };
   return (
     <Helmet>
       <script type="application/ld+json">{JSON.stringify(schema)}</script>

@@ -1,33 +1,100 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { 
+  Sparkles, 
+  ArrowRight, 
+  Check, 
+  ChevronDown, 
+  Star, 
+  Quote,
+  X
+} from 'lucide-react';
 import { Icon } from '../../components/ui/Icon.js';
 import { LandingHeader } from './LandingHeader.js';
-import { Hero } from './components/Hero.js';
-import { BrandProofStrip } from './components/BrandProofStrip.js';
-import { DashboardSnapshot } from './components/DashboardSnapshot.js';
-import { VideoShowcaseSection } from './components/VideoShowcaseSection.js';
-import { StatsBand } from './components/StatsBand.js';
-import { WorkflowSection } from './components/WorkflowSection.js';
-import { WhyZeperAI } from './components/WhyZeperAI.js';
-import { RoleUseCases } from './components/RoleUseCases.js';
-import { CustomerProofSection } from './components/CustomerProofSection.js';
-import { PortfolioShowcase } from './components/PortfolioShowcase.js';
-import { FinalCta } from './components/FinalCta.js';
-import { FaqSection } from './components/FaqSection.js';
+import { ShopifyAnalyticsSection } from './ShopifyAnalyticsSection.js';
+import { BounceCardsSection } from './BounceCardsSection.js';
 import { Footer } from './Footer.js';
+import { Hero } from './components/Hero.js';
 import { SEO } from '../../components/SEO.js';
 import { ProductSchema, OrganizationSchema, SoftwareAppSchema, FAQSchema } from '../../components/StructuredData.js';
+
+interface FeatureCardProps {
+  title: string;
+  description: string;
+  color: string;
+  accentColor: string;
+  iconName: string;
+  thumbnail?: string;
+  onClick: () => void;
+}
+
+const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, color, accentColor, iconName, thumbnail, onClick }) => {
+  return (
+    <div
+      onClick={onClick}
+      className="group flex flex-col bg-white rounded-2xl overflow-hidden shadow-2xs hover:shadow-md transition-all duration-300 border border-stone-200 hover:border-stone-300 cursor-pointer text-left active:scale-[0.99]"
+    >
+      <div 
+        className="h-40 sm:h-48 relative overflow-hidden flex items-center justify-center transition-colors duration-300 bg-stone-100"
+        style={{ backgroundColor: color }}
+      >
+        {thumbnail ? (
+          <div className="absolute inset-0 w-full h-full">
+            <img 
+              src={thumbnail} 
+              alt={title} 
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+            />
+            <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors duration-300" />
+          </div>
+        ) : (
+          <div className="relative w-12 h-12 sm:w-14 sm:h-14 bg-white rounded-xl shadow-xs transform group-hover:scale-105 transition-transform duration-300 flex items-center justify-center border border-stone-200">
+            <div style={{ color: accentColor }}>
+              <Icon name={iconName} className="w-6 h-6 sm:w-7 sm:h-7" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="p-4 sm:p-5 flex flex-col flex-grow">
+        <h3 className="text-base font-bold mb-1 text-zinc-900 group-hover:text-zinc-950 transition-colors font-manrope">
+          {title}
+        </h3>
+        <p className="text-stone-600 text-xs sm:text-sm leading-relaxed mb-3 sm:mb-4 flex-grow font-normal">
+          {description}
+        </p>
+        <div className="flex items-center justify-between mt-auto pt-2">
+          <span className="text-[11px] font-semibold text-[#4452FB] group-hover:underline">
+            Try in Studio →
+          </span>
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-stone-100 flex items-center justify-center group-hover:bg-zinc-900 transition-all duration-200 border border-stone-200 group-hover:border-zinc-900">
+            <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-700 group-hover:text-white transition-colors" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showMobileFloatingCta, setShowMobileFloatingCta] = useState(false);
+  const [dismissedFloatingCta, setDismissedFloatingCta] = useState(false);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+
+  const toggleFaq = (index: number) => {
+    setOpenFaqIndex(openFaqIndex === index ? null : index);
+  };
 
   useEffect(() => {
     const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 500);
+      const scrollY = window.scrollY;
+      setShowScrollTop(scrollY > 500);
+      setShowMobileFloatingCta(scrollY > 480);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -59,11 +126,91 @@ export const LandingPage: React.FC = () => {
     }
   }, [location]);
 
+  const studioFeatures = [
+    {
+      title: 'Product Studio',
+      description: 'Generate clean, high-end product photoshoots with natural lighting and shadows.',
+      color: '#EAE3FD',
+      accentColor: '#6366F1',
+      iconName: 'camera',
+      thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/Product%20Ad%20Studio%20zeperai.webp',
+      onClick: () => navigate('/login')
+    },
+    {
+      title: 'AI UGC Influencer',
+      description: 'Create realistic creator and influencer photos showcasing your product.',
+      color: '#FCD8FC',
+      accentColor: '#EC4899',
+      iconName: 'user',
+      thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/Ai%20UGC%20Influencer%20Zeperai.webp',
+      onClick: () => navigate('/login')
+    },
+    {
+      title: 'Fashion Studio',
+      description: 'On-model clothing shoots powered by AI. Scale your apparel catalog without agency delays.',
+      color: '#B8CF8A',
+      accentColor: '#166534',
+      iconName: 'shirt',
+      thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/Fashion%20studio%20Zeperai.webp',
+      onClick: () => navigate('/login')
+    },
+    {
+      title: 'Campaign Studio',
+      description: 'Full multi-agent creative campaign generator with brand analysis, hooks, and approved steps.',
+      color: '#EAE3FD',
+      accentColor: '#6A5AE0',
+      iconName: 'strategy',
+      thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/Campaing%20Studio%20Zeperai.webp',
+      onClick: () => navigate('/login')
+    },
+    {
+      title: 'Background Remover',
+      description: 'Instant, 100% in-browser transparent PNG cutouts for products and models.',
+      color: '#FCD8FC',
+      accentColor: '#BE185D',
+      iconName: 'magic-wand',
+      thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/background%20remover%20zeperai.webp',
+      onClick: () => navigate('/tools/background-remover')
+    },
+    {
+      title: 'Festive Photoshoot',
+      description: 'Seasonal props and cultural celebrations. Refresh your product for any holiday.',
+      color: '#E1D9CC',
+      accentColor: '#B45309',
+      iconName: 'lamp',
+      thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/festive%20shoot%20Zeperai.webp',
+      onClick: () => navigate('/login')
+    }
+  ];
+
+  const faqs = [
+    {
+      q: 'Will my creatives look like cheap or generic AI?',
+      a: 'No. ZeperAi is tuned specifically for commercial product photography and branding. It maintains physical lighting accuracy, surface textures, and real packaging without plastic artifacts.'
+    },
+    {
+      q: 'How does ZeperAi prevent my actual product label and logo from distorting?',
+      a: 'Our pipeline isolates your uploaded product and keeps its original packaging, typography, and logos preserved while placing it seamlessly into high-converting scenes.'
+    },
+    {
+      q: 'Do I own commercial rights to the generated creatives?',
+      a: 'Yes, you own full commercial rights to all images and creatives you generate on ZeperAi for your store, ads, catalogs, and marketing campaigns.'
+    },
+    {
+      q: 'How do credits work?',
+      a: 'You get 10 free credits when you sign up to test out the platform. You can purchase additional credit bundles or subscription tiers anytime with zero lock-in.'
+    },
+    {
+      q: 'Can I remove backgrounds for free?',
+      a: 'Yes! Our built-in Background Remover runs right in your browser with unlimited transparent exports for standard resolutions.'
+    }
+  ];
+
   return (
     <>
       <SEO
-        title="ZeperAI Studio | AI Ad & Creative Intelligence for Indian D2C"
-        description="Turn raw product photos into studio-grade ad variations, multi-angle campaign assets, and social video reels with human approval at every stage. Built for Indian D2C brands."
+        title="ZeperAi Studio | AI Creative Platform for D2C & E-commerce Brands"
+        description="Generate on-brand product photos, ads, and social content in seconds with ZeperAi Studio — the AI creative platform built for D2C and e-commerce brands."
         canonicalUrl="https://zeperai.in/"
       />
       <ProductSchema />
@@ -71,61 +218,184 @@ export const LandingPage: React.FC = () => {
       <SoftwareAppSchema />
       <FAQSchema />
 
-      <div className="min-h-screen bg-white text-gray-900 font-inter selection:bg-[#4452FB] selection:text-white transition-colors duration-300">
-        {/* Global Transparent Sticky Navigation Header */}
+      <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-white text-zinc-900 font-manrope selection:bg-zinc-900 selection:text-white">
+        
+        {/* Floating Header */}
         <LandingHeader />
 
-        <main id="main-content" role="main">
-          {/* 01 — HERO (DISPLAY HEADLINE + INTERACTIVE MEDIA STRIP) */}
+        <main id="main-content" role="main" className="w-full max-w-full overflow-x-hidden">
+          
+          {/* Hero Section */}
           <Hero />
 
-          {/* 02 — BRAND LOGO WALL */}
-          <BrandProofStrip />
+          {/* Value Prop Marquee Ticker directly below Hero (Responsive Sizing) */}
+          <div className="bg-zinc-950 text-white py-2.5 sm:py-3.5 overflow-hidden whitespace-nowrap relative z-20 border-y border-zinc-800">
+            <div className="flex animate-marquee gap-8 sm:gap-10 items-center text-xs sm:text-base font-semibold tracking-wide" style={{ animationDuration: '26s' }}>
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex gap-8 sm:gap-10 items-center shrink-0">
+                  <span className="text-amber-400 font-bold flex items-center gap-1.5">
+                    <span>✨</span> 10 Free Credits on Signup
+                  </span>
+                  <span className="text-zinc-600 font-black">•</span>
+                  <span className="text-zinc-200">Transform Phone Photos into Studio Ads</span>
+                  <span className="text-zinc-600 font-black">•</span>
+                  <span className="text-zinc-200">No Cameras or Physical Studios Needed</span>
+                  <span className="text-zinc-600 font-black">•</span>
+                  <span className="text-zinc-100 font-bold">Trusted by 50+ Indian D2C Brands</span>
+                  <span className="text-zinc-600 font-black">•</span>
+                  <span className="text-zinc-200">Commercial Rights Included</span>
+                  <span className="text-zinc-600 font-black">•</span>
+                  <span className="text-zinc-200">Instant 1-Click Background Removal</span>
+                  <span className="text-zinc-600 font-black">•</span>
+                  <span className="text-zinc-200">Studio Quality 4K Ultra-HD Output</span>
+                  <span className="text-zinc-600 font-black">•</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
-          {/* 03 — ACTUAL DASHBOARD SNAPSHOT */}
-          <DashboardSnapshot />
+          {/* Features Section */}
+          <section id="features" className="py-14 sm:py-20 px-3.5 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-stone-200">
+            <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-14">
+              <div className="inline-flex items-center gap-2 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-stone-100 text-zinc-900 border border-stone-200 text-[11px] sm:text-xs font-bold uppercase tracking-wider mb-2.5 sm:mb-3">
+                <span>Features</span>
+              </div>
+              <h2 className="font-lora text-2xl xs:text-3xl sm:text-5xl font-bold text-zinc-900 tracking-tight leading-tight">
+                Everything You Need to Create High-Converting Visuals
+              </h2>
+              <p className="mt-3 sm:mt-4 text-sm sm:text-lg text-stone-600 font-normal">
+                From standalone packshots to full multi-channel ad campaigns, ZeperAI brings professional creative tools straight to your browser.
+              </p>
+            </div>
 
-          {/* 04 — VIDEO DEMO SHOWCASE (DROP IN READY) */}
-          <VideoShowcaseSection />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
+              {studioFeatures.map((tool) => (
+                <FeatureCard 
+                  key={tool.title}
+                  {...tool}
+                />
+              ))}
+            </div>
+          </section>
 
-          {/* 05 — STATS BAND (COMMERCIAL IMPACT IN INR) */}
-          <StatsBand />
+          {/* Shopify Data Analytics Feature Showcase */}
+          <ShopifyAnalyticsSection />
 
-          {/* 06 — HOW IT WORKS (6-STEP WORKFLOW DEMO) */}
-          <WorkflowSection />
+          {/* Bounce Cards Testimonial Section with Interactive Spring Animation */}
+          <BounceCardsSection />
 
-          {/* 07 — WHY ZEPERAI (STRATEGIC DIFFERENTIATORS) */}
-          <WhyZeperAI />
+          {/* FAQ Accordion */}
+          <section id="faq" className="py-14 sm:py-20 px-3.5 sm:px-6 lg:px-8 max-w-4xl mx-auto border-t border-stone-200">
+            <div className="text-center mb-8 sm:mb-12">
+              <div className="inline-flex items-center gap-2 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-stone-100 text-zinc-900 border border-stone-200 text-[11px] sm:text-xs font-bold uppercase tracking-wider mb-2.5 sm:mb-3">
+                <span>FAQ</span>
+              </div>
+              <h2 className="font-lora text-2xl xs:text-3xl sm:text-4xl font-bold text-zinc-900 tracking-tight">
+                Frequently Asked Questions
+              </h2>
+            </div>
 
-          {/* 08 — INDUSTRY & ROLE USE-CASE GRID */}
-          <RoleUseCases />
+            <div className="space-y-3 sm:space-y-3.5">
+              {faqs.map((faq, idx) => (
+                <div 
+                  key={idx} 
+                  className="bg-white border border-stone-200 rounded-xl sm:rounded-2xl overflow-hidden transition-all shadow-2xs"
+                >
+                  <button
+                    onClick={() => toggleFaq(idx)}
+                    className="w-full p-4 sm:p-6 text-left flex items-center justify-between gap-3 font-bold text-sm sm:text-lg text-zinc-900 focus:outline-none cursor-pointer"
+                  >
+                    <span>{faq.q}</span>
+                    <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center bg-stone-50 border border-stone-200 transition-transform duration-200 shrink-0 ${openFaqIndex === idx ? 'rotate-180 bg-stone-100 border-stone-300' : ''}`}>
+                      <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-700" />
+                    </div>
+                  </button>
+                  {openFaqIndex === idx && (
+                    <div className="px-4 sm:px-6 pb-5 sm:pb-6 pt-1 text-stone-600 leading-relaxed text-xs sm:text-base border-t border-stone-100 font-normal">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
 
-          {/* 09 — TESTIMONIALS & REVENUE IMPACT */}
-          <CustomerProofSection />
+          {/* Final Call to Action */}
+          <section className="py-16 sm:py-24 bg-zinc-950 text-white text-center px-4 sm:px-6 lg:px-8 relative overflow-hidden border-t border-zinc-900">
+            <div className="max-w-4xl mx-auto relative z-10 space-y-4 sm:space-y-6">
+              <h2 className="font-lora text-2xl xs:text-3xl sm:text-5xl font-bold leading-tight tracking-tight text-white">
+                Ready to Upgrade Your Product Creative?
+              </h2>
+              <p className="text-sm sm:text-lg text-zinc-400 max-w-2xl mx-auto font-normal">
+                Start generating studio-grade product photos and ads in seconds. 10 free credits included with zero setup.
+              </p>
+              <div className="pt-2 sm:pt-4 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+                <button 
+                  onClick={() => navigate('/login')}
+                  className="w-full sm:w-auto bg-[#4452FB] hover:bg-[#3641C9] active:scale-98 text-white px-6 sm:px-8 py-3.5 sm:py-4 rounded-full font-bold text-sm sm:text-base transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Start Free with 10 Credits</span>
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+                <button
+                  onClick={() => {
+                    const el = document.getElementById('features');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="w-full sm:w-auto bg-zinc-900 hover:bg-zinc-800 active:scale-98 text-white border border-zinc-800 px-6 sm:px-7 py-3.5 sm:py-4 rounded-full font-semibold text-sm sm:text-base transition-all cursor-pointer"
+                >
+                  <span>Explore Features</span>
+                </button>
+              </div>
+            </div>
+          </section>
 
-          {/* 10 — PORTFOLIO OUTPUT SHOWCASE */}
-          <PortfolioShowcase />
-
-          {/* 11 — FINAL CALL TO ACTION */}
-          <FinalCta />
-
-          {/* 12 — FREQUENTLY ASKED QUESTIONS */}
-          <FaqSection />
         </main>
 
-        {/* 13 — FOOTER */}
+        {/* Footer */}
         <Footer />
 
-        {/* Scroll To Top Button */}
+        {/* Scroll to Top Button */}
         {showScrollTop && (
-          <button
+          <button 
             onClick={scrollToTop}
-            className="fixed bottom-8 right-8 w-11 h-11 bg-white border border-gray-200 text-gray-900 hover:text-[#4452FB] rounded-full shadow-md flex items-center justify-center hover:bg-[#EEF0FF] transition-all z-50 focus:outline-none cursor-pointer"
+            className="fixed bottom-5 right-3.5 sm:bottom-8 sm:right-8 w-10 h-10 sm:w-11 sm:h-11 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-[90] cursor-pointer"
             title="Scroll to top"
             aria-label="Scroll to top"
           >
-            <Icon name="arrow-up" className="w-4 h-4" />
+            <Icon name="arrow-up" className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
+        )}
+
+        {/* Mobile Persistent Floating Quick-Start Bar (Displays when scrolled on mobile, dismissable) */}
+        {showMobileFloatingCta && !dismissedFloatingCta && (
+          <div className="lg:hidden fixed bottom-3 inset-x-3 z-50 animate-in fade-in slide-in-from-bottom-3 duration-300 pointer-events-auto">
+            <div className="bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 shadow-2xl rounded-2xl p-2.5 px-3.5 flex items-center justify-between gap-2.5 font-manrope">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white truncate">10 Free Credits on Signup</p>
+                  <p className="text-[10px] text-zinc-400 truncate">No credit card required</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => navigate('/login')}
+                  className="bg-[#4452FB] hover:bg-[#3442E8] active:scale-95 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Claim Free</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setDismissedFloatingCta(true)}
+                  className="p-1 text-zinc-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                  aria-label="Dismiss banner"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </>

@@ -13,7 +13,7 @@ export const CookiePolicyPage: React.FC = () => {
     <SEO
         title="Cookie Policy | ZeperAi Studio"
         description="Read ZeperAi Studio's cookie policy to understand how we use cookies on our website."
-        canonicalUrl="https://zeperai.in/cookies"
+        canonicalUrl="/cookies"
       />
       <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#4452FB] selection:text-white flex flex-col">
       <LandingHeader />
@@ -135,8 +135,8 @@ export const CookiePolicyPage: React.FC = () => {
             <h2 className="text-lg font-bold text-slate-900">6. Contact us</h2>
             <p className="text-sm text-slate-700">
               Questions about our use of cookies? Email us at{' '}
-              <a href="mailto:growth@zeperai.in" className="text-[#4452FB] font-bold hover:underline">
-                growth@zeperai.in
+              <a href="mailto:team@Zeperai.in" className="text-[#4452FB] font-bold hover:underline">
+                team@Zeperai.in
               </a>.
             </p>
             <p className="text-xs text-slate-500 pt-1">

@@ -37,6 +37,24 @@
           console.warn('Suppressed non-critical background network notice:', event.reason);
         }
       });
+
+      // Recover from stale module / invalid hook call caused by dev server dependency re-bundling
+      window.addEventListener('error', function (event) {
+        var msg = (event && event.message) ? String(event.message) : '';
+        if (
+          msg.includes('Invalid hook call') ||
+          msg.includes("Cannot read properties of null (reading 'useState')") ||
+          msg.includes("Cannot read properties of null (reading 'useContext')") ||
+          msg.includes('Failed to fetch dynamically imported module')
+        ) {
+          var reloadKey = 'zeperai_chunk_recover_reload';
+          var lastReload = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
+          if (Date.now() - lastReload > 4000) {
+            sessionStorage.setItem(reloadKey, String(Date.now()));
+            window.location.reload();
+          }
+        }
+      });
     </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
@@ -49,10 +67,10 @@
     <link rel="ai-catalog" type="application/json" href="/ai-catalog.json" />
     <link rel="alternate" type="application/json" href="/.well-known/ai-catalog.json" />
     <link rel="service-doc" href="/llms.txt" />
-    <!-- Typography: Fraunces (Hero Display), Poppins (All other section headings), Inter (Body) -->
+    <!-- Google Fonts: Inter, Poppins, Manrope, Lora, Caveat, Fraunces -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..900&family=Inter:wght@400;500;600;700;800&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..900&family=Inter:wght@400;500;600;700;800;900&family=Lora:ital,wght@0,400..700;1,400..700&family=Manrope:wght@400..800&family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles/fonts.css">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -61,43 +79,27 @@
         theme: {
           extend: {
             fontFamily: {
-              poppins: ['Poppins', 'sans-serif'],
-              heading: ['Poppins', 'sans-serif'],
-              fraunces: ['Fraunces', 'serif'],
-              display: ['Fraunces', 'serif'],
-              caveat: ['Caveat', 'cursive'],
-              subheading: ['Inter', 'sans-serif'],
-              button: ['Inter', 'sans-serif'],
-              action: ['Inter', 'sans-serif'],
-              ui: ['Inter', 'sans-serif'],
-              data: ['Inter', 'sans-serif'],
-              body: ['Inter', 'sans-serif'],
               sans: ['Inter', 'sans-serif'],
-              inter: ['Inter', 'sans-serif'],
-            },
-            letterSpacing: {
-              heading: '-0.02em',
-              tightest: '-0.02em',
-            },
-            lineHeight: {
-              body: '1.55',
-              relaxed: '1.6',
+              manrope: ['Manrope', 'sans-serif'],
+              lora: ['Lora', 'serif'],
+              poppins: ['Poppins', 'sans-serif'],
+              batangas: ['Batangas', 'Poppins', 'sans-serif'],
+              fraunces: ['Fraunces', 'serif'],
+              caveat: ['Caveat', 'cursive'],
             },
             colors: {
-              'primary': '#4452FB',
-              'primary-hover': '#3442E8',
-              'brand-blue': '#4452FB',
-              'brand-blue-hover': '#3442E8',
-              'brand-blue-light': '#EEF0FF',
-              'main': '#FFFFFF',
-              'text-dark': '#111827',
+              'primary': '#6A5AE0',
+              'primary-hover': '#5A4AD8',
+              'main': '#F9F9FB',
               'text-primary': '#111827',
-              'text-secondary': '#4B5563',
-              'border-subtle': '#E5E7EB',
-              'border-light': '#E5E7EB',
+              'text-secondary': '#6B7280',
               'sidebar-light': '#FFFFFF',
-              'accent-yellow': '#F59E0B',
+              'border-light': '#E5E7EB',
               'accent-green': '#10B981',
+              'container-pink': '#FCEEEE',
+              'ecommerce-black': '#111111',
+              'marketing-purple': '#E1D4FA',
+              'other-orange': '#FDBA74',
             },
             borderRadius: {
               'xl': '0.75rem',
@@ -105,12 +107,7 @@
               '3xl': '1.5rem',
             },
             boxShadow: {
-              'subtle-sm': '0 1px 3px 0 rgba(0, 0, 0, 0.05)',
-              'subtle-md': '0 4px 12px 0 rgba(0, 0, 0, 0.05)',
-              'subtle-lg': '0 10px 25px -3px rgba(0, 0, 0, 0.07)',
-              'blue-glow': '0 8px 24px -4px rgba(68, 82, 251, 0.35)',
-              'glow-primary': '0 0 16px 2px rgba(68, 82, 251, 0.35)',
-            },
+              'glow-primary': '0 0 12px 2px rgba(106, 90, 224, 0.4)',
             },
             transitionTimingFunction: {
               'spring': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -141,7 +138,7 @@
               'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
               'fade-in-scale-up': 'fadeInScaleUp 0.3s ease-out forwards',
               'shimmer': 'shimmer 2.5s ease-in-out infinite',
-              'marquee': 'marquee 50s linear infinite',
+              'marquee': 'marquee 20s linear infinite',
               'carousel-spin': 'carouselSpin 30s linear infinite',
             }
           }

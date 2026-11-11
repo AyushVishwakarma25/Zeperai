@@ -38,10 +38,10 @@ export interface ModelDefinition {
 export const MODEL_REGISTRY: Record<InternalModelId, ModelDefinition> = {
   [InternalModelId.NanoBanana2Lite]: {
     id: InternalModelId.NanoBanana2Lite,
-    displayName: 'Nano Banana 2 Lite',
-    apiModel: 'gemini-2.5-flash-image',
+    displayName: 'Basic',
+    apiModel: 'gemini-3.1-flash-lite-image',
     credits: 1,
-    badge: 'Fast & Efficient',
+    badge: 'Fast & Free',
     tagline: 'Cheapest and fastest generation',
     description: 'Ultra-fast, cost-effective generation optimized for rapid prototyping, background cleanup, and high-volume iterations.',
     recommendedFor: [
@@ -55,8 +55,8 @@ export const MODEL_REGISTRY: Record<InternalModelId, ModelDefinition> = {
   },
   [InternalModelId.NanoBanana2]: {
     id: InternalModelId.NanoBanana2,
-    displayName: 'Nano Banana 2',
-    apiModel: 'gemini-3.1-flash-image',
+    displayName: 'Standard',
+    apiModel: 'gemini-nano-banana-2.1',
     credits: 1,
     badge: 'Standard Quality',
     tagline: 'Balanced quality, speed and cost',
@@ -72,7 +72,7 @@ export const MODEL_REGISTRY: Record<InternalModelId, ModelDefinition> = {
   },
   [InternalModelId.NanoBananaPro]: {
     id: InternalModelId.NanoBananaPro,
-    displayName: 'Nano Banana Pro',
+    displayName: 'Premium',
     apiModel: 'gemini-3-pro-image',
     credits: 2,
     badge: 'Pro Flagship',

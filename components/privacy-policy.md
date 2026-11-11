@@ -6,7 +6,7 @@ ZeperAI ("**ZeperAI**", "**we**", "**us**", "**our**") is operated by Falcon Can
 
 This Privacy Policy explains what personal data we collect when you use the Services, why we collect it, and the choices you have.
 
-If you have any questions about this Policy or how we handle your data, contact us at **growth@zeperai.in**.
+If you have any questions about this Policy or how we handle your data, contact us at **team@Zeperai.in**.
 
 ---
 
@@ -78,7 +78,7 @@ ZeperAI complies with major international data privacy regulations including **G
 #### DPDP Act 2023 (India)
 - Rights of Data Principals to access information, request correction/erasure, register grievances, and nominate representatives.
 
-To exercise any privacy rights, email **growth@zeperai.in**. Requests are fulfilled within 30 days.
+To exercise any privacy rights, email **team@Zeperai.in**. Requests are fulfilled within 30 days.
 
 ### 7. Data security
 
@@ -97,5 +97,5 @@ We may update this Privacy Policy from time to time. If we make material changes
 For any questions, requests, or complaints regarding this Privacy Policy or your personal data, contact:
 
 **Falcon Canvas AI (operating as ZeperAI)**
-Email: growth@zeperai.in
+Email: team@Zeperai.in
 Registered address: Lucknow, Uttar Pradesh, India

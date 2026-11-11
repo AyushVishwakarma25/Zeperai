@@ -189,10 +189,8 @@ export const useCreativeSession = (
             isGeneratingRef.current = false;
             return;
         }
-
-        const isFreeTrialGeneration = userTier === 'Free' && finalParams.resolutionQuality === ResolutionQuality.Standard && cost > 0 && cost <= (FREE_TRIAL_LIMIT - freeGenerationsUsed);
         
-        if (!isFreeTrialGeneration && !checkAndDeductCredits(cost)) { 
+        if (!checkAndDeductCredits(cost)) { 
             isGeneratingRef.current = false; 
             return; 
         }
@@ -213,12 +211,12 @@ export const useCreativeSession = (
                 modelSeedUrl
             );
             setGeneratedImages(results);
-            if (isFreeTrialGeneration) {
+            if (userTier === 'Free') {
                 setFreeGenerationsUsed(prev => prev + cost);
             }
             return results;
         } catch (err: any) {
-            if (!isFreeTrialGeneration) refundCredits(cost);
+            refundCredits(cost);
             setError(err.message || 'Generation failed');
             // Restore the form so the user doesn't lose their place
             setActiveMode(generationModeRef.current);

@@ -2,15 +2,15 @@
   "specVersion": "1.0",
   "host": {
     "displayName": "ZeperAI",
-    "documentationUrl": "https://zeperai.in/about",
-    "logoUrl": "https://zeperai.in/favicon.ico"
+    "documentationUrl": "https://www.zeperai.in/about",
+    "logoUrl": "https://www.zeperai.in/favicon.ico"
   },
   "entries": [
     {
       "identifier": "urn:air:zeperai.in:tool:campaign-studio",
       "displayName": "Campaign Studio",
       "type": "application/agent-card+json",
-      "url": "https://zeperai.in/api/campaign-studio/docs",
+      "url": "https://www.zeperai.in/api/campaign-studio/docs",
       "description": "Autonomous multi-agent campaign strategist and high-converting ad visual generation engine for D2C brands, social media ads, and performance media buyers.",
       "representativeQueries": [
         "Generate a complete marketing campaign from a website URL",
@@ -23,7 +23,7 @@
       "identifier": "urn:air:zeperai.in:tool:product-studio",
       "displayName": "Product Studio",
       "type": "application/agent-card+json",
-      "url": "https://zeperai.in/",
+      "url": "https://www.zeperai.in/",
       "description": "AI-powered commercial product photography and studio background generation.",
       "representativeQueries": [
         "Generate studio product photos",
@@ -36,7 +36,7 @@
       "identifier": "urn:air:zeperai.in:tool:background-remover",
       "displayName": "AI Background Remover Pro",
       "type": "application/agent-card+json",
-      "url": "https://zeperai.in/tools/background-remover",
+      "url": "https://www.zeperai.in/tools/background-remover",
       "description": "Instant pixel-perfect background cutout and transparent PNG extraction preserving fine edges and packaging detail.",
       "representativeQueries": [
         "Remove background from product photo",
@@ -46,17 +46,43 @@
       "tags": ["background-removal", "image-editing", "transparent-png"]
     },
     {
-      "identifier": "urn:air:zeperai.in:tool:ugc-influencer-studio",
-      "displayName": "AI UGC Influencer Studio",
+      "identifier": "urn:air:zeperai.in:tool:roas-rto-calculator",
+      "displayName": "D2C Break-Even ROAS & RTO Calculator",
       "type": "application/agent-card+json",
-      "url": "https://zeperai.in/",
-      "description": "Generate relatable Indian and global influencer UGC model photos showcasing products in authentic everyday settings.",
+      "url": "https://www.zeperai.in/tools/roas-rto-calculator",
+      "description": "Calculate true break-even ROAS and maximum affordable CAC for Indian D2C e-commerce, factoring in COD shares, courier fees, and return logistics.",
       "representativeQueries": [
-        "Create influencer UGC photos for product",
-        "Generate model showcasing skincare product",
-        "AI fashion shoot with virtual model"
+        "Calculate break-even ROAS for Indian D2C brand",
+        "How to calculate max affordable CAC with RTO returns",
+        "Shopify ROAS calculator for COD e-commerce"
       ],
-      "tags": ["ugc", "influencer", "fashion", "ai-models"]
+      "tags": ["calculators", "roas", "rto", "d2c", "ecommerce"]
+    },
+    {
+      "identifier": "urn:air:zeperai.in:tool:meta-creative-fatigue",
+      "displayName": "Meta Ad Creative Fatigue Simulator",
+      "type": "application/agent-card+json",
+      "url": "https://www.zeperai.in/tools/meta-creative-fatigue",
+      "description": "Simulate Meta ad frequency decay, CPM inflation, and impression saturation to calculate required weekly ad creative variations.",
+      "representativeQueries": [
+        "How to calculate Meta ad creative fatigue",
+        "How many ad creatives do I need per month",
+        "Ad frequency decay calculator for Meta ads"
+      ],
+      "tags": ["calculators", "meta-ads", "creative-fatigue", "media-buying"]
+    },
+    {
+      "identifier": "urn:air:zeperai.in:tool:quick-commerce-margin-calculator",
+      "displayName": "Quick-Commerce Margin Calculator",
+      "type": "application/agent-card+json",
+      "url": "https://www.zeperai.in/tools/quick-commerce-margin-calculator",
+      "description": "Dark-store unit economics calculator for Blinkit, Zepto, and Instamart sellers modeling platform commissions, trade margins, and CM1/CM2 profit.",
+      "representativeQueries": [
+        "Blinkit commission and margin calculator",
+        "Zepto dark store unit economics calculator",
+        "Quick commerce seller margin calculator"
+      ],
+      "tags": ["calculators", "quick-commerce", "blinkit", "zepto", "margins"]
     }
   ]
 }

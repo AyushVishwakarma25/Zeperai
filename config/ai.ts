@@ -6,6 +6,7 @@
 
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { supabase } from "../services/supabaseClient.js";
+import { safelyParseServiceAccountJson } from "../utils/serviceAccountParser.js";
 
 let genAIInstance: GoogleGenAI | null = null;
 let currentApiKey = '';
@@ -127,55 +128,60 @@ export const getAI = () => {
            '') 
         : '';
 
-    // Post-pay Vertex AI mode: used when explicitly requested via USE_VERTEX_AI='true',
-    // or when VERTEX_PROJECT_ID is provided, or when no Gemini API key exists but a GCP project is set.
-    // NOTE: Cloud Run / App Engine environments automatically inject GOOGLE_CLOUD_PROJECT with an
-    // internal project number; we must not default to Vertex AI if a valid AI Studio GEMINI_API_KEY
-    // is available unless explicitly opted in.
-    const useVertex = Boolean(
-        process.env.USE_VERTEX_AI === 'true' ||
-        vertexProjectId ||
-        (!apiKey && gcpProject)
-    );
-    const project = vertexProjectId || (useVertex ? gcpProject : '');
-        
-    if (!useVertex && !apiKey) {
-        console.error("Missing Gemini API Key in environment variables!");
-        throw new Error("Missing GEMINI_API_KEY / GeminiAPI, or GOOGLE_CLOUD_PROJECT for Vertex AI. Please configure your API key in Settings > Secrets and do a hard refresh of your browser tab.");
+    const isVertexExplicitlyRequested = process.env.USE_VERTEX_AI === 'true';
+
+    let parsedSaProject = '';
+    let googleAuthOptions: any;
+    if (saJson) {
+        const parsed = safelyParseServiceAccountJson(saJson);
+        if (parsed) {
+            parsedSaProject = parsed.project_id || '';
+            googleAuthOptions = { credentials: parsed };
+        } else {
+            throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON is not valid JSON. Please provide valid service account JSON contents or a base64-encoded credentials string.");
+        }
     }
 
-    const cacheKey = useVertex ? `vertex:${project}:${location}:${vertexApiKey || (saJson ? 'sa' : 'adc')}` : `studio:${apiKey}`;
+    const hasExplicitVertexCreds = Boolean(
+        vertexApiKey ||
+        googleAuthOptions ||
+        process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+        vertexProjectId
+    );
+
+    const useVertex = process.env.USE_VERTEX_AI === 'true' || (process.env.USE_VERTEX_AI !== 'false' && hasExplicitVertexCreds);
+    const effectiveProject = vertexProjectId || parsedSaProject || '';
+
+    if (useVertex) {
+        if (!hasExplicitVertexCreds) {
+            throw new Error(
+                "Google Cloud Vertex AI is selected as primary, but no Google Cloud credentials were provided. " +
+                "Please provide your Google Cloud Project ID and Service Account JSON (or Vertex API Key) in Admin Settings > AI."
+            );
+        }
+    } else if (!apiKey) {
+        console.error("Missing Gemini API Key in environment variables!");
+        throw new Error("Missing GEMINI_API_KEY. Please configure your API key in Settings > Secrets or enable Vertex AI in Admin Settings > AI.");
+    }
+
+    const cacheKey = useVertex ? `vertex:${effectiveProject}:${location}:${vertexApiKey || (saJson ? 'sa' : 'adc')}` : `studio:${apiKey}`;
 
     if (!genAIInstance || currentApiKey !== cacheKey) {
         currentApiKey = cacheKey;
         if (useVertex) {
-            let googleAuthOptions: any;
-            if (saJson) {
-                try {
-                    googleAuthOptions = { credentials: JSON.parse(saJson) };
-                } catch {
-                    throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON is not valid JSON. Paste the full service-account key file contents.");
-                }
-            }
-
             // In @google/genai, apiKey and project/location are mutually exclusive.
-            // If an explicit vertexApiKey is set or if using apiKey in Vertex Express mode:
-            if (vertexApiKey) {
+            // Prioritize Service Account credentials (googleAuthOptions) for true enterprise postpay billing
+            if (googleAuthOptions || effectiveProject) {
                 genAIInstance = new GoogleGenAI({
                     vertexai: true,
-                    apiKey: vertexApiKey,
-                });
-            } else if (project || saJson || googleAuthOptions) {
-                genAIInstance = new GoogleGenAI({
-                    vertexai: true,
-                    ...(project ? { project } : {}),
+                    ...(effectiveProject ? { project: effectiveProject } : {}),
                     location: location || 'us-central1',
                     ...(googleAuthOptions ? { googleAuthOptions } : {}),
                 });
-            } else if (apiKey) {
+            } else if (vertexApiKey && !vertexApiKey.startsWith('AQ.')) {
                 genAIInstance = new GoogleGenAI({
                     vertexai: true,
-                    apiKey,
+                    apiKey: vertexApiKey,
                 });
             } else {
                 genAIInstance = new GoogleGenAI({
@@ -184,7 +190,14 @@ export const getAI = () => {
                 });
             }
         } else {
-            genAIInstance = new GoogleGenAI({ apiKey: apiKey || '' });
+            genAIInstance = new GoogleGenAI({
+                apiKey: apiKey || '',
+                httpOptions: {
+                    headers: {
+                        'User-Agent': 'aistudio-build',
+                    },
+                },
+            });
         }
     }
 
@@ -197,26 +210,42 @@ export const getAI = () => {
             generateContent: async (args: any) => {
                 let { model: modelName, contents, config } = args;
 
-                // MAP CUSTOM/OLD NAMES TO REAL GOOGLE NANO BANANA MODELS FOR @google/genai SDK
+                const hasImageConfig = Boolean(config?.imageConfig);
+
+                // Map model aliases to current supported canonical models
+                // On Google Cloud Vertex AI, Flash is 'gemini-2.5-flash' and Pro is 'gemini-2.5-pro'.
+                // On Google AI Studio (API Key), models are 'gemini-3.8-flash' and 'gemini-3.1-pro-preview'.
                 let realModelName = modelName;
-                if (modelName === 'gemini-3-flash-preview') realModelName = 'gemini-flash-latest';
-                if (modelName === 'gemini-2.5-flash-preview-tts') realModelName = 'gemini-3.1-flash-tts-preview';
-                if (modelName === 'nano-banana-2-lite') realModelName = 'gemini-2.5-flash-image';
-                if (modelName === 'nano-banana-2' || modelName === 'nano-banana') realModelName = 'gemini-2.5-flash-image';
-                if (modelName === 'nano-banana-pro') realModelName = 'gemini-3-pro-image';
-                if (modelName === 'gemini-3.1-pro-preview' || modelName === 'gemini-3-pro-preview' || modelName === 'gemini-pro-latest' || modelName === 'gemini-pro') {
-                    realModelName = 'gemini-3.1-pro-preview';
+                if (modelName === 'gemini-3.1-flash-lite' || modelName === 'gemini-flash-lite' || modelName === 'flash-lite') {
+                    realModelName = hasImageConfig ? 'gemini-nano-banana-2.1' : (useVertex ? 'gemini-2.5-flash' : 'gemini-3.1-flash-lite');
                 }
-                // Vertex AI does not support AI Studio's rolling "-latest" alias convention;
-                // it needs a concrete, versioned publisher model id.
-                if (useVertex) {
-                    if (realModelName === 'gemini-flash-latest' || realModelName === 'gemini-3.7-flash') realModelName = 'gemini-2.5-flash';
-                    if (realModelName === 'gemini-3.1-pro-preview' || realModelName === 'gemini-3-pro-preview' || realModelName === 'gemini-pro-latest' || realModelName === 'gemini-pro') realModelName = 'gemini-2.5-flash';
-                    if (realModelName === 'gemini-3.1-flash-image' || realModelName === 'gemini-3-pro-image') realModelName = 'gemini-2.5-flash-image';
+                if (modelName === 'gemini-3-flash-preview' || modelName === 'gemini-flash-latest' || modelName === 'gemini-2.5-flash' || modelName === 'gemini-2.0-flash' || modelName === 'gemini-1.5-flash' || modelName === 'gemini-3.8-flash') {
+                    realModelName = hasImageConfig ? 'gemini-nano-banana-2.1' : (useVertex ? 'gemini-2.5-flash' : 'gemini-3.8-flash');
+                }
+                if (modelName === 'gemini-3.1-pro-preview' || modelName === 'gemini-3-pro-preview' || modelName === 'gemini-pro-latest' || modelName === 'gemini-pro' || modelName === 'gemini-2.5-pro' || modelName === 'gemini-2.0-pro' || modelName === 'gemini-1.5-pro') {
+                    realModelName = hasImageConfig ? 'gemini-3-pro-image' : (useVertex ? 'gemini-2.5-pro' : 'gemini-3.1-pro-preview');
+                }
+                if (modelName === 'gemini-2.5-flash-preview-tts' || modelName === 'gemini-3.1-flash-tts-preview') {
+                    realModelName = useVertex ? 'gemini-2.5-flash' : 'gemini-3.8-flash-lite-tts';
+                }
+                // Image Models - Nano Banana Family
+                if (modelName === 'nano-banana-2-lite' || modelName === 'nano-banana-lite' || modelName === 'gemini-2.5-flash-image' || modelName === 'gemini-3.1-flash-lite-image') {
+                    realModelName = 'gemini-3.1-flash-lite-image';
+                }
+                if (modelName === 'nano-banana-2' || modelName === 'nano-banana' || modelName === 'gemini-3.1-flash-image' || modelName === 'gemini-nano-banana-2.1') {
+                    realModelName = 'gemini-nano-banana-2.1';
+                }
+                if (modelName === 'nano-banana-pro' || modelName === 'gemini-pro-image' || modelName === 'gemini-3-pro-image') {
+                    realModelName = 'gemini-3-pro-image';
                 }
                 // Discontinued Imagen aliases fallback cleanly to Nano Banana models
                 if (modelName && (modelName.includes('imagen') || modelName.includes('dall-e'))) {
-                    realModelName = 'gemini-2.5-flash-image';
+                    realModelName = 'gemini-3.1-flash-lite-image';
+                }
+
+                // Invariant: Never allow an image generation request (with imageConfig) to invoke a pure text model
+                if (hasImageConfig && (realModelName === 'gemini-3.8-flash' || realModelName === 'gemini-2.5-flash' || realModelName === 'gemini-3.1-pro-preview' || realModelName === 'gemini-2.5-pro' || !realModelName)) {
+                    realModelName = 'gemini-nano-banana-2.1';
                 }
 
                 // Normalize contents roles if passed as structured messages
@@ -241,11 +270,33 @@ export const getAI = () => {
                 };
 
                 // Use the modern models.generateContent API
-                return await ai.models.generateContent({ 
-                    model: realModelName || 'gemini-2.5-flash-image',
-                    contents: normalizedContents,
-                    config: finalConfig 
-                });
+                const fallbackTextModel = useVertex ? 'gemini-2.5-flash' : 'gemini-3.8-flash';
+                const targetModel = realModelName || (hasImageConfig ? 'gemini-nano-banana-2.1' : fallbackTextModel);
+                try {
+                    return await ai.models.generateContent({ 
+                        model: targetModel,
+                        contents: normalizedContents,
+                        config: finalConfig 
+                    });
+                } catch (callErr: any) {
+                    const cMsg = callErr?.message || '';
+                    if (useVertex && (cMsg.includes('404') || cMsg.includes('NOT_FOUND') || cMsg.includes('no longer available')) && targetModel === 'gemini-2.5-flash') {
+                        try {
+                            return await ai.models.generateContent({
+                                model: 'gemini-2.0-flash',
+                                contents: normalizedContents,
+                                config: finalConfig
+                            });
+                        } catch (_) {
+                            return await ai.models.generateContent({
+                                model: 'gemini-1.5-flash',
+                                contents: normalizedContents,
+                                config: finalConfig
+                            });
+                        }
+                    }
+                    throw callErr;
+                }
             }
         }
     };

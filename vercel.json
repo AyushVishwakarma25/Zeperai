@@ -4,6 +4,48 @@
       "maxDuration": 60
     }
   },
+  "redirects": [
+    {
+      "source": "/background-remover",
+      "destination": "https://www.zeperai.in/tools/background-remover",
+      "permanent": true
+    },
+    {
+      "source": "/background-remove",
+      "destination": "https://www.zeperai.in/tools/background-remover",
+      "permanent": true
+    },
+    {
+      "source": "/tools/background-remove",
+      "destination": "https://www.zeperai.in/tools/background-remover",
+      "permanent": true
+    },
+    {
+      "source": "/remove-background-for-:slug",
+      "destination": "https://www.zeperai.in/tools/remove-background-for-:slug",
+      "permanent": true
+    },
+    {
+      "source": "/cookie-policy",
+      "destination": "https://www.zeperai.in/cookies",
+      "permanent": true
+    },
+    {
+      "source": "/legal/cookie-policy",
+      "destination": "https://www.zeperai.in/cookies",
+      "permanent": true
+    },
+    {
+      "source": "/blog",
+      "destination": "https://www.zeperai.in/",
+      "permanent": true
+    },
+    {
+      "source": "/blog/:path*",
+      "destination": "https://www.zeperai.in/",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/admin/login",
@@ -18,32 +60,12 @@
       "destination": "/api/user/profile"
     },
     {
+      "source": "/api/user/invoices",
+      "destination": "/api/user/invoices"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api"
-    },
-    {
-      "source": "/pricing",
-      "destination": "/pricing/index.html"
-    },
-    {
-      "source": "/about",
-      "destination": "/about/index.html"
-    },
-    {
-      "source": "/contact",
-      "destination": "/contact/index.html"
-    },
-    {
-      "source": "/terms",
-      "destination": "/terms/index.html"
-    },
-    {
-      "source": "/privacy",
-      "destination": "/privacy/index.html"
-    },
-    {
-      "source": "/cookies",
-      "destination": "/cookies/index.html"
     },
     {
       "source": "/ai-catalog.json",

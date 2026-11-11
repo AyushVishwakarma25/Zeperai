@@ -17,21 +17,34 @@ import { ContactPage } from './src/landing/ContactPage.js';
 import { TermsPage } from './src/landing/TermsPage.js';
 import { PrivacyPolicyPage } from './src/landing/PrivacyPolicyPage.js';
 import { CookiePolicyPage } from './src/landing/CookiePolicyPage.js';
-import { BlogPage } from './src/landing/BlogPage.js';
 import { BackgroundRemoverLandingPage } from './src/landing/BackgroundRemoverLandingPage.js';
+import { NicheBackgroundRemoverPage } from './src/landing/NicheBackgroundRemoverPage.js';
+import { ToolsHubPage } from './src/landing/ToolsHubPage.js';
+import { RoasRtoCalculatorPage } from './src/landing/RoasRtoCalculatorPage.js';
+import { CreativeFatigueCalculatorPage } from './src/landing/CreativeFatigueCalculatorPage.js';
+import { QuickCommerceCalculatorPage } from './src/landing/QuickCommerceCalculatorPage.js';
+import { ALL_NICHE_SLUGS } from './src/data/backgroundRemoverNiches.js';
 
 const routeComponents: Record<string, React.FC<any>> = {
   '/': LandingPage,
   '/pricing': PricingPage,
   '/about': AboutUsPage,
   '/contact': ContactPage,
-  '/blog': BlogPage,
+  '/tools': ToolsHubPage,
+  '/tools/roas-rto-calculator': RoasRtoCalculatorPage,
+  '/tools/meta-creative-fatigue': CreativeFatigueCalculatorPage,
+  '/tools/quick-commerce-margin-calculator': QuickCommerceCalculatorPage,
   '/tools/background-remover': BackgroundRemoverLandingPage,
-  '/background-remover': BackgroundRemoverLandingPage,
   '/terms': TermsPage,
   '/privacy': PrivacyPolicyPage,
   '/cookies': CookiePolicyPage,
 };
+
+// Register all 50+ programmatic niche routes for static pre-rendering
+for (const slug of ALL_NICHE_SLUGS) {
+  const routePath = `/tools/remove-background-for-${slug}`;
+  routeComponents[routePath] = () => React.createElement(NicheBackgroundRemoverPage, { forcedSlug: slug });
+}
 
 export const prerenderRoutes = Object.keys(routeComponents);
 

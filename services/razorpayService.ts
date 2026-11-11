@@ -132,12 +132,21 @@ export const openCheckout = async (options: CheckoutOptions): Promise<void> => {
     throw new Error('Razorpay Key ID is missing from server response.');
   }
 
+  const baseVal = orderData.baseAmount != null ? Number(orderData.baseAmount) : Number(options.amount);
+  const gstVal = orderData.gstAmount != null ? Number(orderData.gstAmount) : 0;
+  const gstRate = orderData.taxBreakdown?.gstRatePercent || 18;
+
+  // Clear cost breakdown prominently displayed in the Razorpay Checkout modal header
+  const checkoutDescription = (gstVal > 0)
+    ? `${options.planName} • ₹${baseVal.toLocaleString('en-IN')} + ${gstRate}% GST (₹${gstVal.toFixed(2)})`
+    : `${options.planName} ${options.creditsText ? `(${options.creditsText})` : ''}`;
+
   const rzpOptions = {
     key: key_id,
     amount: order.amount,
     currency: order.currency || 'INR',
     name: 'ZeperAI Studio',
-    description: `${options.planName} ${options.creditsText ? `(${options.creditsText})` : ''}`,
+    description: checkoutDescription,
     order_id: order.id,
     prefill: {
       name: options.userName || '',
@@ -147,6 +156,12 @@ export const openCheckout = async (options: CheckoutOptions): Promise<void> => {
     theme: {
       color: '#4452FB'
     },
+    notes: {
+      planId: options.planId,
+      baseAmount: (orderData.baseAmount || options.amount).toString(),
+      gstAmount: (orderData.gstAmount || '').toString(),
+      totalAmount: (orderData.totalAmount || (order.amount / 100)).toString()
+    },
     handler: async function (response: any) {
       try {
         const verifyResult = await verifyRazorpayPayment({
@@ -154,7 +169,7 @@ export const openCheckout = async (options: CheckoutOptions): Promise<void> => {
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_signature: response.razorpay_signature,
           planId: options.planId,
-          amount: options.amount
+          amount: orderData.totalAmount || (order.amount ? order.amount / 100 : options.amount)
         });
         if (options.onSuccess) {
           options.onSuccess(verifyResult);

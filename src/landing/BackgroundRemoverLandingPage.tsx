@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { LandingHeader } from './LandingHeader.js';
 import { Footer } from './Footer.js';
 import { SEO } from '../../components/SEO.js';
@@ -65,7 +65,7 @@ export const BackgroundRemoverLandingPage: React.FC<Props> = ({ user, onDeductCr
       <SEO 
         title="AI Background Remover - Free Instant Background Removal | ZeperAi"
         description="Remove backgrounds from your product photos in seconds with high precision. Free transparent cutout tool for e-commerce and creative professionals."
-        canonicalUrl="https://zeperai.in/tools/background-remover"
+        canonicalUrl="/tools/background-remover"
       />
       <BackgroundRemoverProductSchema />
       <LandingHeader />
@@ -193,6 +193,98 @@ export const BackgroundRemoverLandingPage: React.FC<Props> = ({ user, onDeductCr
         </div>
       </section>
 
+      {/* Dedicated Indian E-Commerce Marketplace Hubs */}
+      <section className="py-16 px-4 sm:px-6 bg-slate-50 border-t border-slate-200/80">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#4452FB] bg-[#4452FB]/10 px-3 py-1 rounded-full">
+              Programmatic Hubs
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-2 mb-2">
+              Indian E-Commerce Compliance Tools
+            </h2>
+            <p className="text-sm text-slate-600">
+              Get 100% compliant pure RGB (255, 255, 255) white backgrounds and 85% frame occupancies customized for your marketplace.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                title: 'Amazon India Products',
+                desc: 'Strict RGB (255, 255, 255) pure white with 85% zoom frame filling.',
+                slug: 'amazon-india-products',
+                tag: 'Amazon Seller',
+              },
+              {
+                title: 'Blinkit & Zepto Packshots',
+                desc: 'Instant transparent PNGs for quick commerce FMCG dark stores.',
+                slug: 'blinkit-zepto-products',
+                tag: 'Quick Commerce',
+              },
+              {
+                title: 'Flipkart & Meesho Sellers',
+                desc: 'Pass automated image QC without shadow spill rejections.',
+                slug: 'flipkart-meesho-sellers',
+                tag: 'Flipkart QC',
+              },
+              {
+                title: 'Jewellery & Watches',
+                desc: 'Sub-pixel micro edge matting for chains, gold, and diamonds.',
+                slug: 'jewellery-and-diamonds',
+                tag: 'High Precision',
+              },
+              {
+                title: 'Sarees & Ethnic Wear',
+                desc: 'Retain delicate zari embroidery, borders, and silk sheen.',
+                slug: 'sarees-and-ethnic-wear',
+                tag: 'Apparel',
+              },
+              {
+                title: 'Cosmetics & Skincare',
+                desc: 'Preserve glass refractions, dropper pipettes, and label contrast.',
+                slug: 'cosmetics-and-skincare',
+                tag: 'Nykaa Ready',
+              },
+              {
+                title: 'Footwear & Sneakers',
+                desc: 'Clean rubber soles, tread lugs, and loose laces cleanly.',
+                slug: 'footwear-and-sneakers',
+                tag: 'Footwear',
+              },
+              {
+                title: 'Handicrafts & Decor',
+                desc: 'Amazon Karigar ready cutouts for brass diyas and wood carvings.',
+                slug: 'home-decor-and-handicrafts',
+                tag: 'Karigar',
+              },
+            ].map((n) => (
+              <Link
+                key={n.slug}
+                to={`/tools/remove-background-for-${n.slug}`}
+                className="group bg-white p-5 rounded-2xl border border-slate-200/90 hover:border-[#4452FB] shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+              >
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                    {n.tag}
+                  </span>
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-[#4452FB] transition-colors mt-2 mb-1">
+                    {n.title}
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    {n.desc}
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-[#4452FB]">
+                  <span>Open Tool</span>
+                  <span>→</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Call To Action Banner */}
       <section className="px-4 sm:px-6 pb-20 bg-white">
         <div className="max-w-5xl mx-auto rounded-3xl bg-gradient-to-r from-[#1E293B] to-[#0F172A] text-white p-10 sm:p-14 text-center relative overflow-hidden shadow-2xl">
@@ -217,5 +309,7 @@ export const BackgroundRemoverLandingPage: React.FC<Props> = ({ user, onDeductCr
     </div>
   );
 };
+
+export default BackgroundRemoverLandingPage;
 
 

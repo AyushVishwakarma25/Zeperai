@@ -15,6 +15,12 @@ dist
 .env
 .env.*
 !.env.example
+config/ai-settings.json
+config/service-account.json
+
+# Cache & Build
+.vite
+*.tsbuildinfo
 
 # Editor directories and files
 .vscode/*

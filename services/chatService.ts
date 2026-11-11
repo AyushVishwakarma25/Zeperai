@@ -34,7 +34,7 @@ class ChatService {
 
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-3.1-flash-lite',
                 contents: this.history.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
                 config: {
                     systemInstruction

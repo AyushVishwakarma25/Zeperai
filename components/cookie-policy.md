@@ -31,4 +31,4 @@ We may update this Cookie Policy as we add new tools or as regulations change. M
 
 ### 6. Contact us
 
-Questions about our use of cookies? Email us at **growth@zeperai.in**.
+Questions about our use of cookies? Email us at **team@Zeperai.in**.

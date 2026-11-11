@@ -32,7 +32,7 @@ const mapUserToProfile = async (user: any): Promise<UserProfileData> => {
             bio: '',
             location: '',
             avatarUrl: user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`,
-            tier: 'Free'
+            tier: (user.user_metadata?.tier as any) || (user.user_metadata?.plan as any) || 'Free'
         };
     }
 

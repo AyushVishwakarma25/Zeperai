@@ -1,0 +1,6 @@
+{
+  "summary":  "Plan for converting the /tools hub and all internal interactive business calculators to a consistent light theme UI kit and integrating local WebAssembly fallbacks for background remover service errors.",
+  "updatedAt":  "2026-11-09T08:29:27.040182427Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

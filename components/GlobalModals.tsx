@@ -34,6 +34,7 @@ interface GlobalModalsProps {
     onDeductCredits: (cost: number) => boolean;
     onRefundCredits: (amount: number) => void;
     userId?: string;
+    credits?: number;
 
     isBrandKitModalOpen: boolean;
     onCloseBrandKit: () => void;
@@ -88,6 +89,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = (props) => {
                     onRefundCredits={props.onRefundCredits} 
                     userId={props.userId} 
                     userTier={props.userTier}
+                    credits={props.credits}
                     onOpenPricingModal={props.onOpenPricingModal}
                 />
             )}

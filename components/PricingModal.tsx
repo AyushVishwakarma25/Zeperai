@@ -4,103 +4,30 @@ import { Spinner } from './ui/Spinner.js';
 import { useNetworkStatus } from '../hooks/useNetworkStatus.js';
 import { supabase } from '../services/supabaseClient.js';
 import { openCheckout } from '../services/razorpayService.js';
+import { PRICING_CATALOG } from '../config/pricingCatalog.js';
+import { calculateTaxExclusive } from '../utils/taxCalculator.js';
 
 interface PricingModalProps {
   onClose: () => void;
 }
 
-interface PricingPlan {
-  id: string;
-  priceId: string;
-  name: string;
-  tagline: string;
-  price: string;
-  rawAmount: number;
-  period: string;
-  credits: string;
-  features: { text: string; muted?: boolean }[];
-  highlight: boolean;
-  badge?: string;
-  disabled?: boolean;
-  buttonText: string;
-}
+const pricingPlans = PRICING_CATALOG
+  .filter((p) => p.id !== 'local-seo-10')
+  .map((p) => {
+    const taxBreakdown = calculateTaxExclusive(p.basePrice);
+    return {
+      ...p,
+      priceId: p.id,
+      price: `₹${p.basePrice.toLocaleString('en-IN')}`,
+      rawAmount: p.basePrice,
+      credits: p.creditsLabel,
+      taxBreakdown,
+      buttonText: p.buttonText || (p.disabled ? 'Current Plan' : 'Subscribe Now'),
+      highlight: Boolean(p.highlight)
+    };
+  });
 
-const pricingPlans: PricingPlan[] = [
-  {
-    id: 'free',
-    priceId: 'free',
-    name: 'Free Trial',
-    tagline: 'Explore studio capabilities.',
-    price: '₹0',
-    rawAmount: 0,
-    period: '7 days',
-    credits: '10 Credits',
-    features: [
-      { text: '10 free credits for 7 days' },
-      { text: 'Access to Product Studio' },
-      { text: 'Community support' },
-      { text: 'Pro studios locked', muted: true },
-    ],
-    highlight: false,
-    disabled: true,
-    buttonText: 'Current Plan'
-  },
-  {
-    id: 'payg',
-    priceId: 'payg',
-    name: 'Pay As You Go',
-    tagline: 'Buy as needed. Never expires.',
-    price: '₹999',
-    rawAmount: 999,
-    period: 'pack',
-    credits: '120 Credits',
-    features: [
-      { text: '120 credits top-up pack' },
-      { text: 'Credits never expire' },
-      { text: 'All Studios unlocked' },
-      { text: 'Commercial usage rights' },
-    ],
-    highlight: false,
-    buttonText: 'Buy 120 Credits'
-  },
-  {
-    id: 'pro',
-    priceId: 'pro',
-    name: 'Pro Subscription',
-    tagline: 'All premium studios unlocked.',
-    price: '₹1,999',
-    rawAmount: 1999,
-    period: 'month',
-    credits: '300 Credits / mo',
-    features: [
-      { text: '300 credits recurrent monthly' },
-      { text: 'All Studios & models unlocked' },
-      { text: 'Priority generation speed' },
-      { text: 'Commercial usage rights' },
-    ],
-    highlight: true,
-    badge: 'Most Popular',
-    buttonText: 'Subscribe Now'
-  },
-  {
-    id: 'agency',
-    priceId: 'agency',
-    name: 'Agency Plan',
-    tagline: 'High volume for agencies & teams.',
-    price: '₹4,999',
-    rawAmount: 4999,
-    period: 'month',
-    credits: '1,000 Credits / mo',
-    features: [
-      { text: '1,000 credits recurrent monthly' },
-      { text: 'All Studios & models unlocked' },
-      { text: 'Multi-seat team rights' },
-      { text: 'Dedicated priority support' },
-    ],
-    highlight: false,
-    buttonText: 'Subscribe ₹4,999'
-  }
-];
+type PricingPlan = (typeof pricingPlans)[number];
 
 interface ImageModelInfo {
   name: string;
@@ -298,7 +225,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
                         {plan.tagline}
                       </p>
 
-                      <div className="mb-2 flex items-baseline gap-1">
+                      <div className="mb-1 flex items-baseline gap-1">
                         <span className={`text-2xl sm:text-3xl font-black font-mono ${isPro ? 'text-white' : 'text-slate-900'}`}>
                           {plan.price}
                         </span>
@@ -306,6 +233,16 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
                           / {plan.period}
                         </span>
                       </div>
+
+                      {plan.rawAmount > 0 && (
+                        <div className={`text-[10px] font-medium -mt-1 mb-2.5 flex flex-wrap items-center gap-1.5 ${isPro ? 'text-blue-100' : 'text-slate-500'}`}>
+                          <span>₹{plan.rawAmount.toLocaleString('en-IN')} + 18% GST (₹{plan.taxBreakdown.totalGst.toFixed(2)})</span>
+                          <span className="opacity-40">•</span>
+                          <span className={`font-bold px-1.5 py-0.2 rounded ${isPro ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800'}`}>
+                            ₹{plan.taxBreakdown.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Total
+                          </span>
+                        </div>
+                      )}
 
                       {/* Credits Pill */}
                       <div
@@ -368,6 +305,11 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
                           plan.buttonText
                         )}
                       </button>
+                      {plan.rawAmount > 0 && !plan.disabled && (
+                        <p className={`text-[9.5px] text-center mt-1.5 font-medium ${isPro ? 'text-blue-100/80' : 'text-slate-400'}`}>
+                          Base ₹{plan.rawAmount.toLocaleString('en-IN')} + ₹{plan.taxBreakdown.totalGst.toFixed(2)} GST (SAC 998313)
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
@@ -410,7 +352,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
               Secure 256-bit Razorpay Checkout • Instant Credit Allocation
             </span>
             <span className="hidden sm:inline">
-              GST invoices with input tax credit auto-generated in account
+              GST invoices (18% ITC) auto-generated with SAC 998313 in account
             </span>
           </div>
 

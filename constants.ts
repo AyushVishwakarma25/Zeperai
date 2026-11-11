@@ -55,12 +55,12 @@ export const STORAGE_LIMITS: Record<string, number> = {
 };
 
 export const UGC_STYLE_OPTIONS = [
-    { value: 'Sun-Kissed Glow', label: 'Sun-Kissed Glow', prompt: 'A radiant Indian model with curly hair holding [product] near face. Warm, golden hour lighting against a clear blue sky. Fresh, summery vibe.' },
-    { value: 'Neon Pop Art', label: 'Neon Pop Art', prompt: 'A stylish Indian model holding [product] close to camera. Vibrant neon background, bold makeup, studio lighting. High-fashion commercial look.' },
-    { value: 'Dynamic Reach', label: 'Dynamic Reach', prompt: 'Low-angle shot of a trendy Indian model reaching towards the camera with [product]. Pink monochromatic room with checkered floor. Playful, wide-angle perspective.' },
-    { value: 'Glamour Close-Up', label: 'Glamour Close-Up', prompt: 'Extreme close-up of an Indian model with bold lipstick holding [product] near lips. Luxurious styling with gold chain accessory. Dramatic ring lighting.' },
-    { value: 'Morning Glow', label: 'Morning Glow', prompt: 'Natural light shot of an Indian model with a towel wrap on head, holding [product] up to sunlight. Fresh, no-makeup look, golden hour flare.' },
-    { value: 'Mirror Ritual', label: 'Mirror Ritual', prompt: 'Indian model looking into a vanity mirror while applying/holding [product]. Reflection visible. Bathroom setting, clean white aesthetic.' },
+    { value: 'Sun-Kissed Glow', label: 'Sun-Kissed Glow', thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Ai%20UGC%20Influencer%20preset%20thumbnail/Sun-Kissed%20Glow.webp', prompt: 'A radiant Indian model with curly hair holding [product] near face. Warm, golden hour lighting against a clear blue sky. Fresh, summery vibe.' },
+    { value: 'Neon Pop Art', label: 'Neon Pop Art', thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Ai%20UGC%20Influencer%20preset%20thumbnail/Neon%20Pop%20Art.webp', prompt: 'A stylish Indian model holding [product] close to camera. Vibrant neon background, bold makeup, studio lighting. High-fashion commercial look.' },
+    { value: 'Dynamic Reach', label: 'Dynamic Reach', thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Ai%20UGC%20Influencer%20preset%20thumbnail/Dynamic%20Reach.webp', prompt: 'Low-angle shot of a trendy Indian model reaching towards the camera with [product]. Pink monochromatic room with checkered floor. Playful, wide-angle perspective.' },
+    { value: 'Glamour Close-Up', label: 'Glamour Close-Up', thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Ai%20UGC%20Influencer%20preset%20thumbnail/Glamour%20Close-Up.webp', prompt: 'Extreme close-up of an Indian model with bold lipstick holding [product] near lips. Luxurious styling with gold chain accessory. Dramatic ring lighting.' },
+    { value: 'Morning Glow', label: 'Morning Glow', thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Ai%20UGC%20Influencer%20preset%20thumbnail/Morning%20Glow.webp', prompt: 'Natural light shot of an Indian model with a towel wrap on head, holding [product] up to sunlight. Fresh, no-makeup look, golden hour flare.' },
+    { value: 'Mirror Ritual', label: 'Mirror Ritual', thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Ai%20UGC%20Influencer%20preset%20thumbnail/Mirror%20Ritual.webp', prompt: 'Indian model looking into a vanity mirror while applying/holding [product]. Reflection visible. Bathroom setting, clean white aesthetic.' },
 ];
 
 export const FASHION_POSE_OPTIONS = [

@@ -10,6 +10,7 @@ import multer from 'multer';
 import axios from 'axios';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
+import { safelyParseServiceAccountJson } from './utils/serviceAccountParser.js';
 
 // Manual backup parsing of local .env file to populate process.env before checking credentials
 try {
@@ -26,13 +27,142 @@ try {
         } else if (val.startsWith("'") && val.endsWith("'")) {
           val = val.substring(1, val.length - 1);
         }
-        process.env[key] = val.trim();
+        const trimmedVal = val.trim();
+        if (trimmedVal !== '') {
+          process.env[key] = trimmedVal;
+        }
       }
     });
     console.log('Successfully loaded environment variables from physical .env file.');
   }
 } catch (err: any) {
   console.warn('Manual .env file parsing skipped or failed:', err.message);
+}
+
+// Automatically load persisted Google Cloud Service Account JSON credentials if present
+try {
+  const saFilePath = path.join(process.cwd(), 'config', 'service-account.json');
+  if (fs.existsSync(saFilePath)) {
+    const rawSa = fs.readFileSync(saFilePath, 'utf8');
+    if (rawSa.trim()) {
+      process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON = rawSa.trim();
+      process.env.GOOGLE_APPLICATION_CREDENTIALS = saFilePath;
+      try {
+        const parsed = safelyParseServiceAccountJson(rawSa);
+        if (parsed?.project_id && !process.env.VERTEX_PROJECT_ID) {
+          process.env.VERTEX_PROJECT_ID = parsed.project_id;
+        }
+      } catch (_) {}
+      console.log('Successfully loaded persisted service-account.json credentials on server startup.');
+    }
+  }
+} catch (saErr: any) {
+  console.warn('Persisted service-account.json loading skipped:', saErr.message);
+}
+
+// Automatically load persisted AI settings from config/ai-settings.json if present
+try {
+  const aiSettingsPath = path.join(process.cwd(), 'config', 'ai-settings.json');
+  if (fs.existsSync(aiSettingsPath)) {
+    const rawSettings = fs.readFileSync(aiSettingsPath, 'utf8');
+    if (rawSettings.trim()) {
+      const parsed = JSON.parse(rawSettings);
+      if (parsed.VERTEX_PROJECT_ID && !process.env.VERTEX_PROJECT_ID) {
+        process.env.VERTEX_PROJECT_ID = parsed.VERTEX_PROJECT_ID;
+      }
+      if (parsed.VERTEX_LOCATION && !process.env.VERTEX_LOCATION) {
+        process.env.VERTEX_LOCATION = parsed.VERTEX_LOCATION;
+      }
+      if (parsed.GEMINI_API_KEY && !process.env.GEMINI_API_KEY) {
+        process.env.GEMINI_API_KEY = parsed.GEMINI_API_KEY;
+      }
+      if (parsed.USE_VERTEX_AI !== undefined) {
+        process.env.USE_VERTEX_AI = (parsed.USE_VERTEX_AI === true || parsed.USE_VERTEX_AI === 'true') ? 'true' : 'false';
+      }
+      console.log('Successfully loaded persisted AI settings from config/ai-settings.json on server startup.');
+    }
+  }
+} catch (aiSetErr: any) {
+  console.warn('Persisted config/ai-settings.json loading skipped:', aiSetErr.message);
+}
+
+// Use Vertex AI by default when Vertex credentials are configured; otherwise default to Google AI Studio
+if (process.env.USE_VERTEX_AI === undefined) {
+  const hasVertexCredsOnStartup = Boolean(
+    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON ||
+    process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+    process.env.VERTEX_PROJECT_ID ||
+    (process.env.VERTEX_API_KEY && !process.env.VERTEX_API_KEY.startsWith('AQ.'))
+  );
+  process.env.USE_VERTEX_AI = hasVertexCredsOnStartup ? 'true' : 'false';
+}
+
+// Clean up any mismatched AI Studio keys mistakenly assigned to VERTEX_API_KEY
+if (process.env.VERTEX_API_KEY && process.env.VERTEX_API_KEY.startsWith('AQ.')) {
+  console.log('Cleaning up mismatched Google AI Studio key from VERTEX_API_KEY (AI Studio keys cannot call Vertex AI).');
+  delete process.env.VERTEX_API_KEY;
+}
+
+export function persistEnvUpdates(updates: Record<string, string | undefined>) {
+  try {
+    const envPath = path.join(process.cwd(), '.env');
+    let content = '';
+    if (fs.existsSync(envPath)) {
+      content = fs.readFileSync(envPath, 'utf8');
+    }
+    const lines = content.split(/\r?\n/);
+    const existingKeys = new Set<string>();
+
+    const updatedLines = lines.map(line => {
+      const match = line.match(/^\s*([\w.-]+)\s*=/);
+      if (match) {
+        const key = match[1];
+        existingKeys.add(key);
+        if (key in updates) {
+          const val = updates[key];
+          if (val === undefined || val === '') {
+            return `# ${key}=`;
+          }
+          return `${key}="${val.replace(/"/g, '\\"')}"`;
+        }
+      }
+      return line;
+    });
+
+    for (const [key, val] of Object.entries(updates)) {
+      if (!existingKeys.has(key) && val !== undefined && val !== '') {
+        updatedLines.push(`${key}="${val.replace(/"/g, '\\"')}"`);
+      }
+    }
+
+    fs.writeFileSync(envPath, updatedLines.join('\n'), 'utf8');
+  } catch (err: any) {
+    console.warn('Failed to persist env updates to .env file:', err.message);
+  }
+
+  // Redundant persistence to config/ai-settings.json across environment resets
+  try {
+    const configDir = path.join(process.cwd(), 'config');
+    if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+    const aiSettingsPath = path.join(configDir, 'ai-settings.json');
+    let currentSettings: Record<string, any> = {};
+    if (fs.existsSync(aiSettingsPath)) {
+      try {
+        currentSettings = JSON.parse(fs.readFileSync(aiSettingsPath, 'utf8'));
+      } catch (_) {}
+    }
+    const newSettings = { ...currentSettings };
+    for (const [k, v] of Object.entries(updates)) {
+      if (v !== undefined && v !== '') {
+        newSettings[k] = v;
+      } else {
+        delete newSettings[k];
+      }
+    }
+    fs.writeFileSync(aiSettingsPath, JSON.stringify(newSettings, null, 2), { mode: 0o600 });
+  } catch (saveErr: any) {
+    console.warn('Failed to persist settings to config/ai-settings.json:', saveErr.message);
+  }
 }
 
 // Default Supabase configuration fallback matching client defaults
@@ -47,12 +177,22 @@ process.env.VITE_SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || proce
 import { getAI, resetAIInstance } from './config/ai.js';
 import { globalErrorHandler, asyncHandler, setupProcessLevelHandlers, AppError } from './utils/errorHandler.js';
 import { registerCampaignStudioRoutes } from './src/campaignStudio/server/index.js';
+import { resolveTaxBreakdown, calculateTaxInclusive, calculateTaxExclusive, toPaise, toRupees, isPlaceOfSupplyIntraState, DEFAULT_GST_RATE_PERCENT, DEFAULT_SAC_CODE, DEFAULT_SUPPLIER_GSTIN, DEFAULT_SUPPLIER_STATE } from './utils/taxCalculator.js';
+import { findPlanById, resolvePlanByAmount, calculateDynamicCredits, PRICING_CATALOG } from './config/pricingCatalog.js';
 
 // Initialize global process-level error handling for unhandled rejections and uncaught exceptions
 setupProcessLevelHandlers();
 
 const multerInstance = (multer as any).default || multer;
-const upload = multerInstance({ storage: multerInstance.memoryStorage() });
+const upload = multerInstance({
+  storage: multerInstance.memoryStorage(),
+  limits: {
+    fileSize: 15 * 1024 * 1024, // 15 MB max per file
+    files: 5,                   // Maximum 5 files per request
+    fields: 20,
+    fieldSize: 2 * 1024 * 1024  // 2 MB max for text fields
+  }
+});
 
 export const app = express();
 
@@ -174,17 +314,19 @@ app.use(cors({
     if (
       !origin ||
       allowedOrigins.includes(origin) ||
+      origin === 'https://zeperai.in' ||
+      origin === 'https://www.zeperai.in' ||
+      origin.endsWith('.zeperai.in') ||
       origin.endsWith('.run.app') ||
       origin.endsWith('.googleusercontent.com') ||
       origin.includes('google') ||
       origin.includes('ai.studio') ||
-      origin.includes('localhost') ||
-      origin.includes('127.0.0.1') ||
-      process.env.NODE_ENV !== 'production'
+      (process.env.NODE_ENV !== 'production' && (origin.includes('localhost') || origin.includes('127.0.0.1')))
     ) {
       callback(null, true);
     } else {
-      callback(null, true);
+      // Reject origin cleanly without setting Access-Control-Allow-Origin
+      callback(null, false);
     }
   },
   credentials: true
@@ -199,6 +341,8 @@ const sanitizeSecret = (val?: string): string => {
     .replace(/[\r\n]/g, '')     // remove carriage returns / newlines
     .trim();
 };
+
+export { safelyParseServiceAccountJson } from './utils/serviceAccountParser.js';
 
 export const getAdminSecret = (): string => {
   return sanitizeSecret(process.env.ADMIN_SESSION_SECRET);
@@ -218,11 +362,39 @@ export const getAdminAllowedEmails = (): string[] => {
   return raw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 };
 
+export const isAuthorizedAdminEmail = (email?: string): boolean => {
+  if (!email) return false;
+  const allowed = getAdminAllowedEmails();
+  if (allowed.length === 0) return false;
+  return allowed.includes(String(email).trim().toLowerCase());
+};
+
+export const checkUserAdminStatus = (userOrProfile: any): boolean => {
+  if (!userOrProfile) return false;
+  if (userOrProfile.is_admin === true) return true;
+  if (userOrProfile.user_metadata?.is_admin === true) return true;
+  return isAuthorizedAdminEmail(userOrProfile.email);
+};
+
+export const parseCookies = (cookieHeader?: string): Record<string, string> => {
+  const list: Record<string, string> = {};
+  if (!cookieHeader) return list;
+  cookieHeader.split(';').forEach(cookie => {
+    const parts = cookie.split('=');
+    const name = parts.shift()?.trim();
+    if (name) {
+      list[name] = decodeURIComponent(parts.join('=').trim());
+    }
+  });
+  return list;
+};
+
 export const generateAdminToken = (username: string): string | null => {
   const secret = getAdminSecret();
-  if (!secret) return null;
+  const configuredUser = getAdminUsername();
+  if (!secret || !configuredUser) return null;
   const payload = {
-    username: username || getAdminUsername() || 'admin',
+    username: username || configuredUser,
     role: 'admin',
     is_admin: true,
     exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
@@ -388,7 +560,8 @@ const isUuid = (str?: string) => {
 };
 
 const requireAuth = async (req: any, res: any, next: any) => {
-  const rawToken = req.headers.authorization || (req.query?.token as string) || '';
+  const cookies = parseCookies(req.headers.cookie);
+  const rawToken = req.headers.authorization || cookies['zeperai_admin_session'] || (req.query?.token as string) || '';
   const token = rawToken.replace(/^Bearer\s+/i, '').trim();
   if (!token) return res.status(401).json({ error: 'Not authenticated. Please log in to continue.' });
 
@@ -437,8 +610,13 @@ const requireAuth = async (req: any, res: any, next: any) => {
   }
 };
 
-// Increase payload limit to handle large base64 image uploads
-app.use(express.json({ limit: '50mb' }));
+// Increase payload limit to handle large base64 image uploads and preserve raw body for HMAC verification
+app.use(express.json({
+  limit: '50mb',
+  verify: (req: any, _res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 
@@ -517,6 +695,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           if (!token) {
             return res.status(500).json({ success: false, error: 'Admin session secret is not configured.' });
           }
+          const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+          res.setHeader('Set-Cookie', `zeperai_admin_session=${encodeURIComponent(token)}; Path=/; Max-Age=${7 * 24 * 60 * 60}; HttpOnly; SameSite=Strict${secureFlag}`);
           return res.json({
             success: true,
             token,
@@ -570,6 +750,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
               if (!token) {
                 return res.status(500).json({ success: false, error: 'Admin session secret is not configured.' });
               }
+              const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+              res.setHeader('Set-Cookie', `zeperai_admin_session=${encodeURIComponent(token)}; Path=/; Max-Age=${7 * 24 * 60 * 60}; HttpOnly; SameSite=Strict${secureFlag}`);
               return res.json({
                 success: true,
                 token,
@@ -602,7 +784,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const userId = req.user.id;
     const userEmail = req.user.email || '';
 
-    const isProAdmin = userEmail === 'reachtoayush25@gmail.com' || userEmail === 'sharma25ayush@gmail.com' || userId === 'f58676e8-e373-4c97-803b-57451272154c' || !!req.user.is_admin;
+    const isProAdmin = checkUserAdminStatus(req.user);
 
     let profile: any = null;
     try {
@@ -630,7 +812,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         bio: '',
         location: '',
         avatar_url: req.user.user_metadata?.avatar_url || '',
-        tier: isProAdmin ? 'Pro' : 'Free',
+        tier: isProAdmin ? 'Pro' : (req.user.user_metadata?.tier || req.user.user_metadata?.plan || 'Free'),
         is_admin: isProAdmin
       };
 
@@ -662,7 +844,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       }
     }
 
-    const finalIsAdmin = isProAdmin || profile.email === 'reachtoayush25@gmail.com' || profile.email === 'sharma25ayush@gmail.com' || profile.id === 'f58676e8-e373-4c97-803b-57451272154c' || !!profile.is_admin;
+    const finalIsAdmin = isProAdmin || checkUserAdminStatus(profile);
 
     return res.json({
       id: profile.id || userId,
@@ -672,7 +854,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       bio: profile.bio || '',
       location: profile.location || '',
       avatarUrl: profile.avatar_url || '',
-      tier: finalIsAdmin ? 'Pro' : (profile.tier || 'Free'),
+      tier: finalIsAdmin ? 'Pro' : (profile.tier || req.user.user_metadata?.tier || req.user.user_metadata?.plan || 'Free'),
       isAdmin: finalIsAdmin
     });
   }));
@@ -701,7 +883,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       return res.status(500).json({ error: error.message || 'Failed to update profile' });
     }
 
-    const isProAdmin = data.email === 'reachtoayush25@gmail.com' || data.email === 'sharma25ayush@gmail.com' || data.id === 'f58676e8-e373-4c97-803b-57451272154c' || !!data.is_admin;
+    const isProAdmin = checkUserAdminStatus(data);
 
     return res.json({
       id: data.id,
@@ -1888,40 +2070,41 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
   // --- 11. GLOBAL SEARCH ACROSS ACCOUNTS & RESOURCES ---
   app.get('/api/admin/search/global', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
-    const q = (req.query.q || '').trim();
-    if (!q || q.length < 2) {
+    const rawQ = (req.query.q || '').trim();
+    const cleanQ = rawQ.replace(/[,()"'\\%]/g, '').trim();
+    if (!cleanQ || cleanQ.length < 2) {
       return res.json({ success: true, results: { users: [], payments: [], subscriptions: [] } });
     }
 
     const adminClient = await getAdminSupabaseClient();
-    const isGuid = isUuid(q);
+    const isGuid = isUuid(cleanQ);
 
     // 1. Search Users
     let usersPromise = adminClient
       .from('profiles')
       .select('id, email, name, avatar_url, tier, is_admin, created_at')
-      .or(`email.ilike.%${q}%,name.ilike.%${q}%${isGuid ? `,id.eq.${q}` : ''}`)
+      .or(`email.ilike.%${cleanQ}%,name.ilike.%${cleanQ}%${isGuid ? `,id.eq.${cleanQ}` : ''}`)
       .limit(6);
 
     // 2. Search Payments
     let paymentsPromise = adminClient
       .from('payment_transactions')
       .select('id, user_id, razorpay_payment_id, razorpay_order_id, amount, status, plan_id, created_at')
-      .or(`razorpay_payment_id.ilike.%${q}%,razorpay_order_id.ilike.%${q}%,plan_id.ilike.%${q}%${isGuid ? `,id.eq.${q},user_id.eq.${q}` : ''}`)
+      .or(`razorpay_payment_id.ilike.%${cleanQ}%,razorpay_order_id.ilike.%${cleanQ}%,plan_id.ilike.%${cleanQ}%${isGuid ? `,id.eq.${cleanQ},user_id.eq.${cleanQ}` : ''}`)
       .limit(6);
 
     // 3. Search Subscriptions
     let subsPromise = adminClient
       .from('subscriptions')
       .select('id, user_id, plan_name, status, amount, razorpay_subscription_id, created_at')
-      .or(`plan_name.ilike.%${q}%,razorpay_subscription_id.ilike.%${q}%${isGuid ? `,id.eq.${q},user_id.eq.${q}` : ''}`)
+      .or(`plan_name.ilike.%${cleanQ}%,razorpay_subscription_id.ilike.%${cleanQ}%${isGuid ? `,id.eq.${cleanQ},user_id.eq.${cleanQ}` : ''}`)
       .limit(6);
 
     const [uRes, pRes, sRes] = await Promise.all([usersPromise, paymentsPromise, subsPromise]);
 
     res.json({
       success: true,
-      query: q,
+      query: cleanQ,
       results: {
         users: uRes.data || [],
         payments: pRes.data || [],
@@ -3121,11 +3304,19 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const targetUserId = req.params.id;
     const { confirmationEmail } = req.body;
 
+    if (targetUserId === req.user?.id) {
+      throw new AppError('Cannot delete your own administrative account.', 400);
+    }
+
     const adminClient = await getAdminSupabaseClient();
 
-    const { data: profile } = await adminClient.from('profiles').select('email').eq('id', targetUserId).single();
+    const { data: profile } = await adminClient.from('profiles').select('email, is_admin').eq('id', targetUserId).single();
     if (!profile) throw new AppError('User not found', 404);
     
+    if (checkUserAdminStatus(profile)) {
+      throw new AppError('Administrator accounts cannot be deleted directly.', 403);
+    }
+
     if (profile.email !== confirmationEmail) {
       throw new AppError('Confirmation email does not match', 400);
     }
@@ -3182,17 +3373,51 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
   // --- ADMIN AI PROVIDER & SECRETS MANAGEMENT ---
   app.get('/api/admin/settings/ai', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
-    const vertexProjectId = process.env.VERTEX_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || '';
-    const vertexLocation = process.env.VERTEX_LOCATION || process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+    let serviceAccountDetails: {
+      attached: boolean;
+      projectId?: string;
+      clientEmail?: string;
+      privateKeyIdMasked?: string;
+      type?: string;
+    } = { attached: false };
+
+    const saEnvRaw = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    if (saEnvRaw) {
+      try {
+        const p = safelyParseServiceAccountJson(saEnvRaw);
+        if (p) {
+          serviceAccountDetails = {
+            attached: true,
+            projectId: p.project_id || '',
+            clientEmail: p.client_email || '',
+            privateKeyIdMasked: p.private_key_id ? `${p.private_key_id.slice(0, 6)}••••${p.private_key_id.slice(-4)}` : 'Attached',
+            type: p.type || 'service_account'
+          };
+        }
+      } catch (_) {}
+    }
+
+    // Purge mismatched Google AI Studio keys from VERTEX_API_KEY (AI Studio keys start with AQ. and are blocked on Vertex AI)
+    if (process.env.VERTEX_API_KEY && process.env.VERTEX_API_KEY.startsWith('AQ.')) {
+      delete process.env.VERTEX_API_KEY;
+    }
+
+    const vertexProjectId = process.env.VERTEX_PROJECT_ID || serviceAccountDetails.projectId || '';
+    const vertexLocation = process.env.VERTEX_LOCATION || 'us-central1';
     const vertexApiKey = process.env.VERTEX_API_KEY || '';
     const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || '';
-    const hasServiceAccountJson = Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+    const hasServiceAccountJson = serviceAccountDetails.attached || Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
 
-    const useVertex = Boolean(
-      process.env.USE_VERTEX_AI === 'true' ||
-      vertexProjectId ||
-      (!geminiApiKey && process.env.GOOGLE_CLOUD_PROJECT)
+    const hasExplicitVertexCreds = Boolean(
+      hasServiceAccountJson ||
+      (vertexApiKey && !vertexApiKey.startsWith('AQ.')) ||
+      (vertexProjectId && process.env.GOOGLE_APPLICATION_CREDENTIALS)
     );
+
+    // Primary provider is Vertex AI by default unless explicitly disabled
+    const useVertex = process.env.USE_VERTEX_AI !== undefined
+      ? process.env.USE_VERTEX_AI === 'true'
+      : true;
 
     const maskKey = (key: string) => {
       if (!key) return '';
@@ -3215,11 +3440,12 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         hasGeminiApiKey: Boolean(geminiApiKey),
         geminiApiKeyMasked: maskKey(geminiApiKey),
         hasServiceAccountJson,
+        serviceAccountDetails,
         campaignStudioEnabled,
         campaignStudioAllowedEmails,
         activeEngineStatus: {
-          mode: useVertex ? 'Google Vertex AI (Postpay & Express)' : 'Google AI Studio (API Key)',
-          billingModel: useVertex ? 'Postpay / Cloud Billing' : 'API Credits / Pay-as-you-go',
+          mode: useVertex ? 'Gemini Enterprise Agent Platform (Vertex AI Postpay)' : 'Google AI Studio (API Key)',
+          billingModel: useVertex ? 'Postpay / Direct Cloud Billing' : 'Prepay / API Credits',
           targetRegion: vertexLocation,
           status: (useVertex ? (vertexProjectId || vertexApiKey || hasServiceAccountJson) : Boolean(geminiApiKey)) ? 'configured' : 'needs_configuration'
         }
@@ -3235,6 +3461,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       vertexLocation,
       vertexApiKey,
       geminiApiKey,
+      serviceAccountJson,
       campaignStudioEnabled,
       campaignStudioAllowedEmails
     } = req.body || {};
@@ -3253,15 +3480,64 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       process.env.VERTEX_LOCATION = vertexLocation.trim();
       updatedFields.push('VERTEX_LOCATION');
     }
-    if (typeof vertexApiKey === 'string' && vertexApiKey.trim()) {
-      process.env.VERTEX_API_KEY = vertexApiKey.trim();
-      updatedFields.push('VERTEX_API_KEY');
+    if (typeof vertexApiKey === 'string') {
+      const trimmed = vertexApiKey.trim();
+      if (!trimmed || trimmed.startsWith('AQ.')) {
+        delete process.env.VERTEX_API_KEY;
+        updatedFields.push('VERTEX_API_KEY_CLEARED');
+      } else {
+        process.env.VERTEX_API_KEY = trimmed;
+        updatedFields.push('VERTEX_API_KEY');
+      }
     }
     if (typeof geminiApiKey === 'string' && geminiApiKey.trim()) {
       process.env.GEMINI_API_KEY = geminiApiKey.trim();
       process.env.GeminiAPI = geminiApiKey.trim();
       updatedFields.push('GEMINI_API_KEY');
     }
+
+    if (typeof serviceAccountJson === 'string') {
+      let trimmed = serviceAccountJson.trim();
+      // Auto-detect if user accidentally pasted an API key (e.g. AIzaSy...) instead of JSON
+      if (trimmed.startsWith('AIza') && !trimmed.startsWith('{')) {
+        process.env.VERTEX_API_KEY = trimmed;
+        updatedFields.push('VERTEX_API_KEY_AUTODETECTED');
+      } else if (trimmed) {
+        const parsed = safelyParseServiceAccountJson(trimmed);
+        if (!parsed) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid Service Account JSON. Please paste the full valid JSON object, base64 string, or upload your .json credentials file.'
+          });
+        }
+        const normalizedJson = JSON.stringify(parsed, null, 2);
+        process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON = normalizedJson;
+
+        // Save physical service-account file for persistence across server restarts
+        const configDir = path.join(process.cwd(), 'config');
+        if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+        const saFilePath = path.join(configDir, 'service-account.json');
+        try {
+          fs.writeFileSync(saFilePath, normalizedJson, { mode: 0o600 });
+          process.env.GOOGLE_APPLICATION_CREDENTIALS = saFilePath;
+        } catch (_) {}
+
+        if (parsed.project_id && (!process.env.VERTEX_PROJECT_ID || process.env.VERTEX_PROJECT_ID.trim() === '')) {
+          process.env.VERTEX_PROJECT_ID = parsed.project_id;
+          updatedFields.push('VERTEX_PROJECT_ID_AUTO');
+        }
+        updatedFields.push('GOOGLE_APPLICATION_CREDENTIALS_JSON');
+      } else if (serviceAccountJson === '') {
+        delete process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+        delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+        const saFilePath = path.join(process.cwd(), 'config', 'service-account.json');
+        if (fs.existsSync(saFilePath)) {
+          try { fs.unlinkSync(saFilePath); } catch (_) {}
+        }
+        updatedFields.push('GOOGLE_APPLICATION_CREDENTIALS_JSON_CLEARED');
+      }
+    }
+
     if (typeof campaignStudioEnabled === 'boolean') {
       process.env.CAMPAIGN_STUDIO_ENABLED = campaignStudioEnabled ? 'true' : 'false';
       updatedFields.push('CAMPAIGN_STUDIO_ENABLED');
@@ -3271,7 +3547,19 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       updatedFields.push('CAMPAIGN_STUDIO_ALLOWED_EMAILS');
     }
 
-    // Reset runtime AI instance so that next request instantiates with the fresh settings
+    // Persist configuration updates to .env file so restarts/builds never lose credentials
+    persistEnvUpdates({
+      USE_VERTEX_AI: process.env.USE_VERTEX_AI,
+      VERTEX_PROJECT_ID: process.env.VERTEX_PROJECT_ID,
+      VERTEX_LOCATION: process.env.VERTEX_LOCATION,
+      VERTEX_API_KEY: process.env.VERTEX_API_KEY,
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+      CAMPAIGN_STUDIO_ENABLED: process.env.CAMPAIGN_STUDIO_ENABLED,
+      CAMPAIGN_STUDIO_ALLOWED_EMAILS: process.env.CAMPAIGN_STUDIO_ALLOWED_EMAILS,
+      GOOGLE_APPLICATION_CREDENTIALS: process.env.GOOGLE_APPLICATION_CREDENTIALS
+    });
+
+    // Reset runtime AI singleton instance so that next request instantiates with fresh settings
     resetAIInstance();
 
     // Audit log
@@ -3287,6 +3575,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           vertexLocation: process.env.VERTEX_LOCATION,
           hasVertexApiKey: Boolean(process.env.VERTEX_API_KEY),
           hasGeminiApiKey: Boolean(process.env.GEMINI_API_KEY),
+          hasServiceAccountJson: Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON),
           campaignStudioEnabled: process.env.CAMPAIGN_STUDIO_ENABLED,
           admin_email: req.user.email
         }
@@ -3297,42 +3586,179 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
     res.json({
       success: true,
-      message: 'AI Provider settings & secrets updated in runtime memory successfully.',
+      message: 'AI Provider settings & credentials securely applied and saved to disk.',
       updatedFields
     });
   }));
 
   app.post('/api/admin/settings/ai/test', requireAuth, requireAdmin, asyncHandler(async (req: any, res: any) => {
     const startTime = Date.now();
-    try {
-      const ai = getAI();
-      const result = await (ai as any).models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [{ role: 'user', parts: [{ text: 'Respond with the single word "READY"' }] }],
-        config: { maxOutputTokens: 10 }
-      });
-      const latencyMs = Date.now() - startTime;
-      const text = result?.text?.() || result?.response?.text?.() || 'READY';
+    const {
+      pendingUseVertexAI,
+      pendingVertexProjectId,
+      pendingVertexLocation,
+      pendingVertexApiKey,
+      pendingServiceAccountJson,
+      pendingGeminiApiKey
+    } = req.body || {};
 
-      const useVertex = Boolean(
-        process.env.USE_VERTEX_AI === 'true' ||
-        process.env.VERTEX_PROJECT_ID ||
-        process.env.VERTEX_API_KEY
-      );
+    let testClient: any = null;
+    let targetProvider = '';
+    let targetProject = '';
+
+    try {
+      const hasPendingOverrides =
+        pendingUseVertexAI !== undefined ||
+        Boolean(pendingServiceAccountJson) ||
+        Boolean(pendingVertexApiKey) ||
+        Boolean(pendingGeminiApiKey) ||
+        Boolean(pendingVertexProjectId);
+
+      if (hasPendingOverrides) {
+        // If pendingUseVertexAI was explicitly specified in request, obey it.
+        // Otherwise determine based on active or staged credentials.
+        let isVertex = true;
+        if (pendingUseVertexAI !== undefined) {
+          isVertex = pendingUseVertexAI;
+        } else if (process.env.USE_VERTEX_AI !== undefined) {
+          isVertex = process.env.USE_VERTEX_AI === 'true';
+        }
+
+        if (isVertex) {
+          targetProvider = 'Gemini Enterprise Agent Platform (Vertex AI Postpay)';
+          let saJson = pendingServiceAccountJson || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS || '';
+          let parsedSa: any = null;
+          if (saJson) {
+            parsedSa = safelyParseServiceAccountJson(saJson);
+            if (!parsedSa) {
+              return res.status(400).json({
+                success: false,
+                latencyMs: 0,
+                error: 'The Service Account JSON provided is not valid JSON. Please check that you copied the complete JSON file or upload your downloaded service-account.json credentials file directly.'
+              });
+            }
+          }
+          const vKey = pendingVertexApiKey !== undefined ? pendingVertexApiKey : (process.env.VERTEX_API_KEY || '');
+          const proj = (pendingVertexProjectId || parsedSa?.project_id || process.env.VERTEX_PROJECT_ID || '').trim();
+          targetProject = proj;
+          const loc = (pendingVertexLocation || process.env.VERTEX_LOCATION || 'us-central1').trim();
+
+          if (parsedSa) {
+            testClient = new GoogleGenAI({
+              vertexai: true,
+              project: proj || parsedSa.project_id,
+              location: loc,
+              googleAuthOptions: { credentials: parsedSa }
+            });
+          } else if (vKey && !vKey.startsWith('AQ.')) {
+            testClient = new GoogleGenAI({ vertexai: true, apiKey: vKey });
+          } else if (proj && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            testClient = new GoogleGenAI({
+              vertexai: true,
+              project: proj,
+              location: loc
+            });
+          } else {
+            return res.status(400).json({
+              success: false,
+              latencyMs: 0,
+              error: 'Please upload or paste your Google Cloud Service Account JSON credentials file (or provide a Vertex Express API key) to test Vertex AI mode.'
+            });
+          }
+        } else {
+          targetProvider = 'Google AI Studio (Built-in / API Key)';
+          const gKey = pendingGeminiApiKey || process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || process.env.GOOGLE_API_KEY || '';
+          if (!gKey) {
+            return res.status(400).json({
+              success: false,
+              latencyMs: 0,
+              error: 'No Gemini API Key found in environment or input. Please enter a Gemini API Key to test AI Studio mode.'
+            });
+          }
+          testClient = new GoogleGenAI({
+            apiKey: gKey,
+            httpOptions: {
+              headers: {
+                'User-Agent': 'aistudio-build',
+              },
+            },
+          });
+        }
+      } else {
+        // Test current active instance
+        testClient = getAI();
+        const useVertex = process.env.USE_VERTEX_AI !== undefined
+          ? process.env.USE_VERTEX_AI === 'true'
+          : true;
+        targetProvider = useVertex ? 'Gemini Enterprise Agent Platform (Vertex AI Postpay)' : 'Google AI Studio';
+        targetProject = process.env.VERTEX_PROJECT_ID || '';
+      }
+
+      const isVertexMode = targetProvider.includes('Vertex AI');
+      let testModel = isVertexMode ? 'gemini-2.5-flash' : 'gemini-3.8-flash';
+      let result: any = null;
+
+      if (isVertexMode) {
+        const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+        let lastErr: any = null;
+        for (const cand of candidateModels) {
+          try {
+            result = await testClient.models.generateContent({
+              model: cand,
+              contents: [{ role: 'user', parts: [{ text: 'Respond with the single word "READY"' }] }],
+              config: { maxOutputTokens: 10 }
+            });
+            testModel = cand;
+            lastErr = null;
+            break;
+          } catch (mErr: any) {
+            lastErr = mErr;
+            const mMsg = mErr?.message || '';
+            if (mMsg.includes('404') || mMsg.includes('NOT_FOUND') || mMsg.includes('not supported') || mMsg.includes('no longer available')) {
+              continue;
+            }
+            throw mErr;
+          }
+        }
+        if (lastErr && !result) {
+          throw lastErr;
+        }
+      } else {
+        result = await testClient.models.generateContent({
+          model: testModel,
+          contents: 'Respond with the single word "READY"',
+        });
+      }
+      const latencyMs = Date.now() - startTime;
+      const rawText = typeof result?.text === 'function' ? result.text() : result?.text;
+      const text = rawText || (typeof result?.response?.text === 'function' ? result.response.text() : result?.response?.text) || 'READY';
 
       res.json({
         success: true,
         latencyMs,
-        provider: useVertex ? 'Vertex AI' : 'Google AI Studio',
-        model: 'gemini-2.5-flash',
+        provider: targetProvider,
+        project: targetProject,
+        model: testModel,
         response: String(text).trim().slice(0, 50)
       });
     } catch (testErr: any) {
       const latencyMs = Date.now() - startTime;
+      const errMsg = testErr?.message || String(testErr);
+      let troubleshootingTip = '';
+
+      if (errMsg.includes('402') || errMsg.includes('prepayment credits') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+        troubleshootingTip = 'AI Studio prepayment credits depleted (Error 402). Switch to Gemini Enterprise Agent Platform (Vertex AI Postpay) with your Service Account to bill directly to Google Cloud without prepaid limits.';
+      } else if (errMsg.includes('403') || errMsg.includes('PERMISSION_DENIED') || errMsg.includes('aiplatform.googleapis.com')) {
+        troubleshootingTip = `The Vertex AI API (aiplatform.googleapis.com) may be disabled or blocked for project "${targetProject || 'your GCP project'}". In your Google Cloud Console, go to APIs & Services > Library, search for "Vertex AI API", and click "Enable". Also verify that your Service Account has the "Vertex AI User" role in IAM.`;
+      } else if (errMsg.includes('invalid_grant') || errMsg.includes('credentials') || errMsg.includes('private_key')) {
+        troubleshootingTip = 'The Service Account private key or credentials could not be decrypted. Ensure you uploaded or pasted the complete .json file generated from Google Cloud IAM.';
+      }
+
       res.status(500).json({
         success: false,
         latencyMs,
-        error: testErr.message || 'AI test call failed. Check provider credentials.'
+        error: errMsg,
+        troubleshootingTip: troubleshootingTip || undefined
       });
     }
   }));
@@ -3391,15 +3817,41 @@ const requireAdmin = async (req: any, res: any, next: any) => {
   }
 
   app.post(['/api/razorpay/create-order', '/api/create-order', '/razorpay/create-order', '/create-order'], requireAuth, asyncHandler(async (req: any, res: any) => {
-    const { planId, userId, amount, currency = 'INR', receipt } = req.body || {};
+    const { planId, userId, amount, currency = 'INR', receipt, isTaxInclusive } = req.body || {};
     const effectiveUserId = req.user?.id || userId || '';
     
-    let finalAmountPaise = 49900; // default 499 INR
-    if (amount) {
-      finalAmountPaise = Math.round(Number(amount) * 100);
+    // Dynamically match catalog plan or resolve by amount
+    const matchedPlan = findPlanById(planId) || resolvePlanByAmount(Number(amount));
+    const rawAmount = Number(amount) || matchedPlan.basePrice;
+
+    // Fetch user profile if available for customer name, state, and GSTIN
+    let userProfile: any = null;
+    if (effectiveUserId) {
+      try {
+        const adminClient = await getAdminSupabaseClient();
+        const { data: uProfile } = await adminClient
+          .from('profiles')
+          .select('name, company_name, billing_address, billing_state, gstin')
+          .eq('id', effectiveUserId)
+          .maybeSingle();
+        userProfile = uProfile;
+      } catch (profErr) {
+        // Non-blocking
+      }
     }
 
-    if (finalAmountPaise < 100) {
+    // Dynamic tax calculation engine (SAC 998313 compliant)
+    const taxBreakdown = resolveTaxBreakdown({
+      amount: rawAmount,
+      isTaxInclusive: isTaxInclusive,
+      planBasePrice: matchedPlan.basePrice,
+      customerState: userProfile?.billing_state,
+      customerGstin: userProfile?.gstin,
+      supplierState: process.env.COMPANY_STATE,
+      supplierGstin: process.env.COMPANY_GSTIN
+    });
+
+    if (taxBreakdown.amountPaise < 100) {
       return res.status(400).json({ success: false, error: "Amount must be at least 1 INR.", message: "Amount must be at least 1 INR." });
     }
     
@@ -3410,14 +3862,28 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
 
     const generatedReceipt = `rcpt_${(effectiveUserId || 'anon').substring(0, 10)}_${Date.now()}`.substring(0, 40);
+    const customerNotes: any = {
+      planId: matchedPlan.id.substring(0, 50),
+      userId: (effectiveUserId || '').substring(0, 50),
+      baseAmount: taxBreakdown.taxableAmount.toFixed(2),
+      gstAmount: taxBreakdown.totalGst.toFixed(2),
+      totalAmount: taxBreakdown.totalAmount.toFixed(2),
+      gstRate: `${taxBreakdown.gstRatePercent}%`,
+      sacCode: taxBreakdown.sacCode,
+      placeOfSupply: taxBreakdown.placeOfSupply.substring(0, 50)
+    };
+
+    if (userProfile) {
+      if (userProfile.company_name || userProfile.name) customerNotes.customerName = (userProfile.company_name || userProfile.name).substring(0, 50);
+      if (userProfile.billing_state) customerNotes.billingState = userProfile.billing_state.substring(0, 50);
+      if (userProfile.gstin) customerNotes.gstin = userProfile.gstin.substring(0, 20);
+    }
+
     const options = {
-      amount: finalAmountPaise, // paise
+      amount: taxBreakdown.amountPaise, // in paise
       currency: currency,
       receipt: (receipt || generatedReceipt).substring(0, 40),
-      notes: {
-        planId: (planId || 'pay-as-you-go').substring(0, 50),
-        userId: (effectiveUserId || '').substring(0, 50)
-      }
+      notes: customerNotes
     };
 
     let order;
@@ -3436,7 +3902,11 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       order, 
       order_id: order.id, 
       id: order.id,
-      amount: order.amount, 
+      amount: order.amount, // in paise
+      baseAmount: taxBreakdown.taxableAmount,
+      gstAmount: taxBreakdown.totalGst,
+      totalAmount: taxBreakdown.totalAmount,
+      taxBreakdown,
       currency: order.currency,
       key_id: keyId
     });
@@ -3519,7 +3989,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
 
     const effectiveEmail = userEmail || userProfile?.email || '';
-    const isProAdmin = effectiveEmail === 'reachtoayush25@gmail.com' || effectiveEmail === 'sharma25ayush@gmail.com' || userId === 'f58676e8-e373-4c97-803b-57451272154c';
+    const isProAdmin = checkUserAdminStatus({ email: effectiveEmail, is_admin: req.user?.is_admin || userProfile?.is_admin });
 
     if (subData) {
       const endDate = subData.current_period_end ? new Date(subData.current_period_end) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -3595,17 +4065,6 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
   }));
 
-  // Server-authoritative pricing catalog
-  const SERVER_PRICING_CATALOG: Record<string, { name: string; price: number; credits: number; tier: string }> = {
-    free: { name: 'Free Trial', price: 0, credits: 10, tier: 'Free' },
-    payg: { name: 'Pay As You Go', price: 999, credits: 120, tier: 'PayAsYouGo' },
-    'pay-as-you-go': { name: 'Pay As You Go', price: 999, credits: 120, tier: 'PayAsYouGo' },
-    pro: { name: 'Pro Subscription', price: 1999, credits: 300, tier: 'Pro' },
-    agency: { name: 'Agency Plan', price: 4999, credits: 1000, tier: 'Agency' },
-    'local-seo-10': { name: 'Local SEO Audit Pack (10 Reports)', price: 50, credits: 10, tier: 'PayAsYouGo' },
-    'localseo10': { name: 'Local SEO Audit Pack (10 Reports)', price: 50, credits: 10, tier: 'PayAsYouGo' },
-  };
-
   // In-flight payment lock map to prevent near-simultaneous concurrency on the same instance
   const inFlightPayments = new Set<string>();
 
@@ -3655,57 +4114,110 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         }
       }
 
-      // 3. Calculate tier & credits using server-authoritative pricing catalog
-      let resolvedPlanId = (planId || 'pro').toLowerCase();
-      let creditsToAdd = 300;
-      let planName = 'Pro Subscription (300 Credits / mo)';
-      let userTier = 'Pro';
+      // 3. Dynamically resolve plan, credits, and tier from pricing catalog
       const numAmount = Number(amountInRupees) || 0;
+      const matchedPlan = findPlanById(planId) || resolvePlanByAmount(numAmount);
+      const resolvedPlanId = matchedPlan.id;
+      let creditsToAdd = matchedPlan.credits;
+      let planName = `${matchedPlan.name} (${matchedPlan.credits} Credits${matchedPlan.period === 'month' ? ' / mo' : ''})`;
+      let userTier = matchedPlan.tier;
 
-      if (SERVER_PRICING_CATALOG[resolvedPlanId]) {
-        const catalogItem = SERVER_PRICING_CATALOG[resolvedPlanId];
-        creditsToAdd = catalogItem.credits;
-        planName = `${catalogItem.name} (${catalogItem.credits} Credits${catalogItem.tier === 'Pro' || catalogItem.tier === 'Agency' ? ' / mo' : ''})`;
-        userTier = catalogItem.tier;
-      } else if (numAmount >= 4999) {
-        creditsToAdd = 1000;
-        planName = 'Agency Plan (1,000 Credits / mo)';
-        userTier = 'Agency';
-        resolvedPlanId = 'agency';
-      } else if (numAmount >= 1999) {
-        creditsToAdd = 300;
-        planName = 'Pro Subscription (300 Credits / mo)';
-        userTier = 'Pro';
-        resolvedPlanId = 'pro';
-      } else if (numAmount >= 999) {
-        creditsToAdd = 120;
-        planName = 'Pay As You Go (120 Credits)';
-        userTier = 'PayAsYouGo';
-        resolvedPlanId = 'payg';
-      } else if (numAmount > 0) {
-        creditsToAdd = Math.max(1, Math.round(numAmount * (120 / 999)));
+      // Handle custom top-up amounts if any
+      if (!planId && numAmount > 0 && numAmount < (findPlanById('payg')?.basePrice || 999)) {
+        creditsToAdd = calculateDynamicCredits(numAmount);
         planName = `Custom Credit Pack (${creditsToAdd} Credits)`;
-        userTier = 'PayAsYouGo';
-        resolvedPlanId = 'payg';
       }
 
-      const effectivePlanAmount = SERVER_PRICING_CATALOG[resolvedPlanId]?.price || numAmount || (resolvedPlanId === 'agency' ? 4999 : resolvedPlanId === 'pro' ? 1999 : 999);
+      // Fetch user profile for state & GSTIN if available
+      let userProfile: any = null;
+      try {
+        const { data: pData } = await adminClient
+          .from('profiles')
+          .select('company_name, billing_address, billing_state, gstin')
+          .eq('id', userId)
+          .maybeSingle();
+        userProfile = pData;
+      } catch (profErr) {
+        // Non-blocking
+      }
+
+      // Dynamically resolve tax breakdown for captured payment
+      const taxBreakdown = resolveTaxBreakdown({
+        amount: numAmount > 0 ? numAmount : matchedPlan.basePrice,
+        isTaxInclusive: true, // payments processed through gateway are gross amounts
+        planBasePrice: matchedPlan.basePrice,
+        customerState: userProfile?.billing_state,
+        customerGstin: userProfile?.gstin,
+        supplierState: process.env.COMPANY_STATE,
+        supplierGstin: process.env.COMPANY_GSTIN
+      });
+
+      let razorpayInvoiceId: string | null = null;
+      let invoiceUrl: string | null = null;
+      let invoiceNumber: string | null = null;
+
+      const rzp = getRazorpay();
+      if (rzp && razorpayPaymentId) {
+        try {
+          const paymentData: any = await rzp.payments.fetch(razorpayPaymentId);
+          if (paymentData?.invoice_id) {
+            razorpayInvoiceId = paymentData.invoice_id;
+            try {
+              const invData: any = await rzp.invoices.fetch(paymentData.invoice_id);
+              if (invData) {
+                invoiceUrl = invData.short_url || null;
+                invoiceNumber = invData.invoice_number || null;
+              }
+            } catch (invErr) {
+              console.warn('[fulfillSuccessfulPayment] Could not fetch invoice details:', invErr);
+            }
+          }
+        } catch (payFetchErr) {
+          // Non-blocking
+        }
+      }
 
       // 4. ATOMIC GATE: Insert into payment_transactions FIRST before adding any credits.
-      // If the unique constraint on razorpay_payment_id blocks it, we abort immediately.
-      const { error: txInsertErr } = await adminClient
+      const txPayload: any = {
+        user_id: userId,
+        razorpay_order_id: razorpayOrderId || null,
+        razorpay_payment_id: razorpayPaymentId,
+        plan_id: resolvedPlanId,
+        amount: taxBreakdown.totalAmount,
+        currency: 'INR',
+        credits_added: creditsToAdd,
+        status: 'paid',
+        created_at: new Date().toISOString()
+      };
+
+      if (razorpayInvoiceId) txPayload.razorpay_invoice_id = razorpayInvoiceId;
+      if (invoiceUrl) txPayload.invoice_url = invoiceUrl;
+      if (invoiceNumber) txPayload.invoice_number = invoiceNumber;
+      txPayload.taxable_amount = taxBreakdown.taxableAmount;
+      txPayload.tax_amount = taxBreakdown.totalGst;
+
+      let { error: txInsertErr } = await adminClient
         .from('payment_transactions')
-        .insert({
+        .insert(txPayload);
+
+      // Resilient fallback if migration columns do not exist yet in Supabase
+      if (txInsertErr && (txInsertErr.message?.includes('column') || txInsertErr.code === '42703')) {
+        const basePayload = {
           user_id: userId,
           razorpay_order_id: razorpayOrderId || null,
           razorpay_payment_id: razorpayPaymentId,
           plan_id: resolvedPlanId,
-          amount: effectivePlanAmount,
+          amount: taxBreakdown.totalAmount,
           currency: 'INR',
           credits_added: creditsToAdd,
           status: 'paid',
           created_at: new Date().toISOString()
-        });
+        };
+        const retryRes = await adminClient
+          .from('payment_transactions')
+          .insert(basePayload);
+        txInsertErr = retryRes.error;
+      }
 
       if (txInsertErr) {
         // Code 23505 is PostgreSQL unique_violation
@@ -3755,7 +4267,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           plan_id: resolvedPlanId,
           plan_name: planName,
           status: 'active',
-          amount: effectivePlanAmount,
+          amount: taxBreakdown.totalAmount,
           currency: 'INR',
           credits_allocated: creditsToAdd,
           razorpay_order_id: razorpayOrderId || null,
@@ -3807,19 +4319,67 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
     const digest = shasum.digest('hex');
 
-    if (digest !== razorpay_signature) {
+    const sigBuf = Buffer.from(String(razorpay_signature || ''));
+    const digestBuf = Buffer.from(digest);
+
+    if (sigBuf.length === 0 || sigBuf.length !== digestBuf.length || !crypto.timingSafeEqual(sigBuf, digestBuf)) {
       return res.status(400).json({ success: false, error: 'Signature verification failed.', message: 'Signature verification failed.' });
     }
 
-    console.log(`[Production] Verified Razorpay Payment: ${razorpay_payment_id} for Order: ${razorpay_order_id}`);
+    console.log(`[Production] Cryptographically Verified Razorpay Payment: ${razorpay_payment_id} for Order: ${razorpay_order_id}`);
 
-    const numAmount = Number(amount) || 0;
+    // Server-Authoritative Plan & Amount Resolution:
+    // We fetch the authoritative order and payment directly from Razorpay to prevent client-side plan spoofing
+    let authoritativeAmountInRupees = Number(amount) || 0;
+    let authoritativePlanId = planId;
+
+    const rzp = getRazorpay();
+    if (rzp) {
+      try {
+        const order = await rzp.orders.fetch(razorpay_order_id);
+        if (order) {
+          if (order.notes?.planId || order.notes?.plan_id) {
+            authoritativePlanId = order.notes.planId || order.notes.plan_id;
+          }
+          if (order.amount) {
+            authoritativeAmountInRupees = order.amount / 100;
+          }
+        }
+
+        const payment = await rzp.payments.fetch(razorpay_payment_id);
+        if (payment) {
+          if (payment.status !== 'captured' && payment.status !== 'authorized') {
+            return res.status(400).json({ success: false, error: 'Payment has not been captured.', message: 'Payment has not been captured.' });
+          }
+          if (payment.order_id && payment.order_id !== razorpay_order_id) {
+            return res.status(400).json({ success: false, error: 'Payment does not match requested order.', message: 'Payment does not match order.' });
+          }
+          if (payment.notes?.planId || payment.notes?.plan_id) {
+            authoritativePlanId = payment.notes.planId || payment.notes.plan_id;
+          }
+          if (payment.amount) {
+            authoritativeAmountInRupees = payment.amount / 100;
+          }
+        }
+      } catch (fetchErr: any) {
+        console.warn('[Razorpay Verify] Could not fetch order/payment directly from SDK:', fetchErr?.message || fetchErr);
+        // Fallback guard: ensure requested plan does not exceed the paid amount
+        if (authoritativePlanId && authoritativeAmountInRupees > 0) {
+          const expectedPlan = findPlanById(authoritativePlanId);
+          if (expectedPlan && expectedPlan.basePrice > 0 && authoritativeAmountInRupees < expectedPlan.basePrice * 0.9) {
+            const matchedByAmount = resolvePlanByAmount(authoritativeAmountInRupees);
+            authoritativePlanId = matchedByAmount.id;
+          }
+        }
+      }
+    }
+
     const fulfillment = await fulfillSuccessfulPayment({
       userId: effectiveUserId,
       razorpayPaymentId: razorpay_payment_id,
       razorpayOrderId: razorpay_order_id,
-      amountInRupees: numAmount,
-      planId: planId
+      amountInRupees: authoritativeAmountInRupees,
+      planId: authoritativePlanId
     });
 
     return res.json({ 
@@ -3831,7 +4391,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     });
   }));
 
-  app.post('/api/razorpay/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  app.post('/api/razorpay/webhook', async (req: any, res: any) => {
     try {
       const secret = cleanEnvKey(process.env.RAZORPAY_WEBHOOK_SECRET);
       if (!secret) {
@@ -3839,16 +4399,22 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         return res.status(500).json({ error: 'Webhook secret not configured' });
       }
 
+      // Preserve raw Buffer for HMAC validation to avoid stream consumption mismatch
+      const rawPayload: Buffer = req.rawBody || (Buffer.isBuffer(req.body) ? req.body : Buffer.from(typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {})));
       const shasum = crypto.createHmac('sha256', secret);
-      shasum.update(req.body);
+      shasum.update(rawPayload);
       const digest = shasum.digest('hex');
 
-      if (digest !== req.headers['x-razorpay-signature']) {
-        console.warn('Webhook signature mismatch');
+      const incomingSig = String(req.headers['x-razorpay-signature'] || '');
+      const sigBuf = Buffer.from(incomingSig);
+      const digestBuf = Buffer.from(digest);
+
+      if (sigBuf.length === 0 || sigBuf.length !== digestBuf.length || !crypto.timingSafeEqual(sigBuf, digestBuf)) {
+        console.warn('Webhook signature mismatch or timing violation');
         return res.status(400).json({ error: 'Invalid signature' });
       }
 
-      const event = JSON.parse(req.body.toString());
+      const event = typeof req.body === 'object' && !Buffer.isBuffer(req.body) ? req.body : JSON.parse(rawPayload.toString('utf-8'));
       console.log('Razorpay Webhook Event:', event.event);
 
       if (event.event === 'payment.captured') {
@@ -3873,12 +4439,180 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         }
       }
 
+      if (event.event === 'invoice.paid') {
+        const invoice = event.payload?.invoice?.entity;
+        if (invoice) {
+          const paymentId = invoice.payment_id;
+          const orderId = invoice.order_id;
+          const invoiceId = invoice.id;
+          const invoiceUrl = invoice.short_url;
+          const invoiceNumber = invoice.invoice_number;
+
+          try {
+            const adminClient = await getAdminSupabaseClient();
+            if (paymentId) {
+              await adminClient
+                .from('payment_transactions')
+                .update({
+                  razorpay_invoice_id: invoiceId,
+                  invoice_url: invoiceUrl,
+                  invoice_number: invoiceNumber
+                })
+                .eq('razorpay_payment_id', paymentId);
+            } else if (orderId) {
+              await adminClient
+                .from('payment_transactions')
+                .update({
+                  razorpay_invoice_id: invoiceId,
+                  invoice_url: invoiceUrl,
+                  invoice_number: invoiceNumber
+                })
+                .eq('razorpay_order_id', orderId);
+            }
+          } catch (invUpErr) {
+            console.warn('[Razorpay Webhook] Could not update invoice on payment_transactions:', invUpErr);
+          }
+        }
+      }
+
       res.status(200).json({ status: 'ok' });
     } catch (error: any) {
       console.error('Webhook Error:', error);
       res.status(500).json({ error: 'Webhook handler failed' });
     }
   });
+
+  // User GST Invoices API Endpoint (Indian Law SAC 998313 compliant)
+  app.get(['/api/user/invoices', '/api/invoices'], requireAuth, asyncHandler(async (req: any, res: any) => {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const adminClient = await getAdminSupabaseClient();
+
+    let profile: any = null;
+    try {
+      const { data: pData } = await adminClient
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      profile = pData;
+    } catch (e) {
+      // Continue
+    }
+
+    const customerName = profile?.company_name || profile?.name || req.user?.email?.split('@')[0] || 'Customer';
+    const customerGstin = profile?.gstin || '';
+    const customerState = (profile?.billing_state || profile?.location || 'Maharashtra').trim();
+    const customerAddress = profile?.billing_address || profile?.location || 'India';
+    const customerPincode = profile?.billing_pincode || '';
+
+    let transactions: any[] = [];
+    try {
+      const { data: txData, error: txError } = await adminClient
+        .from('payment_transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (!txError && txData) {
+        transactions = txData;
+      }
+    } catch (e) {
+      console.warn('[API: user/invoices] Error querying payment_transactions:', e);
+    }
+
+    const supplierGstin = process.env.COMPANY_GSTIN || DEFAULT_SUPPLIER_GSTIN;
+    const isIntraState = isPlaceOfSupplyIntraState({
+      customerState,
+      customerGstin,
+      supplierGstin
+    });
+
+    const invoices = transactions.map((tx: any) => {
+      const totalAmount = Number(tx.amount) || 0;
+
+      const taxBreakdown = resolveTaxBreakdown({
+        amount: totalAmount,
+        isTaxInclusive: true,
+        planBasePrice: tx.taxable_amount ? Number(tx.taxable_amount) : undefined,
+        customerState,
+        customerGstin,
+        supplierGstin
+      });
+
+      const taxableValue = tx.taxable_amount != null && Number(tx.taxable_amount) > 0
+        ? Number(tx.taxable_amount)
+        : taxBreakdown.taxableAmount;
+      const totalGst = tx.tax_amount != null && Number(tx.tax_amount) > 0
+        ? Number(tx.tax_amount)
+        : taxBreakdown.totalGst;
+
+      const cgst = isIntraState ? taxBreakdown.cgst : 0;
+      const sgst = isIntraState ? taxBreakdown.sgst : 0;
+      const igst = !isIntraState ? totalGst : 0;
+
+      const createdDate = new Date(tx.created_at || Date.now());
+      const formattedDate = createdDate.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+
+      const invoiceNumber = tx.invoice_number || tx.razorpay_invoice_id || `ZPR-${createdDate.getFullYear()}-${String(tx.id || '').substring(0, 8).toUpperCase()}`;
+
+      const matchedPlan = findPlanById(tx.plan_id);
+      const description = matchedPlan 
+        ? `${matchedPlan.name} (${matchedPlan.credits} Credits${matchedPlan.period === 'month' ? '/mo' : ''})`
+        : 'AI Credits Pack';
+
+      return {
+        id: tx.id,
+        invoiceNumber,
+        date: formattedDate,
+        rawDate: tx.created_at,
+        description,
+        planId: tx.plan_id,
+        amount: totalAmount,
+        taxableValue,
+        cgst,
+        sgst,
+        igst,
+        totalGst,
+        gstRate: taxBreakdown.gstRatePercent,
+        sacCode: taxBreakdown.sacCode,
+        placeOfSupply: taxBreakdown.placeOfSupply,
+        supplierGstin,
+        supplierName: 'ZeperAI Studio Pvt Ltd',
+        supplierState: DEFAULT_SUPPLIER_STATE,
+        customerGstin,
+        customerName,
+        customerAddress,
+        customerState,
+        customerPincode,
+        status: tx.status === 'paid' ? 'Paid' : 'Pending',
+        invoiceUrl: tx.invoice_url || null,
+        paymentId: tx.razorpay_payment_id || null,
+        orderId: tx.razorpay_order_id || null
+      };
+    });
+
+    return res.json({
+      success: true,
+      invoices,
+      customer: {
+        name: customerName,
+        email: req.user?.email,
+        companyName: profile?.company_name || '',
+        billingAddress: customerAddress,
+        billingState: customerState,
+        billingPincode: customerPincode,
+        gstin: customerGstin
+      }
+    });
+  }));
   
   // --- ANTI-SSRF HELPERS FOR MEDIA PROXY ---
   const BLOCKED_HOSTNAMES = new Set([
@@ -4056,15 +4790,19 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
   // --- ALLOWED GEMINI AI MODELS WHITELIST ---
   const ALLOWED_AI_MODELS = new Set([
+    'gemini-3.1-flash-lite-image',
+    'gemini-nano-banana-2.1',
+    'gemini-3-pro-image',
     'gemini-2.5-flash-image',
     'gemini-3.1-flash-image',
-    'gemini-3-pro-image',
     'nano-banana-2-lite',
     'nano-banana-2',
     'nano-banana',
     'nano-banana-pro',
     'gemini-flash-latest',
     'gemini-3-flash-preview',
+    'gemini-3.8-flash',
+    'gemini-3.1-flash-lite',
     'gemini-3.7-flash',
     'gemini-2.5-flash',
     'gemini-1.5-flash',
@@ -4072,15 +4810,23 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     'gemini-1.5-pro',
     'gemini-3.1-pro-preview',
     'gemini-3.1-flash-tts-preview',
-    'gemini-2.5-flash-preview-tts'
+    'gemini-2.5-flash-preview-tts',
+    'gemini-3.8-flash-lite-tts'
   ]);
 
   // --- HARDENED GEMINI GENERATION ENDPOINT (VALIDATION + SERVER-SIDE CREDITS) ---
   app.post(['/api/gemini/generate', '/gemini/generate'], requireAuth, aiLimiter, asyncHandler(async (req: any, res: any) => {
     const geminiKey = process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.VITE_GeminiAPI;
-    
-    if (!geminiKey) {
-       throw new AppError("Gemini API Key is not configured on the server.", 500, "AI service configuration is incomplete.");
+    const isVertexConfigured = Boolean(
+      process.env.USE_VERTEX_AI === 'true' ||
+      process.env.VERTEX_PROJECT_ID ||
+      process.env.VERTEX_API_KEY ||
+      process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON ||
+      process.env.GOOGLE_APPLICATION_CREDENTIALS
+    );
+
+    if (!geminiKey && !isVertexConfigured) {
+       throw new AppError("AI service is not configured on the server. Please configure GEMINI_API_KEY or Vertex AI credentials in your environment variables.", 500, "AI service configuration is incomplete.");
     }
 
     const { model, contents, config } = req.body;
@@ -4098,13 +4844,28 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     }
 
     // Resolve aliases to canonical Google GenAI models
+    const isVertexActive = Boolean(
+      process.env.USE_VERTEX_AI === 'true' ||
+      (process.env.VERTEX_PROJECT_ID && !geminiKey) ||
+      (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON && !geminiKey)
+    );
+
     let resolvedModel = trimmedModel;
-    if (trimmedModel === 'nano-banana-2-lite') resolvedModel = 'gemini-2.5-flash-image';
-    else if (trimmedModel === 'nano-banana-2' || trimmedModel === 'nano-banana') resolvedModel = 'gemini-3.1-flash-image';
-    else if (trimmedModel === 'nano-banana-pro') resolvedModel = 'gemini-3-pro-image';
-    else if (trimmedModel === 'gemini-3-flash-preview') resolvedModel = 'gemini-flash-latest';
-    else if (trimmedModel === 'gemini-2.5-flash-preview-tts') resolvedModel = 'gemini-3.1-flash-tts-preview';
-    else if (trimmedModel === 'gemini-3.1-pro-preview') resolvedModel = 'gemini-2.5-pro';
+    if (trimmedModel === 'nano-banana-2-lite' || trimmedModel === 'gemini-2.5-flash-image' || trimmedModel === 'gemini-3.1-flash-lite-image') {
+      resolvedModel = 'gemini-3.1-flash-lite-image';
+    } else if (trimmedModel === 'nano-banana-2' || trimmedModel === 'nano-banana' || trimmedModel === 'gemini-3.1-flash-image' || trimmedModel === 'gemini-nano-banana-2.1') {
+      resolvedModel = 'gemini-nano-banana-2.1';
+    } else if (trimmedModel === 'nano-banana-pro' || trimmedModel === 'gemini-3-pro-image') {
+      resolvedModel = 'gemini-3-pro-image';
+    } else if (trimmedModel === 'gemini-3.1-flash-lite') {
+      resolvedModel = isVertexActive ? 'gemini-2.5-flash' : 'gemini-3.1-flash-lite';
+    } else if (trimmedModel === 'gemini-3-flash-preview' || trimmedModel === 'gemini-flash-latest' || trimmedModel === 'gemini-3.8-flash' || trimmedModel === 'gemini-2.5-flash') {
+      resolvedModel = isVertexActive ? 'gemini-2.5-flash' : 'gemini-3.8-flash';
+    } else if (trimmedModel === 'gemini-2.5-flash-preview-tts' || trimmedModel === 'gemini-3.1-flash-tts-preview' || trimmedModel === 'gemini-3.8-flash-lite-tts') {
+      resolvedModel = isVertexActive ? 'gemini-2.5-flash' : 'gemini-3.8-flash-lite-tts';
+    } else if (trimmedModel === 'gemini-3.1-pro-preview' || trimmedModel === 'gemini-2.5-pro') {
+      resolvedModel = isVertexActive ? 'gemini-2.5-pro' : 'gemini-3.1-pro-preview';
+    }
 
     // Strict config sanitization (whitelisting safe properties only)
     const sanitizedConfig: any = {};
@@ -4146,6 +4907,11 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       }
     }
 
+    // Safeguard: Never allow an image generation request (with imageConfig) to call a pure text model (e.g. gemini-3.8-flash)
+    if (sanitizedConfig.imageConfig && (resolvedModel === 'gemini-3.8-flash' || resolvedModel === 'gemini-3.1-pro-preview')) {
+      resolvedModel = 'gemini-nano-banana-2.1';
+    }
+
     // Admin & Tier authorization
     const userEmail = (req.user?.email || '').toLowerCase().trim();
     let isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
@@ -4173,24 +4939,40 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     if (resolvedModel === 'gemini-3-pro-image' && !isAdmin) {
       const isPaid = userTier === 'Pro' || userTier === 'PayAsYouGo' || userTier === 'Agency' || userTier === 'Standard';
       if (!isPaid) {
-        resolvedModel = 'gemini-2.5-flash-image';
+        resolvedModel = 'gemini-3.1-flash-lite-image';
       }
     }
 
     // Determine credit cost
-    const isImageModel = resolvedModel === 'gemini-2.5-flash-image' || resolvedModel === 'gemini-3.1-flash-image' || resolvedModel === 'gemini-3-pro-image';
+    const isImageModel = resolvedModel === 'gemini-3.1-flash-lite-image' || 
+                         resolvedModel === 'gemini-nano-banana-2.1' || 
+                         resolvedModel === 'gemini-3-pro-image' || 
+                         resolvedModel === 'gemini-2.5-flash-image' || 
+                         resolvedModel === 'gemini-3.1-flash-image';
+
+    const purpose = String(req.body?.purpose || req.query?.purpose || '').toLowerCase();
+    const isFreeSystemAssist = 
+      req.body?.isSystemOperation === true ||
+      purpose.startsWith('system_') ||
+      purpose === 'prompt_safety' ||
+      purpose === 'prompt_optimization' ||
+      purpose === 'product_context';
+
     let creditCost = 0;
-    if (isImageModel) {
+    if (isFreeSystemAssist) {
+      creditCost = 0;
+    } else if (isImageModel) {
       creditCost = resolvedModel === 'gemini-3-pro-image' ? 2 : 1;
       if (sanitizedConfig.imageConfig?.imageSize === '2K') {
         creditCost += 1;
       }
     } else {
-      // Text and reasoning models cost 1 credit
+      // User-facing text and copywriting generations cost 1 credit
       creditCost = 1;
     }
 
     let didDeduct = false;
+    let deductionRemaining: number | undefined = undefined;
 
     // Server-side atomic credit check and deduction
     if (!isAdmin && creditCost > 0) {
@@ -4210,6 +4992,19 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         });
       }
       didDeduct = true;
+      deductionRemaining = deduction.remaining;
+    } else if (!isAdmin) {
+      try {
+        const adminClient = await getAdminSupabaseClient();
+        const { data: cData } = await adminClient
+          .from('user_credits')
+          .select('current_balance')
+          .eq('user_id', req.user.id)
+          .maybeSingle();
+        if (cData && typeof cData.current_balance === 'number') {
+          deductionRemaining = cData.current_balance;
+        }
+      } catch (_) {}
     }
 
     try {
@@ -4248,11 +5043,21 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         candidates: response.candidates,
         usageMetadata: response.usageMetadata,
         modelVersion: response.modelVersion,
-        promptFeedback: response.promptFeedback
+        promptFeedback: response.promptFeedback,
+        remainingCredits: deductionRemaining
       });
     } catch (genErr: any) {
       if (didDeduct) {
         await refundUserCredits(req.user.id, creditCost, 'Refund for failed generation');
+      }
+      const errMsg = genErr?.message || String(genErr);
+      const is402 = genErr?.status === 402 || genErr?.statusCode === 402 || errMsg.includes('402') || errMsg.includes('prepayment credits') || errMsg.includes('RESOURCE_EXHAUSTED');
+      if (is402) {
+        return res.status(402).json({
+          success: false,
+          error: "Your Google AI Studio prepayment credits are depleted (Error 402). Please add credits in AI Studio or select a paid API key.",
+          code: "CREDITS_DEPLETED"
+        });
       }
       throw genErr;
     }
@@ -4403,48 +5208,79 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       return res.status(400).json({ success: false, error: "No files uploaded", message: "No files uploaded" });
     }
     const files = req.files as Express.Multer.File[];
-    const pythonServiceUrl = process.env.PYTHON_SERVICE_URL;
-    const internalSecret = process.env.PYTHON_SERVICE_SECRET || process.env.INTERNAL_SECRET || '';
 
-    let analysisResult: any = null;
+    // Server-side credit check & deduction (1 credit for Shopify Store AI Analysis)
+    const userEmail = (req.user?.email || '').toLowerCase().trim();
+    const isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
+    const creditCost = 1;
+    let didDeduct = false;
+    let deductionRemaining: number | undefined = undefined;
 
-    if (pythonServiceUrl) {
-      try {
-        const FormData = (await import('form-data')).default;
-        const axios = (await import('axios')).default;
-        const formData = new FormData();
-
-        for (const file of files) {
-          formData.append('files', file.buffer, {
-            filename: file.originalname,
-            contentType: file.mimetype || 'text/csv'
-          });
-        }
-
-        const response = await axios.post(`${pythonServiceUrl.replace(/\/$/, '')}/analyze`, formData, {
-          headers: {
-            ...formData.getHeaders(),
-            'X-Internal-Secret': internalSecret
-          },
-          timeout: 30000
+    if (!isAdmin) {
+      const deduction = await spendUserCredits(req.user.id, creditCost, 'Shopify Store AI Analysis');
+      if (!deduction.success) {
+        return res.status(402).json({
+          success: false,
+          error: `Insufficient credits. You need ${creditCost} credit, but have ${deduction.current}. Please purchase credits or upgrade your plan.`,
+          requiredCredits: creditCost,
+          currentCredits: deduction.current,
+          requiresPurchase: true
         });
-
-        analysisResult = response.data;
-      } catch (pyErr: any) {
-        console.warn('Python service call failed, using local server fallback calculation:', pyErr.message);
       }
+      didDeduct = true;
+      deductionRemaining = deduction.remaining;
     }
 
-    if (!analysisResult) {
-      analysisResult = parseShopifyCsvsLocally(files);
+    try {
+      const pythonServiceUrl = process.env.PYTHON_SERVICE_URL;
+      const internalSecret = process.env.PYTHON_SERVICE_SECRET || process.env.INTERNAL_SECRET || '';
+
+      let analysisResult: any = null;
+
+      if (pythonServiceUrl) {
+        try {
+          const FormData = (await import('form-data')).default;
+          const axios = (await import('axios')).default;
+          const formData = new FormData();
+
+          for (const file of files) {
+            formData.append('files', file.buffer, {
+              filename: file.originalname,
+              contentType: file.mimetype || 'text/csv'
+            });
+          }
+
+          const response = await axios.post(`${pythonServiceUrl.replace(/\/$/, '')}/analyze`, formData, {
+            headers: {
+              ...formData.getHeaders(),
+              'X-Internal-Secret': internalSecret
+            },
+            timeout: 30000
+          });
+
+          analysisResult = response.data;
+        } catch (pyErr: any) {
+          console.warn('Python service call failed, using local server fallback calculation:', pyErr.message);
+        }
+      }
+
+      if (!analysisResult) {
+        analysisResult = parseShopifyCsvsLocally(files);
+      }
+
+      // Generate server-side AI insights via Gemini
+      const aiInsights = await generateServerAIInsights(analysisResult);
+      analysisResult.aiInsights = aiInsights;
+      analysisResult.success = true;
+      analysisResult.remainingCredits = deductionRemaining;
+
+      res.json(analysisResult);
+    } catch (err: any) {
+      if (didDeduct) {
+        await refundUserCredits(req.user.id, creditCost, 'Refund for failed Shopify Analysis');
+      }
+      throw err;
     }
-
-    // Generate server-side AI insights via Gemini
-    const aiInsights = await generateServerAIInsights(analysisResult);
-    analysisResult.aiInsights = aiInsights;
-    analysisResult.success = true;
-
-    res.json(analysisResult);
   }));
 
   app.post(['/api/remove-bg-pro', '/remove-bg-pro'], requireAuth, aiLimiter, asyncHandler(async (req: any, res: any) => {
@@ -4465,6 +5301,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
     const creditCost = 2;
     let didDeduct = false;
+    let deductionRemaining: number | undefined = undefined;
 
     if (!isAdmin) {
       const deduction = await spendUserCredits(req.user.id, creditCost, 'Pro Background Removal');
@@ -4478,6 +5315,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         });
       }
       didDeduct = true;
+      deductionRemaining = deduction.remaining;
     }
 
     const FormData = (await import('form-data')).default;
@@ -4520,7 +5358,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       const base64Result = Buffer.from(response.data, 'binary').toString('base64');
       res.json({ 
         imageUrl: `data:image/png;base64,${base64Result}`,
-        success: true 
+        success: true,
+        remainingCredits: deductionRemaining
       });
     } catch (err: any) {
       if (didDeduct) {
@@ -4557,6 +5396,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     const isAdmin = !!(req.isAdminMaster || req.user?.is_admin || getAdminAllowedEmails().includes(userEmail));
     const creditCost = 2;
     let didDeduct = false;
+    let deductionRemaining: number | undefined = undefined;
 
     if (!isAdmin) {
       const deduction = await spendUserCredits(req.user.id, creditCost, 'Pro Background Removal File Upload');
@@ -4570,6 +5410,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         });
       }
       didDeduct = true;
+      deductionRemaining = deduction.remaining;
     }
 
     const FormData = (await import('form-data')).default;
@@ -4621,6 +5462,10 @@ const requireAdmin = async (req: any, res: any, next: any) => {
         
         res.set('Content-Type', upstreamContentType || 'image/png');
         res.set('Cache-Control', 'no-store');
+        if (typeof deductionRemaining === 'number') {
+          res.set('x-remaining-credits', String(deductionRemaining));
+          res.set('Access-Control-Expose-Headers', 'x-remaining-credits');
+        }
         res.send(Buffer.from(response.data, 'binary'));
     } catch (error: any) {
         if (didDeduct) {

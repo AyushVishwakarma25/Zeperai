@@ -24,7 +24,10 @@ import {
   Sliders,
   Megaphone,
   Lock,
-  ArrowRight
+  ArrowRight,
+  Upload,
+  FileCode,
+  FileCheck
 } from 'lucide-react';
 
 interface AISettingsData {
@@ -37,6 +40,13 @@ interface AISettingsData {
   hasGeminiApiKey: boolean;
   geminiApiKeyMasked: string;
   hasServiceAccountJson: boolean;
+  serviceAccountDetails?: {
+    attached: boolean;
+    projectId?: string;
+    clientEmail?: string;
+    privateKeyIdMasked?: string;
+    type?: string;
+  };
   campaignStudioEnabled: boolean;
   campaignStudioAllowedEmails: string;
   activeEngineStatus: {
@@ -59,6 +69,8 @@ export default function PlatformSettingsManager() {
     model?: string;
     response?: string;
     error?: string;
+    troubleshootingTip?: string;
+    isStaged?: boolean;
   } | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -68,6 +80,9 @@ export default function PlatformSettingsManager() {
   const [vertexLocation, setVertexLocation] = useState('us-central1');
   const [newVertexApiKey, setNewVertexApiKey] = useState('');
   const [showVertexKeyInput, setShowVertexKeyInput] = useState(false);
+  const [newServiceAccountJson, setNewServiceAccountJson] = useState('');
+  const [serviceAccountFileName, setServiceAccountFileName] = useState<string | null>(null);
+  const [showServiceAccountInput, setShowServiceAccountInput] = useState(true);
   const [newGeminiApiKey, setNewGeminiApiKey] = useState('');
   const [showGeminiKeyInput, setShowGeminiKeyInput] = useState(false);
   const [campaignStudioEnabled, setCampaignStudioEnabled] = useState(true);
@@ -123,6 +138,9 @@ export default function PlatformSettingsManager() {
       if (newVertexApiKey.trim()) {
         payload.vertexApiKey = newVertexApiKey.trim();
       }
+      if (newServiceAccountJson.trim()) {
+        payload.serviceAccountJson = newServiceAccountJson.trim();
+      }
       if (newGeminiApiKey.trim()) {
         payload.geminiApiKey = newGeminiApiKey.trim();
       }
@@ -139,6 +157,8 @@ export default function PlatformSettingsManager() {
       // Clear pending secret input states
       setNewVertexApiKey('');
       setShowVertexKeyInput(false);
+      setNewServiceAccountJson('');
+      setServiceAccountFileName(null);
       setNewGeminiApiKey('');
       setShowGeminiKeyInput(false);
 
@@ -155,11 +175,208 @@ export default function PlatformSettingsManager() {
     }
   };
 
+  const stagedDetails = React.useMemo(() => {
+    if (!newServiceAccountJson.trim()) return null;
+    try {
+      const p = JSON.parse(newServiceAccountJson);
+      return {
+        projectId: p.project_id || 'Unknown Project',
+        clientEmail: p.client_email || 'Service Account',
+        privateKeyId: p.private_key_id ? `${p.private_key_id.slice(0, 6)}••••${p.private_key_id.slice(-4)}` : 'Key Staged'
+      };
+    } catch {
+      return null;
+    }
+  }, [newServiceAccountJson]);
+
+  const jsonValidationError = React.useMemo(() => {
+    if (!newServiceAccountJson.trim()) return null;
+    const str = newServiceAccountJson.trim();
+    if (!str.startsWith('{')) {
+      return "The pasted text is missing the opening '{'. You may have copied only the bottom part of the file. Please copy the entire .json file from the very first line.";
+    }
+    try {
+      const parsed = JSON.parse(str);
+      if (!parsed.type) return "Missing 'type' field in JSON (must be 'service_account').";
+      if (!parsed.project_id) return "Missing 'project_id' field in JSON.";
+      if (!parsed.private_key) return "Missing 'private_key' field. Please paste the entire service account JSON file.";
+      return null;
+    } catch (err: any) {
+      return "Invalid JSON syntax. Ensure you copy the entire JSON file starting from '{' to '}'.";
+    }
+  }, [newServiceAccountJson]);
+
+  const handleClearVertexApiKey = async () => {
+    try {
+      setSaving(true);
+      await axios.post('/api/admin/settings/ai', {
+        vertexApiKey: ''
+      }, { headers: await getHeaders() });
+      setNewVertexApiKey('');
+      setShowVertexKeyInput(false);
+      await fetchSettings();
+      setFeedback({
+        type: 'success',
+        message: 'Vertex API Key removed. The engine will use your Google Cloud Service Account credentials.'
+      });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: 'Failed to clear key.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleServiceAccountJsonChange = (val: string) => {
+    let clean = val.replace(/^[\uFEFF\uFFFE]+/, '').trim();
+
+    // Auto-detect if user mistakenly pasted an API Key (e.g. AIzaSy...) instead of JSON
+    if (clean.startsWith('AIza') && !clean.startsWith('{')) {
+      setNewVertexApiKey(clean);
+      setShowVertexKeyInput(true);
+      setNewServiceAccountJson('');
+      setFeedback({
+        type: 'success',
+        message: 'Detected Google API Key format! Automatically placed into the "Vertex AI API Key" field above.'
+      });
+      return;
+    }
+
+    // Strip wrapping quotes if any
+    for (let i = 0; i < 4; i++) {
+      clean = clean.trim();
+      if (
+        (clean.startsWith('"') && clean.endsWith('"') && clean.length >= 2) ||
+        (clean.startsWith("'") && clean.endsWith("'") && clean.length >= 2)
+      ) {
+        clean = clean.slice(1, -1);
+      } else {
+        break;
+      }
+    }
+
+    // Auto-detect and decode Base64 using TextDecoder (supports UTF-8, multi-byte, BOM, UTF-16 from Windows PowerShell)
+    const compact = clean.replace(/\s+/g, '');
+    if (!clean.startsWith('{') && compact.length > 20) {
+      try {
+        const binStr = atob(compact);
+        const bytes = new Uint8Array(binStr.length);
+        for (let i = 0; i < binStr.length; i++) {
+          bytes[i] = binStr.charCodeAt(i);
+        }
+
+        let decoded = '';
+        try {
+          decoded = new TextDecoder('utf-8').decode(bytes).replace(/^[\uFEFF\uFFFE]+/, '').trim();
+        } catch (_) {}
+
+        if (decoded.includes('\u0000')) {
+          try {
+            decoded = new TextDecoder('utf-16le').decode(bytes).replace(/^[\uFEFF\uFFFE]+/, '').trim();
+          } catch (_) {}
+        }
+
+        if (decoded.startsWith('{')) {
+          const parsed = JSON.parse(decoded);
+          if (parsed && typeof parsed === 'object') {
+            setNewServiceAccountJson(JSON.stringify(parsed, null, 2));
+            if (parsed.project_id && (!vertexProjectId || vertexProjectId.trim() === '')) {
+              setVertexProjectId(parsed.project_id);
+            }
+            setFeedback({
+              type: 'success',
+              message: `Decoded Base64 Service Account JSON for project "${parsed.project_id || 'Google Cloud'}" successfully!`
+            });
+            return;
+          }
+        }
+      } catch (_) {}
+    }
+
+    setNewServiceAccountJson(val);
+    try {
+      const p = JSON.parse(clean);
+      if (p.project_id && (!vertexProjectId || vertexProjectId.trim() === '')) {
+        setVertexProjectId(p.project_id);
+      }
+    } catch {
+      // ignore parse errors while typing
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.json') && file.type !== 'application/json') {
+      setFeedback({
+        type: 'error',
+        message: 'Please upload a valid .json credentials file.'
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const rawText = (event.target?.result as string) || '';
+        const cleanText = rawText.replace(/^[\uFEFF\uFFFE]+/, '').trim();
+        const parsed = JSON.parse(cleanText);
+        if (!parsed.type || !parsed.project_id) {
+          setFeedback({
+            type: 'error',
+            message: 'Uploaded JSON appears to be missing required service account fields (type, project_id).'
+          });
+          return;
+        }
+
+        setNewServiceAccountJson(JSON.stringify(parsed, null, 2));
+        setServiceAccountFileName(file.name);
+        // Auto-fill project ID if not already configured
+        if (!vertexProjectId || vertexProjectId.trim() === '') {
+          setVertexProjectId(parsed.project_id);
+        }
+        setFeedback({
+          type: 'success',
+          message: `Loaded credentials for project "${parsed.project_id}" (${parsed.client_email || 'Service Account'}). Click "Save & Apply Settings" or "Test AI Connection".`
+        });
+      } catch {
+        setFeedback({
+          type: 'error',
+          message: 'Failed to parse file as valid JSON.'
+        });
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleTestConnection = async () => {
     try {
       setTesting(true);
       setTestResult(null);
-      const res = await axios.post('/api/admin/settings/ai/test', {}, {
+
+      // Pass staged form fields so connection can test what the user is typing/pasting
+      const payload: Record<string, any> = {
+        pendingUseVertexAI: useVertexAI,
+        pendingVertexProjectId: vertexProjectId.trim(),
+        pendingVertexLocation: vertexLocation.trim()
+      };
+      if (newVertexApiKey.trim()) {
+        payload.pendingVertexApiKey = newVertexApiKey.trim();
+      }
+      if (newServiceAccountJson.trim()) {
+        payload.pendingServiceAccountJson = newServiceAccountJson.trim();
+      }
+      if (newGeminiApiKey.trim()) {
+        payload.pendingGeminiApiKey = newGeminiApiKey.trim();
+      }
+
+      const isStaged = Boolean(
+        payload.pendingServiceAccountJson ||
+        payload.pendingVertexApiKey ||
+        payload.pendingGeminiApiKey
+      );
+
+      const res = await axios.post('/api/admin/settings/ai/test', payload, {
         headers: await getHeaders()
       });
       setTestResult({
@@ -167,14 +384,16 @@ export default function PlatformSettingsManager() {
         latencyMs: res.data.latencyMs,
         provider: res.data.provider,
         model: res.data.model,
-        response: res.data.response
+        response: res.data.response,
+        isStaged
       });
     } catch (err: any) {
       console.error('AI connectivity test error:', err);
       setTestResult({
         success: false,
         latencyMs: err.response?.data?.latencyMs,
-        error: err.response?.data?.error || err.message || 'Connection test failed. Check key / project setup.'
+        error: err.response?.data?.error || err.message || 'Connection test failed. Check key / project setup.',
+        troubleshootingTip: err.response?.data?.troubleshootingTip
       });
     } finally {
       setTesting(false);
@@ -272,12 +491,34 @@ export default function PlatformSettingsManager() {
               )}
             </div>
             {testResult.success ? (
-              <p className="text-emerald-800">
-                Successfully routed through <strong>{testResult.provider}</strong> using model <code className="font-mono font-bold">{testResult.model}</code>. Engine returned:{' '}
-                <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-emerald-200">{testResult.response}</span>
-              </p>
+              <div className="space-y-1.5">
+                <p className="text-emerald-800">
+                  Successfully routed through <strong>{testResult.provider}</strong> using model <code className="font-mono font-bold">{testResult.model}</code>. Engine returned:{' '}
+                  <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-emerald-200">{testResult.response}</span>
+                </p>
+                {testResult.isStaged && (
+                  <div className="mt-2 p-2 bg-emerald-100/80 border border-emerald-300/80 rounded-xl text-emerald-950 font-semibold flex items-center justify-between gap-2">
+                    <span>✓ Verified with staged credentials! Click "Save & Apply Settings" below to persist them.</span>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-3 py-1 rounded-lg shadow-xs shrink-0"
+                    >
+                      {saving ? 'Saving...' : 'Save Now'}
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
-              <p className="text-rose-800 font-mono text-[11px]">{testResult.error}</p>
+              <div className="space-y-2">
+                <p className="text-rose-800 font-mono text-[11px]">{testResult.error}</p>
+                {testResult.troubleshootingTip && (
+                  <div className="p-2.5 bg-rose-100/90 border border-rose-300 rounded-xl text-rose-950 font-medium text-[11px] leading-relaxed">
+                    💡 <strong>Next Step / Fix:</strong> {testResult.troubleshootingTip}
+                  </div>
+                )}
+              </div>
             )}
           </div>
           <button
@@ -341,9 +582,9 @@ export default function PlatformSettingsManager() {
                     <Cloud className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-slate-900">Google Vertex AI</h4>
+                    <h4 className="text-sm font-black text-slate-900">Gemini Enterprise Agent Platform</h4>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-[#4452FB] bg-[#4452FB]/10 px-2 py-0.5 rounded-full">
-                      Postpay / Cloud Billing
+                      Formerly Vertex AI · Postpay Billing
                     </span>
                   </div>
                 </div>
@@ -355,7 +596,7 @@ export default function PlatformSettingsManager() {
                 />
               </div>
               <p className="text-xs text-slate-600 mt-3 leading-relaxed">
-                Enterprise postpay billing via Google Cloud. Does not deplete prepayment balances. Supports Vertex AI Express API keys and Cloud Project IDs.
+                Direct enterprise post-pay billing via Google Cloud (formerly Vertex AI). All user generation scales automatically against your Google Cloud billing account without prepaid credit bottlenecks.
               </p>
             </div>
 
@@ -394,16 +635,16 @@ export default function PlatformSettingsManager() {
           </div>
         </div>
 
-        {/* Section 2: Vertex AI Configuration */}
+        {/* Section 2: Gemini Enterprise Agent Platform (Vertex AI) Configuration */}
         <div className={`bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-5 transition-opacity ${!useVertexAI ? 'opacity-50' : 'opacity-100'}`}>
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div className="space-y-0.5">
               <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
                 <Server className="w-4 h-4 text-[#4452FB]" />
-                Vertex AI Credentials & Cloud Settings
+                Gemini Enterprise Agent Platform (Vertex AI) Settings
               </h3>
               <p className="text-xs text-slate-500">
-                Configure your GCP Project ID, deployment region, or Vertex AI Express API key.
+                Configure your Google Cloud Project ID, region, Express API Key, or Service Account JSON for postpay agent inference.
               </p>
             </div>
             {settings?.hasServiceAccountJson && (
@@ -460,11 +701,34 @@ export default function PlatformSettingsManager() {
                 </p>
               </div>
               {settings?.hasVertexApiKey && (
-                <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
-                  Active: {settings.vertexApiKeyMasked}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-lg border ${
+                    settings.vertexApiKeyMasked.startsWith('AQ.')
+                      ? 'text-rose-700 bg-rose-50 border-rose-200'
+                      : 'text-slate-500 bg-slate-100 border-slate-200'
+                  }`}>
+                    Active: {settings.vertexApiKeyMasked}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearVertexApiKey}
+                    disabled={saving}
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-800 underline"
+                  >
+                    Clear Key
+                  </button>
+                </div>
               )}
             </div>
+
+            {settings?.hasVertexApiKey && settings.vertexApiKeyMasked.startsWith('AQ.') && (
+              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-[11px] flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong>Mismatched Key Detected:</strong> The active key starts with <code className="font-mono bg-white px-1 rounded">AQ.</code> which is a Google AI Studio key, not a Vertex AI key. Click <strong>Clear Key</strong> to remove it so your Google Cloud Service Account is used.
+                </div>
+              </div>
+            )}
 
             {!showVertexKeyInput ? (
               <button
@@ -497,6 +761,166 @@ export default function PlatformSettingsManager() {
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Google Cloud Service Account JSON */}
+          <div className="space-y-4 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-[#4452FB]" />
+                  Service Account Credentials (JSON)
+                </label>
+                <p className="text-[11px] text-slate-400">
+                  Upload your downloaded Google Cloud Service Account <code className="font-mono text-slate-600 bg-slate-100 px-1 py-0.5 rounded">.json</code> key file or paste its contents below.
+                </p>
+              </div>
+              {settings?.hasServiceAccountJson && (
+                <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Key Attached & Active
+                </span>
+              )}
+            </div>
+
+            {/* Currently Active Service Account Details Card (Solves "Is key saved or not?") */}
+            {settings?.hasServiceAccountJson && (
+              <div className="p-4 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl space-y-3 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span className="text-xs font-black text-emerald-900 tracking-tight">
+                      Active Service Account Saved & Verified on Server
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                    Saved on Disk
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  <div className="p-3 bg-white/90 rounded-xl border border-emerald-100 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Google Cloud Project ID</span>
+                    <code className="text-xs font-mono font-black text-slate-900">
+                      {settings.serviceAccountDetails?.projectId || settings.vertexProjectId || 'Configured'}
+                    </code>
+                  </div>
+                  <div className="p-3 bg-white/90 rounded-xl border border-emerald-100 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Service Account Client Email</span>
+                    <code className="text-[11px] font-mono text-slate-700 truncate block" title={settings.serviceAccountDetails?.clientEmail}>
+                      {settings.serviceAccountDetails?.clientEmail || 'Google IAM Service Account'}
+                    </code>
+                  </div>
+                </div>
+                <p className="text-[11px] text-emerald-800 flex items-center gap-1.5 pt-0.5 font-medium">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>
+                    Your service account key is saved to persistent disk and active for all Campaign Studio runs with post-pay billing.
+                  </span>
+                </p>
+              </div>
+            )}
+
+            {/* Staged Credentials Notification */}
+            {stagedDetails && (
+              <div className="p-3.5 bg-blue-50/90 border border-blue-200 rounded-2xl flex items-start gap-2.5 animate-in fade-in">
+                <FileCheck className="w-4 h-4 text-[#4452FB] shrink-0 mt-0.5" />
+                <div className="space-y-0.5 text-xs flex-1">
+                  <span className="font-bold text-blue-900 block">
+                    New Key Staged: {stagedDetails.projectId} ({stagedDetails.clientEmail})
+                  </span>
+                  <span className="text-[11px] text-blue-700">
+                    Click <strong>Save & Apply Settings</strong> below or <strong>Test AI Connection</strong> to test this key immediately before saving.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">
+                  {settings?.hasServiceAccountJson ? 'Replace / Update Service Account Key:' : 'Upload or Paste Service Account Key:'}
+                </span>
+              </div>
+
+              {/* Option A: Upload JSON file button / dropzone */}
+              <div className="p-4 rounded-2xl border-2 border-dashed border-slate-200 hover:border-[#4452FB]/50 bg-slate-50/70 hover:bg-[#4452FB]/5 transition-all text-center">
+                <input
+                  type="file"
+                  id="sa-json-upload"
+                  accept=".json,application/json"
+                  onChange={handleFileUpload}
+                  disabled={!useVertexAI}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="sa-json-upload"
+                  className={`cursor-pointer flex flex-col items-center justify-center gap-2 ${
+                    !useVertexAI ? 'cursor-not-allowed opacity-50' : ''
+                  }`}
+                >
+                  <div className="p-2.5 bg-white rounded-full border border-slate-200 shadow-xs text-[#4452FB]">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-[#4452FB] hover:underline">
+                      Click to upload your .json key file
+                    </span>
+                    <span className="text-xs text-slate-500"> or drag and drop</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">
+                    Auto-fills Project ID and validates your credentials safely
+                  </span>
+                </label>
+
+                {serviceAccountFileName && (
+                  <div className="mt-2 inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full text-xs font-semibold">
+                    <FileCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Loaded: {serviceAccountFileName}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Option B: Or paste raw JSON directly */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    — Or Paste JSON Contents Directly —
+                  </span>
+                  {newServiceAccountJson && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewServiceAccountJson('');
+                        setServiceAccountFileName(null);
+                      }}
+                      className="text-[11px] text-rose-500 hover:text-rose-700 font-bold"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  rows={4}
+                  value={newServiceAccountJson}
+                  onChange={(e) => handleServiceAccountJsonChange(e.target.value)}
+                  placeholder='{ "type": "service_account", "project_id": "your-project-id", "private_key_id": "...", "private_key": "-----BEGIN PRIVATE KEY...", "client_email": "..." }'
+                  disabled={!useVertexAI}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 font-mono placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4452FB]/20 focus:border-[#4452FB]"
+                />
+                {jsonValidationError && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-amber-950 text-xs flex items-start gap-2.5 animate-in fade-in">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <strong className="font-bold block text-amber-900">Incomplete Service Account JSON:</strong>
+                      <span className="text-[11px] leading-relaxed block">{jsonValidationError}</span>
+                      <span className="text-[11px] text-amber-800 font-medium block pt-1">
+                        👉 <strong>Easiest Solution:</strong> Click the <strong>"Click to upload your .json key file"</strong> box above and select your <code className="font-mono bg-white px-1 rounded">vertex-key.json</code> file directly so no lines are accidentally cut off!
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -611,8 +1035,28 @@ export default function PlatformSettingsManager() {
           </div>
         </div>
 
-        {/* Bottom Save Bar */}
+        {/* Bottom Save & Action Bar */}
         <div className="flex items-center justify-end gap-3 pt-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleTestConnection}
+            disabled={testing || saving}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-5 h-11 rounded-2xl flex items-center gap-2 border border-slate-200"
+          >
+            {testing ? (
+              <>
+                <Spinner className="w-3.5 h-3.5 text-slate-600" />
+                <span>Testing Connection...</span>
+              </>
+            ) : (
+              <>
+                <Zap className="w-4 h-4 text-[#4452FB]" />
+                <span>Test AI Connection</span>
+              </>
+            )}
+          </Button>
+
           <Button
             type="submit"
             disabled={saving}

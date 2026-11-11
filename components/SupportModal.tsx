@@ -8,7 +8,7 @@ interface SupportModalProps {
 }
 
 export const SupportModal: React.FC<SupportModalProps> = ({ onClose }) => {
-  const email = "Ayush@zeperai.com";
+  const email = "team@Zeperai.in";
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
