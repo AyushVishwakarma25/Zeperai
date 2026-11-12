@@ -36,8 +36,13 @@ const CampaignStudio: React.FC<Props> = ({ onToggleSidebar, onSetView }) => {
             <Icon name="strategy" className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-text-primary truncate">Campaign Studio</h1>
-            <p className="text-xs sm:text-sm text-text-secondary truncate">From brand to ready-to-post creatives, with your approval at every step.</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-text-primary truncate">Campaign Studio V2</h1>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-2xs">
+                V2 Production
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-text-secondary truncate">Autonomous multi-placement ad campaigns for D2C brands: creative direction, automated 10-point QA & export.</p>
           </div>
         </div>
         <Button onClick={() => onSetView(View.Dashboard)} variant="secondary" className="!px-2.5 !py-1.5 sm:!px-3.5 sm:!py-2 !text-xs sm:!text-sm whitespace-nowrap shrink-0 font-medium">

@@ -30,6 +30,10 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
   const [metaPackageModalOpen, setMetaPackageModalOpen] = useState(false);
   const [metaPackage, setMetaPackage] = useState<MetaCampaignPackage | null>(null);
   const [loadingMetaPackage, setLoadingMetaPackage] = useState(false);
+  const [targetedEditIndex, setTargetedEditIndex] = useState<number | null>(null);
+  const [targetedComponent, setTargetedComponent] = useState<'headline' | 'background' | 'product' | 'cta' | 'layout'>('background');
+  const [targetedInstructions, setTargetedInstructions] = useState('');
+  const [isExportingZip, setIsExportingZip] = useState(false);
 
   // Group assets by creative_index and pick the newest version
   const latestByIndex = new Map<number, CampaignAsset>();
@@ -144,6 +148,36 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
     document.body.removeChild(a);
   };
 
+  const handleExportZip = async () => {
+    setIsExportingZip(true);
+    try {
+      const { supabase } = await import('../../services/supabaseClient.js');
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      const res = await fetch(`/api/campaign/runs/${encodeURIComponent(runId)}/export-zip`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `Download failed (HTTP ${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `campaign-${runId.slice(0, 8)}-meta-package.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      if (notify) notify('Meta Ad Package (.zip) downloaded successfully!');
+    } catch (err: any) {
+      if (notify) notify(err.message || 'Failed to download ZIP export', 'error');
+    } finally {
+      setIsExportingZip(false);
+    }
+  };
+
   if (displayAssets.length === 0) {
     return (
       <div className="py-8 text-center text-sm text-text-secondary">
@@ -176,14 +210,15 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
             <Icon name="file-text" className="w-3.5 h-3.5" />
             <span>Copy Sheet & Angles</span>
           </button>
-          <a
-            href={`/api/campaign/runs/${encodeURIComponent(runId)}/export-zip`}
-            download
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
+          <button
+            type="button"
+            disabled={isExportingZip}
+            onClick={handleExportZip}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
           >
-            <Icon name="download" className="w-3.5 h-3.5" />
-            <span>Export Meta Package (.zip)</span>
-          </a>
+            {isExportingZip ? <Spinner className="w-3.5 h-3.5 text-white" /> : <Icon name="download" className="w-3.5 h-3.5" />}
+            <span>{isExportingZip ? 'Building ZIP…' : 'Export Meta Package (.zip)'}</span>
+          </button>
           <button
             type="button"
             onClick={() => setShowOverlay(!showOverlay)}
@@ -462,7 +497,68 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
                 {/* Inline Redo Controls */}
                 {!readOnly && (
                   <div className="pt-2 border-t border-border-light">
-                    {isRedoing ? (
+                    {targetedEditIndex === asset.creative_index ? (
+                      <div className="space-y-2.5 p-3 rounded-xl bg-purple-50/70 border border-purple-200 animate-fadeIn text-left">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-purple-900 flex items-center gap-1">
+                            <Icon name="sparkles" className="w-3.5 h-3.5 text-purple-600" />
+                            Targeted Layer Regeneration (V2)
+                          </span>
+                          <span className="text-[9px] uppercase px-1.5 py-0.2 bg-purple-200/80 text-purple-800 rounded font-black">
+                            Surgical
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span className="text-slate-500 font-medium shrink-0 text-[11px]">Layer:</span>
+                          <select
+                            value={targetedComponent}
+                            onChange={(e) => setTargetedComponent(e.target.value as any)}
+                            className="bg-white border border-purple-200 rounded-md text-xs py-1 px-2 font-medium text-slate-700 focus:outline-none focus:border-purple-400"
+                          >
+                            <option value="background">Background Scene</option>
+                            <option value="product">Product Hero Asset</option>
+                            <option value="headline">Headline & Typography</option>
+                            <option value="cta">Call-to-Action (CTA)</option>
+                            <option value="layout">Composition & Layout</option>
+                          </select>
+                        </div>
+
+                        <textarea
+                          rows={2}
+                          value={targetedInstructions}
+                          onChange={(e) => setTargetedInstructions(e.target.value)}
+                          placeholder="e.g. Move the product slightly to the right, make background warm marble..."
+                          className="w-full text-xs p-2 bg-white rounded-lg border border-purple-200 focus:outline-none focus:border-purple-500 placeholder:text-slate-400"
+                        />
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={async () => {
+                              if (!targetedInstructions.trim()) return;
+                              await handleTargetedFix(asset.creative_index, targetedComponent, targetedInstructions.trim());
+                              setTargetedEditIndex(null);
+                              setTargetedInstructions('');
+                            }}
+                            disabled={isBusy || !targetedInstructions.trim()}
+                            isLoading={isBusy}
+                            className="!text-xs !py-1 !px-3 !bg-purple-600 hover:!bg-purple-700 !text-white"
+                          >
+                            Apply Layer Fix (V2)
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              setTargetedEditIndex(null);
+                              setTargetedInstructions('');
+                            }}
+                            className="!text-xs !py-1 !px-3"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : isRedoing ? (
                       <div className="space-y-2">
                         <textarea
                           rows={2}
@@ -493,24 +589,40 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRedoIndex(asset.creative_index);
-                            setFeedback('');
-                          }}
-                          disabled={isBusy}
-                          className="inline-flex items-center text-xs font-semibold text-text-secondary hover:text-primary transition-colors"
-                        >
-                          <Icon name="refresh-cw" className="w-3.5 h-3.5 mr-1" />
-                          Regenerate this one
-                        </button>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTargetedEditIndex(asset.creative_index);
+                              setRedoIndex(null);
+                              setTargetedInstructions('');
+                            }}
+                            disabled={isBusy}
+                            className="inline-flex items-center text-xs font-bold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200/80 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Icon name="sparkles" className="w-3.5 h-3.5 mr-1 text-purple-600" />
+                            Targeted Edit (V2)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRedoIndex(asset.creative_index);
+                              setTargetedEditIndex(null);
+                              setFeedback('');
+                            }}
+                            disabled={isBusy}
+                            className="inline-flex items-center text-xs font-semibold text-text-secondary hover:text-primary transition-colors cursor-pointer px-2 py-1"
+                          >
+                            <Icon name="refresh-cw" className="w-3.5 h-3.5 mr-1" />
+                            Regenerate
+                          </button>
+                        </div>
                         {asset.image_url && (
                           <button
                             type="button"
                             onClick={() => downloadImage(asset)}
-                            className="text-xs text-slate-400 hover:text-slate-600 font-medium inline-flex items-center gap-1"
+                            className="text-xs text-slate-400 hover:text-slate-600 font-medium inline-flex items-center gap-1 cursor-pointer"
                           >
                             <Icon name="download" className="w-3 h-3" />
                             Download
@@ -796,14 +908,15 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
                 All formats & copy sheets ready for Meta Ads Manager.
               </span>
               <div className="flex items-center gap-2">
-                <a
-                  href={`/api/campaign/runs/${encodeURIComponent(runId)}/export-zip`}
-                  download
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                <button
+                  type="button"
+                  disabled={isExportingZip}
+                  onClick={handleExportZip}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs disabled:opacity-50 cursor-pointer"
                 >
-                  <Icon name="download" className="w-3.5 h-3.5" />
-                  <span>Download Package (.zip)</span>
-                </a>
+                  {isExportingZip ? <Spinner className="w-3.5 h-3.5 text-white" /> : <Icon name="download" className="w-3.5 h-3.5" />}
+                  <span>{isExportingZip ? 'Building ZIP…' : 'Download Package (.zip)'}</span>
+                </button>
                 <Button
                   variant="secondary"
                   onClick={() => setMetaPackageModalOpen(false)}

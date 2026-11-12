@@ -85,8 +85,13 @@ export const NewCampaignForm: React.FC<Props> = ({ meta, onCreated, onCancel }) 
   return (
     <form onSubmit={submit} className="max-w-2xl mx-auto w-full space-y-6" noValidate>
       <div>
-        <h2 className="text-xl font-bold text-text-primary">New campaign</h2>
-        <p className="text-sm text-text-secondary mt-1">Tell us about the brand and what you want to achieve. You’ll review and approve every step.</p>
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-bold text-text-primary">New Campaign</h2>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-200">
+            V2 Engine
+          </span>
+        </div>
+        <p className="text-sm text-text-secondary mt-1">Autonomous multi-agent workflow: Brand → Research → Strategy → Creative Direction → Multi-Placement Ads.</p>
       </div>
 
       {error && <Notice tone="error" onDismiss={() => setError(null)}>{error}</Notice>}

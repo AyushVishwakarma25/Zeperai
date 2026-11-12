@@ -190,13 +190,13 @@ const DashboardHome: React.FC<DashboardProps> = ({
             onClick: () => onSelectMode(AppMode.Fashion)
         },
         {
-            title: 'Campaign Studio',
-            description: 'From brand context to multi-placement ad assets: creative direction, automated QA, and ready-to-publish exports.',
+            title: 'Campaign Studio V2',
+            description: 'Autonomous multi-placement ad campaigns for D2C brands: creative direction, automated QA & Meta exports.',
             color: '#EAE3FD', // card-purple
             accentColor: '#6A5AE0', // brand primary
             iconName: 'strategy',
             thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/Campaing%20Studio%20Zeperai.webp',
-            badge: 'NEW V2',
+            badge: 'V2',
             onClick: () => {
                 navigate('/campaign-studio');
                 if (onOpenCampaignStudio) {
@@ -246,54 +246,6 @@ const DashboardHome: React.FC<DashboardProps> = ({
     return (
       <div className="py-1 pb-4">
         <h1 className="text-lg md:text-xl font-batangas font-bold text-text-primary text-center mb-4">What are we creating today, {userName}?</h1>
-
-        {/* Campaign Studio V2 Spotlight Hero Banner */}
-        <div className="mb-6 max-w-[1600px] mx-auto px-2 sm:px-4">
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 border border-purple-500/30 p-5 sm:p-6 shadow-xl">
-            {/* Background glowing gradients */}
-            <div className="absolute -right-8 -bottom-8 w-60 h-60 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute left-1/3 -top-10 w-48 h-48 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none" />
-            
-            <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
-              <div className="max-w-3xl">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-sm border border-white/20">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    NEW V2 LIVE
-                  </span>
-                  <span className="text-purple-300 text-xs font-bold tracking-wide">ZeperAI Campaign Studio</span>
-                </div>
-                <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                  Autonomous Multi-Placement Ad Campaigns for D2C Brands
-                </h2>
-                <p className="text-purple-100/85 text-xs sm:text-sm mt-1.5 leading-relaxed">
-                  Turn reference ads or brand links into high-converting campaigns. Auto-extract creative direction, adapt compositions across Feed (1:1), Stories (9:16), and Landscape (1.91:1), run 10-point automated QA, and export ready-to-publish ZIP ad packages with 300 DPI PNG/JPG and vector SVG.
-                </p>
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-3 text-[11px] sm:text-xs font-medium text-purple-200">
-                  <span className="inline-flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-md border border-white/10">✨ AI Creative Direction & Critic</span>
-                  <span className="inline-flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-md border border-white/10">📐 Dynamic Font & Text Measurement</span>
-                  <span className="inline-flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-md border border-white/10">🎯 Natural Language Layer Regeneration</span>
-                  <span className="inline-flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-md border border-white/10">📦 Multi-Format Meta Ads ZIP Export</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigate('/campaign-studio');
-                    if (onOpenCampaignStudio) onOpenCampaignStudio();
-                  }}
-                  className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-bold text-sm rounded-xl shadow-lg hover:shadow-purple-500/30 transition-all transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Icon name="strategy" className="w-4 h-4" />
-                  <span>Launch Campaign Studio V2</span>
-                  <Icon name="arrow-right" className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-[1600px] mx-auto mb-6 px-2 sm:px-4">
             {tools.map((tool) => (
