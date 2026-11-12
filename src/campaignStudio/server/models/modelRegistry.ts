@@ -239,7 +239,30 @@ export const MODEL_REGISTRY: Record<string, RegisteredModel> = {
     defaultFallbackModelId: 'gemini-flash-latest',
   },
 
-  // --- Generative Image Models (Nano Banana Family) ---
+  // --- Generative Image Models (Vertex AI & Nano Banana) ---
+  'gemini-2.5-flash-image': {
+    id: 'gemini-2.5-flash-image',
+    displayName: 'Gemini 2.5 Flash Image (Vertex AI)',
+    provider: 'google-vertex-ai',
+    tasks: ['image_generation_standard', 'image_generation_pro', 'image_generation_lite', 'targeted_regeneration'],
+    inputTypes: ['text', 'image'],
+    outputTypes: ['image'],
+    capabilities: {
+      supportsStructuredJson: false,
+      supportsVisionInput: true,
+      supportsGoogleSearch: false,
+      supportsThinking: false,
+    },
+    lifecycle: {
+      status: 'active',
+      verifiedAt: '2026-11-13',
+      verificationSource: 'Google Cloud Vertex AI Production Models (us-central1)',
+      notes: 'Active image generation model on Google Cloud Vertex AI under postpay direct cloud billing.',
+    },
+    envOverrideVar: 'CAMPAIGN_MODEL_IMAGE_STANDARD',
+    defaultFallbackModelId: 'gemini-2.5-flash-image',
+  },
+
   'gemini-nano-banana-2.1': {
     id: 'gemini-nano-banana-2.1',
     displayName: 'Gemini Nano Banana 2.1 (Standard)',
@@ -509,26 +532,26 @@ export function resolveModelForTask(
     }
 
     case 'image_generation_standard': {
-      primaryCandidate = process.env.CAMPAIGN_MODEL_IMAGE_STANDARD || 'gemini-nano-banana-2.1';
-      fallbackCandidate = 'gemini-3.1-flash-image';
+      primaryCandidate = process.env.CAMPAIGN_MODEL_IMAGE_STANDARD || (isVertex ? 'gemini-2.5-flash-image' : 'gemini-nano-banana-2.1');
+      fallbackCandidate = isVertex ? 'gemini-2.5-flash-image' : 'gemini-3.1-flash-image';
       break;
     }
 
     case 'image_generation_pro': {
-      primaryCandidate = process.env.CAMPAIGN_MODEL_IMAGE_PRO || 'gemini-3-pro-image';
-      fallbackCandidate = 'gemini-nano-banana-2.1';
+      primaryCandidate = process.env.CAMPAIGN_MODEL_IMAGE_PRO || (isVertex ? 'gemini-2.5-flash-image' : 'gemini-3-pro-image');
+      fallbackCandidate = isVertex ? 'gemini-2.5-flash-image' : 'gemini-nano-banana-2.1';
       break;
     }
 
     case 'image_generation_lite': {
-      primaryCandidate = process.env.CAMPAIGN_MODEL_IMAGE_LITE || 'gemini-3.1-flash-lite-image';
-      fallbackCandidate = 'gemini-nano-banana-2.1';
+      primaryCandidate = process.env.CAMPAIGN_MODEL_IMAGE_LITE || (isVertex ? 'gemini-2.5-flash-image' : 'gemini-3.1-flash-lite-image');
+      fallbackCandidate = isVertex ? 'gemini-2.5-flash-image' : 'gemini-nano-banana-2.1';
       break;
     }
 
     case 'targeted_regeneration': {
-      primaryCandidate = process.env.CAMPAIGN_MODEL_IMAGE_STANDARD || 'gemini-nano-banana-2.1';
-      fallbackCandidate = 'gemini-3.1-flash-image';
+      primaryCandidate = process.env.CAMPAIGN_MODEL_IMAGE_STANDARD || (isVertex ? 'gemini-2.5-flash-image' : 'gemini-nano-banana-2.1');
+      fallbackCandidate = isVertex ? 'gemini-2.5-flash-image' : 'gemini-3.1-flash-image';
       break;
     }
 

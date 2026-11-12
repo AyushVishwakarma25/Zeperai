@@ -86,16 +86,8 @@ try {
   console.warn('Persisted config/ai-settings.json loading skipped:', aiSetErr.message);
 }
 
-// Use Vertex AI by default when Vertex credentials are configured; otherwise default to Google AI Studio
-if (process.env.USE_VERTEX_AI === undefined) {
-  const hasVertexCredsOnStartup = Boolean(
-    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON ||
-    process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-    process.env.VERTEX_PROJECT_ID ||
-    (process.env.VERTEX_API_KEY && !process.env.VERTEX_API_KEY.startsWith('AQ.'))
-  );
-  process.env.USE_VERTEX_AI = hasVertexCredsOnStartup ? 'true' : 'false';
-}
+// Use Google Cloud Vertex AI exclusively
+process.env.USE_VERTEX_AI = 'true';
 
 // Clean up any mismatched AI Studio keys mistakenly assigned to VERTEX_API_KEY
 if (process.env.VERTEX_API_KEY && process.env.VERTEX_API_KEY.startsWith('AQ.')) {

@@ -39,11 +39,11 @@ export const MODEL_REGISTRY: Record<InternalModelId, ModelDefinition> = {
   [InternalModelId.NanoBanana2Lite]: {
     id: InternalModelId.NanoBanana2Lite,
     displayName: 'Basic',
-    apiModel: 'gemini-3.1-flash-lite-image',
+    apiModel: 'gemini-2.5-flash-image',
     credits: 1,
     badge: 'Fast & Free',
     tagline: 'Cheapest and fastest generation',
-    description: 'Ultra-fast, cost-effective generation optimized for rapid prototyping, background cleanup, and high-volume iterations.',
+    description: 'Ultra-fast, cost-effective generation optimized for rapid prototyping, background cleanup, and high-volume iterations on Vertex AI.',
     recommendedFor: [
       'Simple product backgrounds',
       'Basic variations & colorways',
@@ -56,11 +56,11 @@ export const MODEL_REGISTRY: Record<InternalModelId, ModelDefinition> = {
   [InternalModelId.NanoBanana2]: {
     id: InternalModelId.NanoBanana2,
     displayName: 'Standard',
-    apiModel: 'gemini-nano-banana-2.1',
+    apiModel: 'gemini-2.5-flash-image',
     credits: 1,
     badge: 'Standard Quality',
     tagline: 'Balanced quality, speed and cost',
-    description: 'General-purpose studio workhorse delivering rich textures, natural studio lighting, and high-CTR social media ad creatives.',
+    description: 'General-purpose studio workhorse on Vertex AI delivering rich textures, natural studio lighting, and high-CTR social media ad creatives.',
     recommendedFor: [
       'Product photography & studio backdrops',
       'Lifestyle & tabletop scenes',
@@ -73,11 +73,11 @@ export const MODEL_REGISTRY: Record<InternalModelId, ModelDefinition> = {
   [InternalModelId.NanoBananaPro]: {
     id: InternalModelId.NanoBananaPro,
     displayName: 'Premium',
-    apiModel: 'gemini-3-pro-image',
+    apiModel: 'gemini-2.5-flash-image',
     credits: 2,
     badge: 'Pro Flagship',
     tagline: 'Highest-quality professional asset generation',
-    description: 'Flagship generative model engineered for intricate textures, precise brand consistency, complex multi-reference compositions, and text rendering.',
+    description: 'Flagship generative model on Vertex AI engineered for intricate textures, precise brand consistency, complex multi-reference compositions, and text rendering.',
     recommendedFor: [
       'Complex multi-product compositions',
       'High-end print & billboard advertising',
