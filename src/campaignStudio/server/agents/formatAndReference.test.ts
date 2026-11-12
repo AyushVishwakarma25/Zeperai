@@ -437,13 +437,18 @@ test('acceptance: simulates 5 diverse advertising reference designs, extracts DN
     assert.ok(c.blueprint);
     const val = validateCreativeBlueprint(c.blueprint);
     assert.equal(val.ok, true, `Blueprint for ${c.id} must be valid: ${val.error}`);
-    // Reference 1's layoutType should be inherited when no format was specified in the concept
-    assert.equal(c.blueprint.advertisingFormat, 'Promotional Retail Poster');
     // Visual density should match Ref 1's 'bold'
     assert.equal(c.blueprint.designIntensity, 'bold');
     // Reading order should match Ref 1's reading order
     assert.deepEqual(c.blueprint.layout.readingOrder, ['badge', 'main_headline', 'product', 'cta']);
   }
+  // Controlling reference layoutType is prioritized and diversified across campaign
+  assert.ok(
+    parsed1.concepts.some((c) => c.blueprint?.advertisingFormat === 'Promotional Retail Poster'),
+    'Promotional Retail Poster must be allocated to a campaign concept',
+  );
+  assert.ok(parsed1.diversityReport);
+  assert.ok(parsed1.diversityReport.uniqueFormatsCount >= 4, 'Must allocate diverse formats across campaign');
 
   // Test blueprint generation with Reference 2 (Editorial Luxury)
   const parsed2 = parseCreativeDirection(
@@ -460,16 +465,21 @@ test('acceptance: simulates 5 diverse advertising reference designs, extracts DN
     assert.ok(c.blueprint);
     const val = validateCreativeBlueprint(c.blueprint);
     assert.equal(val.ok, true, `Blueprint for ${c.id} must be valid: ${val.error}`);
-    // Reference 2's layoutType should be inherited
-    assert.equal(c.blueprint.advertisingFormat, 'Editorial Product Advertisement');
     // Visual density should match Ref 2's 'minimal'
     assert.equal(c.blueprint.designIntensity, 'minimal');
     // Reading order should match Ref 2's editorial reading order
     assert.deepEqual(c.blueprint.layout.readingOrder, ['logo', 'main_headline', 'product', 'subheadline', 'cta']);
   }
+  // Controlling reference layoutType is prioritized and diversified across campaign
+  assert.ok(
+    parsed2.concepts.some((c) => c.blueprint?.advertisingFormat === 'Editorial Product Advertisement'),
+    'Editorial Product Advertisement must be allocated to a campaign concept',
+  );
+  assert.ok(parsed2.diversityReport);
+  assert.ok(parsed2.diversityReport.uniqueFormatsCount >= 4, 'Must allocate diverse formats across campaign');
 
   // Contrast proof: Ref 1 and Ref 2 produced clearly distinct advertising blueprints from the same concepts
-  assert.notEqual(parsed1.concepts[0].blueprint?.advertisingFormat, parsed2.concepts[0].blueprint?.advertisingFormat);
+  assert.notDeepEqual(parsed1.concepts.map((c) => c.blueprint?.advertisingFormat), parsed2.concepts.map((c) => c.blueprint?.advertisingFormat));
   assert.notEqual(parsed1.concepts[0].blueprint?.designIntensity, parsed2.concepts[0].blueprint?.designIntensity);
   assert.notDeepEqual(parsed1.concepts[0].blueprint?.layout.readingOrder, parsed2.concepts[0].blueprint?.layout.readingOrder);
 });

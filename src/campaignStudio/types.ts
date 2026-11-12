@@ -241,6 +241,44 @@ export interface AdvertisingFormatDefinition {
   suitableGraphicElements: string[];
   commonMistakesToAvoid: string[];
   defaultLayoutElements?: NormalizedBoundingBox[];
+  visualStructure?: string;
+}
+
+export interface FormatAssignment {
+  conceptId: string;
+  pillar: string;
+  format: AdvertisingFormatDefinition;
+  rationale: string;
+  score?: number;
+  isPreselected?: boolean;
+  isLocked?: boolean;
+  wasReassigned?: boolean;
+  reassignmentReason?: string;
+}
+
+export interface CampaignFormatDiversityReport {
+  totalConcepts: number;
+  uniqueFormatsCount: number;
+  formatDistribution: Record<string, number>;
+  structuralDistribution: Record<string, number>;
+  repeatedFormats: Array<{
+    formatId: string;
+    formatName: string;
+    count: number;
+    assignedConceptIds: string[];
+    reasonForRepeat: string;
+  }>;
+  diversityScore: number;
+  exceptions: Array<{
+    conceptId: string;
+    type: 'locked_format' | 'duplicate_allowed' | 'fallback_applied' | 'structural_compromise';
+    description: string;
+  }>;
+}
+
+export interface CampaignFormatAllocationResult {
+  assignments: FormatAssignment[];
+  diversityReport: CampaignFormatDiversityReport;
 }
 
 export type CreativeLayerType =
@@ -728,6 +766,9 @@ export interface CreativeConcept {
   composition: string;
   /** V2 Creative Blueprint advertising design specification. */
   blueprint?: CreativeBlueprint;
+  /** When true, format allocation will strictly preserve the chosen advertising format */
+  isLocked?: boolean;
+  formatLocked?: boolean;
 }
 
 /** Agent 5 (creative_direction / AI Art Director). Concepts must cover the strategy's creativeMix exactly (validated). */
@@ -741,6 +782,8 @@ export interface CreativeDirection {
   thingsToAvoid: string[];
   /** V2 structured blueprints for every concept in the creative direction. */
   blueprints?: CreativeBlueprint[];
+  /** Campaign-wide advertising format diversity report */
+  diversityReport?: CampaignFormatDiversityReport;
 }
 
 /** Agent 6 (master_prompts). One prompt per concept, ready for the image model. */

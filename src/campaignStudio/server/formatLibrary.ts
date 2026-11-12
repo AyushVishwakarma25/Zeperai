@@ -382,12 +382,41 @@ export const ADVERTISING_FORMATS: AdvertisingFormatDefinition[] = [
 
 const FORMATS_BY_ID = new Map(ADVERTISING_FORMATS.map((f) => [f.id, f]));
 
+export const FORMAT_VISUAL_STRUCTURES: Record<string, string> = {
+  'promotional-retail-poster': 'hero_centered',
+  'editorial-product-ad': 'hero_centered',
+  'product-hero-ad': 'hero_centered',
+  'seasonal-festival-ad': 'hero_centered',
+  'dynamic-product-ad': 'dynamic_diagonal',
+  'ingredient-feature-spotlight': 'annotated_grid',
+  'benefit-infographic': 'annotated_grid',
+  'comparison-ad': 'split_comparative',
+  'problem-solution-ad': 'split_comparative',
+  'offer-led-ad': 'multi_product_lineup',
+  'product-range-ad': 'multi_product_lineup',
+  'lifestyle-ad': 'lifestyle_in_situ',
+  'founder-expert-led-ad': 'lifestyle_in_situ',
+  'social-proof-ad': 'social_card',
+  'typography-first-ad': 'copy_dominant',
+};
+
+export function getFormatVisualStructure(formatId: string): string {
+  return FORMAT_VISUAL_STRUCTURES[formatId] || 'hero_centered';
+}
+
 export function getAdvertisingFormat(id: string): AdvertisingFormatDefinition | undefined {
-  return FORMATS_BY_ID.get(id);
+  const fmt = FORMATS_BY_ID.get(id);
+  if (fmt && !fmt.visualStructure) {
+    fmt.visualStructure = getFormatVisualStructure(fmt.id);
+  }
+  return fmt;
 }
 
 export function listAdvertisingFormats(): AdvertisingFormatDefinition[] {
-  return [...ADVERTISING_FORMATS];
+  return ADVERTISING_FORMATS.map((f) => ({
+    ...f,
+    visualStructure: f.visualStructure || getFormatVisualStructure(f.id),
+  }));
 }
 
 /**

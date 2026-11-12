@@ -334,6 +334,21 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
         activeThinking = undefined;
         continue;
       }
+      if (
+        err instanceof GeminiCallError &&
+        activeModel !== fallbackModel &&
+        (err.status === 404 ||
+          err.message.toLowerCase().includes('not found') ||
+          err.message.toLowerCase().includes('does not have access') ||
+          err.message.toLowerCase().includes('publisher model'))
+      ) {
+        console.warn(
+          `[campaign-studio] Model ${activeModel} not available on backend (${err.message}), falling back to ${fallbackModel}...`
+        );
+        activeModel = fallbackModel;
+        activeThinking = undefined;
+        continue;
+      }
       if (!(err instanceof GeminiCallError) || err.kind !== 'transient' || attempt >= maxAttempts) throw err;
       const wait = backoffMs * 2 ** (attempt - 1) + Math.floor(Math.random() * 250);
       if (wait >= remaining() - minRemaining) throw err; // no time left to retry

@@ -33,6 +33,8 @@ import { brandForPrompt, requireBrand, requireStrategy, strategyForPrompt } from
 import { str, strList } from './normalize.js';
 import { UNTRUSTED_DATA_RULE, feedbackBlock, fence } from './promptUtils.js';
 import { reconcileMultiReferences } from './referenceAnalyst.js';
+import { allocateCampaignFormats } from './formatStrategist.js';
+import { getAdvertisingFormat } from '../formatLibrary.js';
 import type { AgentImpl, AgentRunContext, AgentRunResult } from './types.js';
 
 const S = { type: 'STRING' } as const;
@@ -346,6 +348,41 @@ export function parseCreativeDirection(
     });
   }
 
+  // Holistic campaign-wide advertising format allocation pass
+  let diversityReport;
+  if (concepts.length > 0) {
+    const reconciled = options?.references && options.references.length > 0
+      ? reconcileMultiReferences(options.references)
+      : undefined;
+
+    const allocation = allocateCampaignFormats({
+      concepts,
+      strategy: options?.strategy,
+      goal: options?.strategy?.objective || 'sales',
+      category: options?.brand?.industry || 'd2c',
+      referenceDesignDNA: reconciled?.controllingLayout?.design_dna,
+      options: {
+        enforceStructuralDiversity: true,
+      },
+    });
+
+    diversityReport = allocation.diversityReport;
+
+    for (let i = 0; i < concepts.length; i++) {
+      const assignment = allocation.assignments.find((a) => a.conceptId === concepts[i].id) || allocation.assignments[i];
+      if (assignment && concepts[i].blueprint) {
+        concepts[i].blueprint!.advertisingFormat = assignment.formatName;
+        // If layoutElements was not explicitly provided by the model, populate default elements from allocated format
+        if (!concepts[i].blueprint!.layout.elements || concepts[i].blueprint!.layout.elements.length === 0) {
+          const formatDef = getAdvertisingFormat(assignment.formatId);
+          if (formatDef?.defaultLayoutElements && formatDef.defaultLayoutElements.length > 0) {
+            concepts[i].blueprint!.layout.elements = [...formatDef.defaultLayoutElements];
+          }
+        }
+      }
+    }
+  }
+
   return {
     visualTheme,
     moodKeywords: strList(r.moodKeywords, 8, 40),
@@ -355,6 +392,7 @@ export function parseCreativeDirection(
     concepts,
     thingsToAvoid: strList(r.thingsToAvoid, 8, 200),
     blueprints: concepts.map((c) => c.blueprint!),
+    diversityReport,
   };
 }
 

@@ -279,7 +279,28 @@ export const getAI = () => {
                         config: finalConfig 
                     });
                 } catch (callErr: any) {
-                    const cMsg = callErr?.message || '';
+                    const cMsg = String(callErr?.message || '');
+                    const isNotFound = cMsg.includes('404') || cMsg.includes('NOT_FOUND') || cMsg.includes('not found') || cMsg.includes('does not have access') || cMsg.includes('Publisher model');
+                    if (useVertex && isNotFound && targetModel !== 'gemini-2.5-flash') {
+                        console.warn(`[config/ai] Vertex model ${targetModel} not found or no access, falling back to gemini-2.5-flash...`);
+                        try {
+                            return await ai.models.generateContent({
+                                model: 'gemini-2.5-flash',
+                                contents: normalizedContents,
+                                config: finalConfig
+                            });
+                        } catch (fallbackErr: any) {
+                            if (finalConfig.thinkingConfig && String(fallbackErr?.message || '').toLowerCase().includes('thinking')) {
+                                const { thinkingConfig, ...noThinkingConfig } = finalConfig;
+                                return await ai.models.generateContent({
+                                    model: 'gemini-2.5-flash',
+                                    contents: normalizedContents,
+                                    config: noThinkingConfig
+                                });
+                            }
+                            throw fallbackErr;
+                        }
+                    }
                     if (useVertex && (cMsg.includes('404') || cMsg.includes('NOT_FOUND') || cMsg.includes('no longer available')) && targetModel === 'gemini-2.5-flash') {
                         try {
                             return await ai.models.generateContent({
