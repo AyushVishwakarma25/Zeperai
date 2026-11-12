@@ -16,8 +16,16 @@ import {
   escapeXml,
   renderCreativeDocumentToSvg,
   svgToDataUri,
+  validateCreativeDocumentTypography,
   wrapText,
 } from './svgRenderer.js';
+import {
+  measureCharWidth,
+  measureTextLayout,
+  measureTextWidth,
+  normalizeFontWeight,
+  resolveFontCategory,
+} from './textMeasurer.js';
 import { buildAssetGenerationPrompt } from '../agents/assetGenerator.js';
 import { BRAND, STRATEGY } from '../agents/fixtures.js';
 import { createDefaultBlueprintFromConcept } from '../blueprintSchema.js';
@@ -394,4 +402,146 @@ test('acceptance: produces 5 distinct, finished advertisements across required c
   assert.equal(editorialAd.document.designIntensity, 'minimal');
   assert.ok(editorialAd.svg.includes('Playfair Display'), 'Editorial ad must use Playfair Display serif');
   assert.ok(retailAd.svg.includes('50% OFF TODAY'), 'Retail ad must include promotional offer badge');
+});
+
+// ---------------------------------------------------------------------------
+// 5. Deterministic Typography Measurement & Validation Tests
+// ---------------------------------------------------------------------------
+
+test('textMeasurer: resolves font categories and normalizes weights', () => {
+  assert.equal(resolveFontCategory('Poppins'), 'geometric');
+  assert.equal(resolveFontCategory('Inter'), 'neutral');
+  assert.equal(resolveFontCategory('Playfair Display'), 'serif');
+  assert.equal(resolveFontCategory('Anton'), 'condensed');
+
+  assert.equal(normalizeFontWeight('bold'), 700);
+  assert.equal(normalizeFontWeight('black'), 900);
+  assert.equal(normalizeFontWeight('extra-bold'), 800);
+  assert.equal(normalizeFontWeight('medium'), 500);
+  assert.equal(normalizeFontWeight(900), 900);
+  assert.equal(normalizeFontWeight('invalid'), 400);
+});
+
+test('textMeasurer: exact character metrics across font families and weights', () => {
+  // Bold must be strictly wider than regular
+  const regularW = measureCharWidth('A', 'Poppins', 400, 32);
+  const boldW = measureCharWidth('A', 'Poppins', 800, 32);
+  assert.ok(boldW > regularW, `Bold width (${boldW}) must be greater than regular (${regularW})`);
+
+  // Narrow characters must be narrower than standard characters
+  const narrowW = measureCharWidth('i', 'Inter', 400, 32);
+  const standardW = measureCharWidth('n', 'Inter', 400, 32);
+  const wideW = measureCharWidth('W', 'Inter', 400, 32);
+  assert.ok(narrowW < standardW, 'Narrow letter "i" must be narrower than "n"');
+  assert.ok(wideW > standardW, 'Wide letter "W" must be wider than "n"');
+
+  // Currency symbols must measure with valid width
+  const inrW = measureCharWidth('₹', 'Poppins', 700, 32);
+  assert.ok(inrW > 15 && inrW < 25, `Expected valid INR glyph width, got ${inrW}`);
+
+  // Measure full string with letter spacing
+  const headline = 'Buy 1 Get 1 Free - ₹999';
+  const widthNoSpacing = measureTextWidth(headline, { fontFamily: 'Poppins', fontSize: 24 });
+  const widthWithSpacing = measureTextWidth(headline, { fontFamily: 'Poppins', fontSize: 24, letterSpacing: 1.5 });
+  assert.ok(widthWithSpacing > widthNoSpacing, 'Letter spacing must increase overall text width');
+});
+
+test('textMeasurer: wraps multi-line text deterministically and caps maxLines', () => {
+  const longHeadline = 'Transform Your Health With Pure Cold Pressed Botanical Nutrition Delivered Straight To Your Door';
+  const layout = measureTextLayout(longHeadline, {
+    fontFamily: 'Poppins',
+    fontWeight: 700,
+    fontSize: 36,
+    maxWidthPx: 600,
+    maxLines: 4,
+  });
+
+  assert.ok(layout.lines.length >= 3 && layout.lines.length <= 4, `Expected 3-4 wrapped lines, got ${layout.lines.length}`);
+  assert.ok(layout.totalWidth <= 605, `Total width (${layout.totalWidth}) must not exceed maxWidth (600)`);
+  assert.ok(layout.totalHeight > 0);
+  assert.equal(layout.truncated, false);
+
+  // Exceed max lines triggers truncation warning
+  const cappedLayout = measureTextLayout(longHeadline, {
+    fontFamily: 'Poppins',
+    fontWeight: 700,
+    fontSize: 48,
+    maxWidthPx: 300,
+    maxLines: 2,
+  });
+  assert.equal(cappedLayout.lines.length, 2);
+  assert.equal(cappedLayout.truncated, true);
+  assert.ok(cappedLayout.lines[1].endsWith('…'), 'Truncated line must end with ellipsis');
+  assert.ok(cappedLayout.warnings.some((w) => w.includes('truncated')));
+});
+
+test('svgRenderer: prevents CTA button clipping by auto-padding container', () => {
+  const doc: CreativeDocument = {
+    id: 'doc-cta-test',
+    conceptId: 'c1',
+    version: 1,
+    advertisingFormat: 'Promotional Retail Poster',
+    designIntensity: 'bold',
+    canvas: { width: 1080, height: 1080, aspectRatio: '1:1' },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    layers: [
+      {
+        id: 'layer-bg',
+        name: 'Background',
+        type: 'background',
+        zIndex: 0,
+        position: { x: 0, y: 0, width: 1, height: 1 },
+        styles: { backgroundColor: '#000000' },
+      },
+      {
+        id: 'layer-cta',
+        name: 'CTA Button',
+        type: 'cta',
+        zIndex: 30,
+        // Given intentionally small initial width (10% of 1080 = 108px)
+        position: { x: 0.35, y: 0.8, width: 0.1, height: 0.06 },
+        content: 'Claim 50% Off First Subscription Now',
+        styles: { backgroundColor: '#2563EB', textColor: '#FFFFFF', fontSize: 18 },
+      },
+    ],
+  };
+
+  const svg = renderCreativeDocumentToSvg(doc);
+  // Button width in SVG rect must have been auto-expanded to fit measured text + padding
+  const rectMatch = svg.match(/<rect[^>]+width="(\d+)"/);
+  assert.ok(rectMatch, 'Must render rect for CTA');
+  const renderedWidth = parseInt(rectMatch[1], 10);
+  assert.ok(renderedWidth > 200, `CTA rect width (${renderedWidth}px) must be expanded beyond initial 108px to prevent text clipping`);
+  assert.ok(svg.includes('CLAIM 50% OFF FIRST SUBSCRIPTION NOW'));
+});
+
+test('svgRenderer: validateCreativeDocumentTypography surfaces warnings for overflowing copy', () => {
+  const overflowingDoc: CreativeDocument = {
+    id: 'doc-overflow',
+    conceptId: 'c2',
+    version: 1,
+    advertisingFormat: 'Pure Product Hero',
+    designIntensity: 'minimal',
+    canvas: { width: 1080, height: 1080, aspectRatio: '1:1' },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    layers: [
+      {
+        id: 'layer-text-huge',
+        name: 'Massive Copy',
+        type: 'text',
+        zIndex: 10,
+        // Width 100px with fontSize 40
+        position: { x: 0.1, y: 0.1, width: 0.08, height: 0.04 },
+        content: 'Supercalifragilisticexpialidocious Nutrition Formula',
+        styles: { fontSize: 40, fontFamily: 'Poppins' },
+      },
+    ],
+  };
+
+  const validation = validateCreativeDocumentTypography(overflowingDoc);
+  assert.equal(validation.valid, false);
+  assert.ok(validation.warnings.length > 0);
+  assert.ok(validation.warnings.some((w) => w.includes('exceeds')));
 });

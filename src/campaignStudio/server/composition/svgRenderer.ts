@@ -7,6 +7,13 @@
  */
 
 import type { CreativeDocument, CreativeLayer } from '../../types.js';
+import {
+  measureTextLayout,
+  measureTextWidth,
+  normalizeFontWeight,
+  resolveFontCategory,
+  type TextLayoutResult,
+} from './textMeasurer.js';
 
 export function escapeXml(str: string): string {
   return str
@@ -18,35 +25,23 @@ export function escapeXml(str: string): string {
 }
 
 /**
- * Splits text into lines that fit within a specified pixel width.
+ * Splits text into lines that fit within a specified pixel width using calibrated glyph metrics.
  */
-export function wrapText(text: string, maxWidthPx: number, fontSizePx: number, fontFamily: string): string[] {
+export function wrapText(
+  text: string,
+  maxWidthPx: number,
+  fontSizePx: number,
+  fontFamily: string = 'Poppins',
+  fontWeight: number | string = 700,
+): string[] {
   if (!text) return [];
-  // Approximate average character width based on font category
-  const isCondensed = /anton|condensed/i.test(fontFamily);
-  const isSerif = /serif|playfair/i.test(fontFamily);
-  const avgCharWidth = fontSizePx * (isCondensed ? 0.42 : isSerif ? 0.52 : 0.55);
-
-  const maxCharsPerLine = Math.max(8, Math.floor(maxWidthPx / avgCharWidth));
-  const words = text.trim().split(/\s+/);
-  const lines: string[] = [];
-  let currentLine = '';
-
-  for (const word of words) {
-    if (!currentLine) {
-      currentLine = word;
-    } else if ((currentLine + ' ' + word).length <= maxCharsPerLine) {
-      currentLine += ' ' + word;
-    } else {
-      lines.push(currentLine);
-      currentLine = word;
-    }
-  }
-  if (currentLine) {
-    lines.push(currentLine);
-  }
-
-  return lines;
+  const layout = measureTextLayout(text, {
+    fontFamily,
+    fontWeight,
+    fontSize: fontSizePx,
+    maxWidthPx,
+  });
+  return layout.lines;
 }
 
 /**
@@ -80,8 +75,22 @@ export function renderCreativeDocumentToSvg(doc: CreativeDocument): string {
   <defs>
     <style><![CDATA[
       @import url('https://fonts.googleapis.com/css2?${fontFamiliesQuery}&display=swap');
+      @font-face {
+        font-family: 'Poppins';
+        src: local('Poppins'), local('Poppins-Regular'), local('Segoe UI'), local('Roboto');
+      }
+      @font-face {
+        font-family: 'Inter';
+        src: local('Inter'), local('Inter-Regular'), local('Segoe UI'), local('Helvetica Neue');
+      }
+      @font-face {
+        font-family: 'Playfair Display';
+        src: local('Playfair Display'), local('PlayfairDisplay-Regular'), local('Georgia'), local('Times New Roman');
+      }
       text {
         user-select: none;
+        font-feature-settings: "kern" 1, "liga" 1;
+        -webkit-font-smoothing: antialiased;
       }
     ]]></style>
     <!-- Realistic Product Ground Cast Shadow Filter -->
@@ -220,12 +229,25 @@ function renderPillLayer(layer: CreativeLayer, x: number, y: number, w: number, 
   const strokeAttr = borderColor !== 'none' ? `stroke="${escapeXml(borderColor)}" stroke-width="${borderWidth}"` : '';
   const displayText = isUppercase ? text.toUpperCase() : text;
 
-  const textX = x + Math.round(w / 2);
+  // Exact glyph measurement: prevent CTA and badge text truncation
+  const measuredWidth = measureTextWidth(displayText, {
+    fontFamily,
+    fontWeight,
+    fontSize,
+    letterSpacing: 0.5,
+  });
+
+  const minPadding = layer.type === 'badge' ? 24 : 36;
+  const neededWidth = Math.round(measuredWidth + minPadding);
+  const actualW = Math.max(w, neededWidth);
+  const actualX = actualW > w ? Math.max(0, x - Math.round((actualW - w) / 2)) : x;
+
+  const textX = actualX + Math.round(actualW / 2);
   const textY = y + Math.round(h / 2) + Math.round(fontSize * 0.35);
 
   return `    <!-- Layer: ${layer.type === 'badge' ? 'Badge' : 'CTA Button'} (${escapeXml(layer.name)}) -->
     <g id="${escapeXml(layer.id)}" filter="url(#button-shadow)">
-      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${radius}" fill="${escapeXml(bg)}" ${strokeAttr} />
+      <rect x="${actualX}" y="${y}" width="${actualW}" height="${h}" rx="${radius}" fill="${escapeXml(bg)}" ${strokeAttr} />
       <text x="${textX}" y="${textY}" text-anchor="middle" font-family="${escapeXml(fontFamily)}" font-size="${fontSize}" font-weight="${fontWeight}" fill="${escapeXml(textColor)}" letter-spacing="0.5">
         ${escapeXml(displayText)}
       </text>
@@ -251,12 +273,22 @@ function renderTextLayer(layer: CreativeLayer, x: number, y: number, w: number, 
   const fontWeight = (layer.styles.fontWeight as number | string) || 700;
   const color = (layer.styles.color as string) || '#FFFFFF';
   const align = (layer.styles.alignment as string) || 'left';
-  const fontSize = Math.max(18, parseNumericStyle(layer.styles.fontSize, Math.round(h * 0.35)));
-  const lineHeight = Math.round(fontSize * 1.18);
+  const fontSize = Math.max(16, parseNumericStyle(layer.styles.fontSize, Math.round(h * 0.35)));
   const isUppercase = layer.styles.textTransform === 'uppercase';
-  const displayText = isUppercase ? text.toUpperCase() : text;
+  const letterSpacing = parseNumericStyle(layer.styles.letterSpacing, -0.2);
 
-  const lines = wrapText(displayText, w, fontSize, fontFamily);
+  const layout = measureTextLayout(text, {
+    fontFamily,
+    fontWeight,
+    fontSize,
+    letterSpacing,
+    maxWidthPx: w,
+    maxHeightPx: h,
+    textTransform: isUppercase ? 'uppercase' : 'none',
+  });
+
+  const lineHeight = layout.lineHeight;
+  const lines = layout.lines;
 
   let anchor = 'start';
   let textX = x;
@@ -274,9 +306,13 @@ function renderTextLayer(layer: CreativeLayer, x: number, y: number, w: number, 
     return `<tspan x="${textX}" dy="${dy}">${escapeXml(line)}</tspan>`;
   });
 
-  return `    <!-- Layer: Text (${escapeXml(layer.name)}) -->
+  const warningComment = layout.warnings.length > 0
+    ? `\n      <!-- Typography warnings: ${layout.warnings.map(escapeXml).join('; ')} -->`
+    : '';
+
+  return `    <!-- Layer: Text (${escapeXml(layer.name)})${warningComment} -->
     <g id="${escapeXml(layer.id)}" filter="url(#text-glow-shadow)">
-      <text x="${textX}" y="${startY}" text-anchor="${anchor}" font-family="${escapeXml(fontFamily)}" font-size="${fontSize}" font-weight="${fontWeight}" fill="${escapeXml(color)}" letter-spacing="-0.2">
+      <text x="${textX}" y="${startY}" text-anchor="${anchor}" font-family="${escapeXml(fontFamily)}" font-size="${fontSize}" font-weight="${fontWeight}" fill="${escapeXml(color)}" letter-spacing="${letterSpacing}">
         ${tspans.join('\n        ')}
       </text>
     </g>`;
@@ -322,5 +358,56 @@ function renderLogoLayer(layer: CreativeLayer, x: number, y: number, w: number, 
 export function svgToDataUri(svg: string): string {
   const base64 = Buffer.from(svg, 'utf-8').toString('base64');
   return `data:image/svg+xml;base64,${base64}`;
+}
+
+/**
+ * Validates text-fit and typography constraints across all layers of a CreativeDocument.
+ * Returns structured warnings rather than silently shrinking all elements.
+ */
+export function validateCreativeDocumentTypography(doc: CreativeDocument): {
+  valid: boolean;
+  warnings: string[];
+} {
+  const warnings: string[] = [];
+  const { width, height } = doc.canvas;
+
+  for (const layer of doc.layers) {
+    if (layer.visible === false) continue;
+    const w = Math.round(layer.position.width * width);
+    const h = Math.round(layer.position.height * height);
+
+    if (layer.type === 'text') {
+      const text = layer.content || '';
+      const fontFamily = (layer.styles.fontFamily as string) || 'Poppins';
+      const fontWeight = (layer.styles.fontWeight as number | string) || 700;
+      const fontSize = Math.max(16, parseNumericStyle(layer.styles.fontSize, Math.round(h * 0.35)));
+      const layout = measureTextLayout(text, {
+        fontFamily,
+        fontWeight,
+        fontSize,
+        maxWidthPx: w,
+        maxHeightPx: h,
+        textTransform: layer.styles.textTransform === 'uppercase' ? 'uppercase' : 'none',
+      });
+      for (const warning of layout.warnings) {
+        warnings.push(`Layer "${layer.name || layer.id}": ${warning}`);
+      }
+    } else if (layer.type === 'cta' || layer.type === 'badge') {
+      const text = layer.content || '';
+      const fontFamily = (layer.styles.fontFamily as string) || 'Poppins';
+      const fontWeight = (layer.styles.fontWeight as number | string) || 800;
+      const fontSize = Math.max(14, parseNumericStyle(layer.styles.fontSize, Math.round(h * 0.45)));
+      const textWidth = measureTextWidth(text, { fontFamily, fontWeight, fontSize, letterSpacing: 0.5 });
+      const minPadding = layer.type === 'badge' ? 24 : 36;
+      if (textWidth + minPadding > w * 1.5) {
+        warnings.push(`Pill "${layer.name || layer.id}": text width (${Math.round(textWidth)}px) significantly exceeds base container width (${w}px).`);
+      }
+    }
+  }
+
+  return {
+    valid: warnings.length === 0,
+    warnings,
+  };
 }
 
