@@ -11,7 +11,7 @@
 
 import { getAI } from '../../../../config/ai.js';
 import type { CampaignReference, ReferenceDesignDNA, ReferenceMode, ReferenceRole } from '../../types.js';
-import { resolveTextModel } from '../config.js';
+import { resolveModelForTask, resolveTextModel } from '../config.js';
 import { extractJson, type GenAIClientLike } from '../gemini.js';
 import { safeFetch as defaultSafeFetch, type SafeFetcher } from '../safeFetch.js';
 import { fetchReferenceImagePart } from './creatives.js';
@@ -101,7 +101,8 @@ export async function analyzeReferenceImage(params: {
   }
 
   const ai = client ?? getAI();
-  const model = resolveTextModel('flash');
+  const resolution = resolveModelForTask('reference_analysis');
+  const model = resolution.model;
 
   const roleInstruction =
     referenceRole !== 'general'

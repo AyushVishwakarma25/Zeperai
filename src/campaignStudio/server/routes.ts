@@ -30,7 +30,11 @@ import {
 import { approveGate, cancelRun, editAgentOutput, regenerateAgentStep, regenerateSingleCreativeStep, runAgentStep, type EngineContext } from './engine.js';
 import type { GenAIClientLike } from './gemini.js';
 import type { SafeFetcher } from './safeFetch.js';
-import { getCampaignStudioAllowedEmails, isCampaignStudioEnabled } from './config.js';
+import {
+  checkModelConfigurationHealth,
+  getCampaignStudioAllowedEmails,
+  isCampaignStudioEnabled,
+} from './config.js';
 import {
   ALLOWED_ASPECT_RATIOS,
   ALLOWED_PLATFORMS,
@@ -345,6 +349,17 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
       }
       await deleteReference(client, userId(req), refId);
       return res.json({ success: true });
+    }),
+  );
+
+  // Model Configuration Health Check
+  app.get(
+    `${BASE}/models/health`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (_req: Request, res: Response) => {
+      const health = await checkModelConfigurationHealth();
+      return res.json({ success: true, health });
     }),
   );
 

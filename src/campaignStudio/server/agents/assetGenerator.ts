@@ -9,6 +9,7 @@
 import type { CreativeBlueprint } from '../../types.js';
 import { callImageModel, type InlineImagePart } from './creatives.js';
 import type { GenAIClientLike } from '../gemini.js';
+import { resolveModelForTask } from '../models/modelRegistry.js';
 
 export type VisualAssetType =
   | 'background'
@@ -67,7 +68,18 @@ export function buildAssetGenerationPrompt(blueprint: CreativeBlueprint, assetTy
  * Generates an isolated visual asset using the configured image generation model.
  */
 export async function generateVisualAsset(params: GenerateAssetParams): Promise<string> {
-  const { blueprint, assetType = 'environment', model = 'imagen-3.0-generate-002', client, referenceParts = [], aspectRatio } = params;
+  const defaultModel = resolveModelForTask('image_generation_standard').model;
+  const {
+    blueprint,
+    assetType = 'environment',
+    model = defaultModel,
+    client,
+    referenceParts = [],
+    aspectRatio,
+  } = params;
+
+  // Intercept any legacy discontinued Imagen model calls
+  const targetModel = model.includes('imagen') ? defaultModel : model;
 
   const prompt = buildAssetGenerationPrompt(blueprint, assetType);
   const ratio = aspectRatio || blueprint.canvas?.aspectRatio || '4:5';
@@ -76,7 +88,7 @@ export async function generateVisualAsset(params: GenerateAssetParams): Promise<
     prompt,
     negativePrompt: 'text, typography, letters, words, numbers, labels, signs, clutter, low quality, distorted, blurry',
     aspectRatio: ratio,
-    model,
+    model: targetModel,
     client,
     referenceParts,
   });

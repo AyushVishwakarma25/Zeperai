@@ -14,6 +14,7 @@
  */
 
 import { ThinkingLevel } from '@google/genai';
+import { recordModelFallback } from './models/modelRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -90,6 +91,9 @@ export interface StructuredCallOptions<T> {
 export interface StructuredResult<T> {
   data: T;
   model: string;
+  requestedModel?: string;
+  fallbackApplied?: boolean;
+  fallbackReason?: string;
   usage: TokenUsage;
   /** Total model calls made (retries and repair included). */
   attempts: number;
@@ -244,6 +248,8 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
 
   let activeModel = opts.model;
   let activeThinking = opts.thinkingLevel;
+  let fallbackApplied = false;
+  let fallbackReason: string | undefined = undefined;
   const fallbackModel = 'gemini-flash-latest';
 
   const buildConfig = (withTools: boolean): Record<string, unknown> => {
@@ -355,6 +361,14 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
         console.warn(
           `[campaign-studio] Pro model ${activeModel} unavailable on backend (${err.kind}, status=${err.status}), falling back to ${fallbackModel}...`
         );
+        fallbackApplied = true;
+        fallbackReason = `Pro model ${activeModel} unavailable on backend (${err.kind}, status=${err.status})`;
+        recordModelFallback(
+          'reasoning_strategy',
+          activeModel,
+          fallbackModel,
+          fallbackReason,
+        );
         activeModel = fallbackModel;
         activeThinking = undefined;
         continue;
@@ -374,7 +388,16 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
   // ---- Phase 2: parse + validate, with ONE repair pass ----
   let firstError: string;
   try {
-    return { data: opts.parse(extractJson(firstText)), model: activeModel, usage, attempts: calls, sources };
+    return {
+      data: opts.parse(extractJson(firstText)),
+      model: activeModel,
+      requestedModel: opts.model,
+      fallbackApplied,
+      fallbackReason,
+      usage,
+      attempts: calls,
+      sources,
+    };
   } catch (err: any) {
     firstError = String(err?.message || err).slice(0, 600);
   }
@@ -384,7 +407,16 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
     if (opts.repairFallback) {
       try {
         const healedData = opts.repairFallback(extractJson(firstText));
-        return { data: healedData, model: activeModel, usage, attempts: calls, sources };
+        return {
+          data: healedData,
+          model: activeModel,
+          requestedModel: opts.model,
+          fallbackApplied,
+          fallbackReason,
+          usage,
+          attempts: calls,
+          sources,
+        };
       } catch {}
     }
     throw new GeminiCallError('invalid_output', 'The AI returned an unusable response. Please try again.', calls);
@@ -406,6 +438,9 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
     return {
       data: opts.parse(extractJson(readText(repairResp))),
       model: activeModel,
+      requestedModel: opts.model,
+      fallbackApplied,
+      fallbackReason,
       usage,
       attempts: calls,
       sources,
@@ -423,6 +458,9 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
         return {
           data: healedData,
           model: activeModel,
+          requestedModel: opts.model,
+          fallbackApplied,
+          fallbackReason,
           usage,
           attempts: calls,
           sources,

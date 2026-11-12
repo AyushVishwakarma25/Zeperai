@@ -6,27 +6,45 @@
  */
 
 import type { CampaignAgent } from '../types.js';
+import {
+  resolveModelForTask,
+  checkModelConfigurationHealth,
+  MODEL_REGISTRY,
+  markModelUnavailable,
+  isModelMarkedUnavailable,
+  clearUnavailableModels,
+  recordModelFallback,
+  getFallbackHistory,
+  clearFallbackHistory,
+  type CampaignTask,
+  type ModelHealthCheckResult,
+  type ModelResolutionResult,
+} from './models/modelRegistry.js';
+
+export {
+  resolveModelForTask,
+  checkModelConfigurationHealth,
+  MODEL_REGISTRY,
+  markModelUnavailable,
+  isModelMarkedUnavailable,
+  clearUnavailableModels,
+  recordModelFallback,
+  getFallbackHistory,
+  clearFallbackHistory,
+  type CampaignTask,
+  type ModelHealthCheckResult,
+  type ModelResolutionResult,
+};
 
 export type TextModelTier = 'flash' | 'pro';
 
-/** `gemini-flash-latest` is already used elsewhere in this repo and always resolves to the latest stable Flash. */
-const DEFAULT_FLASH_MODEL = 'gemini-flash-latest';
-/** Preview model: override with CAMPAIGN_MODEL_PRO if Google renames it, or set it equal to the flash model to fall back. */
-const DEFAULT_PRO_MODEL = 'gemini-3.1-pro-preview';
-
-const MODEL_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{2,80}$/i;
-
-function readModelEnv(name: string, fallback: string): string {
-  const raw = (process.env[name] || '').trim();
-  return MODEL_ID_PATTERN.test(raw) ? raw : fallback;
-}
-
+/**
+ * Resolves the appropriate model for general text tiers via central model registry.
+ * Backward-compatible wrapper over resolveModelForTask.
+ */
 export function resolveTextModel(tier: TextModelTier): string {
-  const isVertex = process.env.USE_VERTEX_AI === 'true';
-  const defaultPro = isVertex ? DEFAULT_FLASH_MODEL : DEFAULT_PRO_MODEL;
-  return tier === 'pro'
-    ? readModelEnv('CAMPAIGN_MODEL_PRO', defaultPro)
-    : readModelEnv('CAMPAIGN_MODEL_FLASH', DEFAULT_FLASH_MODEL);
+  const task: CampaignTask = tier === 'pro' ? 'reasoning_strategy' : 'copy_generation';
+  return resolveModelForTask(task).model;
 }
 
 export interface AgentRuntimeConfig {

@@ -15,7 +15,7 @@ import type {
   EvaluationStatus,
   QualityIssue,
 } from '../../types.js';
-import { resolveTextModel } from '../config.js';
+import { resolveModelForTask, resolveTextModel } from '../config.js';
 import { extractJson, type GenAIClientLike } from '../gemini.js';
 import { validateDeterministicQuality } from './qualityRules.js';
 
@@ -107,7 +107,8 @@ export async function evaluateCreative(params: EvaluateCreativeParams): Promise<
 
   try {
     const ai = client ?? getAI();
-    const model = resolveTextModel('flash');
+    const resolution = resolveModelForTask('vision_qa');
+    const model = resolution.model;
     modelId = model;
 
     const promptContext = [
