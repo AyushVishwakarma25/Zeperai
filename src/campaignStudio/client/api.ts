@@ -200,6 +200,14 @@ export function createCampaignApi(deps: CampaignApiDeps) {
         evaluation: CreativeEvaluation;
         actionTaken: string;
       }>('POST', `/runs/${enc(runId)}/creatives/${creativeIndex}/targeted-regenerate`, payload),
+    revertCreative: (runId: string, creativeIndex: number, targetVersion: number) =>
+      request<{
+        success: true;
+        document: CreativeDocument;
+        compositeUrl: string;
+        evaluation: CreativeEvaluation;
+        actionTaken: string;
+      }>('POST', `/runs/${enc(runId)}/creatives/${creativeIndex}/revert`, { targetVersion }),
     adaptCreative: (runId: string, creativeIndex: number, targetRatio: StandardAspectRatio) =>
       request<{
         success: true;

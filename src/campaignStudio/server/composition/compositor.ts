@@ -277,6 +277,7 @@ export function buildCreativeDocument(params: ComposeCreativeParams): CreativeDo
     advertisingFormat: blueprint.advertisingFormat || 'Promotional Product Advertisement',
     designIntensity: intensity,
     canvas,
+    blueprint,
     layers,
     metadata: {
       marketingAngle: blueprint.marketingAngle,

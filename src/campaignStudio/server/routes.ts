@@ -55,7 +55,11 @@ import { analyzeReferenceImage } from './agents/referenceAnalyst.js';
 import { renderCreativeDocumentToSvg, svgToDataUri } from './composition/svgRenderer.js';
 import { buildCreativeDocument, updateLayerInDocument } from './composition/compositor.js';
 import { evaluateCreative } from './evaluation/qualityEvaluator.js';
-import { targetedRegenerateCreative } from './evaluation/targetedRegenerator.js';
+import {
+  targetedRegenerateCreative,
+  executeTargetedRegeneration,
+  revertCreativeToVersion,
+} from './evaluation/targetedRegenerator.js';
 import { adaptCreativeDocument } from './adaptation/creativeAdapter.js';
 import { buildMetaCampaignPackage } from './export/metaPackageGenerator.js';
 import { buildMetaAdPackageZip } from './export/exportArchive.js';
@@ -610,8 +614,10 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         throw new AppError('Invalid creative index', 400, 'Invalid creative index.');
       }
       const component = String(req.body?.component || '');
-      if (!['headline', 'background', 'product', 'badge', 'cta', 'subheadline'].includes(component)) {
-        throw new AppError('Invalid component', 400, 'Valid component required (headline, background, product, badge, cta, subheadline).');
+      const instructions = typeof req.body?.instructions === 'string' ? req.body.instructions : undefined;
+      const validComponents = ['headline', 'background', 'product', 'badge', 'cta', 'subheadline', 'layout', 'typography', 'styling', 'composition'];
+      if (!instructions && (!component || !validComponents.includes(component))) {
+        throw new AppError('Invalid component', 400, 'Valid component required (headline, background, product, badge, cta, subheadline, layout, typography, styling, composition) or natural-language instructions.');
       }
 
       const client = await deps.getAdminSupabaseClient();
@@ -629,18 +635,15 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         return res.status(404).json({ success: false, error: 'Layer document not available for targeted regeneration.' });
       }
 
-      const regenResult = targetedRegenerateCreative({
+      const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
+      const regenResult = await executeTargetedRegeneration({
         doc,
+        blueprint: overlay.blueprint || doc.blueprint,
         component: component as any,
-        instructions: typeof req.body?.instructions === 'string' ? req.body.instructions : undefined,
+        instructions,
         newAssetUrl: typeof req.body?.newAssetUrl === 'string' ? req.body.newAssetUrl : undefined,
         patchStyles: typeof req.body?.patchStyles === 'object' ? req.body.patchStyles : undefined,
         newContent: typeof req.body?.newContent === 'string' ? req.body.newContent : undefined,
-      });
-
-      const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
-      const newEvaluation = await evaluateCreative({
-        doc: regenResult.document,
         brand: runDetail?.run?.brand_context as BrandContext | undefined,
         client: deps.overrides?.geminiClient,
       });
@@ -649,7 +652,7 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         ...overlay,
         document: regenResult.document,
         renderedCompositeUrl: regenResult.compositeUrl,
-        evaluation: newEvaluation,
+        evaluation: regenResult.evaluation,
       };
 
       await updateAsset(client, userId(req), runIdOf(req), creativeIndex, latest.version, {
@@ -660,8 +663,64 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         success: true,
         document: regenResult.document,
         compositeUrl: regenResult.compositeUrl,
-        evaluation: newEvaluation,
+        evaluation: regenResult.evaluation,
         actionTaken: regenResult.actionTaken,
+        changePlan: regenResult.changePlan,
+      });
+    }),
+  );
+
+  // Revert Creative to Specified Earlier Version
+  app.post(
+    `${BASE}/runs/:runId/creatives/:creativeIndex/revert`,
+    deps.requireAuth,
+    campaignGate,
+    deps.aiLimiter,
+    asyncHandler(async (req: Request, res: Response) => {
+      const creativeIndex = parseInt(String(req.params.creativeIndex || ''), 10);
+      if (isNaN(creativeIndex) || creativeIndex < 1 || creativeIndex > MAX_CREATIVES_PER_RUN) {
+        throw new AppError('Invalid creative index', 400, 'Invalid creative index.');
+      }
+      const targetVersion = parseInt(String(req.body?.targetVersion || ''), 10);
+      if (isNaN(targetVersion) || targetVersion < 1) {
+        throw new AppError('Invalid target version', 400, 'Valid targetVersion integer required.');
+      }
+
+      const client = await deps.getAdminSupabaseClient();
+      const assets = await listAssets(client, userId(req), runIdOf(req));
+      const latest = assets
+        .filter((a) => a.creative_index === creativeIndex && a.status !== 'superseded')
+        .sort((a, b) => b.version - a.version)[0];
+      if (!latest) {
+        return res.status(404).json({ success: false, error: 'Creative asset not found.' });
+      }
+
+      const overlay = (latest.overlay || {}) as Record<string, any>;
+      const doc = overlay.document;
+      if (!doc) {
+        return res.status(404).json({ success: false, error: 'Layer document not available for revert.' });
+      }
+
+      const revertResult = revertCreativeToVersion(doc, targetVersion);
+      const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
+
+      const updatedOverlay = {
+        ...overlay,
+        document: revertResult.document,
+        renderedCompositeUrl: revertResult.compositeUrl,
+        evaluation: revertResult.evaluation,
+      };
+
+      await updateAsset(client, userId(req), runIdOf(req), creativeIndex, latest.version, {
+        overlay: updatedOverlay,
+      });
+
+      return res.json({
+        success: true,
+        document: revertResult.document,
+        compositeUrl: revertResult.compositeUrl,
+        evaluation: revertResult.evaluation,
+        actionTaken: revertResult.actionTaken,
       });
     }),
   );

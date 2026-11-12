@@ -350,6 +350,16 @@ export interface CreativeLayer {
   visible?: boolean;
 }
 
+export interface CreativeVersionSnapshot {
+  version: number;
+  document: CreativeDocument;
+  compositeUrl?: string;
+  svg?: string;
+  actionTaken: string;
+  timestamp: string;
+  evaluation?: CreativeEvaluation;
+}
+
 export interface CreativeDocument {
   id: string;
   blueprintId?: string;
@@ -364,6 +374,8 @@ export interface CreativeDocument {
     aspectRatio: string;
   };
   layers: CreativeLayer[];
+  history?: CreativeVersionSnapshot[];
+  blueprint?: CreativeBlueprint;
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
