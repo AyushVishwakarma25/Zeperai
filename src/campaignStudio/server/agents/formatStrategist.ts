@@ -57,9 +57,14 @@ export interface AllocateCampaignFormatsParams {
 }
 
 const DEFAULT_OPTIONS: Required<CampaignFormatDiversityOptions> = {
+  allowDuplicatesThreshold: 0,
+  enforceStructuralDiversity: true,
+  minSuitabilityThreshold: 4,
+  penalizeDuplicateFormats: true,
+  penalizeDuplicateStructures: true,
+  repeatThresholdCount: 1,
   maxRepeatsPerFormat: 1,
   allowStructuralOverlap: false,
-  minSuitabilityThreshold: 4,
   formatRepeatPenalty: 15,
   structuralRepeatPenalty: 5,
 };
@@ -91,7 +96,7 @@ export function evaluateFormatSuitability(params: {
   const gLower = goal.toLowerCase() as CampaignGoal;
   const catLower = category.toLowerCase();
   const pillarLower = (concept.pillar || '').toLowerCase();
-  const angleLower = (concept.angle || '').toLowerCase();
+  const angleLower = ((concept as any).angle || '').toLowerCase();
   const headlineLower = (concept.headline || '').toLowerCase();
   const visualLower = (concept.visualIdea || '').toLowerCase();
   const combinedText = `${pillarLower} ${angleLower} ${headlineLower} ${visualLower}`;
@@ -229,7 +234,7 @@ function isConceptFormatLocked(concept: CreativeConcept): boolean {
     concept.formatLocked ||
     (concept.blueprint as any)?.isLocked ||
     (concept.blueprint as any)?.formatLocked ||
-    (concept.blueprint?.metadata as any)?.formatLocked
+    ((concept.blueprint as any)?.metadata as any)?.formatLocked
   );
 }
 
@@ -600,7 +605,7 @@ export function assignFormatsToConcepts(params: {
   referenceDesignDNA?: ReferenceDesignDNA;
   productImageCount?: number;
   options?: CampaignFormatDiversityOptions;
-} | CreativeConcept[]): FormatAssignment[] {
+} | CreativeConcept[]): FormatAssignment[] & { diversityReport?: CampaignFormatDiversityReport } {
   const result = allocateCampaignFormats(params);
 
   // Attach diversityReport property directly onto returned array for immediate inspection

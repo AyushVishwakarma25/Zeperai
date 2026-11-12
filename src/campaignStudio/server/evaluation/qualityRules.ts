@@ -5,14 +5,16 @@
  * before or in conjunction with AI visual quality evaluation.
  */
 
-import type { CreativeBlueprint, CreativeDocument, QualityIssue } from '../../types.js';
+import type {
+  CreativeBlueprint,
+  CreativeDocument,
+  DeterministicChecksBreakdown,
+  DeterministicCheckDetails,
+  QualityIssue,
+} from '../../types.js';
 import { resolveCanvasDimensions } from '../composition/compositor.js';
 
-export interface DeterministicValidationResult {
-  passed: boolean;
-  failures: string[];
-  issues: QualityIssue[];
-}
+export interface DeterministicValidationResult extends DeterministicCheckDetails {}
 
 /**
  * Validates deterministic advertising requirements on a CreativeDocument and its CreativeBlueprint.
@@ -24,9 +26,20 @@ export function validateDeterministicQuality(
   const failures: string[] = [];
   const issues: QualityIssue[] = [];
 
+  const checks: DeterministicChecksBreakdown = {
+    canvasDimensions: true,
+    productAssetPresent: true,
+    brandLogoPresent: true,
+    headlinePresent: true,
+    ctaPresent: true,
+    offerMatched: true,
+    boundaryContainment: true,
+  };
+
   // 1. Canvas Dimension & Aspect Ratio Validation
   const expectedDimensions = resolveCanvasDimensions(doc.canvas?.aspectRatio);
   if (doc.canvas.width !== expectedDimensions.width || doc.canvas.height !== expectedDimensions.height) {
+    checks.canvasDimensions = false;
     const msg = `Canvas dimension mismatch: expected ${expectedDimensions.width}x${expectedDimensions.height} for aspect ratio ${doc.canvas.aspectRatio}, but got ${doc.canvas.width}x${doc.canvas.height}.`;
     failures.push(msg);
     issues.push({
@@ -40,6 +53,7 @@ export function validateDeterministicQuality(
   // 2. Mandatory Product Asset Presence
   const productLayer = doc.layers.find((l) => l.type === 'product' && l.visible !== false);
   if (!productLayer || !productLayer.content) {
+    checks.productAssetPresent = false;
     const msg = 'Missing required product asset layer. Advertisements must feature a verified product packshot.';
     failures.push(msg);
     issues.push({
@@ -54,6 +68,7 @@ export function validateDeterministicQuality(
   // 3. Mandatory Brand Logo Presence
   const logoLayer = doc.layers.find((l) => l.type === 'logo' && l.visible !== false);
   if (blueprint?.constraints?.preserveLogo && (!logoLayer || (!logoLayer.content && !logoLayer.styles?.imageUrl))) {
+    checks.brandLogoPresent = false;
     const msg = 'Missing required brand logo layer. Brand guidelines mandate brand logo placement.';
     failures.push(msg);
     issues.push({
@@ -68,6 +83,7 @@ export function validateDeterministicQuality(
   // 4. Mandatory Text Completeness (Headline & CTA)
   const headlineLayer = doc.layers.find((l) => l.type === 'text' && l.id === 'layer-headline' && l.visible !== false);
   if (!headlineLayer || !headlineLayer.content || headlineLayer.content.trim().length === 0) {
+    checks.headlinePresent = false;
     const msg = 'Missing mandatory ad headline text. Commercial advertisements require a clear hook.';
     failures.push(msg);
     issues.push({
@@ -81,6 +97,7 @@ export function validateDeterministicQuality(
 
   const ctaLayer = doc.layers.find((l) => l.type === 'cta' && l.visible !== false);
   if (!ctaLayer || !ctaLayer.content || ctaLayer.content.trim().length === 0) {
+    checks.ctaPresent = false;
     const msg = 'Missing mandatory Call-to-Action button.';
     failures.push(msg);
     issues.push({
@@ -103,6 +120,7 @@ export function validateDeterministicQuality(
     );
 
     if (!hasOfferInBadge && !hasOfferInText) {
+      checks.offerMatched = false;
       const msg = `Approved promotional offer "${blueprint.copy.offer}" is missing from ad copy and badges.`;
       failures.push(msg);
       issues.push({
@@ -121,6 +139,7 @@ export function validateDeterministicQuality(
     const { x, y, width, height } = layer.position;
 
     if (x < -0.01 || y < -0.01 || x + width > 1.01 || y + height > 1.01) {
+      checks.boundaryContainment = false;
       const msg = `Element "${layer.name}" (id: ${layer.id}) overflows canvas boundaries.`;
       failures.push(msg);
       issues.push({
@@ -146,6 +165,7 @@ export function validateDeterministicQuality(
     passed: failures.length === 0,
     failures,
     issues,
+    checks,
   };
 }
 

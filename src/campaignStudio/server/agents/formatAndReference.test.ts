@@ -20,7 +20,7 @@ import {
 import { parseCreativeDirection } from './creativeDirection.js';
 import { validateCreativeBlueprint } from '../blueprintSchema.js';
 import { BRAND, STRATEGY } from './fixtures.js';
-import type { CampaignReference, CreativeConcept, ReferenceDesignDNA } from '../../types.js';
+import type { CampaignReference, CreativeBlueprint, CreativeConcept, ReferenceDesignDNA } from '../../types.js';
 
 // ---------------------------------------------------------------------------
 // 1. Advertising Format Library Tests
@@ -133,7 +133,7 @@ test('formatStrategist: honors pre-existing format if requested on blueprint', (
       storyline: 'Elegance',
       cta: 'Discover',
       composition: 'Editorial',
-      blueprint: {
+      blueprint: ({
         id: 'bp-c1',
         campaignId: 'r1',
         conceptId: 'c1',
@@ -168,7 +168,7 @@ test('formatStrategist: honors pre-existing format if requested on blueprint', (
         copy: { headline: 'The Art of Breakfast', cta: 'Discover' },
         packagingFidelity: { protectLabels: true, preventTextHallucinations: true, heroPlacementOnly: true },
         generationMetadata: { promptKeywords: [], creativeDirectionRunId: 'r1' },
-      },
+      } as unknown as CreativeBlueprint),
     },
   ];
 

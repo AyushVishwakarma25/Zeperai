@@ -14,7 +14,7 @@ import {
 } from '../export/metaPackageGenerator.js';
 import { buildMetaAdPackageZip, buildMetaCopySheetText } from '../export/exportArchive.js';
 import { computeCrc32, SimpleZipBuilder } from '../export/zipWriter.js';
-import type { BrandContext, CampaignRun, CreativeDocument } from '../../types.js';
+import type { BrandContext, CampaignAsset, CampaignRun, CreativeDocument, CreativeQualityScores } from '../../types.js';
 
 // ---------------------------------------------------------------------------
 // Test Fixtures
@@ -66,7 +66,9 @@ const MOCK_RUN: CampaignRun = {
   platforms: ['Instagram', 'Facebook'],
   settings: {
     creativeCount: 3,
+    quality: 'Standard',
     aspectRatio: '1:1',
+    platforms: ['meta_ads'],
     model: 'imagen-3.0-generate-002',
     stylePreset: 'Commercial advertising',
     thinkingLevel: 'medium',
@@ -75,7 +77,7 @@ const MOCK_RUN: CampaignRun = {
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
   brand_context: MOCK_BRAND,
-};
+} as unknown as CampaignRun;
 
 function createSample1x1MasterDocument(): CreativeDocument {
   return {
@@ -366,7 +368,7 @@ test('exportArchive: builds comprehensive Meta Ad Package ZIP containing all 4 f
               typographyReadability: 96,
               messageHierarchy: 94,
               conversionPotential: 93,
-            },
+            } as unknown as CreativeQualityScores,
             issues: [],
             hardRuleFailures: [],
             passed: true,
@@ -377,7 +379,7 @@ test('exportArchive: builds comprehensive Meta Ad Package ZIP containing all 4 f
         error: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      },
+      } as unknown as CampaignAsset,
     ],
   });
 

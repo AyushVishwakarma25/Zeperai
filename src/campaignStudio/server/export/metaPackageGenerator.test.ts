@@ -106,7 +106,7 @@ const MOCK_RUN: CampaignRun = {
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
   brand_context: MINIMAL_BRAND,
-};
+} as unknown as CampaignRun;
 
 // ---------------------------------------------------------------------------
 // 1. Zero Fabricated Claims in Absence of Evidence

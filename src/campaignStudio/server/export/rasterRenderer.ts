@@ -7,7 +7,7 @@
  */
 
 import { Resvg } from '@resvg/resvg-js';
-import sharp from 'sharp';
+import sharp, { type Metadata, type Stats } from 'sharp';
 
 export interface RasterRenderOptions {
   width: number;
@@ -104,8 +104,8 @@ export async function validateRasterBuffer(
   }
 
   // 2. Read Metadata via sharp
-  let meta: sharp.Metadata;
-  let stats: sharp.Stats | null = null;
+  let meta: Metadata;
+  let stats: Stats | null = null;
   try {
     const img = sharp(buffer);
     meta = await img.metadata();
@@ -253,3 +253,4 @@ export async function renderSvgToRasterBuffers(
     },
   };
 }
+

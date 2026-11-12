@@ -391,23 +391,31 @@ export async function generateSingleCreative(params: GenerateSingleCreativeParam
     if (creativeDoc) {
       try {
         const deterministicResult = validateDeterministicQuality(creativeDoc, blueprint);
-        const totalScore = deterministicResult.passed ? 92 : 65;
+        const hardFailures = deterministicResult.failures;
         evaluation = {
           creativeId: creativeDoc.id,
-          totalScore,
-          status: deterministicResult.passed ? 'ready_for_review' : 'rejected',
+          totalScore: deterministicResult.passed ? 64 : 30,
+          status: deterministicResult.passed ? 'partially_evaluated' : 'failed',
           scores: {
-            visualHierarchy: 18,
-            productAccuracy: deterministicResult.failures.some((f) => f.includes('product')) ? 4 : 19,
-            brandConsistency: deterministicResult.failures.some((f) => f.includes('logo')) ? 5 : 14,
-            typography: deterministicResult.failures.some((f) => f.includes('headline')) ? 6 : 14,
-            visualQuality: 14,
-            messageClarity: deterministicResult.failures.some((f) => f.includes('offer')) ? 3 : 9,
-            technicalCompliance: deterministicResult.passed ? 5 : 0,
+            visualHierarchy: 12,
+            productAccuracy: hardFailures.some((f) => f.includes('product')) ? 0 : 12,
+            brandConsistency: hardFailures.some((f) => f.includes('logo')) ? 0 : 10,
+            typography: hardFailures.some((f) => f.includes('headline')) ? 0 : 10,
+            visualQuality: 10,
+            messageClarity: hardFailures.some((f) => f.includes('offer')) ? 0 : 6,
+            technicalCompliance: deterministicResult.passed ? 4 : 0,
           },
           issues: deterministicResult.issues,
-          hardRuleFailures: deterministicResult.failures,
-          passed: deterministicResult.passed,
+          hardRuleFailures: hardFailures,
+          passed: false, // Never mark unverified / partial evaluation as passed
+          approvalEligible: false,
+          deterministic: deterministicResult,
+          visual: {
+            status: 'unverified',
+            checksRun: false,
+          },
+          documentVersion: creativeDoc.version,
+          evaluatorVersion: '2.2.0',
           evaluatedAt: new Date().toISOString(),
         };
       } catch (evalErr) {

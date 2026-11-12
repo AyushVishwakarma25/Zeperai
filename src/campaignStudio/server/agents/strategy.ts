@@ -167,6 +167,144 @@ export function parseStrategy(raw: unknown, creativeCount: number): CampaignStra
   };
 }
 
+/**
+ * Robustly normalizes and self-heals a campaign strategy response if AI model output
+ * has minor structural variations (e.g. creativeMix sum slightly off or non-standard funnel stage).
+ */
+export function healOrNormalizeStrategy(raw: unknown, creativeCount: number): CampaignStrategy {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Expected a JSON object.');
+  const r = raw as Record<string, any>;
+
+  const objective = str(r.objective, 300) || 'Drive brand awareness and performance conversions.';
+  const bigIdea = str(r.bigIdea, 300) || 'Premium Quality for Everyday Living.';
+  const positioningStatement = str(r.positioningStatement, 400) || 'Modern performance-driven digital consumer products.';
+  const cta = str(r.cta, 100) || 'SHOP NOW';
+  const rationale = str(r.rationale, 900) || 'Strategy designed around product differentiation and core customer benefits.';
+
+  // Funnel stage normalization
+  let stage: FunnelStage = 'conversion';
+  const rawStage = str(r.funnelStage, 30).toLowerCase();
+  if (rawStage.includes('aware')) stage = 'awareness';
+  else if (rawStage.includes('consider')) stage = 'consideration';
+  else if (rawStage.includes('retain') || rawStage.includes('loyalt')) stage = 'retention';
+  else if (rawStage.includes('convert') || rawStage.includes('sale') || rawStage.includes('action')) stage = 'conversion';
+
+  const audience = {
+    primary: str(r.audience?.primary, 300) || str(r.audience?.target, 300) || 'Modern discerning consumers',
+    insight: str(r.audience?.insight, 400) || 'Consumers seek authentic quality, transparency, and superior performance.',
+    mindset: str(r.audience?.mindset, 300) || 'Value-conscious, convenience-oriented, quality-focused',
+  };
+
+  let keyMessages = objList(r.keyMessages, 5, (m) => {
+    const message = str(m.message, 200);
+    return message ? { message, proof: str(m.proof, 250) || 'Verified brand feature' } : null;
+  });
+  if (keyMessages.length < 2) {
+    keyMessages = [
+      { message: 'Engineered for exceptional daily performance', proof: 'Verified product specifications' },
+      { message: 'Crafted with premium materials and design', proof: 'Authentic brand craftsmanship' },
+    ];
+  }
+
+  const seenPillars = new Set<string>();
+  let contentPillars = objList(r.contentPillars, 4, (p) => {
+    const name = str(p.name, 60);
+    const key = name.toLowerCase();
+    if (!name || seenPillars.has(key)) return null;
+    seenPillars.add(key);
+    return { name, description: str(p.description, 300) || 'Core brand pillar', exampleAd: str(p.exampleAd, 300) || 'Feature hero creative' };
+  });
+  if (contentPillars.length < 1) {
+    contentPillars = [
+      { name: 'Product Excellence', description: 'Highlighting core product benefits and superior design', exampleAd: 'Clean hero packshot with prominent benefit callout' },
+      { name: 'Customer Trust', description: 'Social proof, reliability and real performance', exampleAd: 'Authentic testimonial and verified ratings' },
+    ];
+  }
+
+  // Self-heal creativeMix so the sum ALWAYS equals creativeCount
+  const byName = new Map(contentPillars.map((p) => [p.name.toLowerCase(), p.name]));
+  const mixTotals = new Map<string, number>();
+
+  for (const m of Array.isArray(r.creativeMix) ? r.creativeMix : []) {
+    const rawPillarName = str(m?.pillar, 60).toLowerCase();
+    let resolvedPillar = byName.get(rawPillarName);
+    if (!resolvedPillar) {
+      for (const [key, orig] of byName.entries()) {
+        if (key.includes(rawPillarName) || rawPillarName.includes(key)) {
+          resolvedPillar = orig;
+          break;
+        }
+      }
+    }
+    if (!resolvedPillar) {
+      resolvedPillar = contentPillars[0].name;
+    }
+    const count = Math.max(1, Math.round(Number(m?.count) || 1));
+    mixTotals.set(resolvedPillar, (mixTotals.get(resolvedPillar) ?? 0) + count);
+  }
+
+  if (mixTotals.size === 0) {
+    const base = Math.max(1, Math.floor(creativeCount / contentPillars.length));
+    for (const p of contentPillars) mixTotals.set(p.name, base);
+  }
+
+  let currentTotal = [...mixTotals.values()].reduce((n, c) => n + c, 0);
+  const pillarKeys = [...mixTotals.keys()];
+
+  while (currentTotal < creativeCount) {
+    const firstPillar = pillarKeys[0] || contentPillars[0].name;
+    mixTotals.set(firstPillar, (mixTotals.get(firstPillar) ?? 0) + 1);
+    currentTotal++;
+  }
+  while (currentTotal > creativeCount) {
+    let largestPillar = pillarKeys[0];
+    let maxCount = 0;
+    for (const [k, v] of mixTotals.entries()) {
+      if (v > maxCount) {
+        maxCount = v;
+        largestPillar = k;
+      }
+    }
+    if (maxCount > 1) {
+      mixTotals.set(largestPillar, maxCount - 1);
+      currentTotal--;
+    } else {
+      break;
+    }
+  }
+
+  const creativeMix = [...mixTotals.entries()].map(([pillar, count]) => ({ pillar, count }));
+
+  let creativeFormats = objList(r.creativeFormats, 6, (f) => {
+    const format = str(f.format, 80);
+    return format ? { format, why: str(f.why, 250) || 'High engagement format' } : null;
+  });
+  if (creativeFormats.length < 1) {
+    creativeFormats = [
+      { format: 'Single Image Hero', why: 'Maximum visual impact and high CTR in feed placements.' },
+      { format: 'Feature Callout Grid', why: 'Educates prospective customers on unique product advantages.' },
+    ];
+  }
+
+  return {
+    objective,
+    bigIdea,
+    positioningStatement,
+    audience,
+    keyMessages,
+    funnelStage: stage,
+    offer: str(r.offer, 200) || undefined,
+    cta,
+    tone: strList(r.tone, 6, 60),
+    contentPillars,
+    creativeMix,
+    creativeFormats,
+    successMetrics: strList(r.successMetrics, 5, 150),
+    guardrails: strList(r.guardrails, 6, 200),
+    rationale,
+  };
+}
+
 export const strategyAgent: AgentImpl = {
   async run(ctx: AgentRunContext): Promise<AgentRunResult> {
     const cfg = AGENT_RUNTIME.strategy;
@@ -185,6 +323,7 @@ export const strategyAgent: AgentImpl = {
       budgetMs: Math.max(5_000, remaining - 1_000),
       client: ctx.geminiClient,
       parse: (raw) => parseStrategy(raw, count),
+      repairFallback: (raw) => healOrNormalizeStrategy(raw, count),
     });
 
     return { output: result.data, model: result.model, usage: result.usage, snapshot: { creativeCount: count } };

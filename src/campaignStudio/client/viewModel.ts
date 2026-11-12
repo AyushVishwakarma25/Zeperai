@@ -149,10 +149,12 @@ export function progressLabel(run: Pick<CampaignRun, 'current_step' | 'status'>)
 export const GOAL_INFO: Record<CampaignGoal, { label: string; hint: string }> = {
   sales: { label: 'Drive sales', hint: 'Conversions, offers and purchase intent' },
   awareness: { label: 'Build awareness', hint: 'Reach new people and get remembered' },
+  consideration: { label: 'Deepen consideration', hint: 'Showcase features, comparisons and value' },
   engagement: { label: 'Boost engagement', hint: 'Saves, shares, comments and follows' },
   leads: { label: 'Generate leads', hint: 'Enquiries, sign-ups and bookings' },
   launch: { label: 'Launch a product', hint: 'Make a new product or collection land' },
   retention: { label: 'Retain customers', hint: 'Bring buyers back and grow repeat orders' },
+  trust: { label: 'Build trust', hint: 'Customer proof, ratings and authority' },
   custom: { label: 'Something else', hint: 'Describe your own goal' },
 };
 

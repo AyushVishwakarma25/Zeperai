@@ -24,16 +24,30 @@ export const QualityScoreBadge: React.FC<Props> = ({ evaluation, onTargetedFix, 
 
   let toneClasses = 'bg-emerald-50 text-emerald-700 border-emerald-200';
   let dotColor = 'bg-emerald-500';
-  let label = 'Ready for Review';
+  let label = 'Passed QA';
 
-  if (status === 'rejected' || hardRuleFailures.length > 0) {
+  if (status === 'pending') {
+    toneClasses = 'bg-slate-50 text-slate-700 border-slate-200';
+    dotColor = 'bg-slate-400 animate-pulse';
+    label = 'Evaluating...';
+  } else if (status === 'unverified') {
+    toneClasses = 'bg-amber-50 text-amber-800 border-amber-200';
+    dotColor = 'bg-amber-500';
+    label = 'Unverified';
+  } else if (status === 'partially_evaluated') {
+    toneClasses = 'bg-blue-50 text-blue-700 border-blue-200';
+    dotColor = 'bg-blue-500';
+    label = 'Partial QA';
+  } else if (status === 'rejected' || status === 'failed' || hardRuleFailures.length > 0) {
     toneClasses = 'bg-rose-50 text-rose-700 border-rose-200';
     dotColor = 'bg-rose-500';
-    label = 'Rejected';
+    label = 'Failed QA';
   } else if (status === 'needs_improvement') {
     toneClasses = 'bg-amber-50 text-amber-700 border-amber-200';
     dotColor = 'bg-amber-500';
     label = 'Needs Polish';
+  } else if (status === 'ready_for_review') {
+    label = 'Ready for Review';
   }
 
   return (

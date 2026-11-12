@@ -43,7 +43,13 @@ import {
   validateFeedback,
   validateKnownFacts,
 } from './validation.js';
-import { DEFAULT_CAMPAIGN_SETTINGS, MAX_CREATIVES_PER_RUN, MAX_PRODUCT_IMAGES_PER_RUN } from '../types.js';
+import {
+  DEFAULT_CAMPAIGN_SETTINGS,
+  MAX_CREATIVES_PER_RUN,
+  MAX_PRODUCT_IMAGES_PER_RUN,
+  type BrandContext,
+  type StandardAspectRatio,
+} from '../types.js';
 import { listAdvertisingFormats } from './formatLibrary.js';
 import { analyzeReferenceImage } from './agents/referenceAnalyst.js';
 import { renderCreativeDocumentToSvg, svgToDataUri } from './composition/svgRenderer.js';
@@ -53,7 +59,6 @@ import { targetedRegenerateCreative } from './evaluation/targetedRegenerator.js'
 import { adaptCreativeDocument } from './adaptation/creativeAdapter.js';
 import { buildMetaCampaignPackage } from './export/metaPackageGenerator.js';
 import { buildMetaAdPackageZip } from './export/exportArchive.js';
-import type { StandardAspectRatio } from '../types.js';
 
 export interface CampaignStudioDeps {
   /** server.ts requireAuth: sets req.user (Supabase user, or the master-admin stub). */
@@ -549,7 +554,7 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
       const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
       const evaluation = await evaluateCreative({
         doc,
-        brand: runDetail?.run?.brand_context,
+        brand: runDetail?.run?.brand_context as BrandContext | undefined,
         client: deps.overrides?.geminiClient,
       });
 
@@ -636,7 +641,7 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
       const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
       const newEvaluation = await evaluateCreative({
         doc: regenResult.document,
-        brand: runDetail?.run?.brand_context,
+        brand: runDetail?.run?.brand_context as BrandContext | undefined,
         client: deps.overrides?.geminiClient,
       });
 

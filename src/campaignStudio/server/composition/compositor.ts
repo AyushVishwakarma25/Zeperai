@@ -208,7 +208,7 @@ export function buildCreativeDocument(params: ComposeCreativeParams): CreativeDo
         color: headlineStyle.color || '#FFFFFF',
         alignment: headlineBox.alignment || 'left',
         fontSize: Math.round(canvas.height * headlineBox.height * 0.32),
-        textTransform: headlineStyle.textTransform || 'none',
+        textTransform: (headlineStyle as any)?.textTransform || 'none',
       },
       visible: true,
     });

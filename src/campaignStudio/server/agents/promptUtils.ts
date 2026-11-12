@@ -23,6 +23,7 @@ export const FENCE_TAG_NAMES = [
   'strategy_inputs',
   'platforms',
   'product_images',
+  'design_references',
 ] as const;
 
 const FENCE_TAGS = new RegExp(`<\\/?\\s*(${FENCE_TAG_NAMES.join('|')})\\b[^>]*>`, 'gi');

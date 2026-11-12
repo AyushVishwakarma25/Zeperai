@@ -27,6 +27,7 @@ import type {
   CreativeDirection,
   DesignIntensity,
   NormalizedBoundingBox,
+  ReferenceDesignDNA,
 } from '../../types.js';
 import { createDefaultBlueprintFromConcept, DESIGN_INTENSITIES, normalizeBoundingBox } from '../blueprintSchema.js';
 import { brandForPrompt, requireBrand, requireStrategy, strategyForPrompt } from './context.js';
@@ -355,12 +356,15 @@ export function parseCreativeDirection(
       ? reconcileMultiReferences(options.references)
       : undefined;
 
+    const dna = reconciled?.controllingLayout?.design_dna;
+    const validDna = dna && 'layoutType' in dna ? dna : undefined;
+
     const allocation = allocateCampaignFormats({
       concepts,
       strategy: options?.strategy,
-      goal: options?.strategy?.objective || 'sales',
-      category: options?.brand?.industry || 'd2c',
-      referenceDesignDNA: reconciled?.controllingLayout?.design_dna,
+      goal: (options?.strategy as any)?.objective || 'sales',
+      category: options?.brand?.category || 'd2c',
+      referenceDesignDNA: validDna as ReferenceDesignDNA | undefined,
       options: {
         enforceStructuralDiversity: true,
       },

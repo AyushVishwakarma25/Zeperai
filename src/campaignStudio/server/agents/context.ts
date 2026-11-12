@@ -23,7 +23,7 @@ export function requireCompetitors(ctx: AgentRunContext): CompetitorResearch {
   return {
     ...c,
     competitors: Array.isArray(c.competitors) ? c.competitors : [],
-    whiteSpace: c.whiteSpace || 'Direct-to-consumer digital positioning',
+    whiteSpace: Array.isArray(c.whiteSpace) ? c.whiteSpace : (c.whiteSpace ? [String(c.whiteSpace)] : ['Direct-to-consumer digital positioning']),
     messagingToAvoid: Array.isArray(c.messagingToAvoid) ? c.messagingToAvoid : [],
   };
 }

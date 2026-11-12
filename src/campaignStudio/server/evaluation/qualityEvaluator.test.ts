@@ -224,10 +224,30 @@ test('acceptance: evaluates 5 distinct test cases (high quality, distorted produ
     brandColors: ['#0A0A0A', '#E4572E'],
   });
 
-  const evalCase1 = await evaluateCreative({ doc: highQualityDoc, blueprint, brand: BRAND });
+  const mockAiEvaluationClient = {
+    models: {
+      generateContent: async () => ({
+        text: JSON.stringify({
+          scores: {
+            visualHierarchy: 18,
+            productAccuracy: 19,
+            brandConsistency: 14,
+            typography: 14,
+            visualQuality: 14,
+            messageClarity: 9,
+            technicalCompliance: 5,
+          },
+          issues: [],
+        }),
+      }),
+    },
+  };
+
+  const evalCase1 = await evaluateCreative({ doc: highQualityDoc, blueprint, brand: BRAND, client: mockAiEvaluationClient });
   assert.ok(evalCase1.totalScore >= 75, `High quality creative must score >= 75, got ${evalCase1.totalScore}`);
   assert.equal(evalCase1.passed, true);
-  assert.notEqual(evalCase1.status, 'rejected');
+  assert.equal(evalCase1.approvalEligible, true);
+  assert.equal(evalCase1.status, 'passed');
   assert.equal(evalCase1.hardRuleFailures.length, 0);
 
   // Case 2: Creative with Missing / Distorted Product Packshot
@@ -304,9 +324,130 @@ test('acceptance: evaluates 5 distinct test cases (high quality, distorted produ
     fixedHeadline.position.width = 0.84;
   }
 
-  const evalAfterFix = await evaluateCreative({ doc: fixedDocResult.document, blueprint, brand: BRAND });
+  const evalAfterFix = await evaluateCreative({ doc: fixedDocResult.document, blueprint, brand: BRAND, client: mockAiEvaluationClient });
   assert.equal(evalAfterFix.hardRuleFailures.length, 0);
   assert.equal(evalAfterFix.passed, true);
-  assert.notEqual(evalAfterFix.status, 'rejected');
+  assert.equal(evalAfterFix.status, 'passed');
+  assert.equal(evalAfterFix.approvalEligible, true);
+});
+
+// ---------------------------------------------------------------------------
+// 4. Strict Zero False-Positive Quality Evaluation Regression Tests
+// ---------------------------------------------------------------------------
+
+test('qualityEvaluator: missing AI evaluation / AI call failure returns unverified, passed: false', async () => {
+  const blueprint = createSampleBlueprint();
+  const compliantDoc = buildCreativeDocument({
+    blueprint,
+    backgroundUrl: 'https://images.example.com/clean-studio.jpg',
+    productImageUrl: 'https://images.example.com/packshot.png',
+    brandName: 'PRUSTLR',
+    brandColors: ['#0A0A0A', '#E4572E'],
+  });
+
+  // Client that simulates AI failure (e.g. quota, timeout, network error)
+  const failingAiClient = {
+    models: {
+      generateContent: async () => {
+        throw new Error('RESOURCE_EXHAUSTED: Gemini API quota exceeded');
+      },
+    },
+  };
+
+  const res = await evaluateCreative({ doc: compliantDoc, blueprint, brand: BRAND, client: failingAiClient });
+
+  // Invariants: AI failure MUST return unverified and passed MUST be false!
+  assert.equal(res.status, 'unverified', 'Status must be unverified when AI evaluation fails');
+  assert.equal(res.passed, false, 'Creative must not be marked passed when AI evaluation failed');
+  assert.equal(res.approvalEligible, false, 'Creative must not be approvalEligible when AI evaluation failed');
+  assert.equal(res.visual?.status, 'unverified', 'Visual check status must be unverified');
+  assert.equal(res.visual?.checksRun, false, 'Visual checksRun must be false');
+  assert.ok(res.visual?.error?.includes('RESOURCE_EXHAUSTED'), 'Visual error must be recorded');
+  assert.ok(res.failureDetails?.includes('RESOURCE_EXHAUSTED'), 'Failure details must be populated');
+
+  // Deterministic checks must remain independently visible
+  assert.ok(res.deterministic, 'Deterministic check results must be present');
+  assert.equal(res.deterministic.passed, true, 'Deterministic checks passed independently');
+  assert.equal(res.deterministic.checks.canvasDimensions, true);
+  assert.equal(res.deterministic.checks.productAssetPresent, true);
+  assert.equal(res.deterministic.checks.brandLogoPresent, true);
+  assert.equal(res.deterministic.checks.headlinePresent, true);
+  assert.equal(res.deterministic.checks.ctaPresent, true);
+  assert.equal(res.deterministic.checks.boundaryContainment, true);
+});
+
+test('qualityEvaluator: deterministic hard failure cannot be approved even if AI returns perfect score', async () => {
+  const blueprint = createSampleBlueprint();
+  const missingProductDoc = buildCreativeDocument({
+    blueprint,
+    backgroundUrl: 'https://images.example.com/clean-studio.jpg',
+    brandName: 'PRUSTLR',
+  });
+  // Strip product layer to violate hard deterministic rule
+  missingProductDoc.layers = missingProductDoc.layers.filter((l) => l.type !== 'product');
+
+  // Mock AI that claims perfect scores (false-positive simulation)
+  const overlyOptimisticAiClient = {
+    models: {
+      generateContent: async () => ({
+        text: JSON.stringify({
+          scores: {
+            visualHierarchy: 20,
+            productAccuracy: 20,
+            brandConsistency: 15,
+            typography: 15,
+            visualQuality: 15,
+            messageClarity: 10,
+            technicalCompliance: 5,
+          },
+          issues: [],
+        }),
+      }),
+    },
+  };
+
+  const res = await evaluateCreative({ doc: missingProductDoc, blueprint, brand: BRAND, client: overlyOptimisticAiClient });
+
+  // Policy: Score alone CANNOT approve. Hard deterministic failure MUST fail.
+  assert.equal(res.status, 'rejected', 'Hard failure must override optimistic AI score');
+  assert.equal(res.passed, false, 'Passed must be false when hard rule failed');
+  assert.equal(res.approvalEligible, false, 'approvalEligible must be false');
+  assert.equal(res.deterministic?.passed, false);
+  assert.equal(res.deterministic?.checks.productAssetPresent, false);
+  assert.ok(res.hardRuleFailures.some((f) => f.includes('product')));
+});
+
+test('qualityEvaluator: records documentVersion, evaluatorVersion, and detects stale evaluations', async () => {
+  const blueprint = createSampleBlueprint();
+  const doc = buildCreativeDocument({
+    blueprint,
+    backgroundUrl: 'https://images.example.com/clean-studio.jpg',
+    productImageUrl: 'https://images.example.com/packshot.png',
+    brandName: 'PRUSTLR',
+  });
+
+  const mockAiClient = {
+    models: {
+      generateContent: async () => ({
+        text: JSON.stringify({
+          scores: { visualHierarchy: 18, productAccuracy: 18, brandConsistency: 14, typography: 14, visualQuality: 14, messageClarity: 9, technicalCompliance: 5 },
+          issues: [],
+        }),
+      }),
+    },
+  };
+
+  const evalResult = await evaluateCreative({ doc, blueprint, brand: BRAND, client: mockAiClient });
+
+  assert.equal(evalResult.documentVersion, doc.version);
+  assert.equal(evalResult.evaluatorVersion, '2.2.0');
+  assert.ok(evalResult.evaluatedAt);
+
+  // When doc version increments (e.g. after targeted regeneration or editing), old evaluation is stale
+  const isStale = (e: typeof evalResult, currentDoc: typeof doc) => e.documentVersion !== currentDoc.version;
+  assert.equal(isStale(evalResult, doc), false, 'Matches current version, not stale');
+
+  const modifiedDoc = { ...doc, version: doc.version + 1 };
+  assert.equal(isStale(evalResult, modifiedDoc), true, 'Version mismatch detected as stale');
 });
 

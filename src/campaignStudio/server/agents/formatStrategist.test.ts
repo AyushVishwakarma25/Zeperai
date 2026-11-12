@@ -18,7 +18,7 @@ import {
   evaluateFormatSuitability,
 } from './formatStrategist.js';
 import { getAdvertisingFormat, ADVERTISING_FORMATS } from '../formatLibrary.js';
-import type { CreativeConcept, CampaignStrategy } from '../../types.js';
+import type { CreativeConcept, CampaignStrategy, CreativeBlueprint } from '../../types.js';
 
 function createMockConcept(id: string, pillar: string, angle: string, format?: string, isLocked?: boolean): CreativeConcept {
   return {
@@ -34,7 +34,7 @@ function createMockConcept(id: string, pillar: string, angle: string, format?: s
     isLocked,
     formatLocked: isLocked,
     blueprint: format
-      ? {
+      ? ({
           canvas: { width: 1080, height: 1080, aspectRatio: '1:1', unit: 'px' },
           advertisingFormat: format,
           designIntensity: 'balanced',
@@ -47,7 +47,7 @@ function createMockConcept(id: string, pillar: string, angle: string, format?: s
           },
           graphicElements: { badges: [], pills: [], decorative: [] },
           brandFidelity: { requireExactLogo: true, allowedDistortions: [], colors: { dominant: '#ffffff', secondary: '#000000', accent: '#3b82f6', background: '#f8fafc' } },
-        }
+        } as unknown as CreativeBlueprint)
       : undefined,
   };
 }

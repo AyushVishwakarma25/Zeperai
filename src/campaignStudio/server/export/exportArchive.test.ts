@@ -12,8 +12,10 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import type {
   BrandContext,
+  CampaignAsset,
   CampaignRun,
   CreativeDocument,
+  CreativeQualityScores,
   MetaCampaignPackage,
   StandardAspectRatio,
 } from '../../types.js';
@@ -35,47 +37,44 @@ const MOCK_BRAND: BrandContext = {
   domain: 'nordicember.com',
   category: 'Clean Living & Home',
   audience: {
-    targetDescription: 'Design-conscious urban homeowners',
+    primary: 'Design-conscious urban homeowners',
     painPoints: ['Cluttered aesthetics', 'Harsh artificial fragrances'],
     desires: ['Minimalist organic ambiance', 'Natural scenting'],
   },
   usps: ['100% soy wax with wooden wicks', 'Crafted in small batches'],
   voice: {
     tone: ['Artisanal', 'Warm', 'Refined'],
-    keywords: ['glow', 'serene', 'craft'],
-    avoidKeywords: ['cheap', 'discount', 'flashy'],
+    doSay: ['glow', 'serene', 'craft'],
+    dontSay: ['cheap', 'discount', 'flashy'],
   },
   visualIdentity: {
     colors: [
-      { hex: '#1C1917', role: 'primary', name: 'Charcoal' },
-      { hex: '#D97706', role: 'accent', name: 'Amber' },
-      { hex: '#F5F5F4', role: 'background', name: 'Stone Warm' },
+      { hex: '#1C1917', name: 'Charcoal' },
+      { hex: '#D97706', name: 'Amber' },
+      { hex: '#F5F5F4', name: 'Stone Warm' },
     ],
-    typography: { heading: 'Inter', body: 'Inter' },
+    typography: 'Inter',
   },
   products: [
     {
-      id: 'prod-ember-01',
       name: 'Smoked Cedar Soy Candle',
       description: 'Hand-poured artisan candle with crackling wooden wick',
       priceHint: '$38',
-      features: ['50-hour burn time', 'Zero synthetic additives'],
     },
   ],
-};
+} as unknown as BrandContext;
 
 const MOCK_RUN: CampaignRun = {
   id: 'run-nordic-test-8899',
   user_id: 'user-unit-test',
   website_url: 'https://nordicember.com',
-  brand_id: null,
   goal: 'Drive high-converting sales for Nordic Ember soy candles',
   goal_notes: null,
   status: 'active',
   current_step: 'creatives',
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
-};
+} as unknown as CampaignRun;
 
 function createSample1x1MasterDoc(): CreativeDocument {
   return {
@@ -290,6 +289,7 @@ test('exportArchive: excludes failed/unverified creatives by default and allows 
       {
         conceptId: 'concept-1',
         headline: 'Nordic Glow Unverified',
+        cta: 'Shop Now',
         aspectRatio: '1:1',
         imagePrompt: 'Studio shot',
         pillar: 'Feature Spotlight',
@@ -298,12 +298,16 @@ test('exportArchive: excludes failed/unverified creatives by default and allows 
     assets: [
       {
         id: 'asset-1',
+        user_id: 'user-unit-test',
         run_id: MOCK_RUN.id,
         creative_index: 1,
         version: 1,
         status: 'ready',
         aspect_ratio: '1:1',
         image_url: 'https://images.example.com/candle.jpg',
+        storage_path: 'campaigns/asset-1.png',
+        prompt: 'Studio shot',
+        model: 'imagen-3.0',
         overlay: {
           document: masterDoc,
           // No evaluation provided -> unverified
@@ -312,7 +316,7 @@ test('exportArchive: excludes failed/unverified creatives by default and allows 
         error: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      },
+      } as unknown as CampaignAsset,
     ],
   });
 
@@ -377,7 +381,7 @@ test('exportArchive: builds complete archive with 12 assets per approved concept
               typographyReadability: 94,
               messageHierarchy: 95,
               conversionPotential: 95,
-            },
+            } as unknown as CreativeQualityScores,
             issues: [],
             hardRuleFailures: [],
             passed: true,
@@ -388,7 +392,7 @@ test('exportArchive: builds complete archive with 12 assets per approved concept
         error: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      },
+      } as unknown as CampaignAsset,
     ],
   });
 
@@ -468,3 +472,4 @@ test('zipWriter: creates standard ZIP when within limits and ZIP64 structures wh
   assert.equal(zip64LocatorSig, 0x07064b50, 'Must contain ZIP64 Locator signature');
   assert.equal(standardEocdSig, 0x06054b50, 'Must contain standard End of Central Directory signature');
 });
+

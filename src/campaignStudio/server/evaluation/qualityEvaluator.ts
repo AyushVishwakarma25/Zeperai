@@ -76,6 +76,8 @@ Score the advertisement strictly across the 7 dimensions (maximum 100 points tot
 Provide actionable diagnostic issues for anything scoring below maximum.
 Reply with ONLY the requested JSON object matching the schema.`;
 
+export const EVALUATOR_VERSION = '2.2.0';
+
 export interface EvaluateCreativeParams {
   doc: CreativeDocument;
   blueprint?: CreativeBlueprint;
@@ -85,6 +87,10 @@ export interface EvaluateCreativeParams {
 
 /**
  * Evaluates a creative document combining deterministic validation and AI scoring.
+ * Strict zero-false-positive policy:
+ * - Deterministic failure -> 'failed'
+ * - AI failure / missing -> 'unverified' (NEVER passed)
+ * - Both passed & totalScore >= 80 & no critical issues -> 'passed'
  */
 export async function evaluateCreative(params: EvaluateCreativeParams): Promise<CreativeEvaluation> {
   const { doc, blueprint, brand, client } = params;
@@ -93,20 +99,16 @@ export async function evaluateCreative(params: EvaluateCreativeParams): Promise<
   const deterministicResult = validateDeterministicQuality(doc, blueprint);
 
   // 2. Perform AI vision/layout evaluation
-  let aiScores: CreativeQualityScores = {
-    visualHierarchy: 18,
-    productAccuracy: 19,
-    brandConsistency: 14,
-    typography: 14,
-    visualQuality: 14,
-    messageClarity: 9,
-    technicalCompliance: 5,
-  };
+  let aiScores: CreativeQualityScores | null = null;
   let aiIssues: QualityIssue[] = [];
+  let aiRan = false;
+  let aiError: string | undefined = undefined;
+  let modelId: string | undefined = undefined;
 
   try {
     const ai = client ?? getAI();
     const model = resolveTextModel('flash');
+    modelId = model;
 
     const promptContext = [
       `<advertisement_spec>`,
@@ -144,16 +146,17 @@ export async function evaluateCreative(params: EvaluateCreativeParams): Promise<
       },
     });
 
-    const rawJson = extractJson(response?.text || response?.candidates?.[0]?.content?.parts?.[0]?.text || '');
+    const rawJson = extractJson(response?.text || response?.candidates?.[0]?.content?.parts?.[0]?.text || '') as any;
     if (rawJson && rawJson.scores) {
+      aiRan = true;
       aiScores = {
-        visualHierarchy: Math.min(20, Math.max(0, Number(rawJson.scores.visualHierarchy) || 16)),
-        productAccuracy: Math.min(20, Math.max(0, Number(rawJson.scores.productAccuracy) || 16)),
-        brandConsistency: Math.min(15, Math.max(0, Number(rawJson.scores.brandConsistency) || 12)),
-        typography: Math.min(15, Math.max(0, Number(rawJson.scores.typography) || 12)),
-        visualQuality: Math.min(15, Math.max(0, Number(rawJson.scores.visualQuality) || 12)),
-        messageClarity: Math.min(10, Math.max(0, Number(rawJson.scores.messageClarity) || 8)),
-        technicalCompliance: Math.min(5, Math.max(0, Number(rawJson.scores.technicalCompliance) || 4)),
+        visualHierarchy: Math.min(20, Math.max(0, Number(rawJson.scores.visualHierarchy) || 0)),
+        productAccuracy: Math.min(20, Math.max(0, Number(rawJson.scores.productAccuracy) || 0)),
+        brandConsistency: Math.min(15, Math.max(0, Number(rawJson.scores.brandConsistency) || 0)),
+        typography: Math.min(15, Math.max(0, Number(rawJson.scores.typography) || 0)),
+        visualQuality: Math.min(15, Math.max(0, Number(rawJson.scores.visualQuality) || 0)),
+        messageClarity: Math.min(10, Math.max(0, Number(rawJson.scores.messageClarity) || 0)),
+        technicalCompliance: Math.min(5, Math.max(0, Number(rawJson.scores.technicalCompliance) || 0)),
       };
       if (Array.isArray(rawJson.issues)) {
         aiIssues = rawJson.issues.map((iss: any) => ({
@@ -164,49 +167,81 @@ export async function evaluateCreative(params: EvaluateCreativeParams): Promise<
           suggestedFix: String(iss.suggestedFix || '').slice(0, 300),
         }));
       }
+    } else {
+      aiError = 'Model returned empty or non-conforming evaluation scores.';
     }
-  } catch (aiErr) {
-    console.warn('[campaign-studio] AI quality evaluation fallback to heuristic scoring:', aiErr);
+  } catch (aiErr: any) {
+    aiError = String(aiErr?.message || aiErr || 'AI evaluation call failed.');
+    console.warn('[campaign-studio] AI quality evaluation call failed (will flag unverified):', aiError.slice(0, 200));
   }
 
-  // 3. Merge deterministic failures & override scores
+  // 3. Merge deterministic failures & issues
   const allIssues = [...deterministicResult.issues, ...aiIssues];
   const hardRuleFailures = [...deterministicResult.failures];
 
-  if (!deterministicResult.passed) {
-    // Apply score penalties based on hard failures
-    if (hardRuleFailures.some((f) => f.includes('dimension') || f.includes('boundary') || f.includes('overflow'))) {
-      aiScores.technicalCompliance = 0;
-    }
-    if (hardRuleFailures.some((f) => f.includes('product'))) {
-      aiScores.productAccuracy = Math.min(aiScores.productAccuracy, 4);
-    }
-    if (hardRuleFailures.some((f) => f.includes('offer') || f.includes('price') || f.includes('headline'))) {
-      aiScores.messageClarity = Math.min(aiScores.messageClarity, 3);
-      aiScores.typography = Math.min(aiScores.typography, 6);
-    }
-    if (hardRuleFailures.some((f) => f.includes('logo'))) {
-      aiScores.brandConsistency = Math.min(aiScores.brandConsistency, 5);
-    }
-  }
+  // 4. Status determination & Approval Policy
+  let status: EvaluationStatus;
+  let passed = false;
+  let approvalEligible = false;
+  let totalScore: number;
 
-  const totalScore =
-    aiScores.visualHierarchy +
-    aiScores.productAccuracy +
-    aiScores.brandConsistency +
-    aiScores.typography +
-    aiScores.visualQuality +
-    aiScores.messageClarity +
-    aiScores.technicalCompliance;
-
-  // Determine overall status
-  let status: EvaluationStatus = 'ready_for_review';
   const hasCritical = allIssues.some((i) => i.severity === 'critical') || hardRuleFailures.length > 0;
 
-  if (hasCritical || totalScore < 75) {
+  if (!deterministicResult.passed) {
     status = 'rejected';
-  } else if (totalScore < 90 || allIssues.some((i) => i.severity === 'high')) {
-    status = 'needs_improvement';
+    passed = false;
+    approvalEligible = false;
+    const baseScores: CreativeQualityScores = {
+      visualHierarchy: 10,
+      productAccuracy: hardRuleFailures.some((f) => f.includes('product')) ? 0 : 10,
+      brandConsistency: hardRuleFailures.some((f) => f.includes('logo')) ? 0 : 8,
+      typography: hardRuleFailures.some((f) => f.includes('headline')) ? 0 : 8,
+      visualQuality: 8,
+      messageClarity: hardRuleFailures.some((f) => f.includes('offer')) ? 0 : 5,
+      technicalCompliance: hardRuleFailures.some((f) => f.includes('dimension') || f.includes('overflow')) ? 0 : 2,
+    };
+    aiScores = baseScores;
+    totalScore = Object.values(baseScores).reduce((a, b) => a + b, 0);
+  } else if (!aiRan || !aiScores) {
+    // Deterministic checks passed, but AI visual checks failed or did not run -> UNVERIFIED
+    status = 'unverified';
+    passed = false;
+    approvalEligible = false;
+    const unverifiedScores: CreativeQualityScores = {
+      visualHierarchy: 12,
+      productAccuracy: 12,
+      brandConsistency: 10,
+      typography: 10,
+      visualQuality: 10,
+      messageClarity: 6,
+      technicalCompliance: 4,
+    };
+    aiScores = unverifiedScores;
+    totalScore = 64; // Under 70 threshold, clearly not approved
+  } else {
+    // Both deterministic AND AI evaluation completed
+    totalScore =
+      aiScores.visualHierarchy +
+      aiScores.productAccuracy +
+      aiScores.brandConsistency +
+      aiScores.typography +
+      aiScores.visualQuality +
+      aiScores.messageClarity +
+      aiScores.technicalCompliance;
+
+    if (hasCritical || totalScore < 70) {
+      status = 'rejected';
+      passed = false;
+      approvalEligible = false;
+    } else if (totalScore < 80 || allIssues.some((i) => i.severity === 'high')) {
+      status = 'needs_improvement';
+      passed = false;
+      approvalEligible = false;
+    } else {
+      status = 'passed';
+      passed = true;
+      approvalEligible = true;
+    }
   }
 
   return {
@@ -216,7 +251,19 @@ export async function evaluateCreative(params: EvaluateCreativeParams): Promise<
     scores: aiScores,
     issues: allIssues,
     hardRuleFailures,
-    passed: status !== 'rejected',
+    passed,
+    approvalEligible,
+    deterministic: deterministicResult,
+    visual: {
+      status: aiRan ? (passed ? 'passed' : 'failed') : 'unverified',
+      modelId,
+      error: aiError,
+      scores: aiRan ? aiScores : null,
+      checksRun: aiRan,
+    },
+    documentVersion: doc.version,
+    evaluatorVersion: EVALUATOR_VERSION,
+    failureDetails: !passed ? (hardRuleFailures.length > 0 ? hardRuleFailures.join('; ') : aiError) : undefined,
     evaluatedAt: new Date().toISOString(),
   };
 }

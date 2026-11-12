@@ -280,40 +280,60 @@ export const getAI = () => {
                     });
                 } catch (callErr: any) {
                     const cMsg = String(callErr?.message || '');
-                    const isNotFound = cMsg.includes('404') || cMsg.includes('NOT_FOUND') || cMsg.includes('not found') || cMsg.includes('does not have access') || cMsg.includes('Publisher model');
-                    if (useVertex && isNotFound && targetModel !== 'gemini-2.5-flash') {
-                        console.warn(`[config/ai] Vertex model ${targetModel} not found or no access, falling back to gemini-2.5-flash...`);
+
+                    // 1. If thinkingConfig caused rejection or incompatible model error, retry immediately without thinkingConfig
+                    if (finalConfig.thinkingConfig) {
+                        console.warn(`[config/ai] generateContent call failed for ${targetModel} (${cMsg.slice(0, 150)}), retrying without thinkingConfig...`);
+                        const { thinkingConfig, ...noThinkingConfig } = finalConfig;
+                        try {
+                            return await ai.models.generateContent({
+                                model: targetModel,
+                                contents: normalizedContents,
+                                config: noThinkingConfig,
+                            });
+                        } catch (noThinkingErr: any) {
+                            console.warn(`[config/ai] Retry without thinkingConfig for ${targetModel} also failed: ${String(noThinkingErr?.message || '').slice(0, 150)}`);
+                            callErr = noThinkingErr;
+                        }
+                    }
+
+                    // 2. Model fallback: if a Pro model or non-flash model failed (404, 400, quota, or permission), fall back to reliable fallbackTextModel
+                    const isProOrNonFallback = targetModel !== fallbackTextModel;
+                    if (isProOrNonFallback) {
+                        console.warn(`[config/ai] Model ${targetModel} failed (${cMsg.slice(0, 150)}), falling back to ${fallbackTextModel}...`);
+                        const { thinkingConfig, ...safeConfig } = finalConfig;
+                        try {
+                            return await ai.models.generateContent({
+                                model: fallbackTextModel,
+                                contents: normalizedContents,
+                                config: safeConfig,
+                            });
+                        } catch (fallbackErr: any) {
+                            console.warn(`[config/ai] Fallback to ${fallbackTextModel} failed: ${String(fallbackErr?.message || '').slice(0, 150)}`);
+                        }
+                    }
+
+                    if ((cMsg.includes('404') || cMsg.includes('NOT_FOUND') || cMsg.includes('no longer available'))) {
                         try {
                             return await ai.models.generateContent({
                                 model: 'gemini-2.5-flash',
                                 contents: normalizedContents,
                                 config: finalConfig
                             });
-                        } catch (fallbackErr: any) {
-                            if (finalConfig.thinkingConfig && String(fallbackErr?.message || '').toLowerCase().includes('thinking')) {
-                                const { thinkingConfig, ...noThinkingConfig } = finalConfig;
+                        } catch (_) {
+                            try {
                                 return await ai.models.generateContent({
-                                    model: 'gemini-2.5-flash',
+                                    model: 'gemini-2.0-flash',
                                     contents: normalizedContents,
-                                    config: noThinkingConfig
+                                    config: finalConfig
+                                });
+                            } catch (_) {
+                                return await ai.models.generateContent({
+                                    model: 'gemini-1.5-flash',
+                                    contents: normalizedContents,
+                                    config: finalConfig
                                 });
                             }
-                            throw fallbackErr;
-                        }
-                    }
-                    if (useVertex && (cMsg.includes('404') || cMsg.includes('NOT_FOUND') || cMsg.includes('no longer available')) && targetModel === 'gemini-2.5-flash') {
-                        try {
-                            return await ai.models.generateContent({
-                                model: 'gemini-2.0-flash',
-                                contents: normalizedContents,
-                                config: finalConfig
-                            });
-                        } catch (_) {
-                            return await ai.models.generateContent({
-                                model: 'gemini-1.5-flash',
-                                contents: normalizedContents,
-                                config: finalConfig
-                            });
                         }
                     }
                     throw callErr;

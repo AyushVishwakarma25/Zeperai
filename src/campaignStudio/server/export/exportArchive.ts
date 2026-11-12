@@ -143,6 +143,20 @@ export function isCreativeApproved(concept: MetaConceptAdPackage): { approved: b
     };
   }
 
+  if (concept.evaluation.status === 'unverified') {
+    return {
+      approved: false,
+      reason: 'Unverified: Quality evaluation could not be completed for this creative.',
+    };
+  }
+
+  if (concept.evaluation.status === 'partially_evaluated') {
+    return {
+      approved: false,
+      reason: 'Partially evaluated: Creative requires full visual and deterministic verification.',
+    };
+  }
+
   if (concept.evaluation.passed === false) {
     return {
       approved: false,
@@ -150,10 +164,10 @@ export function isCreativeApproved(concept: MetaConceptAdPackage): { approved: b
     };
   }
 
-  if (concept.evaluation.status === 'rejected') {
+  if (concept.evaluation.status === 'rejected' || concept.evaluation.status === 'failed') {
     return {
       approved: false,
-      reason: 'Creative was marked as rejected during evaluation review.',
+      reason: 'Creative was marked as rejected or failed during evaluation review.',
     };
   }
 

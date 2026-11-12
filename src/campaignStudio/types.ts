@@ -69,10 +69,12 @@ export type AssetStatus = 'queued' | 'generating' | 'ready' | 'failed' | 'supers
 export type CampaignGoal =
   | 'sales'
   | 'awareness'
+  | 'consideration'
   | 'engagement'
   | 'leads'
   | 'launch'
   | 'retention'
+  | 'trust'
   | 'custom';
 
 export type CampaignInputType = 'website' | 'details';
@@ -98,6 +100,9 @@ export interface CampaignSettings {
   aspectRatio: string;
   /** Target platforms for the campaign creatives. Default ['meta_ads']. */
   platforms: CampaignPlatform[];
+  model?: string;
+  stylePreset?: string;
+  thinkingLevel?: 'low' | 'medium' | 'high';
 }
 
 export const DEFAULT_CAMPAIGN_SETTINGS: CampaignSettings = {
@@ -128,6 +133,7 @@ export interface CampaignRun {
   goal_notes: string | null;
   status: RunStatus;
   current_step: CampaignAgent;
+  platforms?: CampaignPlatform[] | string[];
   brand_context: Partial<BrandContext>;
   settings: CampaignSettings;
   credits_spent: number;
@@ -214,18 +220,19 @@ export interface ReferenceDesignDNA {
 
 export interface CampaignReference {
   id: string;
-  user_id: string;
+  user_id?: string;
   run_id?: string | null;
+  campaign_id?: string | null;
   concept_id?: string | null;
   image_url: string;
   storage_path?: string | null;
   reference_mode: ReferenceMode;
   reference_role: ReferenceRole;
   analysis_status: ReferenceAnalysisStatus;
-  design_dna: ReferenceDesignDNA | Record<string, never>;
+  design_dna?: ReferenceDesignDNA | Record<string, never>;
   metadata?: Record<string, unknown>;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface AdvertisingFormatDefinition {
@@ -257,6 +264,27 @@ export interface FormatAssignment {
   wasReassigned?: boolean;
   reassignmentReason?: string;
 }
+
+export interface CampaignFormatDiversityOptions {
+  allowDuplicatesThreshold?: number;
+  enforceStructuralDiversity?: boolean;
+  minSuitabilityThreshold?: number;
+  penalizeDuplicateFormats?: boolean;
+  penalizeDuplicateStructures?: boolean;
+  repeatThresholdCount?: number;
+  maxRepeatsPerFormat?: number;
+  formatRepeatPenalty?: number;
+  allowStructuralOverlap?: boolean;
+  structuralRepeatPenalty?: number;
+}
+
+export type FormatVisualStructure =
+  | 'hero_central'
+  | 'split_comparison'
+  | 'editorial_asymmetric'
+  | 'feature_pointers'
+  | 'lifestyle_integrated'
+  | string;
 
 export interface CampaignFormatDiversityReport {
   totalConcepts: number;
@@ -293,7 +321,9 @@ export type CreativeLayerType =
   | 'badge'
   | 'logo'
   | 'cta'
-  | 'divider';
+  | 'divider'
+  | 'headline'
+  | 'subheadline';
 
 export interface CreativeLayerPosition {
   /** 0.0 to 1.0 relative to canvas width */
@@ -340,7 +370,40 @@ export interface CreativeDocument {
 }
 
 export type IssueSeverity = 'low' | 'medium' | 'high' | 'critical';
-export type EvaluationStatus = 'ready_for_review' | 'needs_improvement' | 'rejected';
+export type EvaluationStatus =
+  | 'pending'
+  | 'passed'
+  | 'failed'
+  | 'unverified'
+  | 'partially_evaluated'
+  | 'ready_for_review'
+  | 'needs_improvement'
+  | 'rejected';
+
+export interface DeterministicChecksBreakdown {
+  canvasDimensions: boolean;
+  productAssetPresent: boolean;
+  brandLogoPresent: boolean;
+  headlinePresent: boolean;
+  ctaPresent: boolean;
+  offerMatched: boolean;
+  boundaryContainment: boolean;
+}
+
+export interface DeterministicCheckDetails {
+  passed: boolean;
+  failures: string[];
+  issues?: QualityIssue[];
+  checks: DeterministicChecksBreakdown;
+}
+
+export interface VisualCheckDetails {
+  status: 'passed' | 'failed' | 'unverified';
+  modelId?: string;
+  error?: string;
+  scores?: CreativeQualityScores | null;
+  checksRun: boolean;
+}
 
 export interface CreativeQualityScores {
   /** Visual hierarchy, reading order, and composition (0 to 20) */
@@ -357,6 +420,8 @@ export interface CreativeQualityScores {
   messageClarity: number;
   /** Dimension correctness, safe zones, and aspect ratio compliance (0 to 5) */
   technicalCompliance: number;
+  visualPolish?: number;
+  typographyReadability?: number;
 }
 
 export interface QualityIssue {
@@ -375,6 +440,12 @@ export interface CreativeEvaluation {
   issues: QualityIssue[];
   hardRuleFailures: string[];
   passed: boolean;
+  approvalEligible?: boolean;
+  deterministic?: DeterministicCheckDetails;
+  visual?: VisualCheckDetails;
+  documentVersion?: number;
+  evaluatorVersion?: string;
+  failureDetails?: string;
   evaluatedAt: string;
 }
 
@@ -547,7 +618,7 @@ export interface BrandContext {
     colors: { name?: string; hex: string }[];
     typography: string;
     logoUrl?: string;
-    styleKeywords: string[];
+    styleKeywords?: string[];
   };
   /** Geographies the brand sells/advertises in, e.g. ['India']. */
   markets: string[];
@@ -639,7 +710,7 @@ export interface CampaignStrategy {
 // Agents 5-6 output: creative direction, creative blueprints and master prompts
 // ---------------------------------------------------------------------------
 
-export type DesignIntensity = 'minimal' | 'balanced' | 'bold' | 'experimental';
+export type DesignIntensity = 'minimal' | 'balanced' | 'bold' | 'experimental' | 'editorial_minimal' | string;
 
 export interface NormalizedBoundingBox {
   element: string;
@@ -755,6 +826,11 @@ export interface CreativeBlueprint {
     exactCopyRequired: boolean;
     prohibitInventedClaims: boolean;
   };
+
+  packagingFidelity?: any;
+  brandFidelity?: any;
+  generationMetadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 /** One creative concept within a content pillar. */
@@ -773,6 +849,7 @@ export interface CreativeConcept {
   /** When true, format allocation will strictly preserve the chosen advertising format */
   isLocked?: boolean;
   formatLocked?: boolean;
+  angle?: string;
 }
 
 /** Agent 5 (creative_direction / AI Art Director). Concepts must cover the strategy's creativeMix exactly (validated). */

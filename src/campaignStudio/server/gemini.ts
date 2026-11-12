@@ -69,6 +69,8 @@ export interface StructuredCallOptions<T> {
   schema?: Record<string, unknown>;
   /** Validates and narrows the parsed JSON. MUST throw on invalid input. */
   parse: (raw: unknown) => T;
+  /** Optional fallback normalizer / healer if the repair pass still has minor discrepancies. */
+  repairFallback?: (raw: unknown) => T;
   temperature?: number;
   thinkingLevel?: 'low' | 'medium' | 'high';
   tools?: { googleSearch?: boolean; urlContext?: boolean };
@@ -322,11 +324,14 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
       resp = await callOnce(userContents, buildConfig(usesTools), Math.min(timeoutMs, left));
       break;
     } catch (err: any) {
+      // 1. If thinkingConfig failed (400, thinkingLevel unsupported on model, invalid argument), retry without it
       if (
         err instanceof GeminiCallError &&
         activeThinking !== undefined &&
-        (err.kind === 'bad_request' || err.kind === 'unknown') &&
-        (err.message.toLowerCase().includes('thinking') || err.message.toLowerCase().includes('invalid_argument'))
+        (err.kind === 'bad_request' ||
+          err.message.toLowerCase().includes('thinking') ||
+          err.message.toLowerCase().includes('argument') ||
+          err.message.toLowerCase().includes('payload'))
       ) {
         console.warn(
           `[campaign-studio] ThinkingConfig error for ${activeModel} (${err.message}), retrying without thinkingConfig...`
@@ -334,21 +339,27 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
         activeThinking = undefined;
         continue;
       }
+
+      // 2. Model fallback: If a Pro model is not found or inaccessible on Vertex AI, fall back to fallbackModel
       if (
         err instanceof GeminiCallError &&
         activeModel !== fallbackModel &&
+        activeModel.includes('pro') &&
         (err.status === 404 ||
+          err.status === 403 ||
           err.message.toLowerCase().includes('not found') ||
           err.message.toLowerCase().includes('does not have access') ||
-          err.message.toLowerCase().includes('publisher model'))
+          err.message.toLowerCase().includes('publisher model') ||
+          err.message.toLowerCase().includes('permission_denied'))
       ) {
         console.warn(
-          `[campaign-studio] Model ${activeModel} not available on backend (${err.message}), falling back to ${fallbackModel}...`
+          `[campaign-studio] Pro model ${activeModel} unavailable on backend (${err.kind}, status=${err.status}), falling back to ${fallbackModel}...`
         );
         activeModel = fallbackModel;
         activeThinking = undefined;
         continue;
       }
+
       if (!(err instanceof GeminiCallError) || err.kind !== 'transient' || attempt >= maxAttempts) throw err;
       const wait = backoffMs * 2 ** (attempt - 1) + Math.floor(Math.random() * 250);
       if (wait >= remaining() - minRemaining) throw err; // no time left to retry
@@ -370,6 +381,12 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
 
   const left = remaining();
   if (left < Math.min(5_000, timeoutMs)) {
+    if (opts.repairFallback) {
+      try {
+        const healedData = opts.repairFallback(extractJson(firstText));
+        return { data: healedData, model: activeModel, usage, attempts: calls, sources };
+      } catch {}
+    }
     throw new GeminiCallError('invalid_output', 'The AI returned an unusable response. Please try again.', calls);
   }
 
@@ -393,7 +410,27 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
       attempts: calls,
       sources,
     };
-  } catch {
+  } catch (repairErr: any) {
+    if (opts.repairFallback) {
+      try {
+        let rawToHeal: unknown;
+        try {
+          rawToHeal = extractJson(readText(repairResp));
+        } catch {
+          rawToHeal = extractJson(firstText);
+        }
+        const healedData = opts.repairFallback(rawToHeal);
+        return {
+          data: healedData,
+          model: activeModel,
+          usage,
+          attempts: calls,
+          sources,
+        };
+      } catch (fbErr) {
+        console.warn('[campaign-studio] repairFallback could not recover payload:', fbErr);
+      }
+    }
     throw new GeminiCallError('invalid_output', 'The AI returned an unusable response. Please try again.', calls);
   }
 }

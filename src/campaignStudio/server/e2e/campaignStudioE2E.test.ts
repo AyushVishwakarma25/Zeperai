@@ -25,6 +25,7 @@ import type {
   CreativeDocument,
   MasterPrompt,
   StandardAspectRatio,
+  CreativeConcept,
 } from '../../types.js';
 import { assignFormatsToConcepts } from '../agents/formatStrategist.js';
 import { buildCreativeDocument, composeFinalCreative } from '../composition/compositor.js';
@@ -331,7 +332,25 @@ test('acceptance: executes end-to-end V2 advertising pipeline across all 5 comme
     );
 
     // Step D: Quality Evaluation
-    const evalResult = await evaluateCreative({ doc, blueprint, brand: fixture.brand });
+    const mockAiEvalClient = {
+      models: {
+        generateContent: async () => ({
+          text: JSON.stringify({
+            scores: {
+              visualHierarchy: 18,
+              productAccuracy: 19,
+              brandConsistency: 14,
+              typography: 14,
+              visualQuality: 14,
+              messageClarity: 9,
+              technicalCompliance: 5,
+            },
+            issues: [],
+          }),
+        }),
+      },
+    };
+    const evalResult = await evaluateCreative({ doc, blueprint, brand: fixture.brand, client: mockAiEvalClient });
     assert.equal(evalResult.passed, true, `Quality evaluation must pass for ${fixture.categoryName}`);
     assert.notEqual(evalResult.status, 'rejected');
     assert.equal(evalResult.hardRuleFailures.length, 0);
@@ -358,7 +377,9 @@ test('acceptance: executes end-to-end V2 advertising pipeline across all 5 comme
       platforms: ['Instagram', 'Facebook'],
       settings: {
         creativeCount: 5,
+        quality: 'Standard',
         aspectRatio: '1:1',
+        platforms: ['meta_ads'],
         model: 'imagen-3.0-generate-002',
         stylePreset: 'Commercial advertising',
         thinkingLevel: 'medium',
@@ -367,7 +388,7 @@ test('acceptance: executes end-to-end V2 advertising pipeline across all 5 comme
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       brand_context: fixture.brand,
-    };
+    } as unknown as CampaignRun;
 
     const pkg = buildMetaCampaignPackage({
       run: mockRun,
@@ -384,12 +405,16 @@ test('acceptance: executes end-to-end V2 advertising pipeline across all 5 comme
       assets: [
         {
           id: `asset-${concept1.id}`,
+          user_id: 'user-001',
           run_id: mockRun.id,
           creative_index: 1,
           version: 1,
           status: 'ready',
           aspect_ratio: '1:1',
           image_url: fixture.backgroundUrl,
+          storage_path: `campaigns/${mockRun.id}/1.png`,
+          prompt: 'Studio background',
+          model: 'imagen-3.0',
           overlay: {
             document: doc,
             headline: concept1.headline,
