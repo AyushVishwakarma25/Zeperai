@@ -210,7 +210,13 @@ export function buildCreativeDocument(params: ComposeCreativeParams): CreativeDo
         fontWeight: headlineStyle.fontWeight || 800,
         color: headlineStyle.color || '#FFFFFF',
         alignment: headlineBox.alignment || 'left',
-        fontSize: Math.round(canvas.height * headlineBox.height * 0.32),
+        fontSize:
+          (headlineStyle as any)?.fontSizePx ||
+          (blueprint.typography?.hierarchy?.find((h) => h.role === 'headline') as any)?.fontSizePx ||
+          Math.min(
+            Math.round(canvas.height * headlineBox.height * 0.32),
+            headlineText.length > 50 ? 42 : headlineText.length > 30 ? 52 : 72,
+          ),
         textTransform: (headlineStyle as any)?.textTransform || 'none',
       },
       visible: true,

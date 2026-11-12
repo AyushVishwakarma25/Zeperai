@@ -24,6 +24,7 @@ import type {
   BrandContext,
   CampaignAsset,
   CreativeBlueprint,
+  CreativeConcept,
   CreativeDirection,
   CreativeDocument,
   CreativeEvaluation,

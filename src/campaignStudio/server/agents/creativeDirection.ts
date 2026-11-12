@@ -26,6 +26,7 @@ import type {
   CreativeConcept,
   CreativeDirection,
   DesignIntensity,
+  DirectionCritiqueReport,
   NormalizedBoundingBox,
   ReferenceDesignDNA,
 } from '../../types.js';
@@ -256,17 +257,7 @@ export function parseCreativeDirection(
   const wanted = new Map(requiredMix.map((m) => [m.pillar, m.count]));
 
   const rawConcepts = Array.isArray(r.concepts) ? r.concepts : [];
-  const byPillar = new Map<string, Array<{
-    headline: string;
-    subheadline?: string;
-    visualIdea: string;
-    storyline: string;
-    cta: string;
-    composition: string;
-    advertisingFormat?: string;
-    designIntensity?: DesignIntensity;
-    layoutElements?: NormalizedBoundingBox[];
-  }>>();
+  const byPillar = new Map<string, Array<Record<string, any>>>();
 
   for (const c of rawConcepts) {
     if (!c || typeof c !== 'object') continue;
