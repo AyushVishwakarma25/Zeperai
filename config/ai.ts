@@ -10,6 +10,8 @@ import { safelyParseServiceAccountJson } from "../utils/serviceAccountParser.js"
 
 let genAIInstance: GoogleGenAI | null = null;
 let currentApiKey = '';
+let studioGenAIInstance: GoogleGenAI | null = null;
+let studioCurrentApiKey = '';
 const unavailableVertexModels = new Set<string>();
 
 /**
@@ -19,6 +21,8 @@ const unavailableVertexModels = new Set<string>();
 export const resetAIInstance = () => {
     genAIInstance = null;
     currentApiKey = '';
+    studioGenAIInstance = null;
+    studioCurrentApiKey = '';
 };
 
 const DEFAULT_SAFETY_SETTINGS = [
@@ -214,6 +218,25 @@ export const getAI = () => {
         }
     }
 
+    // Always maintain a Google AI Studio client whenever GEMINI_API_KEY is available.
+    // The Nano Banana image generation family (gemini-nano-banana-2.1, gemini-3-pro-image, gemini-3.1-flash-lite-image)
+    // is native to Google AI Studio and must be dispatched to AI Studio even in Vertex deployments.
+    let studioAI: any = null;
+    if (apiKey) {
+        if (!studioGenAIInstance || studioCurrentApiKey !== apiKey) {
+            studioCurrentApiKey = apiKey;
+            studioGenAIInstance = new GoogleGenAI({
+                apiKey: apiKey,
+                httpOptions: {
+                    headers: {
+                        'User-Agent': 'aistudio-build',
+                    },
+                },
+            });
+        }
+        studioAI = studioGenAIInstance;
+    }
+
     const ai: any = genAIInstance;
 
     // Return a wrapper that matches the application's existing usage patterns
@@ -224,20 +247,29 @@ export const getAI = () => {
                 let { model: modelName, contents, config } = args;
 
                 const hasImageConfig = Boolean(config?.imageConfig);
+                const isImageTask = Boolean(
+                    hasImageConfig ||
+                    (typeof modelName === 'string' && (
+                        modelName.includes('banana') ||
+                        modelName.includes('image') ||
+                        modelName.includes('imagen')
+                    ))
+                );
 
                 // Map model aliases to current supported canonical models
                 // On Google Cloud Vertex AI, Flash is 'gemini-2.5-flash' and Pro is 'gemini-2.5-pro'.
                 // On Google AI Studio (API Key), models are 'gemini-3.8-flash' and 'gemini-3.1-pro-preview'.
+                // Image Models: Nano Banana Family (gemini-nano-banana-2.1, gemini-3-pro-image, gemini-3.1-flash-lite-image)
                 let realModelName = modelName;
                 if (modelName === 'gemini-3.1-flash-lite' || modelName === 'gemini-flash-lite' || modelName === 'flash-lite') {
-                    realModelName = hasImageConfig ? 'gemini-nano-banana-2.1' : (useVertex ? 'gemini-2.5-flash' : 'gemini-3.1-flash-lite');
+                    realModelName = isImageTask ? 'gemini-nano-banana-2.1' : (useVertex ? 'gemini-2.5-flash' : 'gemini-3.1-flash-lite');
                 }
                 if (modelName === 'gemini-3-flash-preview' || modelName === 'gemini-flash-latest' || modelName === 'gemini-2.5-flash' || modelName === 'gemini-2.0-flash' || modelName === 'gemini-1.5-flash' || modelName === 'gemini-3.8-flash') {
-                    realModelName = hasImageConfig ? 'gemini-nano-banana-2.1' : (useVertex ? 'gemini-2.5-flash' : 'gemini-3.8-flash');
+                    realModelName = isImageTask ? 'gemini-nano-banana-2.1' : (useVertex ? 'gemini-2.5-flash' : 'gemini-3.8-flash');
                 }
                 if (modelName === 'gemini-3.1-pro-preview' || modelName === 'gemini-3-pro-preview' || modelName === 'gemini-pro-latest' || modelName === 'gemini-pro' || modelName === 'gemini-2.5-pro' || modelName === 'gemini-2.0-pro' || modelName === 'gemini-1.5-pro') {
                     const vertexPro = process.env.VERTEX_PRO_MODEL || (unavailableVertexModels.has('gemini-2.5-pro') ? 'gemini-2.5-flash' : 'gemini-2.5-pro');
-                    realModelName = hasImageConfig ? 'gemini-3-pro-image' : (useVertex ? vertexPro : 'gemini-3.1-pro-preview');
+                    realModelName = isImageTask ? 'gemini-3-pro-image' : (useVertex ? vertexPro : 'gemini-3.1-pro-preview');
                 }
                 if (modelName === 'gemini-2.5-flash-preview-tts' || modelName === 'gemini-3.1-flash-tts-preview') {
                     realModelName = useVertex ? 'gemini-2.5-flash' : 'gemini-3.8-flash-lite-tts';
@@ -252,13 +284,13 @@ export const getAI = () => {
                 if (modelName === 'nano-banana-pro' || modelName === 'gemini-pro-image' || modelName === 'gemini-3-pro-image') {
                     realModelName = 'gemini-3-pro-image';
                 }
-                // Discontinued Imagen aliases fallback cleanly to Nano Banana models
+                // Discontinued Imagen aliases fallback cleanly to standard Nano Banana model
                 if (modelName && (modelName.includes('imagen') || modelName.includes('dall-e'))) {
-                    realModelName = 'gemini-3.1-flash-lite-image';
+                    realModelName = 'gemini-nano-banana-2.1';
                 }
 
-                // Invariant: Never allow an image generation request (with imageConfig) to invoke a pure text model
-                if (hasImageConfig && (realModelName === 'gemini-3.8-flash' || realModelName === 'gemini-2.5-flash' || realModelName === 'gemini-3.1-pro-preview' || realModelName === 'gemini-2.5-pro' || !realModelName)) {
+                // Invariant: Never allow an image generation request to invoke a pure text model
+                if (isImageTask && (realModelName === 'gemini-3.8-flash' || realModelName === 'gemini-2.5-flash' || realModelName === 'gemini-3.1-pro-preview' || realModelName === 'gemini-2.5-pro' || !realModelName)) {
                     realModelName = 'gemini-nano-banana-2.1';
                 }
 
@@ -283,11 +315,14 @@ export const getAI = () => {
                     safetySettings: config?.safetySettings || DEFAULT_SAFETY_SETTINGS
                 };
 
-                // Use the modern models.generateContent API
                 const fallbackTextModel = useVertex ? 'gemini-2.5-flash' : 'gemini-3.8-flash';
-                const targetModel = realModelName || (hasImageConfig ? 'gemini-nano-banana-2.1' : fallbackTextModel);
+                const targetModel = realModelName || (isImageTask ? 'gemini-nano-banana-2.1' : fallbackTextModel);
+
+                // Nano Banana image models are Google AI Studio models; prioritize studioAI whenever available
+                let activeClient = (isImageTask && studioAI) ? studioAI : ai;
+
                 try {
-                    return await ai.models.generateContent({ 
+                    return await activeClient.models.generateContent({ 
                         model: targetModel,
                         contents: normalizedContents,
                         config: finalConfig 
@@ -304,7 +339,56 @@ export const getAI = () => {
                         unavailableVertexModels.add(targetModel);
                     }
 
-                    // 1. If thinkingConfig caused rejection or incompatible model error (and it's not a missing model 404), retry immediately without thinkingConfig
+                    // 1. If an image generation was attempted on Vertex AI and failed (publisher model not found on GCP),
+                    // and Google AI Studio is configured, switch to Studio immediately
+                    if (isImageTask && activeClient !== studioAI && studioAI) {
+                        console.warn(`[config/ai] Vertex AI did not find image model ${targetModel}. Routing through Google AI Studio...`);
+                        try {
+                            return await studioAI.models.generateContent({
+                                model: targetModel,
+                                contents: normalizedContents,
+                                config: finalConfig,
+                            });
+                        } catch (studioErr: any) {
+                            console.warn(`[config/ai] Google AI Studio attempt for ${targetModel} also failed: ${String(studioErr?.message || '').slice(0, 150)}`);
+                            callErr = studioErr;
+                        }
+                    }
+
+                    // 2. IMAGE MODEL FALLBACK:
+                    // Only fall back within the Nano Banana image family (Pro -> Standard -> Lite).
+                    // NEVER fall back to a text model (gemini-2.5-flash, gemini-1.5-flash, etc.)
+                    if (isImageTask) {
+                        const imgClient = studioAI || ai;
+                        if (targetModel === 'gemini-3-pro-image') {
+                            console.warn(`[config/ai] Pro image model failed (${cMsg.slice(0, 100)}), falling back to standard Nano Banana (gemini-nano-banana-2.1)...`);
+                            try {
+                                return await imgClient.models.generateContent({
+                                    model: 'gemini-nano-banana-2.1',
+                                    contents: normalizedContents,
+                                    config: finalConfig,
+                                });
+                            } catch (fbErr: any) {
+                                console.warn(`[config/ai] Fallback to gemini-nano-banana-2.1 failed:`, fbErr?.message || fbErr);
+                            }
+                        }
+                        if (targetModel !== 'gemini-3.1-flash-lite-image') {
+                            console.warn(`[config/ai] Standard image model failed, falling back to Nano Banana Lite (gemini-3.1-flash-lite-image)...`);
+                            try {
+                                return await imgClient.models.generateContent({
+                                    model: 'gemini-3.1-flash-lite-image',
+                                    contents: normalizedContents,
+                                    config: finalConfig,
+                                });
+                            } catch (fbErr: any) {
+                                console.warn(`[config/ai] Fallback to gemini-3.1-flash-lite-image failed:`, fbErr?.message || fbErr);
+                            }
+                        }
+                        // All image model attempts failed; throw the real error directly without masking it
+                        throw callErr;
+                    }
+
+                    // 3. TEXT MODEL: If thinkingConfig caused rejection, retry without thinkingConfig
                     if (finalConfig.thinkingConfig && !isNotFound) {
                         console.warn(`[config/ai] generateContent call failed for ${targetModel} (${cMsg.slice(0, 150)}), retrying without thinkingConfig...`);
                         const { thinkingConfig, ...noThinkingConfig } = finalConfig;
@@ -322,10 +406,10 @@ export const getAI = () => {
 
                     const { thinkingConfig, ...safeConfig } = finalConfig;
 
-                    // 2. Model fallback: if a Pro model or non-flash model failed (404, 400, quota, or permission), fall back to reliable fallbackTextModel
+                    // Fall back from Pro text model to reliable Flash text model
                     const isProOrNonFallback = targetModel !== fallbackTextModel;
                     if (isProOrNonFallback) {
-                        console.warn(`[config/ai] Model ${targetModel} failed (${cMsg.slice(0, 150)}), falling back to ${fallbackTextModel}...`);
+                        console.warn(`[config/ai] Text model ${targetModel} failed (${cMsg.slice(0, 150)}), falling back to ${fallbackTextModel}...`);
                         try {
                             return await ai.models.generateContent({
                                 model: fallbackTextModel,
@@ -337,29 +421,18 @@ export const getAI = () => {
                         }
                     }
 
-                    if (cMsg.includes('404') || cMsg.includes('NOT_FOUND') || cMsg.includes('no longer available') || cMsg.includes('400') || cMsg.toLowerCase().includes('not supported') || cMsg.toLowerCase().includes('invalid argument') || cMsg.toLowerCase().includes('publisher model')) {
+                    // Ultimate stable text fallback: gemini-flash-latest or gemini-2.5-flash (NEVER deprecated gemini-1.5-flash or gemini-2.0-flash)
+                    const stableTextFallback = useVertex ? 'gemini-2.5-flash' : 'gemini-flash-latest';
+                    if (targetModel !== stableTextFallback && fallbackTextModel !== stableTextFallback) {
                         try {
                             return await ai.models.generateContent({
-                                model: 'gemini-2.5-flash',
+                                model: stableTextFallback,
                                 contents: normalizedContents,
                                 config: safeConfig
                             });
-                        } catch (_) {
-                            try {
-                                return await ai.models.generateContent({
-                                    model: 'gemini-2.0-flash',
-                                    contents: normalizedContents,
-                                    config: safeConfig
-                                });
-                            } catch (_) {
-                                return await ai.models.generateContent({
-                                    model: 'gemini-1.5-flash',
-                                    contents: normalizedContents,
-                                    config: safeConfig
-                                });
-                            }
-                        }
+                        } catch (_) {}
                     }
+
                     throw callErr;
                 }
             }

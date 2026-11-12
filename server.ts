@@ -3702,7 +3702,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
       let result: any = null;
 
       if (isVertexMode) {
-        const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+        const candidateModels = ['gemini-2.5-flash'];
         let lastErr: any = null;
         for (const cand of candidateModels) {
           try {
@@ -4808,9 +4808,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     'gemini-3.1-flash-lite',
     'gemini-3.7-flash',
     'gemini-2.5-flash',
-    'gemini-1.5-flash',
     'gemini-2.5-pro',
-    'gemini-1.5-pro',
     'gemini-3.1-pro-preview',
     'gemini-3.1-flash-tts-preview',
     'gemini-2.5-flash-preview-tts',

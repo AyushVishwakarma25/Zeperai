@@ -98,19 +98,17 @@ export function resolveModelForGeneration(
   quality?: GenerationQuality | string,
   appMode?: AppMode
 ): ModelDefinition {
-  const isPaid = userTier === 'Pro' || userTier === 'PayAsYouGo' || userTier === 'Agency' || userTier === 'Standard';
-
-  // 1. Free tier rule: ALWAYS use Nano Banana 2 Lite
-  if (!isPaid) {
-    return MODEL_REGISTRY[InternalModelId.NanoBanana2Lite];
-  }
-
-  // 2. Paid tier rule: Map quality selection
+  // 1. Pro quality requested -> Flagship Nano Banana Pro (gemini-3-pro-image)
   if (quality === GenerationQuality.Pro || quality === 'Pro' || quality === 'pro') {
     return MODEL_REGISTRY[InternalModelId.NanoBananaPro];
   }
 
-  // Default for paid tier is Standard -> Nano Banana 2
+  // 2. Explicit basic / lite quality -> Nano Banana 2 Lite (gemini-3.1-flash-lite-image)
+  if (quality === 'Lite' || quality === 'lite' || quality === 'basic') {
+    return MODEL_REGISTRY[InternalModelId.NanoBanana2Lite];
+  }
+
+  // 3. Standard quality (workhorse) -> Nano Banana 2 (gemini-nano-banana-2.1)
   return MODEL_REGISTRY[InternalModelId.NanoBanana2];
 }
 
