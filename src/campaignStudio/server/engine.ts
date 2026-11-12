@@ -125,6 +125,12 @@ export function mapAgentError(err: unknown): { status: number; message: string }
         return { status: 503, message: 'The AI service is busy right now. Please try again in a moment.' };
       case 'invalid_output':
         return { status: 502, message: 'The AI returned an unusable answer. Please try again.' };
+      case 'bad_request':
+        console.warn('[campaign-studio] Gemini bad_request:', err.status, err.message.slice(0, 200));
+        return {
+          status: 400,
+          message: err.message && !err.message.includes('at ') ? err.message : 'The AI request could not be processed with the provided details. Please try again or provide more brand context.',
+        };
       default:
         console.error('[campaign-studio] Gemini call failed:', err.kind, err.status, err.message.slice(0, 200));
         return { status: 500, message: 'Something went wrong while generating this step. Please try again.' };

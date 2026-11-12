@@ -190,13 +190,27 @@ const DashboardHome: React.FC<DashboardProps> = ({
             onClick: () => onSelectMode(AppMode.Fashion)
         },
         {
-            title: 'Campaign Studio V2',
-            description: 'Autonomous multi-placement ad campaigns for D2C brands: creative direction, automated QA & Meta exports.',
+            title: 'Campaign Studio',
+            description: 'Multi-step ad campaigns: audience research, angle strategy, headline copy, and social creatives.',
             color: '#EAE3FD', // card-purple
             accentColor: '#6A5AE0', // brand primary
             iconName: 'strategy',
             thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/Campaing%20Studio%20Zeperai.webp',
-            badge: 'V2',
+            onClick: () => {
+                navigate('/campaign-studio?v=1');
+                if (onOpenCampaignStudio) {
+                    onOpenCampaignStudio();
+                }
+            }
+        },
+        {
+            title: 'Campaign Studio V2',
+            description: 'Autonomous multi-placement ad campaigns for D2C brands: creative direction, automated 10-point QA & Meta exports.',
+            color: '#FCD8FC', // distinct card-pink
+            accentColor: '#9333EA', // purple-600
+            iconName: 'strategy',
+            thumbnail: 'https://kvqzfiezakcbnxbagxjs.supabase.co/storage/v1/object/public/designs/Dashboard%20Thumbnails/Campaing%20Studio%20Zeperai.webp',
+            badge: 'NEW V2',
             onClick: () => {
                 navigate('/campaign-studio');
                 if (onOpenCampaignStudio) {

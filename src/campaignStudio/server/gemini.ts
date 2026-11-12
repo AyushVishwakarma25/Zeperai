@@ -248,22 +248,24 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
 
   let activeModel = opts.model;
   let activeThinking = opts.thinkingLevel;
+  let activeTools = opts.tools;
   let fallbackApplied = false;
   let fallbackReason: string | undefined = undefined;
   const fallbackModel = 'gemini-flash-latest';
 
-  const buildConfig = (withTools: boolean): Record<string, unknown> => {
+  const buildConfig = (toolsConfig?: typeof activeTools | boolean): Record<string, unknown> => {
+    const withTools = typeof toolsConfig === 'boolean' ? toolsConfig : !!(toolsConfig?.googleSearch || toolsConfig?.urlContext);
     const config: Record<string, unknown> = {
       systemInstruction: withTools ? opts.systemInstruction + jsonInstruction : opts.systemInstruction,
     };
     if (opts.temperature !== undefined) config.temperature = opts.temperature;
     if (activeThinking) config.thinkingConfig = { thinkingLevel: THINKING_MAP[activeThinking] };
-    if (withTools) {
+    if (withTools && typeof toolsConfig === 'object' && toolsConfig) {
       const tools: Record<string, unknown>[] = [];
-      if (opts.tools?.googleSearch) tools.push({ googleSearch: {} });
-      if (opts.tools?.urlContext) tools.push({ urlContext: {} });
+      if (toolsConfig.googleSearch) tools.push({ googleSearch: {} });
+      if (toolsConfig.urlContext) tools.push({ urlContext: {} });
       config.tools = tools;
-    } else {
+    } else if (!withTools) {
       config.responseMimeType = 'application/json';
       if (opts.schema) config.responseSchema = opts.schema;
     }
@@ -327,7 +329,7 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
       throw new GeminiCallError('timeout', 'The AI took too long to respond.', calls);
     }
     try {
-      resp = await callOnce(userContents, buildConfig(usesTools), Math.min(timeoutMs, left));
+      resp = await callOnce(userContents, buildConfig(activeTools), Math.min(timeoutMs, left));
       break;
     } catch (err: any) {
       // 1. If thinkingConfig failed (400, thinkingLevel unsupported on model, invalid argument), retry without it
@@ -346,31 +348,75 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
         continue;
       }
 
-      // 2. Model fallback: If a Pro model is not found or inaccessible on Vertex AI, fall back to fallbackModel
+      // 2. If tools (urlContext or googleSearch) failed (400, tool unsupported on model, invalid argument), retry without tools
+      if (
+        err instanceof GeminiCallError &&
+        activeTools !== undefined &&
+        (err.kind === 'bad_request' ||
+          err.message.toLowerCase().includes('urlcontext') ||
+          err.message.toLowerCase().includes('tool') ||
+          err.message.toLowerCase().includes('argument') ||
+          err.message.toLowerCase().includes('search'))
+      ) {
+        console.warn(
+          `[campaign-studio] Tools error for ${activeModel} (${err.message}), retrying with standard structured JSON prompt...`
+        );
+        activeTools = undefined;
+        continue;
+      }
+
+      // 3. Model fallback: If activeModel is not found, unauthorized, or fails with bad_request/404/403, fall back to fallbackModel
       if (
         err instanceof GeminiCallError &&
         activeModel !== fallbackModel &&
-        activeModel.includes('pro') &&
         (err.status === 404 ||
           err.status === 403 ||
+          err.kind === 'bad_request' ||
           err.message.toLowerCase().includes('not found') ||
           err.message.toLowerCase().includes('does not have access') ||
           err.message.toLowerCase().includes('publisher model') ||
           err.message.toLowerCase().includes('permission_denied'))
       ) {
         console.warn(
-          `[campaign-studio] Pro model ${activeModel} unavailable on backend (${err.kind}, status=${err.status}), falling back to ${fallbackModel}...`
+          `[campaign-studio] Model ${activeModel} unavailable on backend (${err.kind}, status=${err.status}), falling back to ${fallbackModel}...`
         );
         fallbackApplied = true;
-        fallbackReason = `Pro model ${activeModel} unavailable on backend (${err.kind}, status=${err.status})`;
+        fallbackReason = `Model ${activeModel} unavailable on backend (${err.kind}, status=${err.status})`;
         recordModelFallback(
-          'reasoning_strategy',
+          activeModel.includes('pro') ? 'reasoning_strategy' : 'copy_generation',
           activeModel,
           fallbackModel,
           fallbackReason,
         );
         activeModel = fallbackModel;
         activeThinking = undefined;
+        activeTools = undefined;
+        continue;
+      }
+
+      // 4. Secondary fallback: If gemini-flash-latest also fails on Vertex AI or AI Studio, fall back to verified gemini-2.5-flash
+      if (
+        err instanceof GeminiCallError &&
+        activeModel === 'gemini-flash-latest' &&
+        (err.status === 404 ||
+          err.status === 403 ||
+          err.kind === 'bad_request' ||
+          err.message.toLowerCase().includes('not found'))
+      ) {
+        console.warn(
+          `[campaign-studio] gemini-flash-latest alias unavailable on backend, falling back to gemini-2.5-flash...`
+        );
+        fallbackApplied = true;
+        fallbackReason = `gemini-flash-latest unavailable on backend (${err.kind}, status=${err.status})`;
+        recordModelFallback(
+          'copy_generation',
+          activeModel,
+          'gemini-2.5-flash',
+          fallbackReason,
+        );
+        activeModel = 'gemini-2.5-flash';
+        activeThinking = undefined;
+        activeTools = undefined;
         continue;
       }
 

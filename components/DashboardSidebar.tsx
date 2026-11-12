@@ -239,8 +239,19 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
             <NavItem 
                 icon="strategy" 
                 label="Campaign Studio" 
+                active={currentView === View.CampaignStudio && window.location.search.includes('v=1')} 
+                onClick={() => { 
+                    onSetView(View.CampaignStudio); 
+                    navigate('/campaign-studio?v=1');
+                    onClose(); 
+                }} 
+                isOpen={isOpen} 
+            />
+            <NavItem 
+                icon="strategy" 
+                label="Campaign Studio V2" 
                 badge="NEW V2"
-                active={currentView === View.CampaignStudio || window.location.pathname === '/campaign-studio' || window.location.pathname.startsWith('/campaigns')} 
+                active={currentView === View.CampaignStudio && !window.location.search.includes('v=1')} 
                 onClick={() => { 
                     onSetView(View.CampaignStudio); 
                     navigate('/campaign-studio');

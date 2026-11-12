@@ -325,7 +325,7 @@ export const getAI = () => {
                         }
                     }
 
-                    if ((cMsg.includes('404') || cMsg.includes('NOT_FOUND') || cMsg.includes('no longer available'))) {
+                    if (cMsg.includes('404') || cMsg.includes('NOT_FOUND') || cMsg.includes('no longer available') || cMsg.includes('400') || cMsg.toLowerCase().includes('not supported') || cMsg.toLowerCase().includes('invalid argument') || cMsg.toLowerCase().includes('publisher model')) {
                         try {
                             return await ai.models.generateContent({
                                 model: 'gemini-2.5-flash',

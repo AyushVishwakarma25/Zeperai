@@ -23,6 +23,8 @@ const CampaignStudio: React.FC<Props> = ({ onToggleSidebar, onSetView }) => {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; key: number } | null>(null);
   const notify = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type, key: Date.now() });
 
+  const isClassic = typeof window !== 'undefined' && window.location.search.includes('v=1');
+
   return (
     <div className="w-full h-full bg-main flex flex-col overflow-hidden">
       {toast && <Toast key={toast.key} message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -37,12 +39,28 @@ const CampaignStudio: React.FC<Props> = ({ onToggleSidebar, onSetView }) => {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-text-primary truncate">Campaign Studio V2</h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-2xs">
-                V2 Production
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-text-primary truncate">
+                {isClassic ? 'Campaign Studio' : 'Campaign Studio V2'}
+              </h1>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                isClassic ? 'bg-slate-200 text-slate-700' : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-2xs'
+              }`}>
+                {isClassic ? 'Classic Engine' : 'V2 Production'}
               </span>
+              {isClassic && (
+                <button
+                  onClick={() => { window.location.href = '/campaign-studio'; }}
+                  className="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary-hover hover:underline ml-2"
+                >
+                  Switch to V2 Engine →
+                </button>
+              )}
             </div>
-            <p className="text-xs sm:text-sm text-text-secondary truncate">Autonomous multi-placement ad campaigns for D2C brands: creative direction, automated 10-point QA & export.</p>
+            <p className="text-xs sm:text-sm text-text-secondary truncate">
+              {isClassic
+                ? 'Standard multi-step ad campaigns: audience research, angle strategy, and ad copy.'
+                : 'Autonomous multi-placement ad campaigns for D2C brands: creative direction, automated 10-point QA & export.'}
+            </p>
           </div>
         </div>
         <Button onClick={() => onSetView(View.Dashboard)} variant="secondary" className="!px-2.5 !py-1.5 sm:!px-3.5 sm:!py-2 !text-xs sm:!text-sm whitespace-nowrap shrink-0 font-medium">

@@ -65,9 +65,9 @@ export const CampaignList: React.FC<Props> = ({ onOpen, onNew, notify }) => {
         <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-4">
           <Icon name="strategy" className="w-7 h-7" />
         </div>
-        <h2 className="text-xl font-bold text-text-primary">Plan your first campaign</h2>
+        <h2 className="text-xl font-bold text-text-primary">Plan your first campaign (V2)</h2>
         <p className="text-sm text-text-secondary mt-1">
-          Share your website or describe your brand. We’ll analyse it, research your market, build a strategy and create your ads, checking with you at every step.
+          Share your website or describe your brand. We’ll research your market, develop original creative direction, and generate production-ready multi-placement ads with automated QA.
         </p>
         <Button onClick={onNew} className="mt-5 mx-auto">
           <Icon name="plus" className="w-4 h-4 mr-1.5" />
