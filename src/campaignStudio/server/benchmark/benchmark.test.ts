@@ -408,3 +408,4 @@ test('report generator: outputs comprehensive Markdown quality benchmark report 
   assert.ok(md.includes('5. Failure Pattern Distribution'));
   assert.ok(md.includes('7. Audit Trail Invariants & Isolation Guarantee'));
 });
+

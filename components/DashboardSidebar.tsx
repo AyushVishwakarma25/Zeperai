@@ -8,7 +8,14 @@ import { AppMode, View, GeneratedImage } from '../types.js';
 import { Toggle } from './ui/Toggle.js';
 import { UserProfileData } from '../services/userService.js';
 
-const NavItem: React.FC<{ icon: string; label: string; active?: boolean; onClick?: () => void; isOpen: boolean; }> = ({ icon, label, active = false, onClick, isOpen }) => (
+const NavItem: React.FC<{
+  icon: string;
+  label: string;
+  badge?: string;
+  active?: boolean;
+  onClick?: () => void;
+  isOpen: boolean;
+}> = ({ icon, label, badge, active = false, onClick, isOpen }) => (
   <button
     onClick={(e) => {
         e.preventDefault();
@@ -21,13 +28,26 @@ const NavItem: React.FC<{ icon: string; label: string; active?: boolean; onClick
         ? 'bg-primary text-white shadow-lg shadow-primary/40' 
         : (isOpen ? 'text-slate-600 hover:bg-slate-100' : '')
     }`}
-    title={!isOpen ? label : undefined}
+    title={!isOpen ? (badge ? `${label} (${badge})` : label) : undefined}
   >
     <Icon name={icon} className={`w-5 h-5 flex-shrink-0 transition-colors ${isOpen ? 'mr-4' : ''} ${active ? 'text-white' : `text-slate-400 ${isOpen ? 'group-hover:text-slate-600' : 'group-hover:text-primary'}`}`} />
     {isOpen && <span className="truncate">{label}</span>}
+    {isOpen && badge && (
+      <span className="ml-auto text-[9px] px-1.5 py-0.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full font-black uppercase tracking-wider shadow-sm">
+        {badge}
+      </span>
+    )}
+    {!isOpen && badge && (
+      <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary ring-2 ring-white animate-pulse" />
+    )}
     {!isOpen && (
-      <div className="absolute left-full top-1/2 -translate-y-1/2 ml-4 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap shadow-lg">
-        {label}
+      <div className="absolute left-full top-1/2 -translate-y-1/2 ml-4 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap shadow-lg flex items-center gap-1.5">
+        <span>{label}</span>
+        {badge && (
+          <span className="text-[8px] px-1 py-0.5 bg-primary text-white rounded font-bold uppercase">
+            {badge}
+          </span>
+        )}
       </div>
     )}
   </button>
@@ -216,7 +236,18 @@ const DashboardSidebarComponent: React.FC<DashboardSidebarProps> = ({
             <NavItem icon="edit" label="AI Content Writer" onClick={() => { onOpenContentGenerator(); onClose(); }} isOpen={isOpen} />
             
             <NavItem icon="shopping-bag" label="Shopify Analyzer" active={currentView === View.ShopifyAnalytics} onClick={() => { onSetView(View.ShopifyAnalytics); onClose(); }} isOpen={isOpen} />
-            <NavItem icon="strategy" label="Campaign Studio" active={currentView === View.CampaignStudio} onClick={() => { onSetView(View.CampaignStudio); onClose(); }} isOpen={isOpen} />
+            <NavItem 
+                icon="strategy" 
+                label="Campaign Studio" 
+                badge="NEW V2"
+                active={currentView === View.CampaignStudio || window.location.pathname === '/campaign-studio' || window.location.pathname.startsWith('/campaigns')} 
+                onClick={() => { 
+                    onSetView(View.CampaignStudio); 
+                    navigate('/campaign-studio');
+                    onClose(); 
+                }} 
+                isOpen={isOpen} 
+            />
             <NavItem icon="image" label="BG Remover" active={window.location.pathname === '/tools/background-remover'} onClick={() => { navigate('/tools/background-remover'); onClose(); }} isOpen={isOpen} />
             <NavItem icon="folder" label="My Designs" active={currentView === View.MyDesigns} onClick={() => { onSetView(View.MyDesigns); onClose(); }} isOpen={isOpen} />
             <NavItem icon="lightbulb" label="Inspiration" active={currentView === View.Inspiration} onClick={() => { onSetView(View.Inspiration); onClose(); }} isOpen={isOpen} />

@@ -437,3 +437,4 @@ test('assetGenerator & compositor: feed approved creative direction into prompts
   const ctaLayer = doc.layers.find((l) => l.id === 'layer-cta');
   assert.equal(ctaLayer?.content, 'Get Yours');
 });
+

@@ -190,3 +190,4 @@ export interface ReleaseComparisonReport {
   regressionsDetected: string[];
   overallVerdict: 'IMPROVED' | 'REGRESSED' | 'PARITY';
 }
+
