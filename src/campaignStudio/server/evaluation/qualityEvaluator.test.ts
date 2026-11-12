@@ -259,7 +259,7 @@ test('acceptance: evaluates 5 distinct test cases (high quality, distorted produ
   // Strip product layer
   distortedProductDoc.layers = distortedProductDoc.layers.filter((l) => l.type !== 'product');
 
-  const evalCase2 = await evaluateCreative({ doc: distortedProductDoc, blueprint, brand: BRAND });
+  const evalCase2 = await evaluateCreative({ doc: distortedProductDoc, blueprint, brand: BRAND, client: mockAiEvaluationClient });
   assert.equal(evalCase2.passed, false, 'Distorted/missing product creative must fail evaluation');
   assert.equal(evalCase2.status, 'rejected');
   assert.ok(evalCase2.hardRuleFailures.some((f) => f.includes('product')));
@@ -276,7 +276,7 @@ test('acceptance: evaluates 5 distinct test cases (high quality, distorted produ
   const badge = incorrectOfferDoc.layers.find((l) => l.type === 'badge');
   if (badge) badge.content = 'FREE SHIPPING';
 
-  const evalCase3 = await evaluateCreative({ doc: incorrectOfferDoc, blueprint: incorrectOfferBlueprint, brand: BRAND });
+  const evalCase3 = await evaluateCreative({ doc: incorrectOfferDoc, blueprint: incorrectOfferBlueprint, brand: BRAND, client: mockAiEvaluationClient });
   assert.equal(evalCase3.passed, false, 'Creative with unapproved offer mismatch must be rejected');
   assert.equal(evalCase3.status, 'rejected');
   assert.ok(evalCase3.hardRuleFailures.some((f) => f.includes('70% MEGA CLEARANCE')));
@@ -293,7 +293,7 @@ test('acceptance: evaluates 5 distinct test cases (high quality, distorted produ
     hl.position.width = 0.5; // overflows width
   }
 
-  const evalCase4 = await evaluateCreative({ doc: poorCompositionDoc, blueprint, brand: BRAND });
+  const evalCase4 = await evaluateCreative({ doc: poorCompositionDoc, blueprint, brand: BRAND, client: mockAiEvaluationClient });
   assert.equal(evalCase4.passed, false, 'Creative with clipped text must fail compliance');
   assert.equal(evalCase4.status, 'rejected');
   assert.equal(evalCase4.scores.technicalCompliance, 0, 'Technical compliance score must be 0 for overflow');
@@ -306,7 +306,7 @@ test('acceptance: evaluates 5 distinct test cases (high quality, distorted produ
   wrongDimensionsDoc.canvas.width = 500;
   wrongDimensionsDoc.canvas.height = 500; // 500x500 instead of 1080x1350 for 4:5
 
-  const evalCase5 = await evaluateCreative({ doc: wrongDimensionsDoc, blueprint, brand: BRAND });
+  const evalCase5 = await evaluateCreative({ doc: wrongDimensionsDoc, blueprint, brand: BRAND, client: mockAiEvaluationClient });
   assert.equal(evalCase5.passed, false, 'Creative with invalid dimensions must be rejected');
   assert.equal(evalCase5.status, 'rejected');
   assert.ok(evalCase5.hardRuleFailures.some((f) => f.includes('dimension mismatch')));

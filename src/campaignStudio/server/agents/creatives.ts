@@ -183,13 +183,14 @@ export interface GenerateSingleCreativeParams {
   feedback?: string | null;
   fetcher?: SafeFetcher;
   blueprint?: CreativeBlueprint;
+  concept?: CreativeConcept;
   brandName?: string;
   brandColors?: string[];
   logoUrl?: string;
 }
 
 export async function generateSingleCreative(params: GenerateSingleCreativeParams): Promise<CampaignAsset> {
-  const { runId, userId, creativeIndex, prompt, quality, client, imageClient, feedback, fetcher, blueprint, brandName, brandColors, logoUrl } = params;
+  const { runId, userId, creativeIndex, prompt, quality, client, imageClient, feedback, fetcher, blueprint, concept, brandName, brandColors, logoUrl } = params;
 
   // Fetch product reference photos (if any) once up front, so their count is known for the
   // stored overlay and the same fetched bytes are reused in the actual generation call below.
@@ -313,6 +314,7 @@ export async function generateSingleCreative(params: GenerateSingleCreativeParam
       if (blueprint) {
         const compRes = await composeFinalCreative({
           blueprint,
+          concept,
           backgroundUrl: imageUrl,
           productImageUrl: prompt.referenceImageUrls?.[0],
           logoUrl,
@@ -372,6 +374,7 @@ export async function generateSingleCreative(params: GenerateSingleCreativeParam
               prohibitInventedClaims: true,
             },
           },
+          concept,
           backgroundUrl: imageUrl,
           productImageUrl: prompt.referenceImageUrls?.[0],
           logoUrl,
@@ -518,6 +521,7 @@ export const creativesAgent: AgentImpl = {
         feedback: ctx.feedback,
         fetcher: ctx.fetcher,
         blueprint,
+        concept: matchingConcept,
         brandName,
         brandColors,
         logoUrl,

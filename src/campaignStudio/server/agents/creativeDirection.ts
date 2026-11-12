@@ -36,6 +36,7 @@ import { UNTRUSTED_DATA_RULE, feedbackBlock, fence } from './promptUtils.js';
 import { reconcileMultiReferences } from './referenceAnalyst.js';
 import { allocateCampaignFormats } from './formatStrategist.js';
 import { getAdvertisingFormat } from '../formatLibrary.js';
+import { criticizeCreativeDirection, reviseWeakConcepts } from './compositionCritic.js';
 import type { AgentImpl, AgentRunContext, AgentRunResult } from './types.js';
 
 const S = { type: 'STRING' } as const;
@@ -61,6 +62,30 @@ export const CREATIVE_DIRECTION_SCHEMA = {
           storyline: S,
           cta: S,
           composition: S,
+          conceptName: S,
+          advertisingObjective: S,
+          compositionDescription: S,
+          productPlacement: S,
+          backgroundDirection: S,
+          lightingDirection: S,
+          supportingElements: strings,
+          ctaDirection: S,
+          copyHierarchy: {
+            type: 'OBJECT',
+            properties: {
+              headline: S,
+              subheadline: S,
+              cta: S,
+              body: S,
+            },
+          },
+          colorTypographyDirection: {
+            type: 'OBJECT',
+            properties: {
+              colorGuidance: S,
+              typographyGuidance: S,
+            },
+          },
           advertisingFormat: S,
           designIntensity: { type: 'STRING', enum: ['minimal', 'balanced', 'bold', 'experimental'] },
           layoutElements: {
@@ -93,7 +118,18 @@ export const SYSTEM_INSTRUCTION = `You are a World-Class Advertising Art Directo
 Rules:
 1. Produce EXACTLY the number of concepts requested for EACH content pillar (given in <required_mix>). Use the pillar names exactly as written there.
 2. Each concept must clearly execute its pillar's idea from the strategy, not repeat the same visual across concepts. Vary composition, setting, layout and framing across concepts in the same pillar.
-3. "visualIdea" is a one-sentence description of what the advertisement shows. "storyline" is 1-2 sentences on the emotional narrative or consumer insight. "composition" gives concrete art-direction: framing, camera angle, focal point, visual hierarchy, background, and graphic element placement. Composition guidance should reflect the selected platforms in <platforms> (e.g. quick-commerce = tight product-forward crop, thumb-stopping in a small tile; Meta = lifestyle/story-driven framing with room for text overlay).
+3. STRUCTURED CREATIVE DIRECTION (11 CORE DIMENSIONS PER CONCEPT):
+   - "conceptName": Evocative, memorable campaign concept title.
+   - "advertisingObjective": Clear marketing objective (e.g. cold audience thumb-stop, scientific proof, seasonal promotion).
+   - "visualIdea": Concise one-sentence summary of the core visual hook.
+   - "compositionDescription" / "composition": Concrete art direction (framing, camera angle, focal point, negative space, and graphic element placement). Composition guidance should reflect the selected platforms in <platforms> (e.g. quick-commerce = tight product-forward crop, thumb-stopping in a small tile; Meta = lifestyle/story-driven framing with room for text overlay).
+   - "productPlacement": Precise placement and scale of the hero product (e.g. grounded in bottom right quadrant at 30% canvas scale with soft natural shadow).
+   - "backgroundDirection": Explicit setting/surface environment (e.g. clean architectural marble kitchen with subtle morning reflection).
+   - "lightingDirection": Key and fill lighting style (e.g. soft diffuse morning daylight with crisp golden rim light).
+   - "supportingElements": List of graphic accents (e.g. "discount badge pill", "trust seal", "ingredient callout").
+   - "copyHierarchy": Structured reading order of headline, subheadline, and CTA.
+   - "ctaDirection": Button positioning, geometry, and visual weight.
+   - "colorTypographyDirection": Color accents and font treatment tailored to this concept.
 4. "headline" and "subheadline" are short ad copy ideas (headline under 8 words). "cta" matches the strategy's call to action unless the concept needs a small variant.
 5. Base every claim on the brand facts and strategy given. Never invent product features, prices, unapproved discounts or unsupported claims.
 6. "colorGuidance" and "typographyGuidance" translate the brand's visual identity into actionable direction for these creatives. "photographyStyle" describes the overall look (lighting, texture, realism vs illustration).
@@ -263,6 +299,33 @@ export function parseCreativeDirection(
       advertisingFormat: rawFormat,
       designIntensity,
       layoutElements,
+      conceptName: str(c.conceptName || c.title || c.name, 100) || undefined,
+      advertisingObjective: str(c.advertisingObjective || c.objective, 150) || undefined,
+      compositionDescription: str(c.compositionDescription || c.composition, 500) || undefined,
+      productPlacement: str(c.productPlacement, 200) || undefined,
+      backgroundDirection: str(c.backgroundDirection || c.background, 300) || undefined,
+      lightingDirection: str(c.lightingDirection || c.lighting, 200) || undefined,
+      supportingElements: strList(c.supportingElements || c.graphicElements, 6, 80),
+      ctaDirection: str(c.ctaDirection, 200) || undefined,
+      copyHierarchy: c.copyHierarchy && typeof c.copyHierarchy === 'object'
+        ? {
+            headline: str(c.copyHierarchy.headline || c.headline, 120) || c.headline,
+            subheadline: str(c.copyHierarchy.subheadline || c.subheadline, 150) || undefined,
+            cta: str(c.copyHierarchy.cta || c.cta, 80) || c.cta,
+            body: str(c.copyHierarchy.body, 300) || undefined,
+          }
+        : {
+            headline,
+            subheadline: str(c.subheadline, 150) || undefined,
+            cta: str(c.cta, 100),
+          },
+      colorTypographyDirection: c.colorTypographyDirection && typeof c.colorTypographyDirection === 'object'
+        ? {
+            colorGuidance: str(c.colorTypographyDirection.colorGuidance, 200) || undefined,
+            typographyGuidance: str(c.colorTypographyDirection.typographyGuidance, 200) || undefined,
+            fonts: strList(c.colorTypographyDirection.fonts, 4, 60),
+          }
+        : undefined,
     });
     byPillar.set(pillar, list);
   }
@@ -303,6 +366,16 @@ export function parseCreativeDirection(
         storyline: c.storyline,
         cta: c.cta,
         composition: c.composition,
+        conceptName: c.conceptName || `${m.pillar} Concept ${i + 1}`,
+        advertisingObjective: c.advertisingObjective || (options?.strategy as any)?.objective || 'Brand Performance',
+        compositionDescription: c.compositionDescription || c.composition,
+        productPlacement: c.productPlacement || 'Grounded hero product shot with natural shadow',
+        backgroundDirection: c.backgroundDirection || 'Refined commercial setting with subtle texture',
+        lightingDirection: c.lightingDirection || 'Natural diffuse daylight with soft studio fill',
+        supportingElements: c.supportingElements.length > 0 ? c.supportingElements : undefined,
+        copyHierarchy: c.copyHierarchy,
+        ctaDirection: c.ctaDirection || 'Prominent actionable conversion button',
+        colorTypographyDirection: c.colorTypographyDirection,
       };
 
       const blueprint = createDefaultBlueprintFromConcept({
@@ -313,6 +386,16 @@ export function parseCreativeDirection(
         designIntensity: c.designIntensity ?? 'balanced',
         runId: options?.runId,
       });
+
+      if (c.backgroundDirection) {
+        blueprint.artDirection.background = c.backgroundDirection;
+      }
+      if (c.lightingDirection) {
+        blueprint.artDirection.lighting = c.lightingDirection;
+      }
+      if (c.compositionDescription) {
+        blueprint.artDirection.visualStyle = c.compositionDescription;
+      }
 
       if (c.advertisingFormat) {
         blueprint.advertisingFormat = c.advertisingFormat;
@@ -351,14 +434,14 @@ export function parseCreativeDirection(
 
   // Holistic campaign-wide advertising format allocation pass
   let diversityReport;
+  const reconciled = options?.references && options.references.length > 0
+    ? reconcileMultiReferences(options.references)
+    : undefined;
+
+  const dna = reconciled?.controllingLayout?.design_dna;
+  const validDna = dna && 'layoutType' in dna ? dna : undefined;
+
   if (concepts.length > 0) {
-    const reconciled = options?.references && options.references.length > 0
-      ? reconcileMultiReferences(options.references)
-      : undefined;
-
-    const dna = reconciled?.controllingLayout?.design_dna;
-    const validDna = dna && 'layoutType' in dna ? dna : undefined;
-
     const allocation = allocateCampaignFormats({
       concepts,
       strategy: options?.strategy,
@@ -387,6 +470,72 @@ export function parseCreativeDirection(
     }
   }
 
+  // Pre-generation Composition Critic pass
+  let criticReport: DirectionCritiqueReport | undefined = undefined;
+  if (concepts.length > 0) {
+    const rawCritique = criticizeCreativeDirection({
+      direction: {
+        visualTheme,
+        moodKeywords: strList(r.moodKeywords, 8, 40),
+        colorGuidance: str(r.colorGuidance, 400),
+        typographyGuidance: str(r.typographyGuidance, 300),
+        photographyStyle: str(r.photographyStyle, 400),
+        concepts,
+        thingsToAvoid: strList(r.thingsToAvoid, 8, 200),
+        blueprints: concepts.map((c) => c.blueprint!),
+        diversityReport,
+      },
+      brand: fallbackBrand,
+      strategy: options?.strategy,
+      referenceDNA: validDna as ReferenceDesignDNA | undefined,
+    });
+
+    if (!rawCritique.isApproved || rawCritique.overallScore < 75) {
+      // Trigger self-healing automated revision
+      const revision = reviseWeakConcepts({
+        direction: {
+          visualTheme,
+          moodKeywords: strList(r.moodKeywords, 8, 40),
+          colorGuidance: str(r.colorGuidance, 400),
+          typographyGuidance: str(r.typographyGuidance, 300),
+          photographyStyle: str(r.photographyStyle, 400),
+          concepts,
+          thingsToAvoid: strList(r.thingsToAvoid, 8, 200),
+          blueprints: concepts.map((c) => c.blueprint!),
+          diversityReport,
+        },
+        critique: rawCritique,
+        brand: fallbackBrand,
+        strategy: options?.strategy,
+      });
+
+      // Re-evaluate revised direction
+      const postCritique = criticizeCreativeDirection({
+        direction: revision.revisedDirection,
+        brand: fallbackBrand,
+        strategy: options?.strategy,
+        referenceDNA: validDna as ReferenceDesignDNA | undefined,
+      });
+
+      postCritique.revisionsCount = revision.revisionsApplied.length;
+      postCritique.summary += ` Applied ${revision.revisionsApplied.length} automatic revision(s) to resolve weak concepts.`;
+      criticReport = postCritique;
+
+      // Replace concepts with revised concepts
+      concepts.length = 0;
+      concepts.push(...revision.revisedDirection.concepts);
+    } else {
+      criticReport = rawCritique;
+      // Attach review to each concept
+      for (const concept of concepts) {
+        const rev = rawCritique.conceptReviews.find((cr) => cr.conceptId === concept.id);
+        if (rev) {
+          concept.criticReview = rev;
+        }
+      }
+    }
+  }
+
   return {
     visualTheme,
     moodKeywords: strList(r.moodKeywords, 8, 40),
@@ -397,6 +546,7 @@ export function parseCreativeDirection(
     thingsToAvoid: strList(r.thingsToAvoid, 8, 200),
     blueprints: concepts.map((c) => c.blueprint!),
     diversityReport,
+    criticReport,
   };
 }
 
@@ -428,6 +578,14 @@ export const creativeDirectionAgent: AgentImpl = {
         }),
     });
 
-    return { output: result.data, model: result.model, usage: result.usage, snapshot: {} };
+    return {
+      output: result.data,
+      model: result.model,
+      usage: result.usage,
+      snapshot: {
+        criticReport: result.data.criticReport,
+        diversityReport: result.data.diversityReport,
+      },
+    };
   },
 };

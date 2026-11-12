@@ -8,6 +8,7 @@
 import type {
   BrandContext,
   CreativeBlueprint,
+  CreativeConcept,
   CreativeDocument,
   CreativeLayer,
   DesignIntensity,
@@ -17,6 +18,7 @@ import { renderCreativeDocumentToSvg, svgToDataUri } from './svgRenderer.js';
 
 export interface ComposeCreativeParams {
   blueprint: CreativeBlueprint;
+  concept?: Partial<CreativeConcept>;
   backgroundUrl?: string;
   productImageUrl?: string;
   logoUrl?: string;
@@ -45,7 +47,7 @@ export function resolveCanvasDimensions(aspectRatio?: string): { width: number; 
  * Builds a structured, editable CreativeDocument from a CreativeBlueprint.
  */
 export function buildCreativeDocument(params: ComposeCreativeParams): CreativeDocument {
-  const { blueprint, backgroundUrl, productImageUrl, logoUrl, brandName = 'BRAND', brandColors = ['#0A0A0A', '#F59E0B'], overrides } = params;
+  const { blueprint, concept, backgroundUrl, productImageUrl, logoUrl, brandName = 'BRAND', brandColors = ['#0A0A0A', '#F59E0B'], overrides } = params;
 
   const canvas = resolveCanvasDimensions(blueprint.canvas?.aspectRatio);
   const elements = blueprint.layout?.elements || [];
@@ -160,7 +162,7 @@ export function buildCreativeDocument(params: ComposeCreativeParams): CreativeDo
   });
 
   // 5. Promotional Badge / Offer Pill Layer (z-index: 20)
-  const badgeText = blueprint.copy?.offer || (blueprint.graphicElements?.[0]?.description ? 'PROMO' : undefined);
+  const badgeText = blueprint.copy?.offer || concept?.supportingElements?.[0] || (blueprint.graphicElements?.[0]?.description ? 'PROMO' : undefined);
   if (badgeText) {
     layers.push({
       id: 'layer-badge',
@@ -188,7 +190,8 @@ export function buildCreativeDocument(params: ComposeCreativeParams): CreativeDo
   }
 
   // 6. Dominant Headline Layer (z-index: 25)
-  if (blueprint.copy?.headline) {
+  const headlineText = blueprint.copy?.headline || concept?.copyHierarchy?.headline || concept?.headline;
+  if (headlineText) {
     const headlineStyle = blueprint.typography?.headlineStyle || { fontFamily: 'Poppins', fontWeight: 800, color: '#FFFFFF' };
     layers.push({
       id: 'layer-headline',
@@ -201,7 +204,7 @@ export function buildCreativeDocument(params: ComposeCreativeParams): CreativeDo
         width: headlineBox.width,
         height: headlineBox.height,
       },
-      content: blueprint.copy.headline,
+      content: headlineText,
       styles: {
         fontFamily: headlineStyle.fontFamily || 'Poppins',
         fontWeight: headlineStyle.fontWeight || 800,
@@ -215,7 +218,8 @@ export function buildCreativeDocument(params: ComposeCreativeParams): CreativeDo
   }
 
   // 7. Subheadline Layer (z-index: 26)
-  if (blueprint.copy?.subheadline) {
+  const subheadlineText = blueprint.copy?.subheadline || concept?.copyHierarchy?.subheadline || concept?.subheadline;
+  if (subheadlineText) {
     const subStyle = blueprint.typography?.subheadlineStyle || { fontFamily: 'Inter', fontWeight: 500, color: '#E2E8F0' };
     layers.push({
       id: 'layer-subheadline',
@@ -228,7 +232,7 @@ export function buildCreativeDocument(params: ComposeCreativeParams): CreativeDo
         width: subheadlineBox.width,
         height: subheadlineBox.height,
       },
-      content: blueprint.copy.subheadline,
+      content: subheadlineText,
       styles: {
         fontFamily: subStyle.fontFamily || 'Inter',
         fontWeight: subStyle.fontWeight || 500,
@@ -241,7 +245,7 @@ export function buildCreativeDocument(params: ComposeCreativeParams): CreativeDo
   }
 
   // 8. Sticky CTA Button Layer (z-index: 30)
-  const ctaText = blueprint.copy?.cta || 'SHOP NOW';
+  const ctaText = blueprint.copy?.cta || concept?.copyHierarchy?.cta || concept?.cta || 'SHOP NOW';
   layers.push({
     id: 'layer-cta',
     name: 'Call-to-Action Button',

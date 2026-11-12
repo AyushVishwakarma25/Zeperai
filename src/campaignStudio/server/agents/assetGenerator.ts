@@ -6,7 +6,7 @@
  * WITHOUT baking in text, logos, or hallucinated product labels.
  */
 
-import type { CreativeBlueprint } from '../../types.js';
+import type { CreativeBlueprint, CreativeConcept } from '../../types.js';
 import { callImageModel, type InlineImagePart } from './creatives.js';
 import type { GenAIClientLike } from '../gemini.js';
 import { resolveModelForTask } from '../models/modelRegistry.js';
@@ -21,6 +21,7 @@ export type VisualAssetType =
 
 export interface GenerateAssetParams {
   blueprint: CreativeBlueprint;
+  concept?: Partial<CreativeConcept>;
   assetType?: VisualAssetType;
   model?: string;
   client?: GenAIClientLike;
@@ -31,7 +32,11 @@ export interface GenerateAssetParams {
 /**
  * Builds a prompt for generating an isolated visual background or environment.
  */
-export function buildAssetGenerationPrompt(blueprint: CreativeBlueprint, assetType: VisualAssetType = 'environment'): string {
+export function buildAssetGenerationPrompt(
+  blueprint: CreativeBlueprint,
+  assetType: VisualAssetType = 'environment',
+  concept?: Partial<CreativeConcept>,
+): string {
   const art = blueprint.artDirection;
   const format = blueprint.advertisingFormat;
   const narrative = blueprint.visualNarrative;
@@ -43,17 +48,30 @@ export function buildAssetGenerationPrompt(blueprint: CreativeBlueprint, assetTy
     parts.push(`Narrative context: ${narrative}.`);
   }
 
-  if (art.background) {
-    parts.push(`Setting and surface: ${art.background}.`);
+  const bg = concept?.backgroundDirection || art.background;
+  if (bg) {
+    parts.push(`Setting and surface: ${bg}.`);
   }
-  if (art.lighting) {
-    parts.push(`Lighting: ${art.lighting}.`);
+
+  const lighting = concept?.lightingDirection || art.lighting;
+  if (lighting) {
+    parts.push(`Lighting: ${lighting}.`);
   }
+
+  const compDesc = concept?.compositionDescription;
+  if (compDesc) {
+    parts.push(`Compositional framing: ${compDesc}.`);
+  }
+
   if (art.photographyStyle) {
     parts.push(`Photography style: ${art.photographyStyle}.`);
   }
   if (art.colorPalette && art.colorPalette.length > 0) {
     parts.push(`Color palette mood: ${art.colorPalette.join(', ')}.`);
+  }
+
+  if (concept?.supportingElements && concept.supportingElements.length > 0) {
+    parts.push(`Atmospheric accents: ${concept.supportingElements.join(', ')}.`);
   }
 
   // Strict negative constraints to protect typography and product separation
@@ -71,6 +89,7 @@ export async function generateVisualAsset(params: GenerateAssetParams): Promise<
   const defaultModel = resolveModelForTask('image_generation_standard').model;
   const {
     blueprint,
+    concept,
     assetType = 'environment',
     model = defaultModel,
     client,
@@ -81,7 +100,7 @@ export async function generateVisualAsset(params: GenerateAssetParams): Promise<
   // Intercept any legacy discontinued Imagen model calls
   const targetModel = model.includes('imagen') ? defaultModel : model;
 
-  const prompt = buildAssetGenerationPrompt(blueprint, assetType);
+  const prompt = buildAssetGenerationPrompt(blueprint, assetType, concept);
   const ratio = aspectRatio || blueprint.canvas?.aspectRatio || '4:5';
 
   return callImageModel({

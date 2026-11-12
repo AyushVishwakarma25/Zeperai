@@ -216,6 +216,15 @@ export interface ReferenceDesignDNA {
   visualDensity: string;
   readingOrder: string[];
   designCharacteristics: string[];
+  // 11 Core Advertising Reference Dimensions
+  cameraAngle?: string;
+  lighting?: string;
+  negativeSpace?: string;
+  supportingElements?: string[];
+  advertisingMessage?: string;
+  ctaPlacement?: string;
+  colorPalette?: string[];
+  typographyHierarchy?: string[];
 }
 
 export interface CampaignReference {
@@ -921,6 +930,49 @@ export interface CreativeBlueprint {
   metadata?: Record<string, unknown>;
 }
 
+export type CriticIssueType =
+  | 'weak_concept'
+  | 'repetitive_idea'
+  | 'poor_visibility'
+  | 'inappropriate_background'
+  | 'unclear_hierarchy'
+  | 'insufficient_negative_space'
+  | 'brand_conflict';
+
+export interface CriticIssue {
+  type: CriticIssueType;
+  severity: 'warning' | 'error';
+  description: string;
+  recommendation: string;
+  conceptId?: string;
+}
+
+export interface ConceptCritiqueReview {
+  conceptId: string;
+  overallScore: number; // 0 - 100
+  isApproved: boolean;
+  criteriaScores: {
+    originality: number;
+    brandAlignment: number;
+    productVisibility: number;
+    hierarchyClarity: number;
+    negativeSpace: number;
+    backgroundSuitability: number;
+  };
+  issues: CriticIssue[];
+  revisionsApplied?: string[];
+}
+
+export interface DirectionCritiqueReport {
+  overallScore: number;
+  isApproved: boolean;
+  reviewedAt: string;
+  conceptReviews: ConceptCritiqueReview[];
+  crossConceptIssues: CriticIssue[];
+  revisionsCount: number;
+  summary: string;
+}
+
 /** One creative concept within a content pillar. */
 export interface CreativeConcept {
   /** Stable slug used to link this concept to its master prompts, e.g. "speed-1". */
@@ -938,6 +990,27 @@ export interface CreativeConcept {
   isLocked?: boolean;
   formatLocked?: boolean;
   angle?: string;
+  /** Structured visual direction dimensions */
+  conceptName?: string;
+  advertisingObjective?: string;
+  compositionDescription?: string;
+  productPlacement?: string;
+  backgroundDirection?: string;
+  lightingDirection?: string;
+  supportingElements?: string[];
+  copyHierarchy?: {
+    headline: string;
+    subheadline?: string;
+    cta: string;
+    body?: string;
+  };
+  ctaDirection?: string;
+  colorTypographyDirection?: {
+    colorGuidance?: string;
+    typographyGuidance?: string;
+    fonts?: string[];
+  };
+  criticReview?: ConceptCritiqueReview;
 }
 
 /** Agent 5 (creative_direction / AI Art Director). Concepts must cover the strategy's creativeMix exactly (validated). */
@@ -953,6 +1026,8 @@ export interface CreativeDirection {
   blueprints?: CreativeBlueprint[];
   /** Campaign-wide advertising format diversity report */
   diversityReport?: CampaignFormatDiversityReport;
+  /** Composition critic review and revision report */
+  criticReport?: DirectionCritiqueReport;
 }
 
 /** Agent 6 (master_prompts). One prompt per concept, ready for the image model. */

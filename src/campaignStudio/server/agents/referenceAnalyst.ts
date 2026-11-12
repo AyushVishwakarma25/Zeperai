@@ -21,8 +21,12 @@ export const REFERENCE_DESIGN_DNA_SCHEMA = {
   properties: {
     layoutType: { type: 'STRING' },
     composition: { type: 'STRING' },
-    visualHierarchy: { type: 'ARRAY', items: { type: 'STRING' } },
+    productPlacement: { type: 'STRING' },
+    cameraAngle: { type: 'STRING' },
+    lighting: { type: 'STRING' },
+    backgroundTreatment: { type: 'STRING' },
     colorRelationships: { type: 'ARRAY', items: { type: 'STRING' } },
+    colorPalette: { type: 'ARRAY', items: { type: 'STRING' } },
     typography: {
       type: 'OBJECT',
       properties: {
@@ -33,10 +37,14 @@ export const REFERENCE_DESIGN_DNA_SCHEMA = {
       },
       required: ['style', 'weight', 'scale', 'positioning'],
     },
-    productPlacement: { type: 'STRING' },
-    photographyStyle: { type: 'STRING' },
+    typographyHierarchy: { type: 'ARRAY', items: { type: 'STRING' } },
+    visualHierarchy: { type: 'ARRAY', items: { type: 'STRING' } },
+    negativeSpace: { type: 'STRING' },
     graphicElements: { type: 'ARRAY', items: { type: 'STRING' } },
-    backgroundTreatment: { type: 'STRING' },
+    supportingElements: { type: 'ARRAY', items: { type: 'STRING' } },
+    advertisingMessage: { type: 'STRING' },
+    ctaPlacement: { type: 'STRING' },
+    photographyStyle: { type: 'STRING' },
     visualDensity: { type: 'STRING' },
     readingOrder: { type: 'ARRAY', items: { type: 'STRING' } },
     designCharacteristics: { type: 'ARRAY', items: { type: 'STRING' } },
@@ -59,7 +67,7 @@ export const REFERENCE_DESIGN_DNA_SCHEMA = {
 
 export const REFERENCE_ANALYST_SYSTEM_PROMPT = `You are a Senior Design Systems Architect and Visual Art Director at an elite creative advertising agency.
 
-Your task is to analyze an uploaded advertising design reference and deconstruct its visual DNA into a structured architectural design specification.
+Your task is to analyze an uploaded advertising design reference and deconstruct its visual DNA into a structured architectural design specification across 11 key dimensions.
 
 ANALYSIS GUIDELINES:
 1. FOCUS ON DESIGN LANGUAGE, NOT TRADEMARKS:
@@ -67,19 +75,25 @@ ANALYSIS GUIDELINES:
    - Do NOT attempt to identify, name, or copy proprietary third-party brand logos, trademarks, or character artwork.
    - Translate what you see into reusable, platform-agnostic advertising design principles.
 
-2. EXTRACT EXACT DESIGN PROPERTIES:
+2. EXTRACT EXACT 11 CORE ADVERTISING DESIGN DIMENSIONS:
+   - 1. "composition": Detailed geometric description of layout balance, grid, negative space distribution, and element framing.
+   - 2. "productPlacement": How the product is anchored, scale relative to canvas, grounded shadow, and depth positioning.
+   - 3. "cameraAngle": Perspective and camera elevation (e.g. eye-level hero, low-angle monument, 45-degree tabletop, top-down flat lay).
+   - 4. "lighting": Key/fill lighting character (e.g. soft diffuse morning sunlight, dramatic high-contrast studio rim light, moody chiaroscuro).
+   - 5. "backgroundTreatment": Environmental backdrop (e.g. clean neutral studio seamless, architectural marble countertop, warm gradient wash).
+   - 6. "colorPalette" / "colorRelationships": Dominant, secondary, and accent color relationships and contrast hierarchy.
+   - 7. "typographyHierarchy": Structural scale order of text (e.g. bold condensed primary headline -> medium subline -> secondary badge -> micro-copy).
+   - 8. "negativeSpace": Amount and strategic placement of uncluttered breathing space allocated for text legibility and visual focus.
+   - 9. "supportingElements" / "graphicElements": Supporting graphical artifacts (e.g. discount badge pill, star cluster, organic ribbon, trust stamp).
+   - 10. "advertisingMessage": Underlying psychological hook and advertising persuasion mechanism (e.g. speed-of-action benefit, scientific proof, sensory indulgence).
+   - 11. "ctaPlacement": Action trigger position, container geometry, and visual emphasis (e.g. bottom-center rounded pill, bottom-right floating button).
+
+3. ADDITIONAL STRUCTURAL PROPERTIES:
    - "layoutType": e.g. "top-heavy editorial", "diagonal split", "bottom hero anchor", "minimalist centered", "multi-card bento".
-   - "composition": Detailed geometric description of how elements, negative space, and visual anchors are arranged.
-   - "visualHierarchy": Ordered list of reading sequence from most dominant visual element to subtle fine print.
-   - "colorRelationships": Color harmony (e.g. "high-contrast monochromatic with neon accent", "warm earth tones with muted neutral background").
-   - "typography": Style (geometric sans, elegant serif, condensed display), weight (heavy 900, light 300), scale hierarchy, and positioning.
-   - "productPlacement": How the product is anchored, camera angle, scale relative to canvas, and grounded cast shadow treatment.
-   - "photographyStyle": Lighting (soft natural morning, high-contrast studio strobe, dramatic rim lighting), depth of field, and material textures.
-   - "graphicElements": Supporting graphic elements (e.g. "rounded discount pill", "star rating cluster", "thin border divider", "badge").
-   - "backgroundTreatment": Solid, subtle gradient, textured stone/wood, blurred architectural environment.
+   - "photographyStyle": Overall camera capture technique and depth-of-field.
    - "visualDensity": "minimal" | "balanced" | "dense" | "bold".
-   - "readingOrder": Explicit list of element reading order.
-   - "designCharacteristics": Key stylistic traits that make this advertisement visually successful.
+   - "readingOrder": Explicit list of element reading order from initial eye hook to final call to action.
+   - "designCharacteristics": Core abstract design principles that make this advertisement visually effective.
 
 Reply with ONLY the requested JSON object matching the schema.`;
 
@@ -147,11 +161,20 @@ export function normalizeReferenceDesignDNA(raw: any): ReferenceDesignDNA {
 
   const typo = raw.typography || {};
 
+  const graphicElements = strList(raw.graphicElements || raw.supportingElements);
+  const supportingElements = strList(raw.supportingElements || raw.graphicElements);
+  const colorRelationships = strList(raw.colorRelationships || raw.colorPalette);
+  const colorPalette = strList(raw.colorPalette || raw.colorRelationships);
+  const visualHierarchy = strList(raw.visualHierarchy || raw.typographyHierarchy);
+  const typographyHierarchy = strList(raw.typographyHierarchy || raw.visualHierarchy);
+
   return {
     layoutType: String(raw.layoutType || 'standard-commercial').slice(0, 100),
     composition: String(raw.composition || 'Balanced commercial composition').slice(0, 500),
-    visualHierarchy: strList(raw.visualHierarchy),
-    colorRelationships: strList(raw.colorRelationships),
+    visualHierarchy,
+    typographyHierarchy,
+    colorRelationships,
+    colorPalette,
     typography: {
       style: String(typo.style || 'Bold sans-serif display').slice(0, 100),
       weight: String(typo.weight || 'bold').slice(0, 50),
@@ -159,12 +182,18 @@ export function normalizeReferenceDesignDNA(raw: any): ReferenceDesignDNA {
       positioning: String(typo.positioning || 'top-aligned headline, bottom CTA').slice(0, 100),
     },
     productPlacement: String(raw.productPlacement || 'Centered hero with realistic grounded shadow').slice(0, 200),
+    cameraAngle: String(raw.cameraAngle || 'Eye-level straight on').slice(0, 100),
+    lighting: String(raw.lighting || raw.photographyStyle || 'Balanced soft commercial studio lighting').slice(0, 200),
     photographyStyle: String(raw.photographyStyle || 'Crisp studio commercial photography').slice(0, 200),
-    graphicElements: strList(raw.graphicElements),
+    graphicElements,
+    supportingElements,
     backgroundTreatment: String(raw.backgroundTreatment || 'Clean studio neutral background').slice(0, 200),
     visualDensity: String(raw.visualDensity || 'balanced').slice(0, 50),
     readingOrder: strList(raw.readingOrder),
     designCharacteristics: strList(raw.designCharacteristics),
+    negativeSpace: String(raw.negativeSpace || 'Generous negative space surrounding main headline and product').slice(0, 200),
+    advertisingMessage: String(raw.advertisingMessage || 'Clear product-led value proposition').slice(0, 300),
+    ctaPlacement: String(raw.ctaPlacement || 'Bottom right/center actionable conversion pill').slice(0, 100),
   };
 }
 
