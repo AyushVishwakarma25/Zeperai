@@ -251,7 +251,22 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
   let activeTools = opts.tools;
   let fallbackApplied = false;
   let fallbackReason: string | undefined = undefined;
+  const attemptedModels = new Set<string>([opts.model]);
   const fallbackModel = 'gemini-flash-latest';
+
+  const isModelUnavailableError = (err: GeminiCallError): boolean => {
+    const msg = err.message.toLowerCase();
+    return (
+      err.status === 404 ||
+      err.status === 403 ||
+      msg.includes('not found') ||
+      msg.includes('does not have access') ||
+      msg.includes('publisher model') ||
+      msg.includes('permission_denied') ||
+      msg.includes('is not supported') ||
+      msg.includes('model unavailable')
+    );
+  };
 
   const buildConfig = (toolsConfig?: typeof activeTools | boolean): Record<string, unknown> => {
     const withTools = typeof toolsConfig === 'boolean' ? toolsConfig : !!(toolsConfig?.googleSearch || toolsConfig?.urlContext);
@@ -365,59 +380,33 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
         continue;
       }
 
-      // 3. Model fallback: If activeModel is not found, unauthorized, or fails with bad_request/404/403, fall back to fallbackModel
-      if (
-        err instanceof GeminiCallError &&
-        activeModel !== fallbackModel &&
-        (err.status === 404 ||
-          err.status === 403 ||
-          err.kind === 'bad_request' ||
-          err.message.toLowerCase().includes('not found') ||
-          err.message.toLowerCase().includes('does not have access') ||
-          err.message.toLowerCase().includes('publisher model') ||
-          err.message.toLowerCase().includes('permission_denied'))
-      ) {
-        console.warn(
-          `[campaign-studio] Model ${activeModel} unavailable on backend (${err.kind}, status=${err.status}), falling back to ${fallbackModel}...`
-        );
-        fallbackApplied = true;
-        fallbackReason = `Model ${activeModel} unavailable on backend (${err.kind}, status=${err.status})`;
-        recordModelFallback(
-          activeModel.includes('pro') ? 'reasoning_strategy' : 'copy_generation',
-          activeModel,
-          fallbackModel,
-          fallbackReason,
-        );
-        activeModel = fallbackModel;
-        activeThinking = undefined;
-        activeTools = undefined;
-        continue;
-      }
+      // 3. Model fallback: If activeModel is not found, unauthorized, or unsupported, fall back to fallbackModel or gemini-2.5-flash
+      if (err instanceof GeminiCallError && isModelUnavailableError(err)) {
+        let nextModel: string | undefined;
+        if (!attemptedModels.has(fallbackModel)) {
+          nextModel = fallbackModel;
+        } else if (!attemptedModels.has('gemini-2.5-flash')) {
+          nextModel = 'gemini-2.5-flash';
+        }
 
-      // 4. Secondary fallback: If gemini-flash-latest also fails on Vertex AI or AI Studio, fall back to verified gemini-2.5-flash
-      if (
-        err instanceof GeminiCallError &&
-        activeModel === 'gemini-flash-latest' &&
-        (err.status === 404 ||
-          err.status === 403 ||
-          err.kind === 'bad_request' ||
-          err.message.toLowerCase().includes('not found'))
-      ) {
-        console.warn(
-          `[campaign-studio] gemini-flash-latest alias unavailable on backend, falling back to gemini-2.5-flash...`
-        );
-        fallbackApplied = true;
-        fallbackReason = `gemini-flash-latest unavailable on backend (${err.kind}, status=${err.status})`;
-        recordModelFallback(
-          'copy_generation',
-          activeModel,
-          'gemini-2.5-flash',
-          fallbackReason,
-        );
-        activeModel = 'gemini-2.5-flash';
-        activeThinking = undefined;
-        activeTools = undefined;
-        continue;
+        if (nextModel) {
+          attemptedModels.add(nextModel);
+          fallbackApplied = true;
+          fallbackReason = `Model ${activeModel} unavailable on backend (${err.kind}, status=${err.status})`;
+          console.warn(
+            `[campaign-studio] Model ${activeModel} unavailable on backend, falling back to ${nextModel}...`
+          );
+          recordModelFallback(
+            activeModel.includes('pro') ? 'reasoning_strategy' : 'copy_generation',
+            activeModel,
+            nextModel,
+            fallbackReason,
+          );
+          activeModel = nextModel;
+          activeThinking = undefined;
+          activeTools = undefined;
+          continue;
+        }
       }
 
       if (!(err instanceof GeminiCallError) || err.kind !== 'transient' || attempt >= maxAttempts) throw err;

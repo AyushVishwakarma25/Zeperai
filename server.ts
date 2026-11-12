@@ -3628,9 +3628,10 @@ const requireAdmin = async (req: any, res: any, next: any) => {
           targetProvider = 'Gemini Enterprise Agent Platform (Vertex AI Postpay)';
           let saJson = pendingServiceAccountJson || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS || '';
           let parsedSa: any = null;
-          if (saJson) {
+          const vKey = pendingVertexApiKey !== undefined ? pendingVertexApiKey : (process.env.VERTEX_API_KEY || '');
+          if (saJson && saJson.trim() && saJson.trim() !== 'undefined' && saJson.trim() !== 'null' && saJson.trim() !== '{}') {
             parsedSa = safelyParseServiceAccountJson(saJson);
-            if (!parsedSa) {
+            if (!parsedSa && pendingServiceAccountJson) {
               return res.status(400).json({
                 success: false,
                 latencyMs: 0,
@@ -3638,7 +3639,6 @@ const requireAdmin = async (req: any, res: any, next: any) => {
               });
             }
           }
-          const vKey = pendingVertexApiKey !== undefined ? pendingVertexApiKey : (process.env.VERTEX_API_KEY || '');
           const proj = (pendingVertexProjectId || parsedSa?.project_id || process.env.VERTEX_PROJECT_ID || '').trim();
           targetProject = proj;
           const loc = (pendingVertexLocation || process.env.VERTEX_LOCATION || 'us-central1').trim();
@@ -3652,17 +3652,20 @@ const requireAdmin = async (req: any, res: any, next: any) => {
             });
           } else if (vKey && !vKey.startsWith('AQ.')) {
             testClient = new GoogleGenAI({ vertexai: true, apiKey: vKey });
-          } else if (proj && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+          } else if (proj && process.env.GOOGLE_APPLICATION_CREDENTIALS && parsedSa) {
             testClient = new GoogleGenAI({
               vertexai: true,
               project: proj,
               location: loc
             });
           } else {
+            const hasGeminiKey = Boolean(pendingGeminiApiKey || process.env.GEMINI_API_KEY || process.env.GeminiAPI || process.env.API_KEY || process.env.GOOGLE_API_KEY);
             return res.status(400).json({
               success: false,
               latencyMs: 0,
-              error: 'Please upload or paste your Google Cloud Service Account JSON credentials file (or provide a Vertex Express API key) to test Vertex AI mode.'
+              error: hasGeminiKey
+                ? 'Vertex AI is selected, but no valid Service Account JSON or Vertex API key was found. If you want to use your Gemini API Key instead, toggle "Enable Google Cloud Vertex AI" OFF in Admin Settings > AI.'
+                : 'Please upload or paste your Google Cloud Service Account JSON credentials file (or provide a Vertex Express API key) to test Vertex AI mode.'
             });
           }
         } else {

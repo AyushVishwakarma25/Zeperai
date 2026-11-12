@@ -136,7 +136,14 @@ export function mapAgentError(err: unknown): { status: number; message: string }
         return { status: 500, message: 'Something went wrong while generating this step. Please try again.' };
     }
   }
-  console.error('[campaign-studio] agent crashed:', (err as Error)?.message?.slice(0, 300));
+  const eMsg = (err as Error)?.message || '';
+  console.error('[campaign-studio] agent crashed:', (err as Error)?.name, eMsg.slice(0, 300));
+  if (eMsg.includes('Service Account JSON') || eMsg.includes('GOOGLE_APPLICATION_CREDENTIALS') || eMsg.includes('Missing GEMINI_API_KEY') || eMsg.includes('credentials were provided')) {
+    return {
+      status: 503,
+      message: 'AI Service Configuration Error: ' + eMsg + ' Please verify your Gemini API Key or Service Account in Admin Settings > AI.',
+    };
+  }
   return { status: 500, message: 'Something went wrong while generating this step. Please try again.' };
 }
 

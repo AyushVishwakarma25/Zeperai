@@ -129,41 +129,53 @@ export const getAI = () => {
            '') 
         : '';
 
-    const isVertexExplicitlyRequested = process.env.USE_VERTEX_AI === 'true';
-
     let parsedSaProject = '';
     let googleAuthOptions: any;
-    if (saJson) {
+    let saJsonParseError = false;
+    if (saJson && saJson !== '""' && saJson !== "''" && saJson !== '{}' && saJson !== 'undefined' && saJson !== 'null') {
         const parsed = safelyParseServiceAccountJson(saJson);
         if (parsed) {
             parsedSaProject = parsed.project_id || '';
             googleAuthOptions = { credentials: parsed };
         } else {
-            throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON is not valid JSON. Please provide valid service account JSON contents or a base64-encoded credentials string.");
+            saJsonParseError = true;
+            console.warn("[config/ai] GOOGLE_APPLICATION_CREDENTIALS_JSON was present but could not be parsed as a valid Service Account JSON.");
         }
     }
 
     const hasExplicitVertexCreds = Boolean(
-        vertexApiKey ||
+        (vertexApiKey && !vertexApiKey.startsWith('AQ.')) ||
         googleAuthOptions ||
-        process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-        vertexProjectId
+        (process.env.GOOGLE_APPLICATION_CREDENTIALS && !saJsonParseError)
     );
 
-    const useVertex = process.env.USE_VERTEX_AI === 'true' || (process.env.USE_VERTEX_AI !== 'false' && hasExplicitVertexCreds);
-    const effectiveProject = vertexProjectId || parsedSaProject || '';
-
-    if (useVertex) {
-        if (!hasExplicitVertexCreds) {
+    // If Vertex AI was requested, but no valid Vertex credentials (no parsed SA and no valid Vertex API key) exist:
+    // Don't brick the app! Check if a Gemini API Key is available to fall back to Google AI Studio.
+    let useVertex = process.env.USE_VERTEX_AI === 'true' || (process.env.USE_VERTEX_AI !== 'false' && hasExplicitVertexCreds);
+    if (useVertex && !hasExplicitVertexCreds) {
+        if (apiKey) {
+            console.warn("[config/ai] Vertex AI requested but valid credentials are not provided. Automatically falling back to Google AI Studio with GEMINI_API_KEY.");
+            useVertex = false;
+        } else {
             throw new Error(
-                "Google Cloud Vertex AI is selected as primary, but no Google Cloud credentials were provided. " +
-                "Please provide your Google Cloud Project ID and Service Account JSON (or Vertex API Key) in Admin Settings > AI."
+                saJsonParseError
+                    ? "The Service Account JSON provided is not valid JSON. Please check that you copied the complete JSON file or provide a valid GEMINI_API_KEY in Admin Settings > AI."
+                    : "Google Cloud Vertex AI is selected as primary, but no Google Cloud credentials were provided. Please provide your Service Account JSON or Gemini API key in Admin Settings > AI."
             );
         }
-    } else if (!apiKey) {
-        console.error("Missing Gemini API Key in environment variables!");
-        throw new Error("Missing GEMINI_API_KEY. Please configure your API key in Settings > Secrets or enable Vertex AI in Admin Settings > AI.");
+    } else if (!useVertex && !apiKey) {
+        if (hasExplicitVertexCreds) {
+            useVertex = true;
+        } else {
+            throw new Error(
+                saJsonParseError
+                    ? "The Service Account JSON provided is not valid JSON. Please check that you copied the complete JSON file or provide a valid GEMINI_API_KEY in Admin Settings > AI."
+                    : "Missing GEMINI_API_KEY. Please configure your API key in Admin Settings > AI or upload your Google Cloud Service Account JSON."
+            );
+        }
     }
+
+    const effectiveProject = vertexProjectId || parsedSaProject || '';
 
     const cacheKey = useVertex ? `vertex:${effectiveProject}:${location}:${vertexApiKey || (saJson ? 'sa' : 'adc')}` : `studio:${apiKey}`;
 
