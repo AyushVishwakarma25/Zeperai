@@ -248,6 +248,8 @@ export interface FormatAssignment {
   conceptId: string;
   pillar: string;
   format: AdvertisingFormatDefinition;
+  formatId?: string;
+  formatName?: string;
   rationale: string;
   score?: number;
   isPreselected?: boolean;
@@ -267,6 +269,7 @@ export interface CampaignFormatDiversityReport {
     count: number;
     assignedConceptIds: string[];
     reasonForRepeat: string;
+    structuralArchetype?: FormatVisualStructure;
   }>;
   diversityScore: number;
   exceptions: Array<{
@@ -444,6 +447,7 @@ export interface MetaConceptAdPackage {
   advertisingFormat: string;
   copy: MetaCopyPackage;
   variations: Record<StandardAspectRatio, AdaptedCreativeVariation>;
+  evaluation?: CreativeEvaluation;
 }
 
 export interface MetaCampaignPackage {

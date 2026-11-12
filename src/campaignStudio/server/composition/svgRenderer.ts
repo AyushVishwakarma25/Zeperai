@@ -78,12 +78,12 @@ export function renderCreativeDocumentToSvg(doc: CreativeDocument): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
   <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?${fontFamiliesQuery}&amp;display=swap');
+    <style><![CDATA[
+      @import url('https://fonts.googleapis.com/css2?${fontFamiliesQuery}&display=swap');
       text {
         user-select: none;
       }
-    </style>
+    ]]></style>
     <!-- Realistic Product Ground Cast Shadow Filter -->
     <filter id="product-ground-shadow" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur in="SourceGraphic" stdDeviation="18" />
@@ -196,16 +196,25 @@ function renderImageLayer(layer: CreativeLayer, x: number, y: number, w: number,
     </g>`;
 }
 
+function parseNumericStyle(val: unknown, fallback: number): number {
+  if (typeof val === 'number' && Number.isFinite(val)) return val;
+  if (typeof val === 'string') {
+    const parsed = parseFloat(val);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
 function renderPillLayer(layer: CreativeLayer, x: number, y: number, w: number, h: number): string {
   const bg = (layer.styles.backgroundColor as string) || '#F59E0B';
   const textColor = (layer.styles.textColor as string) || '#FFFFFF';
-  const radius = (layer.styles.borderRadius as number) ?? (layer.type === 'badge' ? 999 : 12);
+  const radius = parseNumericStyle(layer.styles.borderRadius, layer.type === 'badge' ? 999 : 12);
   const borderColor = (layer.styles.borderColor as string) || 'none';
-  const borderWidth = borderColor !== 'none' ? ((layer.styles.borderWidth as number) ?? 1.5) : 0;
+  const borderWidth = borderColor !== 'none' ? parseNumericStyle(layer.styles.borderWidth, 1.5) : 0;
   const text = layer.content || '';
   const fontFamily = (layer.styles.fontFamily as string) || 'Poppins';
   const fontWeight = (layer.styles.fontWeight as number | string) || (layer.type === 'badge' ? 700 : 800);
-  const fontSize = (layer.styles.fontSize as number) || Math.max(14, Math.round(h * 0.45));
+  const fontSize = Math.max(14, parseNumericStyle(layer.styles.fontSize, Math.round(h * 0.45)));
   const isUppercase = layer.styles.textTransform === 'uppercase' || layer.type === 'cta';
 
   const strokeAttr = borderColor !== 'none' ? `stroke="${escapeXml(borderColor)}" stroke-width="${borderWidth}"` : '';
@@ -225,8 +234,8 @@ function renderPillLayer(layer: CreativeLayer, x: number, y: number, w: number, 
 
 function renderShapeLayer(layer: CreativeLayer, x: number, y: number, w: number, h: number): string {
   const fill = (layer.styles.backgroundColor as string) || 'rgba(255,255,255,0.08)';
-  const radius = (layer.styles.borderRadius as number) ?? 16;
-  const opacity = (layer.styles.opacity as number) ?? 1;
+  const radius = parseNumericStyle(layer.styles.borderRadius, 16);
+  const opacity = parseNumericStyle(layer.styles.opacity, 1);
 
   return `    <!-- Layer: Accent Shape (${escapeXml(layer.name)}) -->
     <g id="${escapeXml(layer.id)}" opacity="${opacity}">
@@ -242,7 +251,7 @@ function renderTextLayer(layer: CreativeLayer, x: number, y: number, w: number, 
   const fontWeight = (layer.styles.fontWeight as number | string) || 700;
   const color = (layer.styles.color as string) || '#FFFFFF';
   const align = (layer.styles.alignment as string) || 'left';
-  const fontSize = (layer.styles.fontSize as number) || Math.max(18, Math.round(h * 0.35));
+  const fontSize = Math.max(18, parseNumericStyle(layer.styles.fontSize, Math.round(h * 0.35)));
   const lineHeight = Math.round(fontSize * 1.18);
   const isUppercase = layer.styles.textTransform === 'uppercase';
   const displayText = isUppercase ? text.toUpperCase() : text;

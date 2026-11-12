@@ -828,7 +828,8 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         assets,
       });
 
-      const zipBuffer = buildMetaAdPackageZip(pkg);
+      const allowUnverified = req.query.allowUnverified === 'true' || req.query.force === 'true';
+      const zipBuffer = await buildMetaAdPackageZip(pkg, { allowUnverified });
       const filename = `campaign-${runIdOf(req).slice(0, 8)}-meta-package.zip`;
 
       res.setHeader('Content-Type', 'application/zip');

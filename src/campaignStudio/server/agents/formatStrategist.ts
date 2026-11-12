@@ -91,9 +91,10 @@ export function evaluateFormatSuitability(params: {
   const gLower = goal.toLowerCase() as CampaignGoal;
   const catLower = category.toLowerCase();
   const pillarLower = (concept.pillar || '').toLowerCase();
+  const angleLower = (concept.angle || '').toLowerCase();
   const headlineLower = (concept.headline || '').toLowerCase();
   const visualLower = (concept.visualIdea || '').toLowerCase();
-  const combinedText = `${pillarLower} ${headlineLower} ${visualLower}`;
+  const combinedText = `${pillarLower} ${angleLower} ${headlineLower} ${visualLower}`;
 
   // 1. Objective Alignment
   if (format.suitableObjectives.includes(gLower)) {
@@ -185,12 +186,12 @@ export function evaluateFormatSuitability(params: {
     assetScore += 2;
   }
 
-  // 8. Preselected Affinity Bonus (Soft preference if concept previously suggested this format)
+  // 8. Preselected Affinity Bonus (Preference if concept previously suggested this format)
   const existingFormat = concept.blueprint?.advertisingFormat || (concept as any).advertisingFormat;
   if (existingFormat) {
     const matches = format.name.toLowerCase() === existingFormat.toLowerCase() || format.id === existingFormat.toLowerCase();
     if (matches) {
-      preselectedBonus += 4;
+      preselectedBonus += 12;
     }
   }
 
@@ -312,6 +313,8 @@ export function allocateCampaignFormats(
         conceptId: concept.id,
         pillar: concept.pillar,
         format: resolvedFormat,
+        formatId: resolvedFormat.id,
+        formatName: resolvedFormat.name,
         rationale: `User-locked format: strictly preserved ${resolvedFormat.name}. ${evaluation.explanation}.`,
         score: evaluation.totalScore,
         isPreselected: true,
@@ -507,6 +510,8 @@ export function allocateCampaignFormats(
       conceptId: chosen.concept.id,
       pillar: chosen.concept.pillar,
       format: selectedFormat,
+      formatId: selectedFormat.id,
+      formatName: selectedFormat.name,
       rationale,
       score: selectedScore,
       isPreselected: hadPreselected,
@@ -556,6 +561,7 @@ export function allocateCampaignFormats(
         count,
         assignedConceptIds: assignedIds,
         reasonForRepeat: reason,
+        structuralArchetype: getFormatVisualStructure(formatId),
       });
     }
   }

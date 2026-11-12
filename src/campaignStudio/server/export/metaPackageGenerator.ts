@@ -288,6 +288,7 @@ export function buildMetaCampaignPackage(params: {
       advertisingFormat: blueprint?.advertisingFormat || 'Standard Social Ad',
       copy,
       variations: adaptedVariations as any,
+      evaluation: asset?.overlay?.evaluation,
     });
   }
 

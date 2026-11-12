@@ -326,7 +326,7 @@ test('zipWriter: creates valid compressed PKZIP buffer with CRC32 verification',
   assert.equal(computeCrc32(testData), 0xcbf43926); // Standard CRC32 check value
 });
 
-test('exportArchive: builds comprehensive Meta Ad Package ZIP containing all 4 formats, copy sheet, and summary', () => {
+test('exportArchive: builds comprehensive Meta Ad Package ZIP containing all 4 formats, copy sheet, and summary', async () => {
   const masterDoc = createSample1x1MasterDocument();
   const pkg = buildMetaCampaignPackage({
     run: MOCK_RUN,
@@ -356,6 +356,22 @@ test('exportArchive: builds comprehensive Meta Ad Package ZIP containing all 4 f
           headline: 'Awaken Your Inner Radiance',
           subheading: 'Pure organic botanicals.',
           cta: 'Shop Now',
+          evaluation: {
+            creativeId: 'concept-1',
+            totalScore: 94,
+            status: 'ready_for_review',
+            scores: {
+              visualPolish: 95,
+              brandConsistency: 92,
+              typographyReadability: 96,
+              messageHierarchy: 94,
+              conversionPotential: 93,
+            },
+            issues: [],
+            hardRuleFailures: [],
+            passed: true,
+            evaluatedAt: new Date().toISOString(),
+          },
         },
         credits_charged: 1,
         error: null,
@@ -380,7 +396,7 @@ test('exportArchive: builds comprehensive Meta Ad Package ZIP containing all 4 f
   assert.match(copySheetText, /HOW TO DEPLOY IN META ADS MANAGER/);
 
   // Build ZIP buffer
-  const zipBuffer = buildMetaAdPackageZip(pkg);
+  const zipBuffer = await buildMetaAdPackageZip(pkg);
   assert.ok(Buffer.isBuffer(zipBuffer));
   assert.ok(zipBuffer.length > 500);
   assert.equal(zipBuffer.readUInt32LE(0), 0x04034b50);

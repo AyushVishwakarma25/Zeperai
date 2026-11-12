@@ -395,6 +395,7 @@ test('acceptance: executes end-to-end V2 advertising pipeline across all 5 comme
             headline: concept1.headline,
             subheading: concept1.subheadline,
             cta: concept1.cta,
+            evaluation: evalResult,
           },
           credits_charged: 1,
           error: null,
@@ -419,7 +420,7 @@ test('acceptance: executes end-to-end V2 advertising pipeline across all 5 comme
     }
 
     // Step G: ZIP Archive Generation
-    const zipBuf = buildMetaAdPackageZip(pkg);
+    const zipBuf = await buildMetaAdPackageZip(pkg, { allowUnverified: true });
     assert.ok(Buffer.isBuffer(zipBuf));
     assert.equal(zipBuf.readUInt32LE(0), 0x04034b50, `Valid PKZIP header for ${fixture.categoryName}`);
   }
