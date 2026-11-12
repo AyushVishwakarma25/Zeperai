@@ -516,10 +516,86 @@ export interface MetaPlacementMapping {
   };
 }
 
+export type SemanticElementRole =
+  | 'product_hero'
+  | 'secondary_product_visual'
+  | 'headline'
+  | 'supporting_copy'
+  | 'benefit_proof'
+  | 'offer'
+  | 'cta'
+  | 'brand_identity'
+  | 'decorative_elements';
+
+export type CompositionType =
+  | 'split_layout'
+  | 'product_hero'
+  | 'editorial'
+  | 'lifestyle'
+  | 'comparison'
+  | 'before_and_after'
+  | 'typography_led'
+  | 'promotional'
+  | 'grid_or_collage';
+
+export type PlacementAdaptationStatus =
+  | 'draft'
+  | 'approved'
+  | 'rejected'
+  | 'needs_manual_review';
+
+export interface SemanticLayoutElement {
+  layerId: string;
+  role: SemanticElementRole;
+  importance: 'critical' | 'high' | 'medium' | 'low';
+  originalPosition: CreativeLayerPosition;
+  originalContent?: string;
+  originalStyles: Record<string, unknown>;
+  canHideIfCrowded: boolean;
+  canStackVertically: boolean;
+  requiresSafeZone: boolean;
+}
+
+export interface SemanticLayoutRepresentation {
+  compositionType: CompositionType;
+  aspectRatio: StandardAspectRatio;
+  elements: SemanticLayoutElement[];
+  focalPoint: { x: number; y: number };
+  negativeSpacePreference: 'generous' | 'compact' | 'balanced';
+  brandColorPalette: string[];
+}
+
+export interface AdaptedCreativePlacement {
+  id: string;
+  masterCreativeId: string;
+  aspectRatio: StandardAspectRatio;
+  compositionType: CompositionType;
+  document: CreativeDocument;
+  compositeUrl: string;
+  svg: string;
+  evaluation?: CreativeEvaluation;
+  status: PlacementAdaptationStatus;
+  safeZoneCompliant: boolean;
+  recalculatedTypography: {
+    headlineFontSize: number | string;
+    subheadlineFontSize?: number | string;
+    lineHeight: number;
+    estimatedLines: number;
+  };
+  manualReviewNeeded: boolean;
+  manualReviewReason?: string;
+  warnings: string[];
+  adaptedAt: string;
+}
+
 export interface AdaptedCreativeVariation {
   aspectRatio: StandardAspectRatio;
   document: CreativeDocument;
   compositeUrl: string;
+  evaluation?: CreativeEvaluation;
+  status?: PlacementAdaptationStatus;
+  manualReviewNeeded?: boolean;
+  manualReviewReason?: string;
 }
 
 export interface MetaConceptAdPackage {

@@ -393,3 +393,4 @@ test('targetedRegenerator: verifies visual QA and does not assume approval from 
   assert.ok(res.evaluation.scores.visualHierarchy >= 0);
   assert.ok(res.evaluation.scores.productAccuracy >= 0);
 });
+

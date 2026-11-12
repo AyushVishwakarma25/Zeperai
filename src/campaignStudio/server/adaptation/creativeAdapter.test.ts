@@ -3,8 +3,14 @@ import assert from 'node:assert/strict';
 import {
   adaptCreativeDocument,
   adaptMasterCreativeToAllFormats,
+  approveAdaptedPlacement,
+  buildSemanticLayout,
+  detectCompositionType,
+  detectElementRole,
   getSafeZoneBounds,
   META_PLACEMENT_SPECS,
+  recalculateTypography,
+  rejectAdaptedPlacement,
 } from './creativeAdapter.js';
 import {
   buildMetaCampaignPackage,
@@ -403,3 +409,130 @@ test('exportArchive: builds comprehensive Meta Ad Package ZIP containing all 4 f
   assert.ok(zipBuffer.length > 500);
   assert.equal(zipBuffer.readUInt32LE(0), 0x04034b50);
 });
+
+// ---------------------------------------------------------------------------
+// 4. Semantic Multi-Placement Adaptation & Visual Reflow Tests (V2 Upgrade)
+// ---------------------------------------------------------------------------
+
+test('creativeAdapter: detects all 9 composition types and maps semantic roles', () => {
+  const masterDoc = createSample1x1MasterDocument();
+
+  // 1. Split Layout
+  assert.equal(detectCompositionType(masterDoc, { layout: { composition: 'Split Layout' } } as any), 'split_layout');
+  // 2. Product Hero
+  assert.equal(detectCompositionType(masterDoc, { layout: { composition: 'Center Hero' } } as any), 'product_hero');
+  // 3. Editorial
+  assert.equal(detectCompositionType(masterDoc, { layout: { composition: 'Minimalist Editorial' } } as any), 'editorial');
+  // 4. Lifestyle
+  assert.equal(detectCompositionType(masterDoc, { advertisingFormat: 'Lifestyle Integration' } as any), 'lifestyle');
+  // 5. Comparison
+  assert.equal(detectCompositionType(masterDoc, { advertisingFormat: 'Side-by-Side Comparison' } as any), 'comparison');
+  // 6. Before and After
+  assert.equal(detectCompositionType(masterDoc, { marketingAngle: 'Before and After' } as any), 'before_and_after');
+  // 7. Typography-Led
+  assert.equal(detectCompositionType(masterDoc, { advertisingFormat: 'Bold Typography Statement' } as any), 'typography_led');
+  // 8. Promotional
+  assert.equal(detectCompositionType(masterDoc, { advertisingFormat: 'Promotional Retail Poster' } as any), 'promotional');
+  // 9. Grid / Collage
+  assert.equal(detectCompositionType(masterDoc, { advertisingFormat: 'Grid Showcase' } as any), 'grid_or_collage');
+
+  // Semantic role detection
+  assert.equal(detectElementRole(masterDoc.layers.find((l) => l.type === 'product')!, masterDoc.layers), 'product_hero');
+  assert.equal(detectElementRole(masterDoc.layers.find((l) => l.type === 'headline')!, masterDoc.layers), 'headline');
+  assert.equal(detectElementRole(masterDoc.layers.find((l) => l.type === 'cta')!, masterDoc.layers), 'cta');
+  assert.equal(detectElementRole(masterDoc.layers.find((l) => l.type === 'badge')!, masterDoc.layers), 'offer');
+  assert.equal(detectElementRole(masterDoc.layers.find((l) => l.type === 'logo')!, masterDoc.layers), 'brand_identity');
+
+  // Semantic layout representation
+  const semantic = buildSemanticLayout(masterDoc);
+  assert.ok(semantic.elements.length >= 5);
+  assert.ok(semantic.brandColorPalette.length >= 3);
+  assert.ok(semantic.focalPoint.x > 0 && semantic.focalPoint.y > 0);
+});
+
+test('creativeAdapter: adapts across all 4 ratios preserving packaging and safe zones', () => {
+  const masterDoc = createSample1x1MasterDocument();
+  const ratios: Array<'1:1' | '4:5' | '9:16' | '1.91:1'> = ['1:1', '4:5', '9:16', '1.91:1'];
+
+  for (const ratio of ratios) {
+    const res = adaptCreativeDocument(masterDoc, ratio);
+    assert.ok(res.document);
+    assert.ok(res.compositeUrl.startsWith('data:image/svg+xml;base64,'));
+    assert.equal(res.document.canvas.aspectRatio, ratio);
+    assert.equal(res.status, 'approved');
+    assert.equal(res.manualReviewNeeded, false);
+
+    // Verify product packaging preservation invariant
+    const prod = res.document.layers.find((l) => l.type === 'product')!;
+    assert.equal(prod.styles?.objectFit, 'contain');
+    assert.equal(prod.styles?.preserveAspectRatio, 'meet');
+
+    // Verify Stories / Reels safe zone boundaries
+    if (ratio === '9:16') {
+      const headline = res.document.layers.find((l) => l.type === 'headline')!;
+      const cta = res.document.layers.find((l) => l.type === 'cta')!;
+      const logo = res.document.layers.find((l) => l.type === 'logo')!;
+
+      assert.ok(headline.position.y >= 0.1302, 'Headline must clear 250px top buffer');
+      assert.ok(logo.position.y >= 0.1302, 'Logo must clear 250px top buffer');
+      assert.ok(cta.position.y + cta.position.height <= 0.8177, 'CTA must clear 350px bottom buffer');
+    }
+
+    // Verify Landscape 1.91:1 2-column reflow
+    if (ratio === '1.91:1') {
+      const headline = res.document.layers.find((l) => l.type === 'headline')!;
+      const prodLayer = res.document.layers.find((l) => l.type === 'product')!;
+      const cta = res.document.layers.find((l) => l.type === 'cta')!;
+
+      assert.ok(headline.position.x < 0.20, 'Headline must reside in left column');
+      assert.ok(cta.position.x < 0.20, 'CTA must reside in left column');
+      assert.ok(prodLayer.position.x >= 0.50, 'Product hero must reside in right column');
+    }
+  }
+});
+
+test('creativeAdapter: detects unsafe extreme text density and flags manual review', () => {
+  const masterDoc = createSample1x1MasterDocument();
+  const headlineLayer = masterDoc.layers.find((l) => l.type === 'headline')!;
+  // Overly long headline that cannot fit into standard safe zones safely
+  (headlineLayer as any).content = 'Introducing the All-New Ultra-Hydrating Organic Rosehip Seed Elixir Formulated With 100% Pure Botanical Cold-Pressed Active Plant Extracts For Unrivaled Cellular Skin Rejuvenation';
+
+  const res = adaptCreativeDocument(masterDoc, '9:16');
+  assert.equal(res.manualReviewNeeded, true);
+  assert.equal(res.status, 'needs_manual_review');
+  assert.match(res.manualReviewReason || '', /Extreme headline length/);
+  assert.ok(res.warnings.length > 0);
+});
+
+test('creativeAdapter: approveAdaptedPlacement and rejectAdaptedPlacement update status cleanly', () => {
+  const masterDoc = createSample1x1MasterDocument();
+  const adapted = adaptCreativeDocument(masterDoc, '9:16');
+
+  const placementMock: any = {
+    id: 'placement-test-01',
+    masterCreativeId: masterDoc.id,
+    aspectRatio: '9:16',
+    compositionType: 'product_hero',
+    document: adapted.document,
+    compositeUrl: adapted.compositeUrl,
+    svg: '<svg></svg>',
+    status: 'needs_manual_review',
+    safeZoneCompliant: true,
+    recalculatedTypography: { headlineFontSize: '42px', lineHeight: 1.18, estimatedLines: 2 },
+    manualReviewNeeded: true,
+    manualReviewReason: 'Test manual review',
+    warnings: [],
+    adaptedAt: new Date().toISOString(),
+  };
+
+  const approved = approveAdaptedPlacement(placementMock);
+  assert.equal(approved.status, 'approved');
+  assert.equal(approved.manualReviewNeeded, false);
+  assert.equal(approved.manualReviewReason, undefined);
+
+  const rejected = rejectAdaptedPlacement(placementMock, 'Client requested product to be moved lower');
+  assert.equal(rejected.status, 'rejected');
+  assert.equal(rejected.manualReviewNeeded, true);
+  assert.equal(rejected.manualReviewReason, 'Client requested product to be moved lower');
+});
+

@@ -22,8 +22,10 @@ function readModelEnv(name: string, fallback: string): string {
 }
 
 export function resolveTextModel(tier: TextModelTier): string {
+  const isVertex = process.env.USE_VERTEX_AI === 'true';
+  const defaultPro = isVertex ? DEFAULT_FLASH_MODEL : DEFAULT_PRO_MODEL;
   return tier === 'pro'
-    ? readModelEnv('CAMPAIGN_MODEL_PRO', DEFAULT_PRO_MODEL)
+    ? readModelEnv('CAMPAIGN_MODEL_PRO', defaultPro)
     : readModelEnv('CAMPAIGN_MODEL_FLASH', DEFAULT_FLASH_MODEL);
 }
 

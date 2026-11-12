@@ -10,6 +10,7 @@ import { safelyParseServiceAccountJson } from "../utils/serviceAccountParser.js"
 
 let genAIInstance: GoogleGenAI | null = null;
 let currentApiKey = '';
+const unavailableVertexModels = new Set<string>();
 
 /**
  * Resets the in-memory GoogleGenAI instance so that dynamic runtime configuration
@@ -223,7 +224,8 @@ export const getAI = () => {
                     realModelName = hasImageConfig ? 'gemini-nano-banana-2.1' : (useVertex ? 'gemini-2.5-flash' : 'gemini-3.8-flash');
                 }
                 if (modelName === 'gemini-3.1-pro-preview' || modelName === 'gemini-3-pro-preview' || modelName === 'gemini-pro-latest' || modelName === 'gemini-pro' || modelName === 'gemini-2.5-pro' || modelName === 'gemini-2.0-pro' || modelName === 'gemini-1.5-pro') {
-                    realModelName = hasImageConfig ? 'gemini-3-pro-image' : (useVertex ? 'gemini-2.5-pro' : 'gemini-3.1-pro-preview');
+                    const vertexPro = process.env.VERTEX_PRO_MODEL || (unavailableVertexModels.has('gemini-2.5-pro') ? 'gemini-2.5-flash' : 'gemini-2.5-pro');
+                    realModelName = hasImageConfig ? 'gemini-3-pro-image' : (useVertex ? vertexPro : 'gemini-3.1-pro-preview');
                 }
                 if (modelName === 'gemini-2.5-flash-preview-tts' || modelName === 'gemini-3.1-flash-tts-preview') {
                     realModelName = useVertex ? 'gemini-2.5-flash' : 'gemini-3.8-flash-lite-tts';
@@ -280,9 +282,18 @@ export const getAI = () => {
                     });
                 } catch (callErr: any) {
                     const cMsg = String(callErr?.message || '');
+                    const isNotFound = cMsg.includes('404') ||
+                        cMsg.toLowerCase().includes('not found') ||
+                        cMsg.includes('NOT_FOUND') ||
+                        cMsg.toLowerCase().includes('does not have access') ||
+                        cMsg.toLowerCase().includes('publisher model');
 
-                    // 1. If thinkingConfig caused rejection or incompatible model error, retry immediately without thinkingConfig
-                    if (finalConfig.thinkingConfig) {
+                    if (isNotFound) {
+                        unavailableVertexModels.add(targetModel);
+                    }
+
+                    // 1. If thinkingConfig caused rejection or incompatible model error (and it's not a missing model 404), retry immediately without thinkingConfig
+                    if (finalConfig.thinkingConfig && !isNotFound) {
                         console.warn(`[config/ai] generateContent call failed for ${targetModel} (${cMsg.slice(0, 150)}), retrying without thinkingConfig...`);
                         const { thinkingConfig, ...noThinkingConfig } = finalConfig;
                         try {
@@ -297,11 +308,12 @@ export const getAI = () => {
                         }
                     }
 
+                    const { thinkingConfig, ...safeConfig } = finalConfig;
+
                     // 2. Model fallback: if a Pro model or non-flash model failed (404, 400, quota, or permission), fall back to reliable fallbackTextModel
                     const isProOrNonFallback = targetModel !== fallbackTextModel;
                     if (isProOrNonFallback) {
                         console.warn(`[config/ai] Model ${targetModel} failed (${cMsg.slice(0, 150)}), falling back to ${fallbackTextModel}...`);
-                        const { thinkingConfig, ...safeConfig } = finalConfig;
                         try {
                             return await ai.models.generateContent({
                                 model: fallbackTextModel,
@@ -318,20 +330,20 @@ export const getAI = () => {
                             return await ai.models.generateContent({
                                 model: 'gemini-2.5-flash',
                                 contents: normalizedContents,
-                                config: finalConfig
+                                config: safeConfig
                             });
                         } catch (_) {
                             try {
                                 return await ai.models.generateContent({
                                     model: 'gemini-2.0-flash',
                                     contents: normalizedContents,
-                                    config: finalConfig
+                                    config: safeConfig
                                 });
                             } catch (_) {
                                 return await ai.models.generateContent({
                                     model: 'gemini-1.5-flash',
                                     contents: normalizedContents,
-                                    config: finalConfig
+                                    config: safeConfig
                                 });
                             }
                         }
