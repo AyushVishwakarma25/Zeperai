@@ -471,6 +471,50 @@ export interface CreativeEvaluation {
 }
 
 /** Text/logo layer composited on top of a generated image. */
+export type CreativeApprovalStatus = 'pending_review' | 'approved' | 'needs_revision';
+
+export type CreativeLifecycleStatus =
+  | 'Generating'
+  | 'Ready for Review'
+  | 'Needs Revision'
+  | 'QA Incomplete'
+  | 'Failed'
+  | 'Approved';
+
+export type CreativeFormatAdaptationState =
+  | 'unadapted'
+  | 'adapted_reflow'
+  | 'ai_generated'
+  | 'generating'
+  | 'failed';
+
+export interface CreativeFormatDetail {
+  status: CreativeFormatAdaptationState;
+  compositeUrl?: string;
+  error?: string;
+  adaptedAt?: string;
+}
+
+export type CreativeErrorCode =
+  | 'AUTH_CONFIG'
+  | 'MODEL_UNAVAILABLE'
+  | 'RATE_LIMIT'
+  | 'TIMEOUT'
+  | 'SAFETY_FILTER'
+  | 'INVALID_REQUEST'
+  | 'POST_PROCESSING_ERROR'
+  | 'INSUFFICIENT_CREDITS'
+  | 'NETWORK_ERROR'
+  | 'UNKNOWN_ERROR';
+
+export interface StructuredCreativeError {
+  code: CreativeErrorCode;
+  userMessage: string;
+  category: 'authentication' | 'model_availability' | 'quota_or_rate_limit' | 'timeout' | 'content_policy' | 'processing';
+  retryable: boolean;
+  suggestedAction: string;
+}
+
 export interface CreativeOverlay {
   headline?: string;
   subheading?: string;
@@ -487,6 +531,73 @@ export interface CreativeOverlay {
   evaluation?: CreativeEvaluation;
   /** V2 Phase 5 adapted creative documents across placements (1:1, 4:5, 9:16, 1.91:1) */
   adaptations?: Record<string, { document: CreativeDocument; compositeUrl: string }>;
+  /** Explicit human review and approval status */
+  approvalStatus?: CreativeApprovalStatus;
+  approvedAt?: string;
+  userNotes?: string;
+  /** Structured user-safe error details when generation or compositing fails */
+  errorDetail?: StructuredCreativeError;
+  /** Per-format adaptation and AI generation tracking */
+  formatStatus?: Partial<Record<StandardAspectRatio, CreativeFormatDetail>>;
+}
+
+/**
+ * Resolves the true lifecycle state of a creative asset.
+ * A creative is NEVER marked "Approved" or "Ready" merely because raw image generation succeeded.
+ * - Generating: Still in queue or generating
+ * - Failed: Generation or credit charging failed
+ * - Needs Revision: Hard compliance failure or user requested changes
+ * - QA Incomplete: Partial / unverified evaluation without critical failures
+ * - Ready for Review: Verified QA, awaiting explicit human approval
+ * - Approved: Explicitly approved by user without unresolved critical failures
+ */
+export function resolveCreativeLifecycleStatus(asset: CampaignAsset): CreativeLifecycleStatus {
+  if (asset.status === 'generating' || asset.status === 'queued') {
+    return 'Generating';
+  }
+  if (asset.status === 'failed') {
+    return 'Failed';
+  }
+  const overlay = (asset.overlay || {}) as CreativeOverlay;
+  const evaluation = overlay.evaluation;
+  const hardRuleFailures = evaluation?.hardRuleFailures ?? [];
+
+  // Critical hard compliance failures ALWAYS block approval and force Needs Revision
+  if (hardRuleFailures.length > 0 || evaluation?.status === 'failed' || evaluation?.status === 'rejected') {
+    return 'Needs Revision';
+  }
+
+  // Explicit user revision request
+  if (overlay.approvalStatus === 'needs_revision') {
+    return 'Needs Revision';
+  }
+
+  // Explicit human approval (only valid when no hard rule failures exist)
+  if (overlay.approvalStatus === 'approved') {
+    return 'Approved';
+  }
+
+  // Partial / unverified evaluation
+  if (!evaluation || evaluation.status === 'partially_evaluated' || evaluation.status === 'unverified' || !evaluation.visual?.checksRun) {
+    return 'QA Incomplete';
+  }
+
+  // Verified QA, awaiting explicit human approval
+  return 'Ready for Review';
+}
+
+/**
+ * Checks whether an asset is eligible for production Meta campaign export.
+ * Strictest standard: must be successfully generated, approved by user, with 0 hard failures.
+ */
+export function isCreativeEligibleForExport(asset: CampaignAsset, allowUnverified = false): boolean {
+  if (asset.status !== 'ready') return false;
+  const overlay = (asset.overlay || {}) as CreativeOverlay;
+  const hardFailures = overlay.evaluation?.hardRuleFailures ?? [];
+  if (hardFailures.length > 0) return false;
+  if (overlay.approvalStatus !== 'approved') return false;
+  if (!allowUnverified && overlay.evaluation?.status === 'unverified') return false;
+  return true;
 }
 
 // ---------------------------------------------------------------------------

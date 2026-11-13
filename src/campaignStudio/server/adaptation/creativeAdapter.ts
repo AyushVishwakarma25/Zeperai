@@ -556,7 +556,7 @@ export function runPlacementQA(
 export function adaptCreativeDocument(
   sourceDoc: CreativeDocument,
   targetRatio: StandardAspectRatio,
-  blueprint?: CreativeBlueprint,
+  blueprintOrOptions?: CreativeBlueprint | { blueprint?: CreativeBlueprint; aiBackgroundUrl?: string },
 ): {
   document: CreativeDocument;
   compositeUrl: string;
@@ -565,11 +565,25 @@ export function adaptCreativeDocument(
   manualReviewReason?: string;
   warnings: string[];
 } {
+  const blueprint =
+    blueprintOrOptions && 'id' in blueprintOrOptions
+      ? (blueprintOrOptions as CreativeBlueprint)
+      : (blueprintOrOptions as { blueprint?: CreativeBlueprint; aiBackgroundUrl?: string })?.blueprint;
+  const aiBackgroundUrl =
+    blueprintOrOptions && 'aiBackgroundUrl' in blueprintOrOptions
+      ? (blueprintOrOptions as { blueprint?: CreativeBlueprint; aiBackgroundUrl?: string }).aiBackgroundUrl
+      : undefined;
+
   const spec = META_PLACEMENT_SPECS[targetRatio] || META_PLACEMENT_SPECS['1:1'];
   const { width, height } = spec.dimensions;
 
   const semantic = buildSemanticLayout(sourceDoc, blueprint);
   const reflow = reflowSemanticLayout(semantic, targetRatio, spec, sourceDoc.layers);
+
+  let finalLayers = reflow.adaptedLayers;
+  if (aiBackgroundUrl) {
+    finalLayers = finalLayers.map((l) => (l.type === 'background' ? { ...l, assetId: aiBackgroundUrl } : l));
+  }
 
   const adaptedDoc: CreativeDocument = {
     ...sourceDoc,
@@ -580,12 +594,13 @@ export function adaptCreativeDocument(
       height,
       aspectRatio: targetRatio,
     },
-    layers: reflow.adaptedLayers,
+    layers: finalLayers,
     metadata: {
       ...sourceDoc.metadata,
       adaptedFromRatio: sourceDoc.canvas.aspectRatio,
       adaptationTimestamp: new Date().toISOString(),
       compositionType: semantic.compositionType,
+      isAiExpanded: Boolean(aiBackgroundUrl),
     },
     updatedAt: new Date().toISOString(),
   };

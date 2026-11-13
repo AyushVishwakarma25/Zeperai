@@ -51,6 +51,8 @@ import {
   DEFAULT_CAMPAIGN_SETTINGS,
   MAX_CREATIVES_PER_RUN,
   MAX_PRODUCT_IMAGES_PER_RUN,
+  isCreativeEligibleForExport,
+  resolveCreativeLifecycleStatus,
   type BrandContext,
   type StandardAspectRatio,
 } from '../types.js';
@@ -65,6 +67,8 @@ import {
   revertCreativeToVersion,
 } from './evaluation/targetedRegenerator.js';
 import { adaptCreativeDocument } from './adaptation/creativeAdapter.js';
+import { buildReferenceImageParts, callImageModel } from './agents/creatives.js';
+import { classifyCreativeError } from './errors/creativeErrors.js';
 import { buildMetaCampaignPackage } from './export/metaPackageGenerator.js';
 import { buildMetaAdPackageZip } from './export/exportArchive.js';
 
@@ -841,6 +845,227 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
     }),
   );
 
+  // Explicit Creative Approval & Review State Management
+  app.post(
+    `${BASE}/runs/:runId/creatives/:creativeIndex/approve`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const creativeIndex = parseInt(String(req.params.creativeIndex || ''), 10);
+      if (isNaN(creativeIndex) || creativeIndex < 1 || creativeIndex > MAX_CREATIVES_PER_RUN) {
+        throw new AppError('Invalid creative index', 400, 'Invalid creative index.');
+      }
+      const action = String(req.body?.action || 'approve'); // 'approve' | 'request_revision' | 'reset'
+      const notes = typeof req.body?.notes === 'string' ? req.body.notes : undefined;
+
+      const client = await deps.getAdminSupabaseClient();
+      const assets = await listAssets(client, userId(req), runIdOf(req));
+      const latest = assets
+        .filter((a) => a.creative_index === creativeIndex && a.status !== 'superseded')
+        .sort((a, b) => b.version - a.version)[0];
+      if (!latest) {
+        return res.status(404).json({ success: false, error: 'Creative asset not found.' });
+      }
+
+      if (latest.status === 'failed') {
+        throw new AppError('Cannot approve failed creative', 400, 'This creative failed generation. Please retry before approving.');
+      }
+
+      const overlay = (latest.overlay || {}) as Record<string, any>;
+      const evaluation = overlay.evaluation;
+      const hardFailures = evaluation?.hardRuleFailures ?? [];
+
+      if (action === 'approve') {
+        if (hardFailures.length > 0) {
+          throw new AppError(
+            'Critical QA Failures',
+            400,
+            `Cannot approve creative with critical QA failures (${hardFailures.join('; ')}). Please resolve issues first.`,
+          );
+        }
+        if (evaluation?.status === 'failed' || evaluation?.status === 'rejected') {
+          throw new AppError(
+            'QA Failed',
+            400,
+            'Cannot approve creative that failed autonomous quality evaluation.',
+          );
+        }
+        overlay.approvalStatus = 'approved';
+        overlay.approvedAt = new Date().toISOString();
+        if (notes) overlay.userNotes = notes;
+      } else if (action === 'request_revision') {
+        overlay.approvalStatus = 'needs_revision';
+        if (notes) overlay.userNotes = notes;
+      } else {
+        overlay.approvalStatus = 'pending_review';
+      }
+
+      await updateAsset(client, userId(req), runIdOf(req), creativeIndex, latest.version, {
+        overlay,
+      });
+
+      return res.json({
+        success: true,
+        creativeIndex,
+        approvalStatus: overlay.approvalStatus,
+        approvedAt: overlay.approvedAt,
+        userNotes: overlay.userNotes,
+      });
+    }),
+  );
+
+  // AI-Driven Format Resizing & Native Placement Generation
+  app.post(
+    `${BASE}/runs/:runId/creatives/:creativeIndex/format-generate`,
+    deps.requireAuth,
+    campaignGate,
+    deps.aiLimiter,
+    asyncHandler(async (req: Request, res: Response) => {
+      const creativeIndex = parseInt(String(req.params.creativeIndex || ''), 10);
+      if (isNaN(creativeIndex) || creativeIndex < 1 || creativeIndex > MAX_CREATIVES_PER_RUN) {
+        throw new AppError('Invalid creative index', 400, 'Invalid creative index.');
+      }
+      const targetRatio = String(req.body?.targetRatio || '') as StandardAspectRatio;
+      if (!['1:1', '4:5', '9:16', '1.91:1'].includes(targetRatio)) {
+        throw new AppError('Invalid aspect ratio', 400, 'Valid targetRatio required (1:1, 4:5, 9:16, 1.91:1).');
+      }
+
+      const client = await deps.getAdminSupabaseClient();
+      const assets = await listAssets(client, userId(req), runIdOf(req));
+      const latest = assets
+        .filter((a) => a.creative_index === creativeIndex && a.status !== 'superseded')
+        .sort((a, b) => b.version - a.version)[0];
+      if (!latest) {
+        return res.status(404).json({ success: false, error: 'Creative asset not found.' });
+      }
+
+      const overlay = (latest.overlay || {}) as Record<string, any>;
+      const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
+      const masterPromptsStep = runDetail?.steps?.find((s) => s.agent === 'master_prompts' && s.status === 'approved');
+      const prompts = (masterPromptsStep?.output as any)?.prompts || [];
+      const promptObj = prompts[creativeIndex - 1];
+
+      // If user requests 1:1 and it already has a visual, return existing
+      if (targetRatio === '1:1' && (overlay.renderedCompositeUrl || latest.image_url)) {
+        return res.json({
+          success: true,
+          aspectRatio: '1:1',
+          compositeUrl: overlay.renderedCompositeUrl || latest.image_url,
+          formatStatus: overlay.formatStatus,
+        });
+      }
+
+      try {
+        const referenceParts = await buildReferenceImageParts(promptObj?.referenceImageUrls, deps.overrides?.fetcher);
+        const modelToUse = latest.model || 'gemini-2.5-flash-image';
+        const aiResizedImageUrl = await callImageModel({
+          prompt: latest.prompt || promptObj?.imagePrompt || 'Commercial advertising backdrop',
+          negativePrompt: promptObj?.negativePrompt,
+          aspectRatio: targetRatio,
+          model: modelToUse,
+          client: deps.overrides?.geminiClient,
+          referenceParts,
+        });
+
+        let doc = overlay.document;
+        if (!doc) {
+          const brand = runDetail?.run?.brand_context;
+          const brandColors = brand?.visualIdentity?.colors?.map((c: any) => c.hex) || ['#0F172A', '#F59E0B'];
+          doc = buildCreativeDocument({
+            blueprint: {
+              id: `bp-${runIdOf(req)}-${creativeIndex}`,
+              conceptId: `concept-${creativeIndex}`,
+              version: 1,
+              status: 'draft',
+              marketingAngle: 'General',
+              advertisingFormat: 'Promotional Product Advertisement',
+              designIntensity: 'balanced',
+              designConcept: overlay.headline || 'Featured Product',
+              visualNarrative: overlay.subheading || '',
+              canvas: { width: 1080, height: 1080, aspectRatio: '1:1' },
+              artDirection: {
+                visualStyle: 'Commercial advertising',
+                mood: 'bold, clean',
+                background: latest.prompt || 'Studio commercial background',
+                colorPalette: brandColors || ['#0F172A', '#F59E0B'],
+                photographyStyle: 'Clean commercial strobe photography',
+                lighting: 'Balanced studio lighting',
+              },
+              layout: {
+                composition: 'Balanced commercial composition',
+                readingOrder: ['main_headline', 'product', 'cta'],
+                productPlacement: 'Center anchor with ground shadow',
+                productScale: 0.6,
+                safeZones: [],
+                elements: [
+                  { element: 'main_headline', x: 0.08, y: 0.12, width: 0.84, height: 0.18 },
+                  { element: 'product', x: 0.15, y: 0.35, width: 0.70, height: 0.45 },
+                  { element: 'cta', x: 0.08, y: 0.86, width: 0.45, height: 0.07 },
+                ],
+              },
+              typography: {
+                headlineStyle: { fontFamily: 'Poppins', fontWeight: 800, fontSizeHint: 'hero', color: '#FFFFFF' },
+                hierarchy: [],
+              },
+              copy: {
+                headline: overlay.headline || 'Featured Product',
+                subheadline: overlay.subheading || '',
+                cta: overlay.cta || 'Shop Now',
+              },
+              graphicElements: [],
+              assets: { productAssetIds: [], referenceIds: [] },
+              constraints: {
+                preserveProductPackaging: true,
+                preserveLogo: true,
+                exactCopyRequired: true,
+                prohibitInventedClaims: true,
+              },
+            },
+            backgroundUrl: aiResizedImageUrl,
+            productImageUrl: runDetail?.productImages?.[0]?.image_url || '',
+            brandName: brand?.brandName || 'Brand',
+            brandColors,
+          });
+        }
+
+        const adapted = adaptCreativeDocument(doc, targetRatio, { aiBackgroundUrl: aiResizedImageUrl });
+        const existingAdaptations = overlay.adaptations || {};
+        const existingFormatStatus = overlay.formatStatus || {};
+
+        const updatedOverlay = {
+          ...overlay,
+          adaptations: {
+            ...existingAdaptations,
+            [targetRatio]: adapted,
+          },
+          formatStatus: {
+            ...existingFormatStatus,
+            [targetRatio]: {
+              status: 'ai_generated',
+              compositeUrl: adapted.compositeUrl,
+              adaptedAt: new Date().toISOString(),
+            },
+          },
+        };
+
+        await updateAsset(client, userId(req), runIdOf(req), creativeIndex, latest.version, {
+          overlay: updatedOverlay,
+        });
+
+        return res.json({
+          success: true,
+          aspectRatio: targetRatio,
+          document: adapted.document,
+          compositeUrl: adapted.compositeUrl,
+          formatStatus: updatedOverlay.formatStatus,
+        });
+      } catch (genErr: any) {
+        const classified = classifyCreativeError(genErr);
+        throw new AppError(classified.code, 500, classified.userMessage);
+      }
+    }),
+  );
+
   // Phase 5: Generate Meta Ad Package (Ad copy variations & campaign metadata)
   app.post(
     `${BASE}/runs/:runId/meta-package`,
@@ -898,6 +1123,16 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
       const creativeDirectionStep = runDetail.steps.find((s) => s.agent === 'creative_direction' && s.status === 'approved');
       const strategyStep = runDetail.steps.find((s) => s.agent === 'strategy' && s.status === 'approved');
 
+      // Export Eligibility Rule: Must have at least 1 approved & valid creative
+      const allowUnverified = req.query.allowUnverified === 'true' || req.query.force === 'true';
+      const eligibleAssets = assets.filter((a) => a.status !== 'superseded' && isCreativeEligibleForExport(a, allowUnverified));
+      if (eligibleAssets.length === 0 && !allowUnverified) {
+        return res.status(400).json({
+          success: false,
+          error: 'No approved creatives are ready for export. Please review and approve at least one creative before downloading the Meta Ad Package.',
+        });
+      }
+
       const pkg = buildMetaCampaignPackage({
         run: runDetail.run,
         brand: brand as BrandContext,
@@ -907,7 +1142,6 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         assets,
       });
 
-      const allowUnverified = req.query.allowUnverified === 'true' || req.query.force === 'true';
       const zipBuffer = await buildMetaAdPackageZip(pkg, { allowUnverified });
       const filename = `campaign-${runIdOf(req).slice(0, 8)}-meta-package.zip`;
 

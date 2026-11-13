@@ -215,6 +215,27 @@ export function createCampaignApi(deps: CampaignApiDeps) {
         compositeUrl: string;
         aspectRatio: StandardAspectRatio;
       }>('POST', `/runs/${enc(runId)}/creatives/${creativeIndex}/adapt`, { targetRatio }),
+    generateFormatWithAI: (runId: string, creativeIndex: number, targetRatio: StandardAspectRatio) =>
+      request<{
+        success: true;
+        aspectRatio: StandardAspectRatio;
+        document: CreativeDocument;
+        compositeUrl: string;
+        formatStatus: Record<string, any>;
+      }>('POST', `/runs/${enc(runId)}/creatives/${creativeIndex}/format-generate`, { targetRatio }),
+    setCreativeApproval: (
+      runId: string,
+      creativeIndex: number,
+      action: 'approve' | 'request_revision' | 'reset',
+      notes?: string,
+    ) =>
+      request<{
+        success: true;
+        creativeIndex: number;
+        approvalStatus: 'pending_review' | 'approved' | 'needs_revision';
+        approvedAt?: string;
+        userNotes?: string;
+      }>('POST', `/runs/${enc(runId)}/creatives/${creativeIndex}/approve`, { action, notes }),
     getMetaPackage: (runId: string) =>
       request<{ success: true; package: MetaCampaignPackage }>('POST', `/runs/${enc(runId)}/meta-package`),
     getExportZipUrl: (runId: string) => `/api/campaign/runs/${enc(runId)}/export-zip`,

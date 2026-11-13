@@ -5,10 +5,11 @@ import { Icon } from '../ui/Icon.js';
 interface Props {
   evaluation?: CreativeEvaluation;
   onTargetedFix?: (component: string, suggestedFix: string) => Promise<void> | void;
+  onOpenReport?: () => void;
   isBusy?: boolean;
 }
 
-export const QualityScoreBadge: React.FC<Props> = ({ evaluation, onTargetedFix, isBusy = false }) => {
+export const QualityScoreBadge: React.FC<Props> = ({ evaluation, onTargetedFix, onOpenReport, isBusy = false }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   if (!evaluation) {
@@ -50,18 +51,28 @@ export const QualityScoreBadge: React.FC<Props> = ({ evaluation, onTargetedFix, 
     label = 'Ready for Review';
   }
 
+  const handleClick = () => {
+    if (onOpenReport) {
+      onOpenReport();
+    } else {
+      setIsOpen(!isOpen);
+    }
+  };
+
   return (
     <div className="relative inline-block text-left">
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border transition-colors hover:shadow-xs ${toneClasses}`}
-        title="Click to view 7-dimension quality score breakdown & diagnostic audit"
+        onClick={handleClick}
+        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border transition-colors hover:shadow-xs cursor-pointer ${toneClasses}`}
+        title="Click to view quality score breakdown & diagnostic audit"
       >
         <span className={`w-2 h-2 rounded-full ${dotColor}`} />
         <span>{totalScore}/100</span>
         <span className="font-medium text-[10px] opacity-85">({label})</span>
-        <Icon name={isOpen ? 'chevron-up' : 'chevron-down'} className="w-3 h-3 opacity-60 ml-0.5" />
+        {!onOpenReport && (
+          <Icon name={isOpen ? 'chevron-up' : 'chevron-down'} className="w-3 h-3 opacity-60 ml-0.5" />
+        )}
       </button>
 
       {isOpen && (

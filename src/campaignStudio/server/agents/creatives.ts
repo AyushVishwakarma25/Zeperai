@@ -44,6 +44,7 @@ import { safeFetch as defaultSafeFetch, type SafeFetcher } from '../safeFetch.js
 import { buildCreativeDocument, composeFinalCreative } from '../composition/compositor.js';
 import { renderCreativeDocumentToSvg, svgToDataUri } from '../composition/svgRenderer.js';
 import { validateDeterministicQuality } from '../evaluation/qualityRules.js';
+import { classifyCreativeError } from '../errors/creativeErrors.js';
 import type { AgentImpl, AgentRunContext, AgentRunResult } from './types.js';
 
 export interface CreativesStepOutput {
@@ -279,12 +280,19 @@ export async function generateSingleCreative(params: GenerateSingleCreativeParam
       });
       creditsCharged = true;
     } catch (spendErr: any) {
-      const errMsg = spendErr.userMessage || spendErr.message || 'Insufficient credits.';
+      const classified = classifyCreativeError(spendErr);
+      const errMsg = classified.userMessage;
+      const updatedOverlay = {
+        ...asset.overlay,
+        approvalStatus: 'needs_revision' as const,
+        errorDetail: classified,
+      };
       if (client) {
         await updateAsset(client, userId, runId, creativeIndex, nextVersion, {
           status: 'failed',
           credits_charged: 0,
           error: errMsg,
+          overlay: updatedOverlay as Record<string, unknown>,
         });
       }
       return {
@@ -292,11 +300,13 @@ export async function generateSingleCreative(params: GenerateSingleCreativeParam
         status: 'failed',
         credits_charged: 0,
         error: errMsg,
+        overlay: updatedOverlay,
       };
     }
   }
 
   // 5. Generate background image
+  let creditsRefunded = false;
   try {
     const imageUrl = await callImageModel({
       prompt: asset.prompt || prompt.imagePrompt,
@@ -432,9 +442,18 @@ export async function generateSingleCreative(params: GenerateSingleCreativeParam
       document: creativeDoc,
       renderedCompositeUrl: compositeUrl,
       evaluation,
+      approvalStatus: 'pending_review' as const, // Requires explicit user action to approve
+      errorDetail: undefined,
+      formatStatus: {
+        '1:1': {
+          status: 'ai_generated' as const,
+          compositeUrl: compositeUrl || imageUrl,
+          adaptedAt: new Date().toISOString(),
+        },
+      },
     };
 
-    // Success! Update asset to ready
+    // Success! Update asset to ready (ready for review, not auto-approved)
     if (client) {
       const updated = await updateAsset(client, userId, runId, creativeIndex, nextVersion, {
         status: 'ready',
@@ -447,20 +466,35 @@ export async function generateSingleCreative(params: GenerateSingleCreativeParam
     }
     return { ...asset, status: 'ready', image_url: imageUrl, overlay: updatedOverlay, credits_charged: creditCost };
   } catch (genErr: any) {
-    const errMsg = genErr.message || 'Image generation failed.';
-    // Refund credits if they were charged
-    if (creditsCharged && client) {
-      await refundCampaignCredits(client, userId, referenceId);
+    const classified = classifyCreativeError(genErr);
+    const errMsg = classified.userMessage;
+
+    // Refund credits idempotently if they were charged
+    if (creditsCharged && client && !creditsRefunded) {
+      creditsRefunded = true;
+      try {
+        await refundCampaignCredits(client, userId, referenceId);
+      } catch (refundErr) {
+        console.warn(`[campaign-studio] idempotent credit refund warning for ${referenceId}:`, refundErr);
+      }
     }
+
+    const failedOverlay = {
+      ...asset.overlay,
+      approvalStatus: 'needs_revision' as const,
+      errorDetail: classified,
+    };
+
     if (client) {
       const updated = await updateAsset(client, userId, runId, creativeIndex, nextVersion, {
         status: 'failed',
         credits_charged: 0,
         error: errMsg,
+        overlay: failedOverlay as Record<string, unknown>,
       });
-      return updated ?? { ...asset, status: 'failed', credits_charged: 0, error: errMsg };
+      return updated ?? { ...asset, status: 'failed', credits_charged: 0, error: errMsg, overlay: failedOverlay };
     }
-    return { ...asset, status: 'failed', credits_charged: 0, error: errMsg };
+    return { ...asset, status: 'failed', credits_charged: 0, error: errMsg, overlay: failedOverlay };
   }
 }
 
