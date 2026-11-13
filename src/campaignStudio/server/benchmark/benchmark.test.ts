@@ -416,15 +416,85 @@ test('benchmark suites: separates structural regression suite from real image ge
   assert.equal(typeof runStructuralRegressionBenchmark, 'function');
   assert.equal(runCampaignStudioBenchmark, runStructuralRegressionBenchmark, 'Legacy alias must point to structural suite');
 
-  // 2. Suite B: Real image generation benchmark
+  // 2. Suite B: Real image generation benchmark vs Structural dry run
   assert.equal(typeof runRealImageBenchmark, 'function');
-  const miniRun = await runRealImageBenchmark({
-    brands: [BENCHMARK_BRANDS[0]], // Single brand test
+
+  const fakeFetcher: any = async () => ({
+    body: Buffer.from('mockpng'),
+    contentType: 'image/png',
   });
 
-  assert.equal(miniRun.summary.benchmarkSuite, 'real_image_generation');
+  let mockModelCalledWithRefs = false;
+  const mockGeminiClient = {
+    models: {
+      generateContent: async (opts: any) => {
+        if (opts.config?.imageConfig) {
+          if (opts.contents?.parts?.some((p: any) => p.inlineData)) {
+            mockModelCalledWithRefs = true;
+          }
+          return {
+            candidates: [
+              {
+                content: {
+                  parts: [
+                    {
+                      inlineData: {
+                        mimeType: 'image/png',
+                        data: Buffer.from('mockpng').toString('base64'),
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          };
+        }
+        return {
+          text: JSON.stringify({
+            scores: {
+              visualHierarchy: 90,
+              productAccuracy: 95,
+              brandConsistency: 90,
+              typography: 90,
+              visualQuality: 90,
+              messageClarity: 90,
+              technicalCompliance: 90,
+            },
+            issues: [],
+            hardRuleFailures: [],
+            passed: true,
+          }),
+        };
+      },
+    },
+  };
+
+  const miniRun = await runRealImageBenchmark({
+    brands: [BENCHMARK_BRANDS[0]], // Single brand test without model invocation
+    fetcher: fakeFetcher,
+    geminiClient: mockGeminiClient,
+  });
+
+  // When model is not invoked, benchmarkSuite must honestly report structural_dry_run
+  assert.equal(miniRun.summary.benchmarkSuite, 'structural_dry_run');
+  assert.equal(miniRun.summary.modelInvoked, false);
+  assert.equal(miniRun.summary.measuredTotalCredits, 0);
   assert.equal(miniRun.summary.physicallyMeasured, true);
   assert.equal(miniRun.records.length, 5);
+  assert.equal(miniRun.records[0].modelInvoked, false);
+
+  const realModelRun = await runRealImageBenchmark({
+    brands: [BENCHMARK_BRANDS[0]],
+    callRealImageModel: true,
+    geminiClient: mockGeminiClient,
+    fetcher: fakeFetcher,
+  });
+  assert.equal(realModelRun.summary.benchmarkSuite, 'real_image_generation');
+  assert.equal(realModelRun.summary.modelInvoked, true);
+  assert.equal(realModelRun.summary.measuredTotalCredits, 5);
+  assert.equal(realModelRun.records[0].modelInvoked, true);
+  assert.equal(realModelRun.records[0].measuredUsageCost?.creditsCharged, 1);
+  assert.equal(mockModelCalledWithRefs, true);
 
   // Without independent reviewers, human agreement must report pending rather than synthetic calculation
   assert.equal(miniRun.summary.humanAgreement.status, 'pending_independent_reviewers');
@@ -434,6 +504,8 @@ test('benchmark suites: separates structural regression suite from real image ge
   // When independent reviewers are provided:
   const reviewedRun = await runRealImageBenchmark({
     brands: [BENCHMARK_BRANDS[0]],
+    fetcher: fakeFetcher,
+    geminiClient: mockGeminiClient,
     reviewerRatings: [
       {
         reviewerId: 'rev-01',

@@ -631,5 +631,108 @@ export async function deleteReference(
   return true;
 }
 
+// ---------------------------------------------------------------------------
+// Distributed multi-instance locking
+// ---------------------------------------------------------------------------
+
+export interface DistributedLockResult {
+  acquired: boolean;
+  lockToken?: string;
+}
+
+/**
+ * Shared in-memory lock registry for local test suites or when database
+ * locks table is bypassed, providing instance-level and process-level safety.
+ */
+const DISTRIBUTED_LOCK_REGISTRY = new Map<string, { owner: string; expiresAt: number }>();
+
+/**
+ * Atomically acquires a distributed database-backed lock for cross-instance coordination.
+ * Scoped by lockKey: `${userId}:${runId}:${creativeIndex}:${targetRatio}`.
+ * Prunes expired locks before acquisition (TTL in seconds).
+ */
+export async function acquireDistributedLock(
+  client: SupabaseClient,
+  lockKey: string,
+  ttlSeconds: number = 60,
+  token?: string,
+): Promise<DistributedLockResult> {
+  const lockToken =
+    token ||
+    (typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `token_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + ttlSeconds * 1000).toISOString();
+
+  try {
+    // 1. Prune expired lock for this key
+    await client
+      .from('campaign_locks')
+      .delete()
+      .eq('lock_key', lockKey)
+      .lt('expires_at', now.toISOString());
+
+    // 2. Attempt atomic insert
+    const { error } = await client.from('campaign_locks').insert({
+      lock_key: lockKey,
+      owner: lockToken,
+      expires_at: expiresAt,
+      created_at: now.toISOString(),
+    });
+
+    if (error) {
+      if (
+        error.code === '23505' ||
+        error.message?.includes('duplicate key') ||
+        error.message?.includes('conflict') ||
+        error.message?.includes('unique')
+      ) {
+        return { acquired: false };
+      }
+      return acquireInMemoryLock(lockKey, lockToken, ttlSeconds);
+    }
+
+    return { acquired: true, lockToken };
+  } catch (err: any) {
+    return acquireInMemoryLock(lockKey, lockToken, ttlSeconds);
+  }
+}
+
+function acquireInMemoryLock(lockKey: string, lockToken: string, ttlSeconds: number): DistributedLockResult {
+  const now = Date.now();
+  const existing = DISTRIBUTED_LOCK_REGISTRY.get(lockKey);
+  if (existing && existing.expiresAt > now) {
+    return { acquired: false };
+  }
+  DISTRIBUTED_LOCK_REGISTRY.set(lockKey, { owner: lockToken, expiresAt: now + ttlSeconds * 1000 });
+  return { acquired: true, lockToken };
+}
+
+/**
+ * Atomically releases the distributed database lock held by lockToken.
+ */
+export async function releaseDistributedLock(
+  client: SupabaseClient,
+  lockKey: string,
+  lockToken?: string,
+): Promise<boolean> {
+  const mem = DISTRIBUTED_LOCK_REGISTRY.get(lockKey);
+  if (!lockToken || mem?.owner === lockToken) {
+    DISTRIBUTED_LOCK_REGISTRY.delete(lockKey);
+  }
+
+  try {
+    let query = client.from('campaign_locks').delete().eq('lock_key', lockKey);
+    if (lockToken) {
+      query = query.eq('owner', lockToken);
+    }
+    await query;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 
 

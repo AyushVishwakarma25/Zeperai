@@ -216,9 +216,17 @@ export interface RealImageBenchmarkRecord {
   evaluatorVersion: string;
   renderedPngBytes: number;
   renderedJpegBytes: number;
+  modelInvoked: boolean;
   generationLatencyMs?: number;
   generationError?: string | null;
   estimatedCostCredits?: number;
+  measuredUsageCost?: {
+    creditsCharged?: number;
+    providerCostUsd?: number;
+    model?: string;
+    success?: boolean;
+    error?: string | null;
+  } | null;
   dimensions?: { width: number; height: number };
   aiScores: BenchmarkEvaluationMetrics | null;
   humanReviewerScores?: RealHumanReviewerScore[];
@@ -229,7 +237,8 @@ export interface RealImageBenchmarkRecord {
 }
 
 export interface RealImageBenchmarkSummary {
-  benchmarkSuite: 'real_image_generation';
+  benchmarkSuite: 'real_image_generation' | 'structural_dry_run';
+  modelInvoked: boolean;
   version: string;
   modelVersion: string;
   evaluatorVersion: string;
@@ -238,6 +247,8 @@ export interface RealImageBenchmarkSummary {
   totalEvaluated: number;
   passRate: number;
   averageScores: BenchmarkEvaluationMetrics | null;
+  estimatedTotalCredits: number;
+  measuredTotalCredits: number;
   humanAgreement: {
     measuredReviewersCount: number;
     averageScoreDelta: number | null;

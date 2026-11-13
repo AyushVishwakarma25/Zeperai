@@ -284,18 +284,6 @@ export function measureTextExactWithResvg(
   const cached = RESVG_MEASURE_CACHE.get(cacheKey);
   if (cached) return cached as ExactTextMeasurement;
 
-  // For single characters, instant calibrated lookup is sub-microsecond
-  if (text.length === 1 && roundedLs === 0) {
-    const charW = measureCharWidth(text, fontFamily, weightNum, roundedSize);
-    const result: ExactTextMeasurement = {
-      width: Math.round(charW * 10) / 10,
-      height: Math.round(roundedSize * 1.25),
-      source: 'native_resvg',
-    };
-    RESVG_MEASURE_CACHE.set(cacheKey, result);
-    return result;
-  }
-
   try {
     const safeText = text
       .replace(/&/g, '&amp;')
@@ -309,7 +297,7 @@ export function measureTextExactWithResvg(
     const yBaseline = Math.ceil(roundedSize * 1.5);
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${testCanvasW}" height="${testCanvasH}">
-  <text id="target" x="0" y="${yBaseline}" font-family="${fontFamily}, 'Segoe UI', 'Roboto', sans-serif" font-size="${roundedSize}" font-weight="${weightNum}" ${lsAttr}>${safeText}</text>
+  <text id="target" x="0" y="${yBaseline}" font-family="${fontFamily}, 'Segoe UI', 'Roboto', 'DejaVu Sans', 'Arial', sans-serif" font-size="${roundedSize}" font-weight="${weightNum}" ${lsAttr}>${safeText}</text>
 </svg>`;
 
     const discoveredFonts = getDiscoveredFontFiles();
@@ -454,13 +442,14 @@ export function measureTextLayout(text: string, options: TextMeasureOptions): Te
     };
   }
 
-  const sampleCheck = measureTextWithSource(formatted.slice(0, 100), {
-    fontFamily,
-    fontWeight,
-    fontSize,
-    letterSpacing,
-  });
-  const measurementSource = sampleCheck.source;
+  let usedFallback = false;
+  const measure = (t: string): number => {
+    const res = measureTextExactWithResvg(t, fontFamily, fontWeight, fontSize, letterSpacing);
+    if (res.source === 'calibrated_fallback') {
+      usedFallback = true;
+    }
+    return res.width;
+  };
 
   const words = formatted.trim().split(/\s+/);
   const lines: string[] = [];
@@ -468,28 +457,21 @@ export function measureTextLayout(text: string, options: TextMeasureOptions): Te
 
   for (const word of words) {
     const candidateLine = [...currentWords, word].join(' ');
-    const candidateWidth = measureTextWidth(candidateLine, {
-      fontFamily,
-      fontWeight,
-      fontSize,
-      letterSpacing,
-    });
+    const candidateWidth = measure(candidateLine);
 
     if (candidateWidth <= maxWidth || currentWords.length === 0) {
       // Word fits or it is the first word on the line
       if (candidateWidth > maxWidth && currentWords.length === 0) {
-        // Even a single word exceeds maxWidth: break at character boundary using calibrated glyph widths
+        // Even a single word exceeds maxWidth: break at character boundary using the same measurement engine
         let partial = '';
-        let currentW = 0;
         for (const char of word) {
-          const charW = measureCharWidth(char, fontFamily, fontWeight, fontSize) + letterSpacing;
-          if (currentW + charW > maxWidth && partial.length > 0) {
+          const testCandidate = partial + char;
+          const candidateW = measure(testCandidate);
+          if (candidateW > maxWidth && partial.length > 0) {
             lines.push(partial);
             partial = char;
-            currentW = charW;
           } else {
-            partial += char;
-            currentW += charW;
+            partial = testCandidate;
           }
         }
         if (partial) currentWords = [partial];
@@ -518,11 +500,10 @@ export function measureTextLayout(text: string, options: TextMeasureOptions): Te
     warnings.push(`Text exceeded maximum allowed lines (${maxLines}) and was truncated.`);
   }
 
-  const lineWidths = finalLines.map((line) =>
-    measureTextWidth(line, { fontFamily, fontWeight, fontSize, letterSpacing }),
-  );
+  const lineWidths = finalLines.map((line) => measure(line));
   const totalWidth = lineWidths.length > 0 ? Math.max(...lineWidths) : 0;
   const totalHeight = finalLines.length * lineHeight;
+  const measurementSource: MeasurementSource = usedFallback ? 'calibrated_fallback' : 'native_resvg';
 
   let overflow = false;
   if (totalWidth > maxWidth + 2) {

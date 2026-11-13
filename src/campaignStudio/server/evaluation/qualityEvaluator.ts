@@ -7,6 +7,7 @@
  * combined with deterministic hard validation rules.
  */
 
+import crypto from 'crypto';
 import { getAI } from '../../../../config/ai.js';
 import type {
   BrandContext,
@@ -335,7 +336,10 @@ export async function evaluateCreative(params: EvaluateCreativeParams): Promise<
   }
 
   return {
+    id: `eval_${crypto.randomUUID()}`,
     creativeId: doc.id,
+    documentId: doc.id,
+    aspectRatio: doc.canvas?.aspectRatio,
     totalScore,
     status,
     scores: aiScores,

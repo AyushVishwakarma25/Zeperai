@@ -11,6 +11,7 @@ import type { Express, NextFunction, Request, RequestHandler, Response } from 'e
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { AppError, asyncHandler } from '../../../utils/errorHandler.js';
 import {
+  acquireDistributedLock,
   countProductImages,
   createProductImage,
   createReference,
@@ -25,6 +26,7 @@ import {
   listReferences,
   listRuns,
   refundCampaignCredits,
+  releaseDistributedLock,
   spendCampaignCredits,
   updateAsset,
   updateReference,
@@ -89,9 +91,6 @@ export interface CampaignStudioDeps {
 }
 
 const BASE = '/api/campaign-studio';
-
-// In-flight concurrency lock per user/run/creative/ratio
-const IN_FLIGHT_FORMAT_GEN = new Set<string>();
 
 export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioDeps): void {
   /**
@@ -1027,16 +1026,16 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         });
       }
 
-      // Concurrency lock for format generation
+      // Distributed concurrency lock for format generation (cross-instance safe)
       const lockKey = `${userId(req)}:${runIdOf(req)}:${creativeIndex}:${targetRatio}`;
-      if (IN_FLIGHT_FORMAT_GEN.has(lockKey)) {
+      const lockResult = await acquireDistributedLock(client, lockKey, 120);
+      if (!lockResult.acquired) {
         return res.status(409).json({
           success: false,
           code: 'CONCURRENT_GENERATION_IN_PROGRESS',
           error: `Format generation for creative #${creativeIndex} (${targetRatio}) is currently in progress. Please wait for it to complete.`,
         });
       }
-      IN_FLIGHT_FORMAT_GEN.add(lockKey);
 
       try {
         // Enforce master creative document presence - never invent synthetic documents
@@ -1190,7 +1189,7 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
           throw new AppError(classified.code, 500, classified.userMessage);
         }
       } finally {
-        IN_FLIGHT_FORMAT_GEN.delete(lockKey);
+        await releaseDistributedLock(client, lockKey, lockResult.lockToken);
       }
     }),
   );
@@ -1262,16 +1261,66 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         });
       }
 
-      // 5. Evaluation belongs to current format document/version (reject stale)
+      // 5. Evaluation belongs to current format document/version (reject stale, missing, null, or non-numeric)
       const adaptedDoc = overlay.adaptations?.[targetRatio]?.document;
-      const expectedDocVersion = adaptedDoc?.version ?? overlay.document?.version ?? latest.version;
-      if (evaluation.documentVersion && evaluation.documentVersion !== expectedDocVersion) {
+      if (!adaptedDoc || !adaptedDoc.id) {
         return res.status(400).json({
-          error: `Evaluation is stale: conducted on document version ${evaluation.documentVersion}, but current placement document is version ${expectedDocVersion}. Re-evaluate before approval.`,
+          error: `Placement ${targetRatio} document is missing or corrupted.`,
         });
       }
 
-      // Record exact placement version and evaluation identifier in approval history
+      const expectedDocVersion = adaptedDoc.version ?? overlay.document?.version ?? latest.version;
+
+      if (
+        evaluation.documentVersion === undefined ||
+        evaluation.documentVersion === null ||
+        typeof evaluation.documentVersion !== 'number' ||
+        !Number.isFinite(evaluation.documentVersion) ||
+        !Number.isInteger(evaluation.documentVersion) ||
+        evaluation.documentVersion < 1
+      ) {
+        return res.status(400).json({
+          error: `Evaluation document version is missing, null, or invalid. Placement ${targetRatio} must have a valid integer version (>= 1). Re-evaluate before approval.`,
+        });
+      }
+
+      if (evaluation.documentVersion !== expectedDocVersion) {
+        return res.status(400).json({
+          error: `Evaluation document version mismatch: evaluation is for version ${evaluation.documentVersion}, but current placement document is version ${expectedDocVersion}. Re-evaluate before approval.`,
+        });
+      }
+
+      // Verify the evaluation is bound to the exact current placement asset and document
+      if (evaluation.creativeId !== adaptedDoc.id && evaluation.documentId !== adaptedDoc.id) {
+        return res.status(400).json({
+          error: `Evaluation is not bound to the current placement document (evaluation for "${evaluation.creativeId}", current document "${adaptedDoc.id}"). Re-evaluate before approval.`,
+        });
+      }
+
+      if (evaluation.aspectRatio && evaluation.aspectRatio !== targetRatio) {
+        return res.status(400).json({
+          error: `Evaluation aspect ratio mismatch: evaluation is for "${evaluation.aspectRatio}", but target placement is "${targetRatio}".`,
+        });
+      }
+
+      // Require a genuine evaluation ID. Do not fabricate IDs from evaluator versions or placement ratios.
+      const genuineEvalId = evaluation.id || evaluation.evaluationId;
+      const isFabricated =
+        !genuineEvalId ||
+        typeof genuineEvalId !== 'string' ||
+        genuineEvalId.trim() === '' ||
+        genuineEvalId === evaluation.evaluatorVersion ||
+        genuineEvalId === `eval-${targetRatio}-v2` ||
+        genuineEvalId.startsWith('eval-placement') ||
+        (genuineEvalId.startsWith('eval-') && genuineEvalId.includes(targetRatio));
+
+      if (isFabricated) {
+        return res.status(400).json({
+          error: `Evaluation lacks a genuine evaluation ID. Fabricated evaluation IDs are rejected. Re-evaluate before approval.`,
+        });
+      }
+
+      // Record exact placement version and genuine evaluation identifier in approval history
       const approvalRecord = {
         action: 'format_approved' as const,
         userId: userId(req),
@@ -1279,7 +1328,7 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         placementRatio: targetRatio,
         placementVersion: expectedDocVersion,
         creativeVersion: latest.version,
-        evaluationId: evaluation.creativeId || evaluation.evaluatorVersion || `eval-${targetRatio}-v2`,
+        evaluationId: genuineEvalId,
         evaluationScore: evaluation.totalScore ?? null,
         reason: `Format ${targetRatio} approved by user.`,
       };

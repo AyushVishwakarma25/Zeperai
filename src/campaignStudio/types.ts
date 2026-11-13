@@ -454,7 +454,10 @@ export interface QualityIssue {
 }
 
 export interface CreativeEvaluation {
+  id?: string;
   creativeId: string;
+  documentId?: string;
+  aspectRatio?: string;
   totalScore: number | null;
   status: EvaluationStatus;
   scores: CreativeQualityScores | null;

@@ -20,6 +20,7 @@ import type { AddressInfo } from 'node:net';
 import { registerCampaignStudioRoutes } from './routes.js';
 import { isCreativeEligibleForExport, type CampaignAsset, type CampaignRun } from '../types.js';
 import { validateClaimEvidenceProvenance, detectFactualClaimViolations } from './claims/claimsEngine.js';
+import { acquireDistributedLock, releaseDistributedLock } from './db.js';
 
 let app: express.Express;
 let server: http.Server;
@@ -39,6 +40,7 @@ interface MockDb {
   references: Array<{ id: string; user_id: string; run_id?: string; image_url: string; label: string }>;
   credits: Map<string, number>;
   creditTransactions: Set<string>;
+  locks: Map<string, { lock_key: string; owner: string; expires_at: string }>;
 }
 
 const mockDb: MockDb = {
@@ -48,6 +50,7 @@ const mockDb: MockDb = {
   references: [],
   credits: new Map(),
   creditTransactions: new Set(),
+  locks: new Map(),
 };
 
 function createMockSupabaseClient() {
@@ -110,6 +113,12 @@ function createMockSupabaseClient() {
               mockDb.productImages.push(row);
             } else if (currentTable === 'campaign_references') {
               mockDb.references.push(row);
+            } else if (currentTable === 'campaign_locks') {
+              if (mockDb.locks.has(row.lock_key)) {
+                return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } };
+              }
+              mockDb.locks.set(row.lock_key, row);
+              return { data: row, error: null };
             }
           }
           return {
@@ -145,25 +154,48 @@ function createMockSupabaseClient() {
           };
           return updateBuilder;
         },
-        delete: () => ({
-          eq: (col: string, val: any) => {
-            if (col === 'user_id') filterUserId = val;
-            if (col === 'id') filterId = val;
-            return {
-              eq: (col2: string, val2: any) => {
-                if (col2 === 'user_id') filterUserId = val2;
-                if (col2 === 'id') filterId = val2;
-                if (currentTable === 'campaign_product_images') {
-                  const idx = mockDb.productImages.findIndex(
-                    (img) => (!filterUserId || img.user_id === filterUserId) && (!filterId || img.id === filterId),
-                  );
-                  if (idx >= 0) mockDb.productImages.splice(idx, 1);
+        delete: () => {
+          let deleteKey: string | null = null;
+          let deleteOwner: string | null = null;
+          let deleteLtDate: string | null = null;
+
+          const deleteBuilder: any = {
+            eq: (col: string, val: any) => {
+              if (col === 'user_id') filterUserId = val;
+              if (col === 'id') filterId = val;
+              if (col === 'lock_key') deleteKey = val;
+              if (col === 'owner') deleteOwner = val;
+              return deleteBuilder;
+            },
+            lt: (col: string, val: any) => {
+              if (col === 'expires_at') deleteLtDate = val;
+              return deleteBuilder;
+            },
+            then: (onfulfilled: any, onrejected: any) => {
+              if (currentTable === 'campaign_locks') {
+                if (deleteKey) {
+                  const existing = mockDb.locks.get(deleteKey);
+                  if (existing) {
+                    if (deleteLtDate && new Date(existing.expires_at).getTime() >= new Date(deleteLtDate).getTime()) {
+                      // Not expired yet, do not delete
+                    } else if (deleteOwner && existing.owner !== deleteOwner) {
+                      // Owner mismatch
+                    } else {
+                      mockDb.locks.delete(deleteKey);
+                    }
+                  }
                 }
-                return { error: null };
-              },
-            };
-          },
-        }),
+              } else if (currentTable === 'campaign_product_images') {
+                const idx = mockDb.productImages.findIndex(
+                  (img) => (!filterUserId || img.user_id === filterUserId) && (!filterId || img.id === filterId),
+                );
+                if (idx >= 0) mockDb.productImages.splice(idx, 1);
+              }
+              return Promise.resolve({ data: null, error: null }).then(onfulfilled, onrejected);
+            },
+          };
+          return deleteBuilder;
+        },
       };
       return builder;
     },
@@ -524,6 +556,18 @@ test('security: format-approve rejects incomplete, unpassed, critical, or stale 
   };
   mockDb.assets.push(testAsset);
 
+  testAsset.overlay.adaptations = {
+    '9:16': {
+      document: {
+        id: 'doc-placement-9-16',
+        version: 1,
+        canvas: { width: 1080, height: 1920, aspectRatio: '9:16' },
+        layers: [],
+      } as any,
+      compositeUrl: 'https://images.example.com/stories-comp.png',
+    },
+  };
+
   // 1. Rejects when status is needs_revision / evaluation failed
   const failRes = await fetch(`${baseUrl}/api/campaign-studio/runs/${RUN_A_ID}/creatives/${testAssetIndex}/format-approve`, {
     method: 'POST',
@@ -539,6 +583,10 @@ test('security: format-approve rejects incomplete, unpassed, critical, or stale 
     status: 'ready_for_review',
     compositeUrl: 'https://images.example.com/stories-comp.png',
     evaluation: {
+      id: 'eval_real_123',
+      creativeId: 'doc-placement-9-16',
+      documentId: 'doc-placement-9-16',
+      aspectRatio: '9:16',
       status: 'passed',
       passed: true,
       approvalEligible: true,
@@ -555,19 +603,38 @@ test('security: format-approve rejects incomplete, unpassed, critical, or stale 
   const visualFailData = await visualFailRes.json();
   assert.match(visualFailData.error, /Multimodal visual quality checks must be completed and passed/i);
 
-  // 3. Rejects stale evaluation when document has moved to a new version
-  testAsset.overlay.formatStatus['9:16'] = {
-    status: 'ready_for_review',
-    compositeUrl: 'https://images.example.com/stories-comp.png',
-    evaluation: {
-      status: 'passed',
-      passed: true,
-      approvalEligible: true,
-      visual: { checksRun: true, status: 'passed' },
-      documentVersion: 1,
-    },
-  };
-  testAsset.overlay.document = { version: 2 } as any;
+  // 3a. Rejects missing evaluation document version
+  testAsset.overlay.formatStatus['9:16'].evaluation.visual = { checksRun: true, status: 'passed' };
+  delete testAsset.overlay.formatStatus['9:16'].evaluation.documentVersion;
+  const missingVerRes = await fetch(`${baseUrl}/api/campaign-studio/runs/${RUN_A_ID}/creatives/${testAssetIndex}/format-approve`, {
+    method: 'POST',
+    headers: { 'x-user-id': USER_A_ID, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetRatio: '9:16' }),
+  });
+  assert.equal(missingVerRes.status, 400);
+  const missingVerData = await missingVerRes.json();
+  assert.match(missingVerData.error, /Evaluation document version is missing, null, or invalid/i);
+
+  // 3b. Rejects null or non-numeric evaluation document version
+  testAsset.overlay.formatStatus['9:16'].evaluation.documentVersion = null as any;
+  const nullVerRes = await fetch(`${baseUrl}/api/campaign-studio/runs/${RUN_A_ID}/creatives/${testAssetIndex}/format-approve`, {
+    method: 'POST',
+    headers: { 'x-user-id': USER_A_ID, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetRatio: '9:16' }),
+  });
+  assert.equal(nullVerRes.status, 400);
+
+  testAsset.overlay.formatStatus['9:16'].evaluation.documentVersion = 'v1' as any;
+  const nonNumVerRes = await fetch(`${baseUrl}/api/campaign-studio/runs/${RUN_A_ID}/creatives/${testAssetIndex}/format-approve`, {
+    method: 'POST',
+    headers: { 'x-user-id': USER_A_ID, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetRatio: '9:16' }),
+  });
+  assert.equal(nonNumVerRes.status, 400);
+
+  // 3c. Rejects mismatched/stale evaluation when document has moved to a new version
+  testAsset.overlay.formatStatus['9:16'].evaluation.documentVersion = 1;
+  testAsset.overlay.adaptations['9:16'].document.version = 2;
 
   const staleRes = await fetch(`${baseUrl}/api/campaign-studio/runs/${RUN_A_ID}/creatives/${testAssetIndex}/format-approve`, {
     method: 'POST',
@@ -576,10 +643,36 @@ test('security: format-approve rejects incomplete, unpassed, critical, or stale 
   });
   assert.equal(staleRes.status, 400);
   const staleData = await staleRes.json();
-  assert.match(staleData.error, /Evaluation is stale/i);
+  assert.match(staleData.error, /Evaluation document version mismatch/i);
 
-  // 4. Fully succeeds when all quality and version checks pass
-  testAsset.overlay.document = { version: 1 } as any;
+  // 3d. Rejects evaluation not bound to exact placement document ID
+  testAsset.overlay.adaptations['9:16'].document.version = 1;
+  testAsset.overlay.formatStatus['9:16'].evaluation.creativeId = 'doc-foreign-unbound';
+  testAsset.overlay.formatStatus['9:16'].evaluation.documentId = 'doc-foreign-unbound';
+  const unboundRes = await fetch(`${baseUrl}/api/campaign-studio/runs/${RUN_A_ID}/creatives/${testAssetIndex}/format-approve`, {
+    method: 'POST',
+    headers: { 'x-user-id': USER_A_ID, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetRatio: '9:16' }),
+  });
+  assert.equal(unboundRes.status, 400);
+  const unboundData = await unboundRes.json();
+  assert.match(unboundData.error, /Evaluation is not bound to the current placement document/i);
+
+  // 3e. Rejects fabricated evaluation IDs
+  testAsset.overlay.formatStatus['9:16'].evaluation.creativeId = 'doc-placement-9-16';
+  testAsset.overlay.formatStatus['9:16'].evaluation.documentId = 'doc-placement-9-16';
+  testAsset.overlay.formatStatus['9:16'].evaluation.id = 'eval-9:16-v2';
+  const fabRes = await fetch(`${baseUrl}/api/campaign-studio/runs/${RUN_A_ID}/creatives/${testAssetIndex}/format-approve`, {
+    method: 'POST',
+    headers: { 'x-user-id': USER_A_ID, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetRatio: '9:16' }),
+  });
+  assert.equal(fabRes.status, 400);
+  const fabData = await fabRes.json();
+  assert.match(fabData.error, /Evaluation lacks a genuine evaluation ID/i);
+
+  // 4. Fully succeeds when genuine evaluation ID, version equality, and bound document ID are met
+  testAsset.overlay.formatStatus['9:16'].evaluation.id = 'eval_genuine_secure_uuid_98765';
   testAsset.overlay.formatStatus['9:16'].evaluation.documentVersion = 1;
 
   const passRes = await fetch(`${baseUrl}/api/campaign-studio/runs/${RUN_A_ID}/creatives/${testAssetIndex}/format-approve`, {
@@ -592,11 +685,12 @@ test('security: format-approve rejects incomplete, unpassed, critical, or stale 
   assert.equal(passData.success, true);
   assert.equal(passData.formatStatus['9:16'].status, 'approved');
 
-  // Verify approval history includes exact placement version and ratio
+  // Verify approval history includes exact placement version, ratio, and genuine evaluation ID
   const lastApproval = testAsset.overlay.approvalHistory?.[testAsset.overlay.approvalHistory.length - 1];
   assert.equal(lastApproval?.action, 'format_approved');
   assert.equal(lastApproval?.placementRatio, '9:16');
   assert.equal(lastApproval?.placementVersion, 1);
+  assert.equal(lastApproval?.evaluationId, 'eval_genuine_secure_uuid_98765');
 });
 
 test('security: format-generate rejects missing master creative document with 422 CREATIVE_DOCUMENT_MISSING', async () => {
@@ -707,7 +801,7 @@ test('security: claimsEngine strictly validates evidence provenance and detects 
   const brand = {
     brandName: 'BioHealth Labs',
     sources: ['https://biohealth.example.com/catalog'],
-    products: [{ name: 'Glow Drops' }],
+    products: [{ name: 'Glow Drops', priceHint: '$49', description: 'Hydrating face serum' }],
   } as any;
 
   // 1. user_provided source cannot elevate to verified_fact
@@ -731,10 +825,119 @@ test('security: claimsEngine strictly validates evidence provenance and detects 
   const res2 = validateClaimEvidenceProvenance(expiredClaim, brand);
   assert.equal(res2.valid, false, 'Expired claims must fail provenance verification');
 
-  // 3. detectFactualClaimViolations catches unsupported clinical/metric claims and certifications
+  // 3. Malformed expiry dates are rejected (not treated as valid)
+  const malformedExpiryClaim = {
+    claimText: 'Rated #1 serum',
+    source: 'confirmed_testimonial' as const,
+    evidenceRef: 'testimonial:rev-1',
+    expiryDate: 'invalid-non-date-string',
+    category: 'rating_and_review' as const,
+  };
+  const resMalformed = validateClaimEvidenceProvenance(malformedExpiryClaim, brand);
+  assert.equal(resMalformed.valid, false, 'Malformed expiry date must fail validation');
+  assert.match(resMalformed.reason || '', /Malformed expiry date/i);
+
+  // 4. Fabricated product reference with product: prefix alone is rejected
+  const fabricatedProductClaim = {
+    claimText: 'Magical Miracle Serum',
+    source: 'product_catalog' as const,
+    evidenceRef: 'product:fabricated_non_existent_item',
+    category: 'product_feature' as const,
+  };
+  const resFabProduct = validateClaimEvidenceProvenance(fabricatedProductClaim, brand);
+  assert.equal(resFabProduct.valid, false, 'Fabricated product reference must fail validation');
+  assert.match(resFabProduct.reason || '', /does not resolve to any product in brand catalog/i);
+
+  // 5. Product attribute conflict (e.g. price mismatch) is rejected
+  const conflictingPriceClaim = {
+    claimText: 'Only $19',
+    source: 'product_catalog' as const,
+    evidenceRef: 'product:Glow Drops',
+    category: 'discount_and_pricing' as const,
+    attributes: { price: '$19' },
+  };
+  const resPriceConflict = validateClaimEvidenceProvenance(conflictingPriceClaim, brand);
+  assert.equal(resPriceConflict.valid, false, 'Conflicting product price attribute must be rejected');
+
+  // 6. Fake approved offer is rejected
+  const fakeOfferClaim = {
+    claimText: 'Save 70% Off Today',
+    source: 'approved_offer' as const,
+    evidenceRef: 'offer:fake_black_friday_blowout',
+    category: 'discount_and_pricing' as const,
+  };
+  const resFakeOffer = validateClaimEvidenceProvenance(fakeOfferClaim, brand);
+  assert.equal(resFakeOffer.valid, false, 'Fake approved offer must fail validation');
+
+  // 7. Unsupported or unknown claim evidence source is rejected
+  const unknownSourceClaim = {
+    claimText: 'Best rated on Amazon',
+    source: 'competitor_scrape' as any,
+    evidenceRef: 'https://competitor.com',
+    category: 'rating_and_review' as const,
+  };
+  const resUnknown = validateClaimEvidenceProvenance(unknownSourceClaim, brand);
+  assert.equal(resUnknown.valid, false, 'Unknown evidence source must be rejected');
+  assert.match(resUnknown.reason || '', /Unsupported or unknown claim evidence source/i);
+
+  // 8. Genuine product reference matching catalog resolves successfully
+  const validProductClaim = {
+    claimText: 'Glow Drops',
+    source: 'product_catalog' as const,
+    evidenceRef: 'product:Glow Drops',
+    category: 'product_feature' as const,
+  };
+  const resValidProd = validateClaimEvidenceProvenance(validProductClaim, brand);
+  assert.equal(resValidProd.valid, true, 'Valid product catalog reference must succeed');
+
+  // 9. detectFactualClaimViolations catches unsupported clinical/metric claims and certifications
   const violations1 = detectFactualClaimViolations('Clinically proven to reduce wrinkles by 85%', [], 'Ad copy');
   assert.ok(violations1.some((v) => v.category === 'performance_and_metric'));
 
   const violations2 = detectFactualClaimViolations('100% certified organic and FDA approved formula', [], 'Headline');
   assert.ok(violations2.some((v) => v.category === 'certification'));
+});
+
+test('security: distributed locking provides cross-instance mutual exclusion, TTL expiry, and concurrent format rejection', async () => {
+  const client = createMockSupabaseClient() as any;
+  const lockKey = `${USER_A_ID}:${RUN_A_ID}:1:4:5`;
+
+  // 1. First worker acquires lock
+  const lock1 = await acquireDistributedLock(client, lockKey, 60);
+  assert.equal(lock1.acquired, true);
+  assert.ok(lock1.lockToken);
+
+  // 2. Second worker attempting same lock is rejected
+  const lock2 = await acquireDistributedLock(client, lockKey, 60);
+  assert.equal(lock2.acquired, false, 'Second worker must be denied lock while first is active');
+
+  // 3. First worker releases lock
+  const released = await releaseDistributedLock(client, lockKey, lock1.lockToken);
+  assert.equal(released, true);
+
+  // 4. Second worker can now acquire lock
+  const lock3 = await acquireDistributedLock(client, lockKey, 60);
+  assert.equal(lock3.acquired, true);
+
+  // Release lock3
+  await releaseDistributedLock(client, lockKey, lock3.lockToken);
+
+  // 5. Concurrent format-generate HTTP request rejection
+  // Acquire lock directly simulating another instance in-flight for creative #5
+  const httpLockKey = `${USER_A_ID}:${RUN_A_ID}:5:4:5`;
+  const activeLock = await acquireDistributedLock(client, httpLockKey, 60);
+  assert.equal(activeLock.acquired, true);
+
+  // POST format-generate for same user/run/creative/ratio should return 409
+  const res409 = await fetch(`${baseUrl}/api/campaign-studio/runs/${RUN_A_ID}/creatives/5/format-generate`, {
+    method: 'POST',
+    headers: { 'x-user-id': USER_A_ID, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetRatio: '4:5' }),
+  });
+  assert.equal(res409.status, 409);
+  const data409 = await res409.json();
+  assert.equal(data409.code, 'CONCURRENT_GENERATION_IN_PROGRESS');
+
+  // Clean up
+  await releaseDistributedLock(client, httpLockKey, activeLock.lockToken);
 });

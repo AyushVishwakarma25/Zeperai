@@ -81,6 +81,7 @@ function isSubstantiatedByClaim(candidateText: string, verifiedClaimText: string
 export function validateClaimEvidenceProvenance(
   claim: Partial<VerifiedClaim>,
   brand: BrandContext,
+  strategy?: CampaignStrategy,
 ): { valid: boolean; reason?: string } {
   if (!claim.evidenceRef || !claim.evidenceRef.trim()) {
     return { valid: false, reason: 'Missing evidenceRef reference.' };
@@ -88,29 +89,107 @@ export function validateClaimEvidenceProvenance(
 
   const ref = claim.evidenceRef.trim();
 
-  // Freshness verification: expired claims must fail validation
+  // Freshness verification: expired or malformed claims must fail validation
   const expiry = (claim as any).expiryDate || (claim as any).validUntil;
   if (expiry) {
     const expiryTime = new Date(expiry).getTime();
-    if (Number.isFinite(expiryTime) && expiryTime < Date.now()) {
+    if (!Number.isFinite(expiryTime)) {
+      return { valid: false, reason: `Malformed expiry date: "${expiry}".` };
+    }
+    if (expiryTime < Date.now()) {
       return { valid: false, reason: `Claim evidence expired on ${expiry}.` };
     }
   }
 
   // Source & provenance verification against brand context
   const source = claim.source;
+  const SUPPORTED_SOURCES = new Set([
+    'product_catalog',
+    'shopify',
+    'confirmed_testimonial',
+    'approved_offer',
+    'user_provided',
+  ]);
+
+  if (!source || !SUPPORTED_SOURCES.has(source as any)) {
+    return { valid: false, reason: `Unsupported or unknown claim evidence source: "${source}".` };
+  }
+
   const brandSources = Array.isArray(brand.sources) ? brand.sources : [];
 
   if (source === 'product_catalog') {
-    // Must match a product in brand catalog
-    const productNameMatch = (brand.products || []).some(
-      (p) =>
-        ref.toLowerCase().includes(p.name.toLowerCase()) ||
-        claim.claimText?.toLowerCase().includes(p.name.toLowerCase()),
-    );
-    if (!productNameMatch && !ref.startsWith('product:')) {
-      return { valid: false, reason: `Product reference ${ref} not found in brand catalog.` };
+    const catalog = Array.isArray(brand.products) ? brand.products : [];
+    if (catalog.length === 0) {
+      return { valid: false, reason: 'Brand catalog is empty. No products available to substantiate claim.' };
     }
+
+    // Strip prefixes like product:, product_desc:, product_price:
+    const cleanedRef = ref.replace(/^(product|product_desc|product_price):\s*/i, '').trim().toLowerCase();
+    const claimTextLower = (claim.claimText || '').toLowerCase();
+
+    // Resolve referenced product against actual brand catalog
+    const matchedProduct = catalog.find((p) => {
+      if (!p || !p.name) return false;
+      const pName = p.name.trim().toLowerCase();
+      return (
+        pName === cleanedRef ||
+        (cleanedRef.length >= 3 && pName.includes(cleanedRef)) ||
+        (pName.length >= 3 && cleanedRef.includes(pName)) ||
+        (claimTextLower.length >= 3 && claimTextLower.includes(pName))
+      );
+    });
+
+    if (!matchedProduct) {
+      return { valid: false, reason: `Product reference "${ref}" does not resolve to any product in brand catalog.` };
+    }
+
+    // Validate product attributes against the corresponding catalog record
+    const claimAttrs = (claim as any).attributes;
+    if (claimAttrs && typeof claimAttrs === 'object') {
+      if (claimAttrs.price && matchedProduct.priceHint) {
+        const claimPriceStr = String(claimAttrs.price).replace(/[^0-9.]/g, '');
+        const hintPriceStr = String(matchedProduct.priceHint).replace(/[^0-9.]/g, '');
+        if (claimPriceStr && hintPriceStr && claimPriceStr !== hintPriceStr) {
+          return {
+            valid: false,
+            reason: `Product price attribute "${claimAttrs.price}" conflicts with catalog priceHint "${matchedProduct.priceHint}".`,
+          };
+        }
+      }
+      for (const [key, val] of Object.entries(claimAttrs)) {
+        if (key === 'name' && String(val).toLowerCase() !== matchedProduct.name.toLowerCase()) {
+          return { valid: false, reason: `Product name attribute "${val}" conflicts with catalog record "${matchedProduct.name}".` };
+        }
+      }
+    }
+
+    // Validate price references
+    if (ref.startsWith('product_price:') || claim.category === 'discount_and_pricing') {
+      if (!matchedProduct.priceHint) {
+        return { valid: false, reason: `Catalog product "${matchedProduct.name}" has no priceHint to substantiate pricing claim.` };
+      }
+      const priceNumbersInClaim = (claim.claimText || '').match(/[\$₹€£]\s*([0-9,.]+)/);
+      const priceNumbersInHint = matchedProduct.priceHint.match(/[\$₹€£]\s*([0-9,.]+)/);
+      if (priceNumbersInClaim && priceNumbersInHint) {
+        const claimNum = priceNumbersInClaim[1].replace(/,/g, '');
+        const hintNum = priceNumbersInHint[1].replace(/,/g, '');
+        if (claimNum !== hintNum) {
+          return {
+            valid: false,
+            reason: `Price claim "${claim.claimText}" (${claimNum}) contradicts catalog priceHint "${matchedProduct.priceHint}" (${hintNum}).`,
+          };
+        }
+      }
+    }
+
+    // Validate description references
+    if (ref.startsWith('product_desc:') && matchedProduct.description) {
+      const descLower = matchedProduct.description.toLowerCase();
+      if (claim.claimText && !descLower.includes(claim.claimText.toLowerCase()) && !claim.claimText.toLowerCase().includes(descLower)) {
+        return { valid: false, reason: 'Product description reference does not match catalog description.' };
+      }
+    }
+
     return { valid: true };
   }
 
@@ -130,6 +209,93 @@ export function validateClaimEvidenceProvenance(
   }
 
   if (source === 'approved_offer') {
+    // Resolve offer from strategy or brand approved offers
+    const offerPool: any[] = [];
+    if (strategy?.offer) {
+      offerPool.push(
+        typeof strategy.offer === 'string'
+          ? { id: 'strategy:offer', name: 'Strategy Campaign Offer', offerText: strategy.offer }
+          : strategy.offer,
+      );
+    }
+    if (Array.isArray((strategy as any)?.approvedOffers)) {
+      offerPool.push(...(strategy as any).approvedOffers);
+    }
+    if (Array.isArray((brand as any)?.approvedOffers)) {
+      offerPool.push(...(brand as any).approvedOffers);
+    }
+    if (Array.isArray((brand as any)?.offers)) {
+      offerPool.push(...(brand as any).offers);
+    }
+
+    if (offerPool.length === 0) {
+      return { valid: false, reason: 'No approved offer records exist in strategy or brand context to substantiate offer claim.' };
+    }
+
+    const cleanedRef = ref.replace(/^offer:\s*/i, '').trim().toLowerCase();
+    const claimTextLower = (claim.claimText || '').toLowerCase();
+
+    const matchedOffer = offerPool.find((o) => {
+      if (!o) return false;
+      if (typeof o === 'string') {
+        const oLower = o.toLowerCase();
+        return (
+          ref === 'strategy:offer' ||
+          oLower === cleanedRef ||
+          (cleanedRef.length >= 3 && oLower.includes(cleanedRef)) ||
+          (claimTextLower.length >= 3 && oLower.includes(claimTextLower))
+        );
+      }
+      const oId = (o.id || '').toLowerCase();
+      const oName = (o.name || '').toLowerCase();
+      const oText = (o.offerText || o.text || o.details || '').toLowerCase();
+      return (
+        ref === 'strategy:offer' ||
+        oId === cleanedRef ||
+        oName === cleanedRef ||
+        (cleanedRef.length >= 3 && (oId.includes(cleanedRef) || oName.includes(cleanedRef) || oText.includes(cleanedRef))) ||
+        (claimTextLower.length >= 3 && (oText.includes(claimTextLower) || claimTextLower.includes(oText)))
+      );
+    });
+
+    if (!matchedOffer) {
+      return { valid: false, reason: `Approved offer evidence "${ref}" does not resolve to any active approved campaign offer record.` };
+    }
+
+    // Supporting information check
+    const offerDetails =
+      typeof matchedOffer === 'string'
+        ? matchedOffer
+        : matchedOffer.offerText || matchedOffer.text || matchedOffer.details || matchedOffer.discount || matchedOffer.name;
+    if (!offerDetails || String(offerDetails).trim().length < 3) {
+      return { valid: false, reason: 'Resolved approved offer record lacks required supporting information or details.' };
+    }
+
+    // Check dates on resolved offer record
+    if (typeof matchedOffer === 'object' && matchedOffer !== null) {
+      const offerExpiry = matchedOffer.expiryDate || matchedOffer.validUntil || matchedOffer.endDate;
+      if (offerExpiry) {
+        const offerExpiryTime = new Date(offerExpiry).getTime();
+        if (!Number.isFinite(offerExpiryTime)) {
+          return { valid: false, reason: `Approved offer has malformed expiry date: "${offerExpiry}".` };
+        }
+        if (offerExpiryTime < Date.now()) {
+          return { valid: false, reason: `Approved offer record expired on ${offerExpiry}.` };
+        }
+      }
+
+      const offerStart = matchedOffer.validFrom || matchedOffer.startDate;
+      if (offerStart) {
+        const offerStartTime = new Date(offerStart).getTime();
+        if (!Number.isFinite(offerStartTime)) {
+          return { valid: false, reason: `Approved offer has malformed start date: "${offerStart}".` };
+        }
+        if (offerStartTime > Date.now()) {
+          return { valid: false, reason: `Approved offer is not yet active (starts on ${offerStart}).` };
+        }
+      }
+    }
+
     return { valid: true };
   }
 
@@ -177,7 +343,7 @@ export function extractVerifiedClaimsFromBrandContext(params: {
   if (Array.isArray(brand.verifiedClaims)) {
     for (const c of brand.verifiedClaims) {
       if (c && c.claimText) {
-        const provenance = validateClaimEvidenceProvenance(c, brand);
+        const provenance = validateClaimEvidenceProvenance(c, brand, strategy);
         const isVerifiedFact = provenance.valid && c.source !== 'user_provided';
         claims.push({
           ...c,

@@ -37,7 +37,7 @@ import { buildCreativeDocument } from '../composition/compositor.js';
 import { renderCreativeDocumentToSvg } from '../composition/svgRenderer.js';
 import { adaptMasterCreativeToAllFormats, META_PLACEMENT_SPECS } from '../adaptation/creativeAdapter.js';
 import { renderSvgToRasterBuffers } from '../export/rasterRenderer.js';
-import { callImageModel } from '../agents/creatives.js';
+import { callImageModel, buildReferenceImageParts } from '../agents/creatives.js';
 
 export interface BenchmarkRunOptions {
   brands?: BenchmarkBrandFixture[];
@@ -559,19 +559,36 @@ export async function runRealImageBenchmark(
       let generatedImageUrl: string | null = null;
       let generationLatencyMs = 0;
       let generationError: string | null = null;
+      let modelInvoked = false;
+      let measuredUsageCost: any = null;
+
       if (options.callRealImageModel && options.geminiClient) {
+        modelInvoked = true;
         const tGenStart = Date.now();
         try {
+          const referenceParts = await buildReferenceImageParts([concept.productImageUrl], options.fetcher);
           generatedImageUrl = await callImageModel({
             prompt: concept.backgroundPrompt || `${brand.brandName} clean commercial product photography`,
             aspectRatio: '1:1',
             model: imageModel,
             client: options.geminiClient,
+            referenceParts,
           });
           generationLatencyMs = Date.now() - tGenStart;
+          measuredUsageCost = {
+            creditsCharged: 1,
+            model: imageModel,
+            success: true,
+          };
         } catch (genErr: any) {
           generationLatencyMs = Date.now() - tGenStart;
           generationError = genErr?.message || 'Image generation failed';
+          measuredUsageCost = {
+            creditsCharged: 0,
+            model: imageModel,
+            success: false,
+            error: generationError,
+          };
         }
       }
 
@@ -624,9 +641,11 @@ export async function runRealImageBenchmark(
         evaluatorVersion,
         renderedPngBytes: pngBytes,
         renderedJpegBytes: jpegBytes,
+        modelInvoked,
         generationLatencyMs,
         generationError,
         estimatedCostCredits: 1,
+        measuredUsageCost,
         dimensions: { width: doc.canvas.width, height: doc.canvas.height },
         aiScores: evalRes?.scores ?? null,
         humanReviewerScores: humanScores,
@@ -664,8 +683,14 @@ export async function runRealImageBenchmark(
     }
   }
 
+  const anyModelInvoked = records.some((r) => r.modelInvoked);
+  const suiteType = anyModelInvoked ? 'real_image_generation' : 'structural_dry_run';
+  const estimatedTotalCredits = records.length;
+  const measuredTotalCredits = records.reduce((sum, r) => sum + (r.measuredUsageCost?.creditsCharged ?? 0), 0);
+
   const summary: RealImageBenchmarkSummary = {
-    benchmarkSuite: 'real_image_generation',
+    benchmarkSuite: suiteType,
+    modelInvoked: anyModelInvoked,
     version,
     modelVersion: imageModel,
     evaluatorVersion,
@@ -674,6 +699,8 @@ export async function runRealImageBenchmark(
     totalEvaluated: totalConcepts,
     passRate: Math.round(passRate * 1000) / 1000,
     averageScores: null,
+    estimatedTotalCredits,
+    measuredTotalCredits,
     humanAgreement: {
       measuredReviewersCount: reviewerMap.size,
       averageScoreDelta,
@@ -850,6 +877,31 @@ export function generateBenchmarkReportMarkdown(
   md += `- **Ground Truth Separation**: All benchmark data, brand profiles, and reference DNA are completely isolated from production customer databases and tenant records.\n`;
   md += `- **Audit Traceability**: Every evaluation record preserves original copy, visual prompts, bounding box geometry, SVG SHA-256 hash, and raster dimensions.\n`;
   md += `- **Zero Synthetic Claims**: All metrics, scores, and pass rates in this report are 100% physically executed and measured by the benchmark engine.\n`;
+
+  return md;
+}
+
+/**
+ * Generates an honest markdown report for Suite B benchmarks, explicitly
+ * distinguishing real image generation from structural dry runs.
+ */
+export function generateRealImageBenchmarkReportMarkdown(
+  summary: RealImageBenchmarkSummary,
+  records: RealImageBenchmarkRecord[] = [],
+): string {
+  let md = `# ZeperAI Campaign Studio V2 - ${summary.modelInvoked ? 'Real Image-Generation' : 'Structural Dry Run'} Benchmark Report\n\n`;
+  if (!summary.modelInvoked) {
+    md += `> [!IMPORTANT]\n`;
+    md += `> **STRUCTURAL DRY-RUN**: Image models were not invoked for this benchmark run. Layout, SVG composition, rasterization, and deterministic rules were physically measured without model generation.\n\n`;
+  }
+  md += `**Benchmark Suite**: \`${summary.benchmarkSuite}\`  \n`;
+  md += `**Model Invoked**: \`${summary.modelInvoked ? 'YES' : 'NO'}\`  \n`;
+  md += `**Model Version**: \`${summary.modelVersion}\`  \n`;
+  md += `**Evaluator Version**: \`${summary.evaluatorVersion}\`  \n`;
+  md += `**Total Evaluated**: ${summary.totalEvaluated}  \n`;
+  md += `**Pass Rate**: ${(summary.passRate * 100).toFixed(1)}%  \n`;
+  md += `**Estimated Credits**: ${summary.estimatedTotalCredits} | **Measured Credits Charged**: ${summary.measuredTotalCredits}  \n`;
+  md += `**Independent Human Reviews**: ${summary.humanAgreement.measuredReviewersCount} reviewers (${summary.humanAgreement.status})  \n\n`;
 
   return md;
 }

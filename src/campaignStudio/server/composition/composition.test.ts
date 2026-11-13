@@ -21,6 +21,7 @@ import {
 } from './svgRenderer.js';
 import {
   measureCharWidth,
+  measureTextExactWithResvg,
   measureTextLayout,
   measureTextWidth,
   normalizeFontWeight,
@@ -544,4 +545,40 @@ test('svgRenderer: validateCreativeDocumentTypography surfaces warnings for over
   assert.equal(validation.valid, false);
   assert.ok(validation.warnings.length > 0);
   assert.ok(validation.warnings.some((w) => w.includes('exceeds')));
+});
+
+test('textMeasurer: single characters, overlong words, multilingual copy, and missing fonts', () => {
+  // 1. Single characters measure with valid width and report native_resvg
+  const singleChar = measureTextExactWithResvg('A', 'Poppins', 700, 24);
+  assert.ok(singleChar.width > 5 && singleChar.width < 30, `Expected single char width, got ${singleChar.width}`);
+  assert.ok(singleChar.height > 10, `Expected valid height, got ${singleChar.height}`);
+  assert.equal(singleChar.source, 'native_resvg');
+
+  // 2. Overlong unbroken word wrapping splits word across lines using same measurement engine
+  const unbrokenWord = 'SUPERCALIFRAGILISTICEXPIALIDOCIOUS';
+  const overlongLayout = measureTextLayout(unbrokenWord, {
+    fontFamily: 'Poppins',
+    fontWeight: 700,
+    fontSize: 24,
+    maxWidthPx: 150,
+    maxLines: 6,
+  });
+  assert.ok(overlongLayout.lines.length > 1, `Overlong word must split across multiple lines, got ${overlongLayout.lines.length}`);
+  for (const line of overlongLayout.lines) {
+    const lineW = measureTextWidth(line, { fontFamily: 'Poppins', fontWeight: 700, fontSize: 24 });
+    assert.ok(lineW <= 165, `Split line width (${lineW}) must respect maxWidth`);
+  }
+  assert.equal(overlongLayout.measurementSource, 'native_resvg');
+
+  // 3. Multilingual text (Hindi, Currency symbols)
+  const hindiMeasure = measureTextExactWithResvg('नमस्ते', 'Poppins', 700, 24);
+  assert.ok(hindiMeasure.width > 15, `Hindi text must measure with non-zero advance, got ${hindiMeasure.width}`);
+  assert.equal(hindiMeasure.source, 'native_resvg');
+
+  const inrMeasure = measureTextExactWithResvg('₹999', 'Poppins', 700, 24);
+  assert.ok(inrMeasure.width > 25, `Currency string must measure with valid width, got ${inrMeasure.width}`);
+
+  // 4. Missing / non-existent font gracefully falls back without throwing
+  const missingFontMeasure = measureTextExactWithResvg('Brand Offer', 'NonExistentFontXYZ', 700, 24);
+  assert.ok(missingFontMeasure.width > 20, `Missing font must measure using fallback font, got ${missingFontMeasure.width}`);
 });
