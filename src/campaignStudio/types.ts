@@ -496,6 +496,9 @@ export type CreativeFormatAdaptationState =
   | 'adapted_reflow'
   | 'ai_generated'
   | 'generating'
+  | 'ready_for_review'
+  | 'needs_revision'
+  | 'approved'
   | 'failed';
 
 export interface CreativeFormatDetail {

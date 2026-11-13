@@ -191,3 +191,54 @@ export interface ReleaseComparisonReport {
   overallVerdict: 'IMPROVED' | 'REGRESSED' | 'PARITY';
 }
 
+export interface RealHumanReviewerScore {
+  reviewerId: string;
+  blindSampleId: string;
+  productFidelity: number; // 0-100
+  visualQuality: number; // 0-100
+  brandConsistency: number; // 0-100
+  typography: number; // 0-100
+  advertisingClarity: number; // 0-100
+  overallUsability: number; // 0-100
+  passed: boolean;
+  notes?: string;
+  timestamp: string;
+}
+
+export interface RealImageBenchmarkRecord {
+  creativeId: string;
+  brandId: string;
+  conceptId: string;
+  modelVersion: string;
+  promptVersion: string;
+  productReferenceUrls: string[];
+  renderingVersion: string;
+  evaluatorVersion: string;
+  renderedPngBytes: number;
+  renderedJpegBytes: number;
+  aiScores: BenchmarkEvaluationMetrics | null;
+  humanReviewerScores?: RealHumanReviewerScore[];
+  status: EvaluationStatus;
+  passed: boolean;
+  physicallyMeasured: true;
+  measuredAt: string;
+}
+
+export interface RealImageBenchmarkSummary {
+  benchmarkSuite: 'real_image_generation';
+  version: string;
+  modelVersion: string;
+  evaluatorVersion: string;
+  physicallyMeasured: true;
+  runAt: string;
+  totalEvaluated: number;
+  passRate: number;
+  averageScores: BenchmarkEvaluationMetrics | null;
+  humanAgreement: {
+    measuredReviewersCount: number;
+    averageScoreDelta: number | null;
+    agreementRate: number | null;
+    status: 'measured' | 'pending_independent_reviewers';
+  };
+}
+

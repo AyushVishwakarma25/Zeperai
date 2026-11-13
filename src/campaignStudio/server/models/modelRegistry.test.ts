@@ -13,9 +13,11 @@ import {
   MODEL_REGISTRY,
   TASK_TIMEOUT_MS,
   checkModelConfigurationHealth,
+  checkProviderHealth,
   clearFallbackHistory,
   clearUnavailableModels,
   getFallbackHistory,
+  getFallbackModelFor,
   isModelMarkedUnavailable,
   markModelUnavailable,
   recordModelFallback,
@@ -194,5 +196,58 @@ test('modelRegistry: defines safe, realistic timeouts for all tasks', () => {
   assert.equal(TASK_TIMEOUT_MS.vision_qa, 45_000);
   assert.equal(TASK_TIMEOUT_MS.image_generation_standard, 90_000);
   assert.equal(TASK_TIMEOUT_MS.image_generation_pro, 120_000);
+});
+
+// ---------------------------------------------------------------------------
+// 7. Standard vs Pro Tier Routing & Pricing
+// ---------------------------------------------------------------------------
+
+test('modelRegistry: distinct Standard and Pro image routing with accurate pricing and credit cost', () => {
+  const std = resolveModelForTask('image_generation_standard', { userTier: 'standard', provider: 'google-vertex-ai' });
+  assert.equal(std.model, 'gemini-2.5-flash-image');
+  const stdEntry = MODEL_REGISTRY[std.model];
+  assert.equal(stdEntry.pricing.internalCreditCost, 1);
+  assert.equal(stdEntry.pricing.imageOutputUsd, 0.039);
+  assert.ok(stdEntry.regionConstraints?.includes('us-central1'));
+
+  const pro = resolveModelForTask('image_generation_standard', { userTier: 'pro', provider: 'google-vertex-ai' });
+  assert.equal(pro.model, 'gemini-3-pro-image');
+  const proEntry = MODEL_REGISTRY[pro.model];
+  assert.equal(proEntry.pricing.internalCreditCost, 3);
+  assert.equal(proEntry.pricing.imageOutputUsd, 0.134);
+  assert.ok(proEntry.capabilities.supportsThinking);
+});
+
+test('modelRegistry: getFallbackModelFor preserves image modality and flags quality tier shift', () => {
+  // Pro image fallback to Standard image
+  const proFallback = getFallbackModelFor('gemini-3-pro-image', 'image_generation_pro');
+  assert.ok(proFallback);
+  assert.equal(proFallback.fallbackModel, 'gemini-2.5-flash-image');
+  assert.equal(proFallback.tierShift, true);
+  assert.ok(proFallback.reason.includes('Quality tier shift active'));
+
+  // Standard image fallback
+  const stdFallback = getFallbackModelFor('gemini-2.5-flash-image', 'image_generation_standard');
+  assert.ok(stdFallback);
+  assert.equal(stdFallback.fallbackModel, 'gemini-2.5-flash-image');
+  assert.equal(stdFallback.tierShift, false);
+});
+
+test('modelRegistry: checkProviderHealth probes model access without consuming generation credits', async () => {
+  let countTokensCalled = false;
+  const mockClient = {
+    models: {
+      countTokens: async (args: any) => {
+        countTokensCalled = true;
+        assert.ok(args.model);
+        return { totalTokens: 1 };
+      },
+    },
+  };
+
+  const health = await checkProviderHealth({ client: mockClient, testModel: 'gemini-2.5-flash' });
+  assert.equal(countTokensCalled, true);
+  assert.equal(health.healthy, true);
+  assert.ok(health.latencyMs >= 0);
 });
 

@@ -18,6 +18,8 @@ import { evaluateBenchmarkCreative } from './evaluator.js';
 import { runRegressionSuite } from './regressions.js';
 import {
   runCampaignStudioBenchmark,
+  runStructuralRegressionBenchmark,
+  runRealImageBenchmark,
   compareBenchmarkReleases,
   generateBenchmarkReportMarkdown,
 } from './benchmarkRunner.js';
@@ -407,5 +409,47 @@ test('report generator: outputs comprehensive Markdown quality benchmark report 
   assert.ok(md.includes('4. Category Performance Breakdown'));
   assert.ok(md.includes('5. Failure Pattern Distribution'));
   assert.ok(md.includes('7. Audit Trail Invariants & Isolation Guarantee'));
+});
+
+test('benchmark suites: separates structural regression suite from real image generation benchmark', async () => {
+  // 1. Suite A: Structural regression benchmark
+  assert.equal(typeof runStructuralRegressionBenchmark, 'function');
+  assert.equal(runCampaignStudioBenchmark, runStructuralRegressionBenchmark, 'Legacy alias must point to structural suite');
+
+  // 2. Suite B: Real image generation benchmark
+  assert.equal(typeof runRealImageBenchmark, 'function');
+  const miniRun = await runRealImageBenchmark({
+    brands: [BENCHMARK_BRANDS[0]], // Single brand test
+  });
+
+  assert.equal(miniRun.summary.benchmarkSuite, 'real_image_generation');
+  assert.equal(miniRun.summary.physicallyMeasured, true);
+  assert.equal(miniRun.records.length, 5);
+
+  // Without independent reviewers, human agreement must report pending rather than synthetic calculation
+  assert.equal(miniRun.summary.humanAgreement.status, 'pending_independent_reviewers');
+  assert.equal(miniRun.summary.humanAgreement.averageScoreDelta, null);
+  assert.equal(miniRun.summary.humanAgreement.agreementRate, null);
+
+  // When independent reviewers are provided:
+  const reviewedRun = await runRealImageBenchmark({
+    brands: [BENCHMARK_BRANDS[0]],
+    reviewerRatings: [
+      {
+        reviewerId: 'rev-01',
+        blindSampleId: `blind-${BENCHMARK_BRANDS[0].id}-${BENCHMARK_BRANDS[0].concepts[0].id}`,
+        productFidelity: 92,
+        visualQuality: 90,
+        brandConsistency: 95,
+        typography: 88,
+        advertisingClarity: 90,
+        overallUsability: 91,
+        passed: true,
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  });
+  assert.equal(reviewedRun.summary.humanAgreement.status, 'measured');
+  assert.equal(reviewedRun.summary.humanAgreement.measuredReviewersCount, 1);
 });
 

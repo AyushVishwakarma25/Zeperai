@@ -14,7 +14,7 @@
  */
 
 import { ThinkingLevel } from '@google/genai';
-import { recordModelFallback } from './models/modelRegistry.js';
+import { recordModelFallback, getFallbackModelFor } from './models/modelRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -380,13 +380,16 @@ export async function generateStructured<T>(opts: StructuredCallOptions<T>): Pro
         continue;
       }
 
-      // 3. Model fallback: If activeModel is not found, unauthorized, or unsupported, fall back to fallbackModel or gemini-2.5-flash
+      // 3. Model fallback: If activeModel is not found, unauthorized, or unsupported, fall back via registry
       if (err instanceof GeminiCallError && isModelUnavailableError(err)) {
         let nextModel: string | undefined;
         if (!attemptedModels.has(fallbackModel)) {
           nextModel = fallbackModel;
-        } else if (!attemptedModels.has('gemini-2.5-flash')) {
-          nextModel = 'gemini-2.5-flash';
+        } else {
+          const registryFallback = getFallbackModelFor(activeModel);
+          if (registryFallback && !attemptedModels.has(registryFallback.fallbackModel)) {
+            nextModel = registryFallback.fallbackModel;
+          }
         }
 
         if (nextModel) {

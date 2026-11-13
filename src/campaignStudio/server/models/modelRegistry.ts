@@ -40,6 +40,13 @@ export interface ModelLifecycle {
   notes?: string;
 }
 
+export interface ModelPricing {
+  inputPer1MTokensUsd?: number;
+  outputPer1MTokensUsd?: number;
+  imageOutputUsd?: number;
+  internalCreditCost: number; // e.g. 1 for standard image, 3 for pro image, 0 for workflow step
+}
+
 export interface RegisteredModel {
   id: string;
   displayName: string;
@@ -49,6 +56,8 @@ export interface RegisteredModel {
   outputTypes: ModelOutputType[];
   capabilities: ModelCapability;
   lifecycle: ModelLifecycle;
+  regionConstraints?: string[];
+  pricing: ModelPricing;
   envOverrideVar?: string;
   defaultFallbackModelId?: string;
 }
@@ -116,9 +125,15 @@ export const MODEL_REGISTRY: Record<string, RegisteredModel> = {
     },
     lifecycle: {
       status: 'preview',
-      verifiedAt: '2026-11-12',
+      verifiedAt: '2026-11-13',
       verificationSource: 'Google AI Studio Docs (gemini-3.1-pro-preview pricing and interactions SDK)',
       notes: 'Flagship reasoning model supporting thinkingConfig and high-context multi-agent orchestration.',
+    },
+    regionConstraints: ['us-central1', 'global'],
+    pricing: {
+      inputPer1MTokensUsd: 2.0,
+      outputPer1MTokensUsd: 12.0,
+      internalCreditCost: 0,
     },
     envOverrideVar: 'CAMPAIGN_MODEL_PRO',
     defaultFallbackModelId: 'gemini-flash-latest',
@@ -141,9 +156,15 @@ export const MODEL_REGISTRY: Record<string, RegisteredModel> = {
     },
     lifecycle: {
       status: 'restricted',
-      verifiedAt: '2026-11-12',
+      verifiedAt: '2026-11-13',
       verificationSource: 'Google Cloud Vertex AI & Gemini Deprecations (access restricted to grandfathered projects)',
       notes: 'Restricted capacity. Unprovisioned GCP projects return 404. Must fall back to gemini-2.5-flash.',
+    },
+    regionConstraints: ['us-central1'],
+    pricing: {
+      inputPer1MTokensUsd: 2.5,
+      outputPer1MTokensUsd: 10.0,
+      internalCreditCost: 0,
     },
     envOverrideVar: 'VERTEX_PRO_MODEL',
     defaultFallbackModelId: 'gemini-2.5-flash',
@@ -167,9 +188,15 @@ export const MODEL_REGISTRY: Record<string, RegisteredModel> = {
     },
     lifecycle: {
       status: 'active',
-      verifiedAt: '2026-11-12',
+      verifiedAt: '2026-11-13',
       verificationSource: 'Google Gemini API Docs (What is new in Gemini 3.8 Flash, release Oct 2026)',
       notes: 'High-speed multimodal software engineering & creative copy model with Search grounding support.',
+    },
+    regionConstraints: ['us-central1', 'global'],
+    pricing: {
+      inputPer1MTokensUsd: 0.3,
+      outputPer1MTokensUsd: 1.2,
+      internalCreditCost: 0,
     },
     envOverrideVar: 'CAMPAIGN_MODEL_FLASH',
     defaultFallbackModelId: 'gemini-flash-latest',
@@ -200,9 +227,15 @@ export const MODEL_REGISTRY: Record<string, RegisteredModel> = {
     },
     lifecycle: {
       status: 'active',
-      verifiedAt: '2026-11-12',
+      verifiedAt: '2026-11-13',
       verificationSource: 'Google AI Studio Canonical Alias (gemini-flash-latest)',
       notes: 'Canonical alias resolving to latest stable Flash. High reliability and zero-gating.',
+    },
+    regionConstraints: ['us-central1', 'global'],
+    pricing: {
+      inputPer1MTokensUsd: 0.3,
+      outputPer1MTokensUsd: 1.2,
+      internalCreditCost: 0,
     },
     defaultFallbackModelId: 'gemini-2.5-flash',
   },
@@ -232,9 +265,15 @@ export const MODEL_REGISTRY: Record<string, RegisteredModel> = {
     },
     lifecycle: {
       status: 'active',
-      verifiedAt: '2026-11-12',
+      verifiedAt: '2026-11-13',
       verificationSource: 'Google Cloud Vertex AI Production Models',
       notes: 'Primary stable workhorse model for Vertex AI deployments.',
+    },
+    regionConstraints: ['us-central1', 'us-east4', 'europe-west1'],
+    pricing: {
+      inputPer1MTokensUsd: 0.3,
+      outputPer1MTokensUsd: 1.2,
+      internalCreditCost: 0,
     },
     defaultFallbackModelId: 'gemini-flash-latest',
   },
@@ -242,9 +281,9 @@ export const MODEL_REGISTRY: Record<string, RegisteredModel> = {
   // --- Generative Image Models (Vertex AI & Nano Banana) ---
   'gemini-2.5-flash-image': {
     id: 'gemini-2.5-flash-image',
-    displayName: 'Gemini 2.5 Flash Image (Vertex AI)',
+    displayName: 'Gemini 2.5 Flash Image (Nano Banana Standard)',
     provider: 'google-vertex-ai',
-    tasks: ['image_generation_standard', 'image_generation_pro', 'image_generation_lite', 'targeted_regeneration'],
+    tasks: ['image_generation_standard', 'targeted_regeneration'],
     inputTypes: ['text', 'image'],
     outputTypes: ['image'],
     capabilities: {
@@ -256,8 +295,13 @@ export const MODEL_REGISTRY: Record<string, RegisteredModel> = {
     lifecycle: {
       status: 'active',
       verifiedAt: '2026-11-13',
-      verificationSource: 'Google Cloud Vertex AI Production Models (us-central1)',
-      notes: 'Active image generation model on Google Cloud Vertex AI under postpay direct cloud billing.',
+      verificationSource: 'Google Cloud Vertex AI Production Models (us-central1) & Gemini Image API',
+      notes: 'Standard workhorse model for fast commercial advertising visuals ($0.039/image, 1 credit).',
+    },
+    regionConstraints: ['us-central1', 'us-east4', 'europe-west1', 'asia-northeast1'],
+    pricing: {
+      imageOutputUsd: 0.039,
+      internalCreditCost: 1,
     },
     envOverrideVar: 'CAMPAIGN_MODEL_IMAGE_STANDARD',
     defaultFallbackModelId: 'gemini-2.5-flash-image',
@@ -278,9 +322,14 @@ export const MODEL_REGISTRY: Record<string, RegisteredModel> = {
     },
     lifecycle: {
       status: 'active',
-      verifiedAt: '2026-11-12',
-      verificationSource: 'Google Gemini Image Generation Guide (Released Oct 6, 2026)',
-      notes: 'Primary workhorse model for advertising visuals, accurate text rendering, and multi-turn editing.',
+      verifiedAt: '2026-11-13',
+      verificationSource: 'Google Gemini Image Generation Guide',
+      notes: 'Standard workhorse model for advertising visuals ($0.039/image, 1 credit).',
+    },
+    regionConstraints: ['us-central1', 'global'],
+    pricing: {
+      imageOutputUsd: 0.039,
+      internalCreditCost: 1,
     },
     envOverrideVar: 'CAMPAIGN_MODEL_IMAGE_STANDARD',
     defaultFallbackModelId: 'gemini-3.1-flash-image',
@@ -289,7 +338,7 @@ export const MODEL_REGISTRY: Record<string, RegisteredModel> = {
   'gemini-3-pro-image': {
     id: 'gemini-3-pro-image',
     displayName: 'Gemini 3 Pro Image (Nano Banana Pro)',
-    provider: 'google-ai-studio',
+    provider: 'google-vertex-ai',
     tasks: ['image_generation_pro'],
     inputTypes: ['text', 'image'],
     outputTypes: ['image', 'text'],
@@ -301,12 +350,17 @@ export const MODEL_REGISTRY: Record<string, RegisteredModel> = {
     },
     lifecycle: {
       status: 'active',
-      verifiedAt: '2026-11-12',
-      verificationSource: 'Google Gemini Image Generation Guide (Nano Banana Pro, May 28, 2026)',
-      notes: 'Flagship photorealistic image generator with Thinking for intricate compositions and brand adherence.',
+      verifiedAt: '2026-11-13',
+      verificationSource: 'Google Cloud Vertex AI & Gemini 3 Pro Image Guide',
+      notes: 'Flagship photorealistic image generator with Thinking ($0.134/image, 3 credits).',
+    },
+    regionConstraints: ['us-central1', 'us-east4'],
+    pricing: {
+      imageOutputUsd: 0.134,
+      internalCreditCost: 3,
     },
     envOverrideVar: 'CAMPAIGN_MODEL_IMAGE_PRO',
-    defaultFallbackModelId: 'gemini-nano-banana-2.1',
+    defaultFallbackModelId: 'gemini-2.5-flash-image',
   },
 
   'gemini-3.1-flash-lite-image': {
@@ -324,9 +378,14 @@ export const MODEL_REGISTRY: Record<string, RegisteredModel> = {
     },
     lifecycle: {
       status: 'active',
-      verifiedAt: '2026-11-12',
-      verificationSource: 'Google Gemini Image Generation Guide (Nano Banana 2 Lite, June 30, 2026)',
-      notes: 'Ultra-fast low-cost image generator for free tier and rapid draft iterations.',
+      verifiedAt: '2026-11-13',
+      verificationSource: 'Google Gemini Image Generation Guide',
+      notes: 'Ultra-fast low-cost image generator for free tier ($0.0195/image, 1 credit).',
+    },
+    regionConstraints: ['us-central1', 'global'],
+    pricing: {
+      imageOutputUsd: 0.0195,
+      internalCreditCost: 1,
     },
     envOverrideVar: 'CAMPAIGN_MODEL_IMAGE_LITE',
     defaultFallbackModelId: 'gemini-nano-banana-2.1',
@@ -347,9 +406,14 @@ export const MODEL_REGISTRY: Record<string, RegisteredModel> = {
     },
     lifecycle: {
       status: 'active',
-      verifiedAt: '2026-11-12',
-      verificationSource: 'Google Gemini Image Generation Guide (Nano Banana 2, May 28, 2026)',
-      notes: 'Proven image generation model; reliable fallback for Nano Banana 2.1.',
+      verifiedAt: '2026-11-13',
+      verificationSource: 'Google Gemini Image Generation Guide',
+      notes: 'Reliable secondary fallback for Nano Banana ($0.039/image, 1 credit).',
+    },
+    regionConstraints: ['us-central1', 'global'],
+    pricing: {
+      imageOutputUsd: 0.039,
+      internalCreditCost: 1,
     },
     defaultFallbackModelId: 'gemini-3.1-flash-lite-image',
   },
@@ -370,9 +434,14 @@ export const MODEL_REGISTRY: Record<string, RegisteredModel> = {
     },
     lifecycle: {
       status: 'shutdown',
-      verifiedAt: '2026-11-12',
+      verifiedAt: '2026-11-13',
       verificationSource: 'Google Gemini Image Generation Guide (Shutdown: Aug 17, 2026)',
       notes: 'DISCONTINUED. All requests must be intercepted and routed to gemini-nano-banana-2.1.',
+    },
+    regionConstraints: ['us-central1'],
+    pricing: {
+      imageOutputUsd: 0.04,
+      internalCreditCost: 1,
     },
     defaultFallbackModelId: 'gemini-nano-banana-2.1',
   },
@@ -469,8 +538,56 @@ export const TASK_TIMEOUT_MS: Record<CampaignTask, number> = {
 
 export interface ModelResolveOptions {
   provider?: ModelProvider;
-  userTier?: string;
+  userTier?: 'standard' | 'pro' | 'lite' | string;
   allowPreview?: boolean;
+}
+
+/**
+ * Safely resolves a compatible fallback model without violating modality constraints.
+ * An image model will NEVER fall back to a text model.
+ */
+export function getFallbackModelFor(
+  currentModelId: string,
+  task?: CampaignTask,
+): { fallbackModel: string; tierShift: boolean; reason: string } | null {
+  const currentEntry = MODEL_REGISTRY[currentModelId];
+  if (!currentEntry) {
+    const isImage = currentModelId.includes('image') || currentModelId.includes('banana');
+    return {
+      fallbackModel: isImage ? 'gemini-2.5-flash-image' : 'gemini-2.5-flash',
+      tierShift: false,
+      reason: `Unregistered model "${currentModelId}" default fallback`,
+    };
+  }
+
+  const defaultFallbackId = currentEntry.defaultFallbackModelId;
+  if (!defaultFallbackId) return null;
+
+  const fallbackEntry = MODEL_REGISTRY[defaultFallbackId];
+  if (!fallbackEntry) return null;
+
+  // Modality check: image MUST stay image
+  const isCurrentImage = currentEntry.outputTypes.includes('image');
+  const isFallbackImage = fallbackEntry.outputTypes.includes('image');
+  if (isCurrentImage && !isFallbackImage) {
+    console.error(
+      `[model-registry] INVARIANT VIOLATION: Refusing to fall back image model "${currentModelId}" to non-image model "${defaultFallbackId}"`,
+    );
+    return null;
+  }
+
+  const tierShift =
+    (currentEntry.pricing?.internalCreditCost || 0) >
+    (fallbackEntry.pricing?.internalCreditCost || 0);
+  const reason = tierShift
+    ? `Fallback from ${currentEntry.displayName} (${currentEntry.pricing.internalCreditCost} cr) to ${fallbackEntry.displayName} (${fallbackEntry.pricing.internalCreditCost} cr). Quality tier shift active.`
+    : `Fallback to verified peer model ${fallbackEntry.displayName}.`;
+
+  return {
+    fallbackModel: defaultFallbackId,
+    tierShift,
+    reason,
+  };
 }
 
 /**
@@ -486,11 +603,19 @@ export function resolveModelForTask(
   const provider: ModelProvider = isVertex ? 'google-vertex-ai' : 'google-ai-studio';
   const timeoutMs = TASK_TIMEOUT_MS[task] || 45_000;
 
+  // Adjust task based on explicit user tier for image generation
+  let effectiveTask = task;
+  if (task === 'image_generation_standard' && options.userTier === 'pro') {
+    effectiveTask = 'image_generation_pro';
+  } else if (task === 'image_generation_standard' && options.userTier === 'lite') {
+    effectiveTask = 'image_generation_lite';
+  }
+
   // 1. Identify primary and fallback candidates based on task and provider
   let primaryCandidate: string;
   let fallbackCandidate: string;
 
-  switch (task) {
+  switch (effectiveTask) {
     case 'reasoning_strategy':
     case 'creative_direction': {
       // High reasoning task
@@ -538,7 +663,7 @@ export function resolveModelForTask(
     }
 
     case 'image_generation_pro': {
-      primaryCandidate = process.env.CAMPAIGN_MODEL_IMAGE_PRO || (isVertex ? 'gemini-2.5-flash-image' : 'gemini-3-pro-image');
+      primaryCandidate = process.env.CAMPAIGN_MODEL_IMAGE_PRO || (isVertex ? 'gemini-3-pro-image' : 'gemini-3-pro-image');
       fallbackCandidate = isVertex ? 'gemini-2.5-flash-image' : 'gemini-nano-banana-2.1';
       break;
     }
@@ -572,12 +697,12 @@ export function resolveModelForTask(
     fallbackApplied = true;
     fallbackReason = `Model "${primaryCandidate}" has been shut down by the provider (Aug 17, 2026). Upgrading to Nano Banana 2.1.`;
     resolvedModel = 'gemini-nano-banana-2.1';
-    recordModelFallback(task, requestedModel, resolvedModel, fallbackReason);
+    recordModelFallback(effectiveTask, requestedModel, resolvedModel, fallbackReason);
   } else if (isModelMarkedUnavailable(primaryCandidate)) {
     fallbackApplied = true;
     fallbackReason = `Primary model "${primaryCandidate}" is marked unavailable in current region/credentials. Routing to fallback "${fallbackCandidate}".`;
     resolvedModel = fallbackCandidate;
-    recordModelFallback(task, requestedModel, resolvedModel, fallbackReason);
+    recordModelFallback(effectiveTask, requestedModel, resolvedModel, fallbackReason);
   } else {
     // Check known restricted models on Vertex AI
     if (isVertex && primaryCandidate === 'gemini-2.5-pro') {
@@ -586,7 +711,7 @@ export function resolveModelForTask(
         fallbackApplied = true;
         fallbackReason = 'Vertex AI gemini-2.5-pro is restricted. Routing to verified gemini-2.5-flash workhorse.';
         resolvedModel = fallbackCandidate;
-        recordModelFallback(task, requestedModel, resolvedModel, fallbackReason);
+        recordModelFallback(effectiveTask, requestedModel, resolvedModel, fallbackReason);
       }
     }
   }
@@ -600,7 +725,7 @@ export function resolveModelForTask(
   };
 
   return {
-    task,
+    task: effectiveTask,
     model: resolvedModel,
     requestedModel,
     provider,
@@ -609,6 +734,96 @@ export function resolveModelForTask(
     capabilities,
     timeoutMs,
   };
+}
+
+export interface ProviderHealthCheckResult {
+  healthy: boolean;
+  provider: ModelProvider;
+  configuredProject?: string;
+  configuredRegion: string;
+  authMethod: 'service_account' | 'api_key' | 'adc' | 'missing';
+  testedModel: string;
+  latencyMs: number;
+  warnings: string[];
+  error?: string;
+}
+
+/**
+ * Validates Google Cloud / Vertex AI provider configuration without generating assets
+ * or spending customer credits. Uses a lightweight zero-token / countTokens probe.
+ */
+export async function checkProviderHealth(options?: {
+  client?: any;
+  testModel?: string;
+}): Promise<ProviderHealthCheckResult> {
+  const isVertex = process.env.USE_VERTEX_AI === 'true';
+  const provider: ModelProvider = isVertex ? 'google-vertex-ai' : 'google-ai-studio';
+  const configuredRegion = process.env.GOOGLE_CLOUD_LOCATION || process.env.VERTEX_LOCATION || 'us-central1';
+  const configuredProject = process.env.VERTEX_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
+  const saJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+  const vertexApiKey = process.env.VERTEX_API_KEY;
+
+  let authMethod: 'service_account' | 'api_key' | 'adc' | 'missing' = 'missing';
+  if (saJson && saJson.length > 20) authMethod = 'service_account';
+  else if (vertexApiKey) authMethod = 'api_key';
+  else if (configuredProject) authMethod = 'adc';
+
+  const testModel = options?.testModel || (isVertex ? 'gemini-2.5-flash' : 'gemini-flash-latest');
+  const startTime = Date.now();
+  const warnings: string[] = [];
+
+  if (isVertex && !configuredProject && authMethod !== 'service_account') {
+    return {
+      healthy: false,
+      provider,
+      configuredProject: undefined,
+      configuredRegion,
+      authMethod,
+      testedModel: testModel,
+      latencyMs: 0,
+      warnings,
+      error: 'Google Cloud Project ID is not configured. Set VERTEX_PROJECT_ID or GOOGLE_CLOUD_PROJECT.',
+    };
+  }
+
+  try {
+    const client = options?.client;
+    if (client?.models?.countTokens) {
+      await client.models.countTokens({
+        model: testModel,
+        contents: [{ role: 'user', parts: [{ text: 'health_check_probe' }] }],
+      });
+    } else if (client?.models?.get) {
+      await client.models.get({ model: testModel });
+    }
+    const latencyMs = Date.now() - startTime;
+    return {
+      healthy: true,
+      provider,
+      configuredProject: configuredProject || 'from_service_account',
+      configuredRegion,
+      authMethod,
+      testedModel: testModel,
+      latencyMs,
+      warnings,
+    };
+  } catch (err: any) {
+    const latencyMs = Date.now() - startTime;
+    const sanitizedError = String(err?.message || 'Provider probe failed')
+      .replace(/key=[A-Za-z0-9_-]+/gi, 'key=***')
+      .slice(0, 200);
+    return {
+      healthy: false,
+      provider,
+      configuredProject,
+      configuredRegion,
+      authMethod,
+      testedModel: testModel,
+      latencyMs,
+      warnings,
+      error: sanitizedError,
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------

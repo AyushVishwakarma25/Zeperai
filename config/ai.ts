@@ -105,11 +105,11 @@ export const getAI = () => {
     }
 
     const vertexProjectId = typeof process !== 'undefined' && process.env
-        ? (process.env.VERTEX_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || 'zeperai')
-        : 'zeperai';
+        ? (process.env.VERTEX_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || '')
+        : '';
     const gcpProject = typeof process !== 'undefined' && process.env
-        ? (process.env.GOOGLE_CLOUD_PROJECT || 'zeperai')
-        : 'zeperai';
+        ? (process.env.GOOGLE_CLOUD_PROJECT || '')
+        : '';
     const location = typeof process !== 'undefined' && process.env
         ? (process.env.GOOGLE_CLOUD_LOCATION || process.env.VERTEX_LOCATION || 'us-central1')
         : 'us-central1';
@@ -132,8 +132,13 @@ export const getAI = () => {
         }
     }
 
-    const effectiveProject = vertexProjectId || gcpProject || parsedSaProject || 'zeperai';
-    const cacheKey = `vertex:${effectiveProject}:${location}:${vertexApiKey || (googleAuthOptions ? 'sa' : 'adc')}`;
+    const effectiveProject = vertexProjectId || gcpProject || parsedSaProject;
+    if (!effectiveProject && !vertexApiKey) {
+        throw new Error(
+            'Google Cloud Project ID is not configured. Please set GOOGLE_CLOUD_PROJECT, VERTEX_PROJECT_ID, or provide a valid Service Account JSON with project_id.'
+        );
+    }
+    const cacheKey = `vertex:${effectiveProject || 'api_key'}:${location}:${vertexApiKey || (googleAuthOptions ? 'sa' : 'adc')}`;
 
     if (!genAIInstance || currentApiKey !== cacheKey) {
         currentApiKey = cacheKey;
@@ -180,17 +185,26 @@ export const getAI = () => {
                 );
 
                 // On Google Cloud Vertex AI:
-                // Image Generation Workhorse: 'gemini-2.5-flash-image'
-                // Text Reasoning & Copy Workhorse: 'gemini-2.5-flash'
+                // Standard Image: 'gemini-2.5-flash-image'
+                // Pro Image: 'gemini-3-pro-image'
+                // Text Workhorse: 'gemini-2.5-flash'
                 let targetModel: string;
                 if (isImageTask) {
-                    targetModel = 'gemini-2.5-flash-image';
+                    if (typeof modelName === 'string' && (modelName.includes('pro') || modelName === 'gemini-3-pro-image')) {
+                        targetModel = 'gemini-3-pro-image';
+                    } else if (typeof modelName === 'string' && (modelName.includes('lite') || modelName === 'gemini-3.1-flash-lite-image')) {
+                        targetModel = 'gemini-3.1-flash-lite-image';
+                    } else {
+                        targetModel = 'gemini-2.5-flash-image';
+                    }
                 } else if (
                     modelName === 'gemini-2.5-pro' &&
                     !unavailableVertexModels.has('gemini-2.5-pro') &&
                     process.env.VERTEX_PRO_MODEL === 'gemini-2.5-pro'
                 ) {
                     targetModel = 'gemini-2.5-pro';
+                } else if (typeof modelName === 'string' && modelName.startsWith('gemini-')) {
+                    targetModel = modelName;
                 } else {
                     targetModel = 'gemini-2.5-flash';
                 }
@@ -256,8 +270,23 @@ export const getAI = () => {
                         }
                     }
 
-                    // 2. Fall back from Pro text model to reliable Flash text model
-                    if (targetModel !== 'gemini-2.5-flash' && !isImageTask) {
+                    // 2. Modality-safe fallback:
+                    // Image tasks: If Pro image model failed, fall back to Standard image model (NEVER to text)
+                    if (isImageTask && targetModel === 'gemini-3-pro-image') {
+                        console.warn(`[config/ai] Pro image model ${targetModel} failed (${cMsg.slice(0, 150)}), falling back to Standard gemini-2.5-flash-image...`);
+                        try {
+                            return await ai.models.generateContent({
+                                model: 'gemini-2.5-flash-image',
+                                contents: normalizedContents,
+                                config: finalConfig,
+                            });
+                        } catch (imgFallbackErr: any) {
+                            console.warn(`[config/ai] Standard image fallback also failed: ${String(imgFallbackErr?.message || '').slice(0, 150)}`);
+                        }
+                    }
+
+                    // Text tasks: Fall back to verified gemini-2.5-flash text model
+                    if (!isImageTask && targetModel !== 'gemini-2.5-flash') {
                         console.warn(`[config/ai] Text model ${targetModel} failed (${cMsg.slice(0, 150)}), falling back to gemini-2.5-flash...`);
                         const { thinkingConfig, ...safeConfig } = finalConfig;
                         try {

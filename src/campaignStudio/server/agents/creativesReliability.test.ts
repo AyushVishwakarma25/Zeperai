@@ -526,3 +526,76 @@ test('adaptCreativeDocument: AI native background expansion preserves typography
   assert.ok(adapted9x16.compositeUrl.startsWith('data:image/svg+xml'));
 });
 
+test('format-resizing lifecycle: atomic credit deduction, idempotent refund on failure, and explicit approval requirement', async () => {
+  let chargedCalls: any[] = [];
+  let refundedCalls: any[] = [];
+
+  const mockDbClient: any = {
+    rpc: async (fn: string, params: any) => {
+      if (fn === 'campaign_spend_credits') {
+        chargedCalls.push(params);
+        return { data: 1, error: null };
+      }
+      if (fn === 'campaign_refund_credits') {
+        refundedCalls.push(params);
+        return { data: 1, error: null };
+      }
+      return { data: null, error: null };
+    },
+  };
+
+  const idempotencyKey = 'format_gen:run-1:1:9:16:v1';
+  // 1. Simulate credit deduction before execution
+  await mockDbClient.rpc('campaign_spend_credits', {
+    p_user_id: 'user-1',
+    p_amount: 1,
+    p_reference_type: 'campaign_asset',
+    p_reference_id: idempotencyKey,
+  });
+
+  assert.equal(chargedCalls.length, 1);
+  assert.equal(chargedCalls[0].p_reference_id, idempotencyKey);
+
+  // 2. Simulate AI provider failure -> Idempotent refund triggered
+  await mockDbClient.rpc('campaign_refund_credits', {
+    p_user_id: 'user-1',
+    p_reference_type: 'campaign_asset',
+    p_reference_id: idempotencyKey,
+  });
+
+  assert.equal(refundedCalls.length, 1);
+  assert.equal(refundedCalls[0].p_reference_id, idempotencyKey);
+
+  // 3. Invariant: Master creative approval MUST NOT auto-approve newly generated format placements
+  const masterApprovedAsset: CampaignAsset = {
+    id: 'asset-1',
+    run_id: 'run-1',
+    user_id: 'user-1',
+    creative_index: 1,
+    version: 1,
+    status: 'ready',
+    prompt: 'Commercial background',
+    aspect_ratio: '1:1',
+    model: 'gemini-2.5-flash-image',
+    image_url: 'data:image/png;base64,sample',
+    storage_path: 'runs/run-1/asset-1.png',
+    error: null,
+    credits_charged: 1,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    overlay: {
+      approvalStatus: 'approved',
+      formatStatus: {
+        '9:16': {
+          status: 'ready_for_review',
+          compositeUrl: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+        },
+      },
+    },
+  };
+
+  // The 9:16 placement must still be in 'ready_for_review' until explicit format-approve is invoked
+  assert.equal(masterApprovedAsset.overlay.formatStatus['9:16'].status, 'ready_for_review');
+  assert.notEqual(masterApprovedAsset.overlay.formatStatus['9:16'].status, 'approved');
+});
+

@@ -23,6 +23,8 @@ import {
   listProductImages,
   listReferences,
   listRuns,
+  refundCampaignCredits,
+  spendCampaignCredits,
   updateAsset,
   updateReference,
   updateRunKnownFacts,
@@ -35,6 +37,7 @@ import {
   getCampaignStudioAllowedEmails,
   isCampaignStudioEnabled,
 } from './config.js';
+import { resolveModelForTask } from './models/modelRegistry.js';
 import {
   ALLOWED_ASPECT_RATIOS,
   ALLOWED_PLATFORMS,
@@ -1011,7 +1014,7 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
     }),
   );
 
-  // AI-Driven Format Resizing & Native Placement Generation
+  // AI-Driven Format Resizing & Native Placement Generation with Full Credits & QA Lifecycle
   app.post(
     `${BASE}/runs/:runId/creatives/:creativeIndex/format-generate`,
     deps.requireAuth,
@@ -1028,6 +1031,11 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
       }
 
       const client = await deps.getAdminSupabaseClient();
+      const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
+      if (!runDetail?.run) {
+        throw new AppError('Campaign not found', 404, 'Campaign run not found.');
+      }
+
       const assets = await listAssets(client, userId(req), runIdOf(req));
       const latest = assets
         .filter((a) => a.creative_index === creativeIndex && a.status !== 'superseded')
@@ -1036,8 +1044,15 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         return res.status(404).json({ success: false, error: 'Creative asset not found.' });
       }
 
+      if (req.body?.expectedVersion && latest.version !== req.body.expectedVersion) {
+        throw new AppError(
+          'Document version mismatch',
+          409,
+          `Conflict: Creative version has moved to ${latest.version}. Please refresh before generating new formats.`,
+        );
+      }
+
       const overlay = (latest.overlay || {}) as Record<string, any>;
-      const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
       const masterPromptsStep = runDetail?.steps?.find((s) => s.agent === 'master_prompts' && s.status === 'approved');
       const prompts = (masterPromptsStep?.output as any)?.prompts || [];
       const promptObj = prompts[creativeIndex - 1];
@@ -1052,9 +1067,41 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         });
       }
 
+      // 1. Resolve image model & pricing from central registry based on user tier
+      const userTier = overlay.tier === 'pro' || latest.model?.includes('pro') ? 'pro' : 'standard';
+      const resolvedModelInfo = resolveModelForTask(
+        userTier === 'pro' ? 'image_generation_pro' : 'image_generation_standard',
+        { userTier },
+      );
+      const modelToUse = resolvedModelInfo.model;
+      const creditCost = userTier === 'pro' ? 3 : 1;
+
+      // 2. Compute idempotency key for credit deduction
+      const idempotencyKey = req.headers['idempotency-key']
+        ? String(req.headers['idempotency-key'])
+        : `format_gen:${runIdOf(req)}:${creativeIndex}:${targetRatio}:v${latest.version}`;
+
+      let creditsCharged = false;
+      let creditsRefunded = false;
+
+      // 3. Atomically deduct credits before provider execution
+      try {
+        await spendCampaignCredits(client, userId(req), creditCost, idempotencyKey, modelToUse, {
+          runId: runIdOf(req),
+          creativeIndex,
+          targetRatio,
+          action: 'format_generate',
+        });
+        creditsCharged = true;
+      } catch (spendErr: any) {
+        if (spendErr instanceof AppError && spendErr.statusCode === 402) {
+          throw spendErr;
+        }
+        throw new AppError('Credit deduction failed', 402, spendErr?.message || 'Could not deduct credits for format generation.');
+      }
+
       try {
         const referenceParts = await buildReferenceImageParts(promptObj?.referenceImageUrls, deps.overrides?.fetcher);
-        const modelToUse = latest.model || 'gemini-2.5-flash-image';
         const aiResizedImageUrl = await callImageModel({
           prompt: latest.prompt || promptObj?.imagePrompt || 'Commercial advertising backdrop',
           negativePrompt: promptObj?.negativePrompt,
@@ -1126,6 +1173,27 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         }
 
         const adapted = adaptCreativeDocument(doc, targetRatio, { aiBackgroundUrl: aiResizedImageUrl });
+        
+        // 4. Run deterministic validation & genuine image QA on adapted format
+        let placementEval: any = null;
+        try {
+          placementEval = await evaluateCreative({
+            doc: adapted.document,
+            compositeUrl: adapted.compositeUrl,
+            referenceImageUrls: promptObj?.referenceImageUrls,
+            client: deps.overrides?.geminiClient,
+            fetcher: deps.overrides?.fetcher,
+          });
+        } catch (evalErr: any) {
+          console.warn(`[campaign-studio] Visual QA for adapted format ${targetRatio} was inconclusive:`, evalErr?.message);
+        }
+
+        const passesQA =
+          placementEval &&
+          placementEval.status === 'passed' &&
+          placementEval.passed === true &&
+          (!placementEval.issues || !placementEval.issues.some((i: any) => i.severity === 'critical'));
+
         const existingAdaptations = overlay.adaptations || {};
         const existingFormatStatus = overlay.formatStatus || {};
 
@@ -1138,9 +1206,12 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
           formatStatus: {
             ...existingFormatStatus,
             [targetRatio]: {
-              status: 'ai_generated',
+              status: passesQA ? 'ready_for_review' : 'needs_revision',
               compositeUrl: adapted.compositeUrl,
               adaptedAt: new Date().toISOString(),
+              evaluation: placementEval,
+              modelUsed: modelToUse,
+              creditsCharged: creditCost,
             },
           },
         };
@@ -1155,11 +1226,110 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
           document: adapted.document,
           compositeUrl: adapted.compositeUrl,
           formatStatus: updatedOverlay.formatStatus,
+          evaluation: placementEval,
         });
       } catch (genErr: any) {
+        // Idempotent refund on failure
+        if (creditsCharged && !creditsRefunded) {
+          creditsRefunded = true;
+          try {
+            await refundCampaignCredits(client, userId(req), idempotencyKey);
+          } catch (refundErr: any) {
+            console.error('[campaign-studio] Failed to refund credits for failed format generation:', refundErr?.message);
+          }
+        }
+
         const classified = classifyCreativeError(genErr);
+        // Record failed attempt without destroying master creative
+        const existingFormatStatus = overlay.formatStatus || {};
+        const updatedOverlay = {
+          ...overlay,
+          formatStatus: {
+            ...existingFormatStatus,
+            [targetRatio]: {
+              status: 'failed',
+              error: classified.userMessage,
+              failedAt: new Date().toISOString(),
+            },
+          },
+        };
+        await updateAsset(client, userId(req), runIdOf(req), creativeIndex, latest.version, {
+          overlay: updatedOverlay,
+        }).catch(() => {});
+
         throw new AppError(classified.code, 500, classified.userMessage);
       }
+    }),
+  );
+
+  // Explicit Human Approval for an Adapted Format Placement
+  app.post(
+    `${BASE}/runs/:runId/creatives/:creativeIndex/format-approve`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const creativeIndex = parseInt(String(req.params.creativeIndex || ''), 10);
+      if (isNaN(creativeIndex) || creativeIndex < 1 || creativeIndex > MAX_CREATIVES_PER_RUN) {
+        throw new AppError('Invalid creative index', 400, 'Invalid creative index.');
+      }
+      const targetRatio = String(req.body?.targetRatio || '') as StandardAspectRatio;
+      if (!['1:1', '4:5', '9:16', '1.91:1'].includes(targetRatio)) {
+        throw new AppError('Invalid aspect ratio', 400, 'Valid targetRatio required (1:1, 4:5, 9:16, 1.91:1).');
+      }
+
+      const client = await deps.getAdminSupabaseClient();
+      const assets = await listAssets(client, userId(req), runIdOf(req));
+      const latest = assets
+        .filter((a) => a.creative_index === creativeIndex && a.status !== 'superseded')
+        .sort((a, b) => b.version - a.version)[0];
+      if (!latest) {
+        return res.status(404).json({ success: false, error: 'Creative asset not found.' });
+      }
+
+      const overlay = (latest.overlay || {}) as Record<string, any>;
+      const formatRecord = overlay.formatStatus?.[targetRatio];
+      if (!formatRecord || !formatRecord.compositeUrl) {
+        return res.status(400).json({ error: `Placement ${targetRatio} has not been generated yet.` });
+      }
+
+      if (formatRecord.evaluation?.status !== 'passed' || formatRecord.status === 'failed') {
+        return res.status(400).json({
+          error: `Placement ${targetRatio} does not satisfy quality standards required for approval.`,
+        });
+      }
+
+      const approvalHistory = Array.isArray(overlay.approvalHistory) ? [...overlay.approvalHistory] : [];
+      approvalHistory.push({
+        action: 'approved',
+        userId: userId(req),
+        timestamp: new Date().toISOString(),
+        documentVersion: latest.version,
+        evaluationScore: formatRecord.evaluation?.totalScore ?? null,
+        reason: `Format ${targetRatio} approved by user.`,
+      });
+
+      const updatedOverlay = {
+        ...overlay,
+        formatStatus: {
+          ...overlay.formatStatus,
+          [targetRatio]: {
+            ...formatRecord,
+            status: 'approved',
+            approvedAt: new Date().toISOString(),
+          },
+        },
+        approvalHistory,
+      };
+
+      await updateAsset(client, userId(req), runIdOf(req), creativeIndex, latest.version, {
+        overlay: updatedOverlay,
+      });
+
+      return res.json({
+        success: true,
+        aspectRatio: targetRatio,
+        formatStatus: updatedOverlay.formatStatus,
+      });
     }),
   );
 
