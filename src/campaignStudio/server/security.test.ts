@@ -403,17 +403,8 @@ test('security: isCreativeEligibleForExport enforces strict multi-gate criteria'
     version: 1,
     status: 'ready',
     image_url: 'https://cdn.example.com/creative.png',
-    headline: 'Dewy Skin Overnight',
-    subheadline: 'Cold pressed organic rosehip oil',
-    cta_text: 'Shop Now',
     aspect_ratio: '1:1',
     storage_path: 'creatives/1.png',
-    generation_status: 'succeeded',
-    qa_status: 'passed',
-    qa_score: 9.2,
-    approval_status: 'approved',
-    approved_by: USER_A_ID,
-    approved_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
     overlay: {
       renderedCompositeUrl: 'https://cdn.example.com/composite.png',
@@ -434,7 +425,6 @@ test('security: isCreativeEligibleForExport enforces strict multi-gate criteria'
   // Unapproved creative: ineligible
   const unapprovedAsset: CampaignAsset = {
     ...baseAsset,
-    approval_status: 'pending_review',
     overlay: {
       ...baseAsset.overlay,
       approvalStatus: 'pending_review',
@@ -445,8 +435,6 @@ test('security: isCreativeEligibleForExport enforces strict multi-gate criteria'
   // Failed QA score: ineligible
   const failedQaAsset: CampaignAsset = {
     ...baseAsset,
-    qa_status: 'failed',
-    qa_score: 5.4,
     overlay: {
       ...baseAsset.overlay,
       evaluation: {
@@ -462,7 +450,6 @@ test('security: isCreativeEligibleForExport enforces strict multi-gate criteria'
   // Unverified QA: ineligible under user export
   const unverifiedAsset: CampaignAsset = {
     ...baseAsset,
-    qa_status: 'unverified',
     overlay: {
       ...baseAsset.overlay,
       evaluation: {
