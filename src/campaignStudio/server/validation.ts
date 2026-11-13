@@ -359,7 +359,12 @@ export function validateAddProductImageInput(body: unknown): ValidationResult<Ad
     if (storagePath.length > 500) {
       return { ok: false, error: 'storagePath is too long.' };
     }
-    if (storagePath.includes('..') || !STORAGE_PATH_RE.test(storagePath)) {
+    if (
+      storagePath.includes('..') ||
+      storagePath.startsWith('/') ||
+      storagePath.startsWith('\\') ||
+      !STORAGE_PATH_RE.test(storagePath)
+    ) {
       return { ok: false, error: 'storagePath contains invalid characters.' };
     }
     if (!IMAGE_EXT_RE.test(storagePath)) {
