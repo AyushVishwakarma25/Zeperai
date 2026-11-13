@@ -42,7 +42,7 @@ test('svgRenderer: escapeXml sanitizes hostile characters and quotes', () => {
 
 test('svgRenderer: wrapText calculates word breaks without truncation', () => {
   const shortText = 'Breakfast Ready In 60 Seconds Flat';
-  const lines = wrapText(shortText, 800, 48, 'Poppins');
+  const lines = wrapText(shortText, 500, 48, 'Poppins');
   assert.ok(lines.length >= 2, `Expected at least 2 lines, got ${lines.length}`);
   assert.equal(lines.join(' '), shortText, 'Wrapped text must preserve all original words');
 

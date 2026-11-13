@@ -108,3 +108,16 @@ test('textMeasurer: CTA button fit and overflow detection', () => {
   assert.equal(ctaLayout.truncated, true, 'Single-line CTA with long text should trigger truncation warning');
   assert.ok(ctaLayout.warnings.some((w) => w.includes('truncated')));
 });
+
+test('textMeasurer: production layout exposes native Resvg measurement metrics', () => {
+  const layout = measureTextLayout('100% Organic Pure Cold-Pressed Seed Oil', {
+    fontFamily: 'Poppins',
+    fontWeight: 700,
+    fontSize: 24,
+    maxWidthPx: 500,
+  });
+
+  assert.equal(layout.measurementSource, 'native_resvg', 'Normal layout path must use native Resvg measurement');
+  assert.ok(layout.lines.length >= 1);
+  assert.ok(layout.totalWidth > 0);
+});

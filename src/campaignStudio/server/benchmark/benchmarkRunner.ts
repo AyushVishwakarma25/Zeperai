@@ -37,6 +37,7 @@ import { buildCreativeDocument } from '../composition/compositor.js';
 import { renderCreativeDocumentToSvg } from '../composition/svgRenderer.js';
 import { adaptMasterCreativeToAllFormats, META_PLACEMENT_SPECS } from '../adaptation/creativeAdapter.js';
 import { renderSvgToRasterBuffers } from '../export/rasterRenderer.js';
+import { callImageModel } from '../agents/creatives.js';
 
 export interface BenchmarkRunOptions {
   brands?: BenchmarkBrandFixture[];
@@ -499,6 +500,7 @@ export interface RealImageBenchmarkOptions {
   evaluatorVersion?: string;
   geminiClient?: any;
   fetcher?: any;
+  callRealImageModel?: boolean;
   reviewerRatings?: RealHumanReviewerScore[];
   onProgress?: (progress: { stage: string; current: number; total: number }) => void;
 }
@@ -552,9 +554,31 @@ export async function runRealImageBenchmark(
       }
 
       const blueprint = buildBenchmarkBlueprint(brand, concept);
+
+      // Invoke configured image-generation model when requested or client provided
+      let generatedImageUrl: string | null = null;
+      let generationLatencyMs = 0;
+      let generationError: string | null = null;
+      if (options.callRealImageModel && options.geminiClient) {
+        const tGenStart = Date.now();
+        try {
+          generatedImageUrl = await callImageModel({
+            prompt: concept.backgroundPrompt || `${brand.brandName} clean commercial product photography`,
+            aspectRatio: '1:1',
+            model: imageModel,
+            client: options.geminiClient,
+          });
+          generationLatencyMs = Date.now() - tGenStart;
+        } catch (genErr: any) {
+          generationLatencyMs = Date.now() - tGenStart;
+          generationError = genErr?.message || 'Image generation failed';
+        }
+      }
+
       const doc = buildCreativeDocument({
         blueprint,
         productImageUrl: concept.productImageUrl,
+        backgroundUrl: generatedImageUrl || undefined,
         brandName: brand.brandName,
         brandColors: brand.referenceAd.dna.colorPalette,
       });
@@ -600,6 +624,10 @@ export async function runRealImageBenchmark(
         evaluatorVersion,
         renderedPngBytes: pngBytes,
         renderedJpegBytes: jpegBytes,
+        generationLatencyMs,
+        generationError,
+        estimatedCostCredits: 1,
+        dimensions: { width: doc.canvas.width, height: doc.canvas.height },
         aiScores: evalRes?.scores ?? null,
         humanReviewerScores: humanScores,
         status: evalRes?.status ?? 'unverified',

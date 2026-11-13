@@ -74,6 +74,92 @@ function isSubstantiatedByClaim(candidateText: string, verifiedClaimText: string
 }
 
 /**
+ * Validates whether claim evidence meets strict provenance, source, and freshness criteria.
+ * Non-empty evidenceRef alone is insufficient; it must ground in verified brand sources,
+ * recognized catalogs, or active third-party documentation.
+ */
+export function validateClaimEvidenceProvenance(
+  claim: Partial<VerifiedClaim>,
+  brand: BrandContext,
+): { valid: boolean; reason?: string } {
+  if (!claim.evidenceRef || !claim.evidenceRef.trim()) {
+    return { valid: false, reason: 'Missing evidenceRef reference.' };
+  }
+
+  const ref = claim.evidenceRef.trim();
+
+  // Freshness verification: expired claims must fail validation
+  const expiry = (claim as any).expiryDate || (claim as any).validUntil;
+  if (expiry) {
+    const expiryTime = new Date(expiry).getTime();
+    if (Number.isFinite(expiryTime) && expiryTime < Date.now()) {
+      return { valid: false, reason: `Claim evidence expired on ${expiry}.` };
+    }
+  }
+
+  // Source & provenance verification against brand context
+  const source = claim.source;
+  const brandSources = Array.isArray(brand.sources) ? brand.sources : [];
+
+  if (source === 'product_catalog') {
+    // Must match a product in brand catalog
+    const productNameMatch = (brand.products || []).some(
+      (p) =>
+        ref.toLowerCase().includes(p.name.toLowerCase()) ||
+        claim.claimText?.toLowerCase().includes(p.name.toLowerCase()),
+    );
+    if (!productNameMatch && !ref.startsWith('product:')) {
+      return { valid: false, reason: `Product reference ${ref} not found in brand catalog.` };
+    }
+    return { valid: true };
+  }
+
+  if (source === 'shopify') {
+    const hasShopifySource = brandSources.some((s) => /myshopify\.com|shopify/i.test(s));
+    if (!hasShopifySource && !ref.startsWith('shopify:')) {
+      return { valid: false, reason: 'No Shopify integration or catalog evidence in brand sources.' };
+    }
+    return { valid: true };
+  }
+
+  if (source === 'confirmed_testimonial') {
+    if (!ref.startsWith('testimonial:') && !ref.startsWith('review:') && !brandSources.some((s) => s.includes(ref))) {
+      return { valid: false, reason: 'Testimonial evidence lacks provenance.' };
+    }
+    return { valid: true };
+  }
+
+  if (source === 'approved_offer') {
+    return { valid: true };
+  }
+
+  // Restricted categories: certifications and quantitative/clinical performance claims
+  // CANNOT be substantiated solely by user_provided hearsay without external documentation
+  if (claim.category === 'certification' || claim.category === 'performance_and_metric') {
+    const hasExternalDoc =
+      ref.startsWith('http://') ||
+      ref.startsWith('https://') ||
+      ref.startsWith('cert:') ||
+      ref.startsWith('lab:') ||
+      brandSources.some((s) => s.includes(ref));
+    if (!hasExternalDoc || source === 'user_provided') {
+      return {
+        valid: false,
+        reason: `Certification/clinical claim "${claim.claimText}" requires independent documentation, not unverified user input.`,
+      };
+    }
+    return { valid: true };
+  }
+
+  // User-provided facts can serve as brand marketing, but cannot elevate to independently verified facts
+  if (source === 'user_provided') {
+    return { valid: false, reason: 'User provided claims are brand-approved marketing only, not verified facts.' };
+  }
+
+  return { valid: true };
+}
+
+/**
  * Extracts and categorizes verified claims from BrandContext, Strategy, and User Facts.
  */
 export function extractVerifiedClaimsFromBrandContext(params: {
@@ -87,17 +173,18 @@ export function extractVerifiedClaimsFromBrandContext(params: {
   let claimCounter = 1;
   const makeId = (cat: string) => `claim-${cat}-${claimCounter++}`;
 
-  // 1. Explicit verified claims already attached to BrandContext
+  // 1. Explicit verified claims attached to BrandContext (with strict provenance validation)
   if (Array.isArray(brand.verifiedClaims)) {
     for (const c of brand.verifiedClaims) {
       if (c && c.claimText) {
-        const hasEvidence = Boolean(c.evidenceRef);
+        const provenance = validateClaimEvidenceProvenance(c, brand);
+        const isVerifiedFact = provenance.valid && c.source !== 'user_provided';
         claims.push({
           ...c,
           id: c.id || makeId(c.category),
-          verificationStatus: hasEvidence ? (c.verificationStatus || 'verified') : 'unverified',
+          verificationStatus: isVerifiedFact ? 'verified' : 'unverified',
           approvalStatus: c.approvalStatus || 'approved',
-          tier: hasEvidence ? (c.tier || 'verified_fact') : 'brand_approved_marketing',
+          tier: isVerifiedFact ? (c.tier || 'verified_fact') : 'brand_approved_marketing',
         });
       }
     }
@@ -337,6 +424,42 @@ export function detectFactualClaimViolations(
         claimText: match,
         category: 'scarcity_and_urgency',
         reason: `Unsupported scarcity/urgency claim "${match}" found without inventory or restock evidence.`,
+        location: locationDescription,
+      });
+    }
+  }
+
+  // 6. Quantitative Performance & Clinical Claims (e.g. "2x faster", "proven to reduce", "clinically proven")
+  if (CLAIM_PATTERNS.performanceAndMetric.test(text)) {
+    const match = text.match(CLAIM_PATTERNS.performanceAndMetric)?.[0] || 'Performance claim';
+    const isSupported = approvedClaims.some(
+      (c) =>
+        (c.category === 'performance_and_metric' || c.category === 'product_benefit') &&
+        isSubstantiatedByClaim(text, c.claimText),
+    );
+    if (!isSupported) {
+      violations.push({
+        claimText: match,
+        category: 'performance_and_metric',
+        reason: `Unsupported performance, clinical, or metric claim "${match}" found without independently verified clinical data.`,
+        location: locationDescription,
+      });
+    }
+  }
+
+  // 7. Regulatory & Certification Claims (e.g. "100% certified", "FDA approved", "organic certified")
+  if (CLAIM_PATTERNS.certification.test(text)) {
+    const match = text.match(CLAIM_PATTERNS.certification)?.[0] || 'Certification claim';
+    const isSupported = approvedClaims.some(
+      (c) =>
+        (c.category === 'certification' || c.category === 'product_feature') &&
+        isSubstantiatedByClaim(text, c.claimText),
+    );
+    if (!isSupported) {
+      violations.push({
+        claimText: match,
+        category: 'certification',
+        reason: `Unsupported certification or regulatory claim "${match}" found without verified certification evidence.`,
         location: locationDescription,
       });
     }

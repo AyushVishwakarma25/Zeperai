@@ -7,7 +7,43 @@
  * deterministic fallback profiles.
  */
 
+import fs from 'fs';
 import { Resvg } from '@resvg/resvg-js';
+
+const SYSTEM_FONT_CANDIDATES = [
+  // Windows
+  'C:/Windows/Fonts/segoeui.ttf',
+  'C:/Windows/Fonts/segoeuib.ttf',
+  'C:/Windows/Fonts/arial.ttf',
+  'C:/Windows/Fonts/arialbd.ttf',
+  'C:/Windows/Fonts/seguisym.ttf',
+  'C:/Windows/Fonts/Nirmala.ttf',
+  'C:/Windows/Fonts/meiryo.ttc',
+  // Linux / Docker
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+  '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
+  // macOS
+  '/System/Library/Fonts/SFNS.ttf',
+  '/Library/Fonts/Arial.ttf',
+];
+
+let cachedFontFiles: string[] | null = null;
+function getDiscoveredFontFiles(): string[] {
+  if (cachedFontFiles !== null) return cachedFontFiles;
+  try {
+    cachedFontFiles = SYSTEM_FONT_CANDIDATES.filter((p) => {
+      try {
+        return fs.existsSync(p);
+      } catch {
+        return false;
+      }
+    });
+  } catch {
+    cachedFontFiles = [];
+  }
+  return cachedFontFiles;
+}
 
 export interface TextMeasureOptions {
   fontFamily?: string;
@@ -32,6 +68,15 @@ export interface TextLayoutResult {
   overflow: boolean;
   truncated: boolean;
   warnings: string[];
+  measurementSource?: MeasurementSource;
+}
+
+export type MeasurementSource = 'native_resvg' | 'calibrated_fallback';
+
+export interface ExactTextMeasurement {
+  width: number;
+  height: number;
+  source: MeasurementSource;
 }
 
 export interface CharacterMetricCategory {
@@ -228,8 +273,8 @@ export function measureTextExactWithResvg(
   fontWeight: number | string = 700,
   fontSizePx: number = 24,
   letterSpacingPx: number = 0,
-): { width: number; height: number } {
-  if (!text) return { width: 0, height: 0 };
+): ExactTextMeasurement {
+  if (!text) return { width: 0, height: 0, source: 'native_resvg' };
 
   const weightNum = normalizeFontWeight(fontWeight);
   const roundedSize = Math.round(fontSizePx * 10) / 10;
@@ -237,12 +282,16 @@ export function measureTextExactWithResvg(
   const cacheKey = `${fontFamily}|${weightNum}|${roundedSize}|${roundedLs}|${text}`;
 
   const cached = RESVG_MEASURE_CACHE.get(cacheKey);
-  if (cached) return cached;
+  if (cached) return cached as ExactTextMeasurement;
 
   // For single characters, instant calibrated lookup is sub-microsecond
   if (text.length === 1 && roundedLs === 0) {
     const charW = measureCharWidth(text, fontFamily, weightNum, roundedSize);
-    const result = { width: Math.round(charW * 10) / 10, height: Math.round(roundedSize * 1.25) };
+    const result: ExactTextMeasurement = {
+      width: Math.round(charW * 10) / 10,
+      height: Math.round(roundedSize * 1.25),
+      source: 'native_resvg',
+    };
     RESVG_MEASURE_CACHE.set(cacheKey, result);
     return result;
   }
@@ -263,9 +312,11 @@ export function measureTextExactWithResvg(
   <text id="target" x="0" y="${yBaseline}" font-family="${fontFamily}, 'Segoe UI', 'Roboto', sans-serif" font-size="${roundedSize}" font-weight="${weightNum}" ${lsAttr}>${safeText}</text>
 </svg>`;
 
+    const discoveredFonts = getDiscoveredFontFiles();
     const resvg = new Resvg(svg, {
       font: {
-        loadSystemFonts: true,
+        loadSystemFonts: discoveredFonts.length === 0,
+        fontFiles: discoveredFonts.length > 0 ? discoveredFonts : undefined,
         defaultFontFamily: 'sans-serif',
       },
       logLevel: 'error',
@@ -273,9 +324,10 @@ export function measureTextExactWithResvg(
 
     const bbox = resvg.getBBox();
     if (bbox && Number.isFinite(bbox.width) && bbox.width > 0) {
-      const result = {
+      const result: ExactTextMeasurement = {
         width: Math.round(bbox.width * 10) / 10,
         height: Math.round(bbox.height * 10) / 10,
+        source: 'native_resvg',
       };
 
       if (RESVG_MEASURE_CACHE.size >= MAX_CACHE_SIZE) {
@@ -295,9 +347,10 @@ export function measureTextExactWithResvg(
     letterSpacing: roundedLs,
   });
 
-  const fallbackResult = {
+  const fallbackResult: ExactTextMeasurement = {
     width: fallbackWidth,
     height: Math.round(roundedSize * 1.25),
+    source: 'calibrated_fallback',
   };
 
   if (RESVG_MEASURE_CACHE.size >= MAX_CACHE_SIZE) {
@@ -309,6 +362,7 @@ export function measureTextExactWithResvg(
 
 /**
  * Measures the exact pixel width of a string with letter spacing, font weight, and family.
+ * Production measurement routes through native Resvg measurement engine.
  */
 export function measureTextWidth(
   text: string,
@@ -325,12 +379,41 @@ export function measureTextWidth(
   if (options.textTransform === 'uppercase') formatted = text.toUpperCase();
   else if (options.textTransform === 'lowercase') formatted = text.toLowerCase();
 
-  return measureTextWidthHeuristic(formatted, {
-    fontFamily: options.fontFamily || 'Poppins',
-    fontWeight: options.fontWeight ?? 700,
-    fontSize: options.fontSize,
-    letterSpacing: options.letterSpacing ?? 0,
-  });
+  const exact = measureTextExactWithResvg(
+    formatted,
+    options.fontFamily || 'Poppins',
+    options.fontWeight ?? 700,
+    options.fontSize,
+    options.letterSpacing ?? 0,
+  );
+  return exact.width;
+}
+
+/**
+ * Detailed text measurement exposing native vs fallback measurement source.
+ */
+export function measureTextWithSource(
+  text: string,
+  options: {
+    fontFamily?: string;
+    fontWeight?: number | string;
+    fontSize: number;
+    letterSpacing?: number;
+    textTransform?: 'uppercase' | 'lowercase' | 'none';
+  },
+): ExactTextMeasurement {
+  if (!text) return { width: 0, height: 0, source: 'native_resvg' };
+  let formatted = text;
+  if (options.textTransform === 'uppercase') formatted = text.toUpperCase();
+  else if (options.textTransform === 'lowercase') formatted = text.toLowerCase();
+
+  return measureTextExactWithResvg(
+    formatted,
+    options.fontFamily || 'Poppins',
+    options.fontWeight ?? 700,
+    options.fontSize,
+    options.letterSpacing ?? 0,
+  );
 }
 
 /**
@@ -367,8 +450,17 @@ export function measureTextLayout(text: string, options: TextMeasureOptions): Te
       overflow: false,
       truncated: false,
       warnings,
+      measurementSource: 'native_resvg',
     };
   }
+
+  const sampleCheck = measureTextWithSource(formatted.slice(0, 100), {
+    fontFamily,
+    fontWeight,
+    fontSize,
+    letterSpacing,
+  });
+  const measurementSource = sampleCheck.source;
 
   const words = formatted.trim().split(/\s+/);
   const lines: string[] = [];
@@ -452,5 +544,6 @@ export function measureTextLayout(text: string, options: TextMeasureOptions): Te
     overflow,
     truncated,
     warnings,
+    measurementSource,
   };
 }

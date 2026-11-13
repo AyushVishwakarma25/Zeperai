@@ -216,6 +216,10 @@ export interface RealImageBenchmarkRecord {
   evaluatorVersion: string;
   renderedPngBytes: number;
   renderedJpegBytes: number;
+  generationLatencyMs?: number;
+  generationError?: string | null;
+  estimatedCostCredits?: number;
+  dimensions?: { width: number; height: number };
   aiScores: BenchmarkEvaluationMetrics | null;
   humanReviewerScores?: RealHumanReviewerScore[];
   status: EvaluationStatus;

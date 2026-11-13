@@ -475,12 +475,18 @@ export type CreativeApprovalStatus = 'pending_review' | 'approved' | 'needs_revi
 
 export interface CreativeApprovalRecord {
   approvedByUserId?: string;
-  approvedAt: string;
+  userId?: string;
+  approvedAt?: string;
+  timestamp?: string;
   creativeVersion: number;
-  documentVersion: number;
+  documentVersion?: number;
+  placementRatio?: StandardAspectRatio;
+  placementVersion?: number;
   evaluationId?: string;
+  evaluationScore?: number | null;
   approvalNotes?: string;
-  action: 'approved' | 'revision_requested' | 'reset';
+  reason?: string;
+  action: 'approved' | 'revision_requested' | 'reset' | 'format_approved';
 }
 
 export type CreativeLifecycleStatus =
@@ -506,6 +512,10 @@ export interface CreativeFormatDetail {
   compositeUrl?: string;
   error?: string;
   adaptedAt?: string;
+  evaluation?: any;
+  modelUsed?: string;
+  creditsCharged?: number;
+  operationId?: string;
 }
 
 export type CreativeErrorCode =

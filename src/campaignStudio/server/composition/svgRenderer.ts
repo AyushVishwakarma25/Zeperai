@@ -311,10 +311,10 @@ function renderTextLayer(layer: CreativeLayer, x: number, y: number, w: number, 
   });
 
   const warningComment = layout.warnings.length > 0
-    ? `\n      <!-- Typography warnings: ${layout.warnings.map(escapeXmlComment).join('; ')} -->`
+    ? `\n    <!-- Typography warnings: ${layout.warnings.map(escapeXmlComment).join('; ')} -->`
     : '';
 
-  return `    <!-- Layer: Text (${escapeXmlComment(layer.name)})${warningComment} -->
+  return `    <!-- Layer: Text (${escapeXmlComment(layer.name)}) -->${warningComment}
     <g id="${escapeXml(layer.id)}" filter="url(#text-glow-shadow)">
       <text x="${textX}" y="${startY}" text-anchor="${anchor}" font-family="${escapeXml(fontFamily)}" font-size="${fontSize}" font-weight="${fontWeight}" fill="${escapeXml(color)}" letter-spacing="${letterSpacing}">
         ${tspans.join('\n        ')}
