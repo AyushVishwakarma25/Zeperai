@@ -24,6 +24,10 @@ export function escapeXml(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
+export function escapeXmlComment(str: string): string {
+  return escapeXml(str).replace(/--+/g, '-');
+}
+
 /**
  * Splits text into lines that fit within a specified pixel width using calibrated glyph metrics.
  */
@@ -199,7 +203,7 @@ function renderImageLayer(layer: CreativeLayer, x: number, y: number, w: number,
   const imgUrl = (layer.content as string) || (layer.styles.imageUrl as string) || '';
   const opacity = (layer.styles.opacity as number) ?? 1;
 
-  return `    <!-- Layer: Image Graphic (${escapeXml(layer.name)}) -->
+  return `    <!-- Layer: Image Graphic (${escapeXmlComment(layer.name)}) -->
     <g id="${escapeXml(layer.id)}" opacity="${opacity}">
       <image href="${escapeXml(imgUrl)}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet" />
     </g>`;
@@ -245,7 +249,7 @@ function renderPillLayer(layer: CreativeLayer, x: number, y: number, w: number, 
   const textX = actualX + Math.round(actualW / 2);
   const textY = y + Math.round(h / 2) + Math.round(fontSize * 0.35);
 
-  return `    <!-- Layer: ${layer.type === 'badge' ? 'Badge' : 'CTA Button'} (${escapeXml(layer.name)}) -->
+  return `    <!-- Layer: ${layer.type === 'badge' ? 'Badge' : 'CTA Button'} (${escapeXmlComment(layer.name)}) -->
     <g id="${escapeXml(layer.id)}" filter="url(#button-shadow)">
       <rect x="${actualX}" y="${y}" width="${actualW}" height="${h}" rx="${radius}" fill="${escapeXml(bg)}" ${strokeAttr} />
       <text x="${textX}" y="${textY}" text-anchor="middle" font-family="${escapeXml(fontFamily)}" font-size="${fontSize}" font-weight="${fontWeight}" fill="${escapeXml(textColor)}" letter-spacing="0.5">
@@ -259,7 +263,7 @@ function renderShapeLayer(layer: CreativeLayer, x: number, y: number, w: number,
   const radius = parseNumericStyle(layer.styles.borderRadius, 16);
   const opacity = parseNumericStyle(layer.styles.opacity, 1);
 
-  return `    <!-- Layer: Accent Shape (${escapeXml(layer.name)}) -->
+  return `    <!-- Layer: Accent Shape (${escapeXmlComment(layer.name)}) -->
     <g id="${escapeXml(layer.id)}" opacity="${opacity}">
       <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${radius}" fill="${escapeXml(fill)}" />
     </g>`;
@@ -307,10 +311,10 @@ function renderTextLayer(layer: CreativeLayer, x: number, y: number, w: number, 
   });
 
   const warningComment = layout.warnings.length > 0
-    ? `\n      <!-- Typography warnings: ${layout.warnings.map(escapeXml).join('; ')} -->`
+    ? `\n      <!-- Typography warnings: ${layout.warnings.map(escapeXmlComment).join('; ')} -->`
     : '';
 
-  return `    <!-- Layer: Text (${escapeXml(layer.name)})${warningComment} -->
+  return `    <!-- Layer: Text (${escapeXmlComment(layer.name)})${warningComment} -->
     <g id="${escapeXml(layer.id)}" filter="url(#text-glow-shadow)">
       <text x="${textX}" y="${startY}" text-anchor="${anchor}" font-family="${escapeXml(fontFamily)}" font-size="${fontSize}" font-weight="${fontWeight}" fill="${escapeXml(color)}" letter-spacing="${letterSpacing}">
         ${tspans.join('\n        ')}
@@ -322,7 +326,7 @@ function renderDividerLayer(layer: CreativeLayer, x: number, y: number, w: numbe
   const color = (layer.styles.color as string) || 'rgba(255,255,255,0.2)';
   const strokeWidth = (layer.styles.strokeWidth as number) || 1;
 
-  return `    <!-- Layer: Divider (${escapeXml(layer.name)}) -->
+  return `    <!-- Layer: Divider (${escapeXmlComment(layer.name)}) -->
     <g id="${escapeXml(layer.id)}">
       <line x1="${x}" y1="${y}" x2="${x + w}" y2="${y}" stroke="${escapeXml(color)}" stroke-width="${strokeWidth}" />
     </g>`;

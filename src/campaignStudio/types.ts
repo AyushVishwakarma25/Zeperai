@@ -455,9 +455,9 @@ export interface QualityIssue {
 
 export interface CreativeEvaluation {
   creativeId: string;
-  totalScore: number;
+  totalScore: number | null;
   status: EvaluationStatus;
-  scores: CreativeQualityScores;
+  scores: CreativeQualityScores | null;
   issues: QualityIssue[];
   hardRuleFailures: string[];
   passed: boolean;
@@ -472,6 +472,16 @@ export interface CreativeEvaluation {
 
 /** Text/logo layer composited on top of a generated image. */
 export type CreativeApprovalStatus = 'pending_review' | 'approved' | 'needs_revision';
+
+export interface CreativeApprovalRecord {
+  approvedByUserId?: string;
+  approvedAt: string;
+  creativeVersion: number;
+  documentVersion: number;
+  evaluationId?: string;
+  approvalNotes?: string;
+  action: 'approved' | 'revision_requested' | 'reset';
+}
 
 export type CreativeLifecycleStatus =
   | 'Generating'
@@ -534,7 +544,11 @@ export interface CreativeOverlay {
   /** Explicit human review and approval status */
   approvalStatus?: CreativeApprovalStatus;
   approvedAt?: string;
+  approvedByUserId?: string;
+  documentVersionAtApproval?: number;
   userNotes?: string;
+  /** Full approval and revision audit history */
+  approvalHistory?: CreativeApprovalRecord[];
   /** Structured user-safe error details when generation or compositing fails */
   errorDetail?: StructuredCreativeError;
   /** Per-format adaptation and AI generation tracking */
@@ -546,10 +560,10 @@ export interface CreativeOverlay {
  * A creative is NEVER marked "Approved" or "Ready" merely because raw image generation succeeded.
  * - Generating: Still in queue or generating
  * - Failed: Generation or credit charging failed
- * - Needs Revision: Hard compliance failure or user requested changes
+ * - Needs Revision: Hard compliance failure, rejected QA, or user requested changes
  * - QA Incomplete: Partial / unverified evaluation without critical failures
- * - Ready for Review: Verified QA, awaiting explicit human approval
- * - Approved: Explicitly approved by user without unresolved critical failures
+ * - Ready for Review: Verified QA (deterministic & multimodal vision passed), awaiting explicit human approval
+ * - Approved: Explicitly approved by user without unresolved critical failures, matching current document version
  */
 export function resolveCreativeLifecycleStatus(asset: CampaignAsset): CreativeLifecycleStatus {
   if (asset.status === 'generating' || asset.status === 'queued') {
@@ -572,13 +586,42 @@ export function resolveCreativeLifecycleStatus(asset: CampaignAsset): CreativeLi
     return 'Needs Revision';
   }
 
-  // Explicit human approval (only valid when no hard rule failures exist)
+  // Explicit human approval (requires passed evaluation, no critical issues, matching document version)
   if (overlay.approvalStatus === 'approved') {
-    return 'Approved';
+    const isApprovedValid =
+      asset.status === 'ready' &&
+      Boolean(overlay.renderedCompositeUrl || asset.image_url) &&
+      evaluation?.status === 'passed' &&
+      evaluation?.approvalEligible === true &&
+      evaluation?.visual?.checksRun === true &&
+      evaluation?.visual?.status === 'passed' &&
+      hardRuleFailures.length === 0 &&
+      (!overlay.document?.version || evaluation?.documentVersion === overlay.document.version);
+
+    if (isApprovedValid) {
+      return 'Approved';
+    }
+
+    if (
+      !evaluation ||
+      evaluation.status === 'unverified' ||
+      evaluation.status === 'partially_evaluated' ||
+      !evaluation.visual?.checksRun ||
+      (overlay.document?.version && evaluation.documentVersion !== overlay.document.version)
+    ) {
+      return 'QA Incomplete';
+    }
+    return 'Needs Revision';
   }
 
   // Partial / unverified evaluation
-  if (!evaluation || evaluation.status === 'partially_evaluated' || evaluation.status === 'unverified' || !evaluation.visual?.checksRun) {
+  if (
+    !evaluation ||
+    evaluation.status === 'partially_evaluated' ||
+    evaluation.status === 'unverified' ||
+    !evaluation.visual?.checksRun ||
+    evaluation.visual?.status !== 'passed'
+  ) {
     return 'QA Incomplete';
   }
 
@@ -588,15 +631,25 @@ export function resolveCreativeLifecycleStatus(asset: CampaignAsset): CreativeLi
 
 /**
  * Checks whether an asset is eligible for production Meta campaign export.
- * Strictest standard: must be successfully generated, approved by user, with 0 hard failures.
+ * Strictest standard: must be successfully generated, approved by user, with 0 hard failures,
+ * passed multimodal visual QA, and valid document version match.
  */
 export function isCreativeEligibleForExport(asset: CampaignAsset, allowUnverified = false): boolean {
   if (asset.status !== 'ready') return false;
   const overlay = (asset.overlay || {}) as CreativeOverlay;
-  const hardFailures = overlay.evaluation?.hardRuleFailures ?? [];
+  const evaluation = overlay.evaluation;
+  const hardFailures = evaluation?.hardRuleFailures ?? [];
   if (hardFailures.length > 0) return false;
+  if (!overlay.renderedCompositeUrl && !asset.image_url) return false;
   if (overlay.approvalStatus !== 'approved') return false;
-  if (!allowUnverified && overlay.evaluation?.status === 'unverified') return false;
+
+  if (!allowUnverified) {
+    if (!evaluation || evaluation.status !== 'passed' || !evaluation.approvalEligible) return false;
+    if (!evaluation.visual?.checksRun || evaluation.visual.status !== 'passed') return false;
+    if (overlay.document?.version && evaluation.documentVersion !== overlay.document.version) return false;
+    const hasCriticalIssues = evaluation.issues?.some((i) => i.severity === 'critical');
+    if (hasCriticalIssues) return false;
+  }
   return true;
 }
 

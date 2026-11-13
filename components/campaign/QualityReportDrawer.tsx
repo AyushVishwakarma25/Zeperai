@@ -24,17 +24,9 @@ export const QualityReportDrawer: React.FC<Props> = ({
 }) => {
   if (!isOpen) return null;
 
-  const totalScore = evaluation?.totalScore ?? 0;
+  const totalScore = evaluation?.totalScore;
   const status = evaluation?.status ?? 'unverified';
-  const scores = evaluation?.scores ?? {
-    visualHierarchy: 0,
-    productAccuracy: 0,
-    brandConsistency: 0,
-    typography: 0,
-    visualQuality: 0,
-    messageClarity: 0,
-    technicalCompliance: 0,
-  };
+  const scores = evaluation?.scores ?? null;
   const issues = evaluation?.issues ?? [];
   const hardRuleFailures = evaluation?.hardRuleFailures ?? [];
   const isVisualVerified = Boolean(evaluation?.visual?.checksRun && evaluation.visual.status === 'passed');
@@ -46,9 +38,15 @@ export const QualityReportDrawer: React.FC<Props> = ({
   if (isCriticalFailed) {
     statusBadgeClasses = 'bg-rose-50 text-rose-700 border-rose-200';
     statusLabel = 'Critical QA Failure';
+  } else if (status === 'unverified') {
+    statusBadgeClasses = 'bg-slate-100 text-slate-700 border-slate-300';
+    statusLabel = 'Unverified (Visual QA Incomplete)';
   } else if (isPartial) {
     statusBadgeClasses = 'bg-amber-50 text-amber-800 border-amber-200';
     statusLabel = 'QA Incomplete (Deterministic Only)';
+  } else if (status === 'needs_improvement') {
+    statusBadgeClasses = 'bg-amber-50 text-amber-800 border-amber-200';
+    statusLabel = 'Needs Improvement';
   }
 
   return (
@@ -97,9 +95,9 @@ export const QualityReportDrawer: React.FC<Props> = ({
               </span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-3xl font-black text-slate-900 tracking-tight">
-                  {totalScore}
+                  {totalScore != null ? totalScore : 'Unverified'}
                 </span>
-                <span className="text-slate-400 font-semibold text-sm">/ 100</span>
+                {totalScore != null && <span className="text-slate-400 font-semibold text-sm">/ 100</span>}
               </div>
               <span className={`inline-block mt-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${statusBadgeClasses}`}>
                 {statusLabel}
@@ -113,7 +111,7 @@ export const QualityReportDrawer: React.FC<Props> = ({
               </span>
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-xs">
                 <Icon name={isVisualVerified ? 'check-circle' : 'alert-circle'} className={`w-3.5 h-3.5 ${isVisualVerified ? 'text-emerald-500' : 'text-amber-500'}`} />
-                {isVisualVerified ? 'Full 7-Dimension' : 'Deterministic Only'}
+                {isVisualVerified ? 'Full Multimodal 7-D' : 'Deterministic Only'}
               </span>
             </div>
           </div>
@@ -142,10 +140,12 @@ export const QualityReportDrawer: React.FC<Props> = ({
               <Icon name="info" className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div className="space-y-1 text-[11px] leading-relaxed">
                 <p className="font-semibold text-amber-800">
-                  Provisional Evaluation Notice
+                  Visual Evaluation Incomplete Notice
                 </p>
                 <p className="text-amber-700">
-                  This score reflects 100% verified structural checks (bounding containment, aspect ratio, copy presence, and layer alignment). Visual aesthetics and lighting subtlety remain unverified. Human review is recommended.
+                  {status === 'unverified'
+                    ? 'Visual AI evaluation has not yet run or encountered a timeout. Scores are not estimated or fabricated. Please run visual QA or inspect manually.'
+                    : 'This creative reflects verified structural checks (bounding containment, aspect ratio, copy presence, and layer alignment). Visual aesthetics and lighting subtlety remain unverified.'}
                 </p>
               </div>
             </div>
@@ -161,13 +161,13 @@ export const QualityReportDrawer: React.FC<Props> = ({
             </div>
 
             <div className="space-y-2.5 bg-white p-3.5 rounded-xl border border-slate-200">
-              <DimensionMeter label="Visual Hierarchy & Composition" score={scores.visualHierarchy} max={20} verified />
-              <DimensionMeter label="Product Packaging & Fidelity" score={scores.productAccuracy} max={20} verified />
-              <DimensionMeter label="Brand Consistency & Palette" score={scores.brandConsistency} max={15} verified />
-              <DimensionMeter label="Typography Readability & Contrast" score={scores.typography} max={15} verified />
-              <DimensionMeter label="Visual Texture & Lighting Polish" score={scores.visualQuality} max={15} verified={isVisualVerified} />
-              <DimensionMeter label="Advertising Hook & Message Clarity" score={scores.messageClarity} max={10} verified />
-              <DimensionMeter label="Technical Compliance & Margins" score={scores.technicalCompliance} max={5} verified />
+              <DimensionMeter label="Visual Hierarchy & Composition" score={scores?.visualHierarchy} max={20} verified={isVisualVerified} />
+              <DimensionMeter label="Product Packaging & Fidelity" score={scores?.productAccuracy} max={20} verified={isVisualVerified} />
+              <DimensionMeter label="Brand Consistency & Palette" score={scores?.brandConsistency} max={15} verified={isVisualVerified} />
+              <DimensionMeter label="Typography Readability & Contrast" score={scores?.typography} max={15} verified={isVisualVerified} />
+              <DimensionMeter label="Visual Texture & Lighting Polish" score={scores?.visualQuality} max={15} verified={isVisualVerified} />
+              <DimensionMeter label="Advertising Hook & Message Clarity" score={scores?.messageClarity} max={10} verified={isVisualVerified} />
+              <DimensionMeter label="Technical Compliance & Margins" score={scores?.technicalCompliance} max={5} verified={isVisualVerified} />
             </div>
           </div>
 
@@ -276,12 +276,19 @@ export const QualityReportDrawer: React.FC<Props> = ({
 
 const DimensionMeter: React.FC<{
   label: string;
-  score: number;
+  score?: number | null;
   max: number;
   verified: boolean;
 }> = ({ label, score, max, verified }) => {
-  const pct = Math.min(100, Math.round((score / max) * 100));
-  const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 60 ? 'bg-amber-500' : 'bg-rose-500';
+  const isScored = typeof score === 'number' && !isNaN(score);
+  const pct = isScored ? Math.min(100, Math.round((score / max) * 100)) : 0;
+  const barColor = !isScored
+    ? 'bg-slate-200'
+    : pct >= 80
+      ? 'bg-emerald-500'
+      : pct >= 60
+        ? 'bg-amber-500'
+        : 'bg-rose-500';
 
   return (
     <div className="space-y-1">
@@ -290,18 +297,18 @@ const DimensionMeter: React.FC<{
           <span className="font-medium text-slate-700">{label}</span>
           {!verified && (
             <span className="text-[9px] px-1 rounded bg-slate-100 text-slate-400 font-mono">
-              provisional
+              unverified
             </span>
           )}
         </div>
         <span className="font-bold text-slate-800">
-          {score} <span className="text-slate-400 font-normal">/ {max}</span>
+          {isScored ? score : '—'} <span className="text-slate-400 font-normal">/ {max}</span>
         </span>
       </div>
       <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
         <div
           className={`h-full ${barColor} rounded-full transition-all duration-300`}
-          style={{ width: `${pct}%` }}
+          style={{ width: isScored ? `${pct}%` : '0%' }}
         />
       </div>
     </div>

@@ -51,6 +51,14 @@ export interface ManifestAssetEntry {
   };
 }
 
+export interface ExcludedPlacementDetail {
+  conceptIndex: number;
+  conceptTitle: string;
+  placement: string;
+  aspectRatio: StandardAspectRatio;
+  reason: string;
+}
+
 export interface CampaignExportManifest {
   manifestVersion: string;
   campaignId: string;
@@ -62,10 +70,13 @@ export interface CampaignExportManifest {
     totalConcepts: number;
     approvedConcepts: number;
     excludedConcepts: number;
+    totalPlacementsGenerated?: number;
+    excludedPlacementsCount?: number;
     allPassed: boolean;
     unverifiedOverrideApplied: boolean;
     warnings: string[];
   };
+  excludedPlacements?: ExcludedPlacementDetail[];
   assets: ManifestAssetEntry[];
 }
 
@@ -349,14 +360,57 @@ export async function buildMetaAdPackageZip(
 
   // 2. Generate Assets for each approved concept across all 4 ratios
   const manifestAssets: ManifestAssetEntry[] = [];
+  const excludedPlacements: ExcludedPlacementDetail[] = [];
   const ratios: StandardAspectRatio[] = ['1:1', '4:5', '9:16', '1.91:1'];
 
   for (const concept of approvedConcepts) {
     for (const ratio of ratios) {
-      const variation = concept.variations[ratio];
-      if (!variation?.document) continue;
-
       const spec = META_PLACEMENT_SPECS[ratio];
+      const variation = concept.variations[ratio];
+      if (!variation?.document) {
+        excludedPlacements.push({
+          conceptIndex: concept.creativeIndex,
+          conceptTitle: concept.title,
+          placement: spec.placements.join(', '),
+          aspectRatio: ratio,
+          reason: 'Placement document was not generated or adapted.',
+        });
+        continue;
+      }
+
+      if (variation.status === 'rejected' && !allowUnverified) {
+        excludedPlacements.push({
+          conceptIndex: concept.creativeIndex,
+          conceptTitle: concept.title,
+          placement: spec.placements.join(', '),
+          aspectRatio: ratio,
+          reason: 'Placement adaptation was rejected during review.',
+        });
+        continue;
+      }
+
+      if (variation.manualReviewNeeded && !allowUnverified) {
+        excludedPlacements.push({
+          conceptIndex: concept.creativeIndex,
+          conceptTitle: concept.title,
+          placement: spec.placements.join(', '),
+          aspectRatio: ratio,
+          reason: variation.manualReviewReason || 'Placement requires manual review for layout safety.',
+        });
+        continue;
+      }
+
+      if (variation.evaluation && !variation.evaluation.passed && !allowUnverified) {
+        excludedPlacements.push({
+          conceptIndex: concept.creativeIndex,
+          conceptTitle: concept.title,
+          placement: spec.placements.join(', '),
+          aspectRatio: ratio,
+          reason: `Placement failed automated QA (${variation.evaluation.hardRuleFailures.join('; ') || 'score below threshold'}).`,
+        });
+        continue;
+      }
+
       const targetWidth = variation.document.canvas?.width || spec.dimensions.width;
       const targetHeight = variation.document.canvas?.height || spec.dimensions.height;
 
@@ -501,7 +555,7 @@ export async function buildMetaAdPackageZip(
 
   // 3. Add manifest.json
   const manifest: CampaignExportManifest = {
-    manifestVersion: '2.0.0',
+    manifestVersion: '2.1.0',
     campaignId: pkg.runId,
     brandName: pkg.brandName,
     campaignObjective: pkg.campaignObjective,
@@ -511,10 +565,13 @@ export async function buildMetaAdPackageZip(
       totalConcepts: pkg.concepts.length,
       approvedConcepts: approvedConcepts.length,
       excludedConcepts: excludedConcepts.length,
+      totalPlacementsGenerated: manifestAssets.filter((a) => a.fileFormat === 'png').length,
+      excludedPlacementsCount: excludedPlacements.length,
       allPassed: manifestAssets.every((a) => a.qaStatus.passed),
       unverifiedOverrideApplied: allowUnverified,
       warnings,
     },
+    excludedPlacements: excludedPlacements.length > 0 ? excludedPlacements : undefined,
     assets: manifestAssets,
   };
   zip.addFile('manifest.json', JSON.stringify(manifest, null, 2));

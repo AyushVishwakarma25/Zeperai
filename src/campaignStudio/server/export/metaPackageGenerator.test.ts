@@ -268,16 +268,70 @@ test('extractVerifiedClaimsFromBrandContext: properly categorizes claims and tie
   assert.ok(productClaim);
   assert.equal(productClaim.tier, 'verified_fact');
 
-  // Brand USPs are brand-approved marketing
+  // Brand USPs are brand-approved marketing language, not independently verified
   const uspClaim = claims.find((c) => c.source === 'user_provided' && c.tier === 'brand_approved_marketing');
   assert.ok(uspClaim);
+  assert.equal(uspClaim.verificationStatus, 'unverified', 'Brand USPs must not be automatically marked verified');
 
-  // Approved strategy offer is verified fact
+  // Approved strategy offer
   const offerClaim = claims.find((c) => c.source === 'approved_offer');
   assert.ok(offerClaim);
   assert.equal(offerClaim.category, 'discount_and_pricing');
 
-  // User facts are verified facts
+  // User facts are classified as brand-approved marketing with unverified status (not verified_fact)
   const userFactClaim = claims.find((c) => c.evidenceRef === 'run:known_facts');
   assert.ok(userFactClaim);
+  assert.equal(userFactClaim.tier, 'brand_approved_marketing', 'User facts must not be auto-promoted to verified_fact');
+  assert.equal(userFactClaim.verificationStatus, 'unverified', 'User facts must remain unverified without independent evidence');
+});
+
+test('claimsEngine: strict advertising safety prevents false verification, unsupported numbers, and invented claims', () => {
+  const verifiedClaims: VerifiedClaim[] = [
+    {
+      id: 'claim-1',
+      claimText: 'Pure Cold Pressed Organic Jojoba Oil',
+      category: 'product_feature',
+      source: 'product_catalog',
+      verificationStatus: 'verified',
+      approvalStatus: 'approved',
+      tier: 'verified_fact',
+      evidenceRef: 'catalog:sku_001',
+    },
+    {
+      id: 'claim-2',
+      claimText: 'Radiant Skin Morning to Night',
+      category: 'product_benefit',
+      source: 'user_provided',
+      verificationStatus: 'unverified',
+      approvalStatus: 'approved',
+      tier: 'brand_approved_marketing',
+    },
+  ];
+
+  // 1. Unsupported numbers / ratings (e.g. "Rated 4.9 by 10,000 customers")
+  const ratingViolation = detectFactualClaimViolations('Rated 4.9 Stars by 10,000 happy customers', verifiedClaims, 'Hero Copy');
+  assert.equal(ratingViolation.length, 1);
+  assert.equal(ratingViolation[0].category, 'rating_and_review');
+  assert.ok(ratingViolation[0].reason.includes('without brand evidence'));
+
+  // 2. Unsupported discount / pricing offer (e.g. "Flat 50% Off Today")
+  const discountViolation = detectFactualClaimViolations('Get 50% OFF your entire order today', verifiedClaims, 'Offer CTA');
+  assert.equal(discountViolation.length, 1);
+  assert.equal(discountViolation[0].category, 'discount_and_pricing');
+  assert.ok(discountViolation[0].reason.includes('without approved offer evidence'));
+
+  // 3. Unsupported urgency / scarcity (e.g. "Only 3 left in stock")
+  const scarcityViolation = detectFactualClaimViolations('Hurry, only 3 left in stock now', verifiedClaims, 'Urgency Badge');
+  assert.equal(scarcityViolation.length, 1);
+  assert.equal(scarcityViolation[0].category, 'scarcity_and_urgency');
+
+  // 4. Unsupported performance improvement / medical claims (e.g. "Proven to reduce wrinkles by 80%")
+  const performanceClaim = 'Clinically proven to reduce lines by 40%';
+  const hasPerf = CLAIM_PATTERNS.performanceAndMetric.test(performanceClaim);
+  assert.ok(hasPerf, 'Regex must catch clinical / metric improvement claims');
+
+  // 5. Approved brand marketing without fabricated regulatory claims passes cleanly
+  const safeBrandBenefit = 'Experience Radiant Skin Morning to Night with pure cold pressed jojoba';
+  const safeViolations = detectFactualClaimViolations(safeBrandBenefit, verifiedClaims, 'Brand Tagline');
+  assert.equal(safeViolations.length, 0, 'Safe brand benefit must pass claim safety audit');
 });

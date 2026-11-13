@@ -679,7 +679,7 @@ export const CreativesView: React.FC<Props> = ({ runId, assets = [], readOnly = 
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 transition-colors shadow-2xs cursor-pointer"
                   >
                     <Icon name="shield-check" className="w-3.5 h-3.5 text-primary" />
-                    <span>QA Audit ({overlay.evaluation?.totalScore ?? '—'}/100)</span>
+                    <span>QA Audit ({overlay.evaluation?.totalScore != null ? `${overlay.evaluation.totalScore}/100` : 'Unverified'})</span>
                   </button>
                 </div>
               </div>

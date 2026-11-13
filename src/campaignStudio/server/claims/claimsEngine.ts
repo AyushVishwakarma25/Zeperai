@@ -36,7 +36,7 @@ export const CLAIM_PATTERNS = {
   guarantee: /\b(100%|money-back|satisfaction|risk-free|ironclad|quality)\s*(guarantee|guaranteed|warranty)\b/i,
   discountAndPricing: /\b(\d+%\s*off|save\s*(₹|\$|€|£)?\s*\d+|flat\s*(₹|\$|€|£)?\s*\d+|buy\s*1\s*get\s*1|bogo|cashback|free\s*gift)\b/i,
   scarcityAndUrgency: /\b(limited\s*(edition|stock|time|run)|almost\s*gone|only\s*\d+\s*left|selling\s*fast|restock|hurry|flash\s*sale|ends\s*(today|tonight))\b/i,
-  performanceAndMetric: /\b(\d+x\s*(faster|stronger|better)|proven to reduce \d+%|clinical(ly)? tested|\d+%\s*(more|less|improvement))\b/i,
+  performanceAndMetric: /\b(\d+x\s*(faster|stronger|better)|proven to reduce|\bproven to\b|clinical(ly)?\s*(tested|proven)|\d+%\s*(more|less|improvement|reduction)|reduce\s+.*?by\s+\d+%)\b/i,
   certification: /\b(100%\s*certified|iso\s*\d+|fda\s*approved|organic certified|dermatologically tested|lab tested)\b/i,
 };
 
@@ -91,12 +91,13 @@ export function extractVerifiedClaimsFromBrandContext(params: {
   if (Array.isArray(brand.verifiedClaims)) {
     for (const c of brand.verifiedClaims) {
       if (c && c.claimText) {
+        const hasEvidence = Boolean(c.evidenceRef);
         claims.push({
           ...c,
           id: c.id || makeId(c.category),
-          verificationStatus: c.verificationStatus || 'verified',
+          verificationStatus: hasEvidence ? (c.verificationStatus || 'verified') : 'unverified',
           approvalStatus: c.approvalStatus || 'approved',
-          tier: c.tier || 'verified_fact',
+          tier: hasEvidence ? (c.tier || 'verified_fact') : 'brand_approved_marketing',
         });
       }
     }
@@ -119,10 +120,10 @@ export function extractVerifiedClaimsFromBrandContext(params: {
       claimText: text,
       category,
       source: 'user_provided',
-      verificationStatus: 'verified',
+      verificationStatus: 'unverified', // Brand-approved language unless independently substantiated
       approvalStatus: 'approved',
       tier: 'brand_approved_marketing',
-      confidenceScore: 1.0,
+      confidenceScore: 0.9,
     });
   }
 
@@ -147,9 +148,9 @@ export function extractVerifiedClaimsFromBrandContext(params: {
         claimText: product.description,
         category: 'product_feature',
         source: 'product_catalog',
-        verificationStatus: 'verified',
+        verificationStatus: 'unverified',
         approvalStatus: 'approved',
-        tier: 'verified_fact',
+        tier: 'brand_approved_marketing',
         evidenceRef: `product_desc:${product.name}`,
       });
     }
@@ -160,9 +161,9 @@ export function extractVerifiedClaimsFromBrandContext(params: {
         claimText: product.priceHint,
         category: 'discount_and_pricing',
         source: 'product_catalog',
-        verificationStatus: 'verified',
+        verificationStatus: 'unverified', // Requires reliable current source & timestamp, not stale hints
         approvalStatus: 'approved',
-        tier: 'verified_fact',
+        tier: 'brand_approved_marketing',
         evidenceRef: `product_price:${product.name}`,
       });
     }
@@ -175,15 +176,17 @@ export function extractVerifiedClaimsFromBrandContext(params: {
     if (CLAIM_PATTERNS.shippingAndDelivery.test(offer)) category = 'shipping_and_delivery';
     else if (CLAIM_PATTERNS.scarcityAndUrgency.test(offer)) category = 'scarcity_and_urgency';
 
+    const hasDiscountOrScarcity = CLAIM_PATTERNS.discountAndPricing.test(offer) || CLAIM_PATTERNS.scarcityAndUrgency.test(offer);
+
     claims.push({
       id: makeId(category),
       claimText: offer,
       category,
       source: 'approved_offer',
-      verificationStatus: 'verified',
+      verificationStatus: hasDiscountOrScarcity ? 'unverified' : 'verified',
       approvalStatus: 'approved',
-      tier: 'verified_fact',
-      confidenceScore: 1.0,
+      tier: 'brand_approved_marketing',
+      confidenceScore: 0.95,
       evidenceRef: 'strategy:offer',
     });
   }
@@ -197,10 +200,10 @@ export function extractVerifiedClaimsFromBrandContext(params: {
         claimText: line,
         category: 'product_feature',
         source: 'user_provided',
-        verificationStatus: 'verified',
+        verificationStatus: 'unverified', // User provided facts are not automatically classified as verified facts
         approvalStatus: 'approved',
-        tier: 'verified_fact',
-        confidenceScore: 1.0,
+        tier: 'brand_approved_marketing',
+        confidenceScore: 0.8,
         evidenceRef: 'run:known_facts',
       });
     }
@@ -217,14 +220,30 @@ export function findMatchingVerifiedClaim(
   claims: VerifiedClaim[],
   candidateText?: string,
 ): VerifiedClaim | undefined {
-  const matching = claims.filter(
+  // First prefer independently verified facts
+  const verifiedFacts = claims.filter(
     (c) => c.category === category && c.verificationStatus === 'verified' && c.approvalStatus === 'approved',
   );
 
-  if (matching.length === 0) return undefined;
-  if (!candidateText) return matching[0];
+  if (verifiedFacts.length > 0) {
+    if (!candidateText) return verifiedFacts[0];
+    const match = verifiedFacts.find((c) => isSubstantiatedByClaim(candidateText, c.claimText));
+    if (match) return match;
+    return verifiedFacts[0];
+  }
 
-  return matching.find((c) => isSubstantiatedByClaim(candidateText, c.claimText)) || matching[0];
+  // Fallback to brand-approved marketing ONLY for non-regulatory benefits/features
+  if (category === 'product_benefit' || category === 'product_feature') {
+    const brandMarketing = claims.filter(
+      (c) => c.category === category && c.approvalStatus === 'approved',
+    );
+    if (brandMarketing.length > 0) {
+      if (!candidateText) return brandMarketing[0];
+      return brandMarketing.find((c) => isSubstantiatedByClaim(candidateText, c.claimText)) || brandMarketing[0];
+    }
+  }
+
+  return undefined;
 }
 
 /**

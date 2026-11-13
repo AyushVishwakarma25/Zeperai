@@ -575,10 +575,21 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
       }
 
       const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
+      const masterPromptsStep = runDetail?.steps?.find((s) => s.agent === 'master_prompts' && s.status === 'approved');
+      const prompts = (masterPromptsStep?.output as any)?.prompts || [];
+      const promptObj = prompts[creativeIndex - 1];
+      const creativeDirStep = runDetail?.steps?.find((s) => s.agent === 'creative_direction' && s.status === 'approved');
+      const blueprints = (creativeDirStep?.output as any)?.blueprints || [];
+      const blueprint = blueprints[creativeIndex - 1] || overlay.blueprint;
+
       const evaluation = await evaluateCreative({
         doc,
+        blueprint,
         brand: runDetail?.run?.brand_context as BrandContext | undefined,
         client: deps.overrides?.geminiClient,
+        compositeUrl: overlay.renderedCompositeUrl || latest.image_url,
+        referenceImageUrls: promptObj?.referenceImageUrls || (runDetail?.run?.brand_context as any)?.products?.flatMap((p: any) => p.imageUrls || []),
+        fetcher: deps.overrides?.fetcher,
       });
 
       const updatedOverlay = {
@@ -667,12 +678,28 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         client: deps.overrides?.geminiClient,
       });
 
-      const updatedOverlay = {
+      const updatedOverlay: Record<string, any> = {
         ...overlay,
         document: regenResult.document,
         renderedCompositeUrl: regenResult.compositeUrl,
         evaluation: regenResult.evaluation,
+        approvalStatus: 'pending_review',
+        approvalHistory: [
+          ...(Array.isArray(overlay.approvalHistory) ? overlay.approvalHistory : []),
+          {
+            approvedByUserId: userId(req),
+            approvedAt: new Date().toISOString(),
+            creativeVersion: latest.version,
+            documentVersion: regenResult.document.version,
+            evaluationId: regenResult.evaluation?.creativeId,
+            approvalNotes: `Approval invalidated by targeted regeneration of ${component}`,
+            action: 'reset' as const,
+          },
+        ],
       };
+      delete updatedOverlay.approvedAt;
+      delete updatedOverlay.approvedByUserId;
+      delete updatedOverlay.documentVersionAtApproval;
 
       await updateAsset(client, userId(req), runIdOf(req), creativeIndex, latest.version, {
         overlay: updatedOverlay,
@@ -723,12 +750,28 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
       const revertResult = revertCreativeToVersion(doc, targetVersion);
       const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
 
-      const updatedOverlay = {
+      const updatedOverlay: Record<string, any> = {
         ...overlay,
         document: revertResult.document,
         renderedCompositeUrl: revertResult.compositeUrl,
         evaluation: revertResult.evaluation,
+        approvalStatus: 'pending_review',
+        approvalHistory: [
+          ...(Array.isArray(overlay.approvalHistory) ? overlay.approvalHistory : []),
+          {
+            approvedByUserId: userId(req),
+            approvedAt: new Date().toISOString(),
+            creativeVersion: latest.version,
+            documentVersion: revertResult.document.version,
+            evaluationId: revertResult.evaluation?.creativeId,
+            approvalNotes: `Approval invalidated by reverting creative to version ${targetVersion}`,
+            action: 'reset' as const,
+          },
+        ],
       };
+      delete updatedOverlay.approvedAt;
+      delete updatedOverlay.approvedByUserId;
+      delete updatedOverlay.documentVersionAtApproval;
 
       await updateAsset(client, userId(req), runIdOf(req), creativeIndex, latest.version, {
         overlay: updatedOverlay,
@@ -876,6 +919,21 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
       const hardFailures = evaluation?.hardRuleFailures ?? [];
 
       if (action === 'approve') {
+        if (latest.status !== 'ready') {
+          throw new AppError('Generation Incomplete', 400, 'Image generation must complete successfully before approving.');
+        }
+        if (!overlay.renderedCompositeUrl && !latest.image_url) {
+          throw new AppError('Missing Rendered Creative', 400, 'Final rendered creative image is missing.');
+        }
+        if (!evaluation) {
+          throw new AppError('Missing Quality Evaluation', 400, 'Autonomous quality evaluation has not been conducted for this creative.');
+        }
+        if (evaluation.status !== 'passed' || !evaluation.approvalEligible) {
+          throw new AppError('QA Not Passed', 400, `Cannot approve creative: evaluation status is "${evaluation.status}". QA must pass first.`);
+        }
+        if (!evaluation.visual?.checksRun || evaluation.visual.status !== 'passed') {
+          throw new AppError('Visual QA Incomplete', 400, 'Multimodal visual quality checks must be completed and passed before approval.');
+        }
         if (hardFailures.length > 0) {
           throw new AppError(
             'Critical QA Failures',
@@ -883,21 +941,60 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
             `Cannot approve creative with critical QA failures (${hardFailures.join('; ')}). Please resolve issues first.`,
           );
         }
-        if (evaluation?.status === 'failed' || evaluation?.status === 'rejected') {
-          throw new AppError(
-            'QA Failed',
-            400,
-            'Cannot approve creative that failed autonomous quality evaluation.',
-          );
+        const hasCriticalIssue = evaluation.issues?.some((i: any) => i.severity === 'critical');
+        if (hasCriticalIssue) {
+          throw new AppError('Critical Diagnostic Issues', 400, 'Cannot approve creative with unresolved critical issues.');
         }
+        if (overlay.document?.version && evaluation.documentVersion !== overlay.document.version) {
+          throw new AppError('Stale Evaluation', 400, `Evaluation was performed on document version ${evaluation.documentVersion}, but current document is version ${overlay.document.version}. Re-evaluate before approval.`);
+        }
+
+        const approvalRecord = {
+          approvedByUserId: userId(req),
+          approvedAt: new Date().toISOString(),
+          creativeVersion: latest.version,
+          documentVersion: overlay.document?.version ?? 1,
+          evaluationId: evaluation.creativeId || evaluation.evaluatorVersion || 'eval-v2',
+          approvalNotes: notes,
+          action: 'approved' as const,
+        };
+
         overlay.approvalStatus = 'approved';
-        overlay.approvedAt = new Date().toISOString();
+        overlay.approvedAt = approvalRecord.approvedAt;
+        overlay.approvedByUserId = approvalRecord.approvedByUserId;
+        overlay.documentVersionAtApproval = approvalRecord.documentVersion;
         if (notes) overlay.userNotes = notes;
+
+        const history = Array.isArray(overlay.approvalHistory) ? overlay.approvalHistory : [];
+        overlay.approvalHistory = [...history, approvalRecord];
       } else if (action === 'request_revision') {
+        const revisionRecord = {
+          approvedByUserId: userId(req),
+          approvedAt: new Date().toISOString(),
+          creativeVersion: latest.version,
+          documentVersion: overlay.document?.version ?? 1,
+          approvalNotes: notes,
+          action: 'revision_requested' as const,
+        };
         overlay.approvalStatus = 'needs_revision';
         if (notes) overlay.userNotes = notes;
+        const history = Array.isArray(overlay.approvalHistory) ? overlay.approvalHistory : [];
+        overlay.approvalHistory = [...history, revisionRecord];
       } else {
+        const resetRecord = {
+          approvedByUserId: userId(req),
+          approvedAt: new Date().toISOString(),
+          creativeVersion: latest.version,
+          documentVersion: overlay.document?.version ?? 1,
+          approvalNotes: notes,
+          action: 'reset' as const,
+        };
         overlay.approvalStatus = 'pending_review';
+        delete overlay.approvedAt;
+        delete overlay.approvedByUserId;
+        delete overlay.documentVersionAtApproval;
+        const history = Array.isArray(overlay.approvalHistory) ? overlay.approvalHistory : [];
+        overlay.approvalHistory = [...history, resetRecord];
       }
 
       await updateAsset(client, userId(req), runIdOf(req), creativeIndex, latest.version, {
@@ -1124,12 +1221,12 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
       const strategyStep = runDetail.steps.find((s) => s.agent === 'strategy' && s.status === 'approved');
 
       // Export Eligibility Rule: Must have at least 1 approved & valid creative
-      const allowUnverified = req.query.allowUnverified === 'true' || req.query.force === 'true';
-      const eligibleAssets = assets.filter((a) => a.status !== 'superseded' && isCreativeEligibleForExport(a, allowUnverified));
-      if (eligibleAssets.length === 0 && !allowUnverified) {
+      // Notice: allowUnverified and force query params are completely removed from user export.
+      const eligibleAssets = assets.filter((a) => a.status !== 'superseded' && isCreativeEligibleForExport(a, false));
+      if (eligibleAssets.length === 0) {
         return res.status(400).json({
           success: false,
-          error: 'No approved creatives are ready for export. Please review and approve at least one creative before downloading the Meta Ad Package.',
+          error: 'No approved creatives are ready for export. Every creative must have passed multimodal visual QA and received explicit human approval before downloading the Meta Ad Package.',
         });
       }
 
@@ -1142,8 +1239,57 @@ export function registerCampaignStudioRoutes(app: Express, deps: CampaignStudioD
         assets,
       });
 
-      const zipBuffer = await buildMetaAdPackageZip(pkg, { allowUnverified });
+      const zipBuffer = await buildMetaAdPackageZip(pkg, { allowUnverified: false });
       const filename = `campaign-${runIdOf(req).slice(0, 8)}-meta-package.zip`;
+
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', zipBuffer.length.toString());
+      return res.send(zipBuffer);
+    }),
+  );
+
+  // Privileged Administrative Export Override (Strictly for platform administrators, with audit logging)
+  app.get(
+    `${BASE}/runs/:runId/admin-export-override`,
+    deps.requireAuth,
+    campaignGate,
+    asyncHandler(async (req: Request, res: Response) => {
+      const user = (req as any).user;
+      const isAdmin = user && (user.is_admin === true || user.role === 'admin' || user.user_metadata?.is_admin === true);
+      if (!isAdmin) {
+        throw new AppError('Forbidden', 403, 'Administrative export override requires verified platform administrator privileges.');
+      }
+
+      console.warn(`[AUDIT] Administrative export override executed by admin ${userId(req)} on run ${runIdOf(req)} at ${new Date().toISOString()}`);
+
+      const client = await deps.getAdminSupabaseClient();
+      const runDetail = await getRunDetail(client, userId(req), runIdOf(req));
+      if (!runDetail?.run) {
+        return res.status(404).json({ success: false, error: 'Run not found.' });
+      }
+
+      const brand = runDetail.run.brand_context;
+      if (!brand) {
+        return res.status(400).json({ success: false, error: 'Approved brand context is required.' });
+      }
+
+      const assets = await listAssets(client, userId(req), runIdOf(req));
+      const masterPromptsStep = runDetail.steps.find((s) => s.agent === 'master_prompts' && s.status === 'approved');
+      const creativeDirectionStep = runDetail.steps.find((s) => s.agent === 'creative_direction' && s.status === 'approved');
+      const strategyStep = runDetail.steps.find((s) => s.agent === 'strategy' && s.status === 'approved');
+
+      const pkg = buildMetaCampaignPackage({
+        run: runDetail.run,
+        brand: brand as BrandContext,
+        strategy: strategyStep?.output as any,
+        prompts: (masterPromptsStep?.output as any)?.prompts || [],
+        blueprints: (creativeDirectionStep?.output as any)?.blueprints || [],
+        assets,
+      });
+
+      const zipBuffer = await buildMetaAdPackageZip(pkg, { allowUnverified: true });
+      const filename = `campaign-${runIdOf(req).slice(0, 8)}-admin-override-meta-package.zip`;
 
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

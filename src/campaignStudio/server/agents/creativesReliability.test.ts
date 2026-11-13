@@ -92,11 +92,25 @@ test('resolveCreativeLifecycleStatus: correctly partitions all lifecycle states'
     ...readyAsset,
     overlay: {
       ...readyAsset.overlay,
+      renderedCompositeUrl: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+      document: {
+        id: 'doc-1',
+        conceptId: 'concept-1',
+        version: 1,
+        advertisingFormat: 'Promotional Product Advertisement',
+        designIntensity: 'balanced',
+        canvas: { width: 1080, height: 1080, aspectRatio: '1:1' },
+        layers: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
       evaluation: {
         ...readyAsset.overlay.evaluation!,
         totalScore: 84,
         status: 'passed',
         passed: true,
+        approvalEligible: true,
+        documentVersion: 1,
         hardRuleFailures: [],
         visual: { status: 'passed', checksRun: true },
       },
@@ -138,6 +152,19 @@ test('resolveCreativeLifecycleStatus: correctly partitions all lifecycle states'
     },
   };
   assert.equal(resolveCreativeLifecycleStatus(compromisedAsset), 'Needs Revision');
+
+  // 9. Document mutated after approval (version mismatch) -> Incomplete QA, cannot stay Approved!
+  const staleApprovedAsset: CampaignAsset = {
+    ...approvedAsset,
+    overlay: {
+      ...approvedAsset.overlay,
+      document: {
+        ...approvedAsset.overlay.document!,
+        version: 2, // doc incremented, eval is v1
+      },
+    },
+  };
+  assert.equal(resolveCreativeLifecycleStatus(staleApprovedAsset), 'QA Incomplete');
 });
 
 test('isCreativeEligibleForExport: strictly enforces explicit approval & critical rules', () => {
@@ -173,10 +200,11 @@ test('isCreativeEligibleForExport: strictly enforces explicit approval & critica
           creativeId: 'doc-1',
           totalScore: 70,
           status: 'partially_evaluated',
-          scores: {} as any,
+          scores: null,
           issues: [],
           hardRuleFailures: [],
           passed: false,
+          visual: { status: 'unverified', checksRun: false },
           evaluatedAt: '',
         },
       },
@@ -184,20 +212,35 @@ test('isCreativeEligibleForExport: strictly enforces explicit approval & critica
     false,
   );
 
-  // Approved creative with zero hard failures IS eligible
+  // Approved creative with zero hard failures, passed visual QA, matching doc version IS eligible
   assert.equal(
     isCreativeEligibleForExport({
       ...baseAsset,
       overlay: {
         approvalStatus: 'approved',
+        renderedCompositeUrl: 'data:image/png;base64,sample',
+        document: {
+          id: 'doc-1',
+          conceptId: 'concept-1',
+          version: 1,
+          advertisingFormat: 'Promotional',
+          designIntensity: 'balanced',
+          canvas: { width: 1080, height: 1080, aspectRatio: '1:1' },
+          layers: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
         evaluation: {
           creativeId: 'doc-1',
           totalScore: 82,
           status: 'passed',
-          scores: {} as any,
+          approvalEligible: true,
+          documentVersion: 1,
+          scores: null,
           issues: [],
           hardRuleFailures: [],
           passed: true,
+          visual: { status: 'passed', checksRun: true },
           evaluatedAt: '',
         },
       },
@@ -215,10 +258,48 @@ test('isCreativeEligibleForExport: strictly enforces explicit approval & critica
           creativeId: 'doc-1',
           totalScore: 82,
           status: 'passed',
-          scores: {} as any,
+          approvalEligible: true,
+          scores: null,
           issues: [],
           hardRuleFailures: ['Product label clipped.'],
           passed: false,
+          visual: { status: 'passed', checksRun: true },
+          evaluatedAt: '',
+        },
+      },
+    }),
+    false,
+  );
+
+  // Approved creative with document version mismatch is NOT eligible
+  assert.equal(
+    isCreativeEligibleForExport({
+      ...baseAsset,
+      overlay: {
+        approvalStatus: 'approved',
+        renderedCompositeUrl: 'data:image/png;base64,sample',
+        document: {
+          id: 'doc-1',
+          conceptId: 'concept-1',
+          version: 2,
+          advertisingFormat: 'Promotional',
+          designIntensity: 'balanced',
+          canvas: { width: 1080, height: 1080, aspectRatio: '1:1' },
+          layers: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        evaluation: {
+          creativeId: 'doc-1',
+          totalScore: 85,
+          status: 'passed',
+          approvalEligible: true,
+          documentVersion: 1, // Stale!
+          scores: null,
+          issues: [],
+          hardRuleFailures: [],
+          passed: true,
+          visual: { status: 'passed', checksRun: true },
           evaluatedAt: '',
         },
       },

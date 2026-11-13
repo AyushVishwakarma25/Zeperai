@@ -68,7 +68,7 @@ export const QualityScoreBadge: React.FC<Props> = ({ evaluation, onTargetedFix, 
         title="Click to view quality score breakdown & diagnostic audit"
       >
         <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-        <span>{totalScore}/100</span>
+        <span>{totalScore != null ? `${totalScore}/100` : 'Unverified'}</span>
         <span className="font-medium text-[10px] opacity-85">({label})</span>
         {!onOpenReport && (
           <Icon name={isOpen ? 'chevron-up' : 'chevron-down'} className="w-3 h-3 opacity-60 ml-0.5" />
@@ -89,7 +89,7 @@ export const QualityScoreBadge: React.FC<Props> = ({ evaluation, onTargetedFix, 
                 <p className="text-[11px] text-slate-500">Autonomous QA score across 7 commercial dimensions</p>
               </div>
               <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${toneClasses}`}>
-                {totalScore} / 100
+                {totalScore != null ? `${totalScore} / 100` : 'Unverified'}
               </span>
             </div>
 

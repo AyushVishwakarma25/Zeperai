@@ -263,7 +263,7 @@ test('acceptance: evaluates 5 distinct test cases (high quality, distorted produ
   assert.equal(evalCase2.passed, false, 'Distorted/missing product creative must fail evaluation');
   assert.equal(evalCase2.status, 'rejected');
   assert.ok(evalCase2.hardRuleFailures.some((f) => f.includes('product')));
-  assert.ok(evalCase2.scores.productAccuracy <= 5, 'Product score must be heavily penalized');
+  assert.ok(evalCase2.scores === null || evalCase2.scores.productAccuracy <= 5, 'Product score must be null or heavily penalized on rejection');
 
   // Case 3: Creative with Missing / Incorrect Promotional Offer
   const incorrectOfferBlueprint = createSampleBlueprint();
@@ -296,7 +296,7 @@ test('acceptance: evaluates 5 distinct test cases (high quality, distorted produ
   const evalCase4 = await evaluateCreative({ doc: poorCompositionDoc, blueprint, brand: BRAND, client: mockAiEvaluationClient });
   assert.equal(evalCase4.passed, false, 'Creative with clipped text must fail compliance');
   assert.equal(evalCase4.status, 'rejected');
-  assert.equal(evalCase4.scores.technicalCompliance, 0, 'Technical compliance score must be 0 for overflow');
+  assert.ok(evalCase4.scores === null || evalCase4.scores.technicalCompliance === 0, 'Technical compliance score must be null or 0 for overflow');
 
   // Case 5: Creative with Incorrect Dimensions
   const wrongDimensionsDoc = buildCreativeDocument({
@@ -360,6 +360,8 @@ test('qualityEvaluator: missing AI evaluation / AI call failure returns unverifi
   assert.equal(res.status, 'unverified', 'Status must be unverified when AI evaluation fails');
   assert.equal(res.passed, false, 'Creative must not be marked passed when AI evaluation failed');
   assert.equal(res.approvalEligible, false, 'Creative must not be approvalEligible when AI evaluation failed');
+  assert.equal(res.totalScore, null, 'Must NOT fabricate 64 score on failure');
+  assert.equal(res.scores, null, 'Must NOT fabricate scores on failure');
   assert.equal(res.visual?.status, 'unverified', 'Visual check status must be unverified');
   assert.equal(res.visual?.checksRun, false, 'Visual checksRun must be false');
   assert.ok(res.visual?.error?.includes('RESOURCE_EXHAUSTED'), 'Visual error must be recorded');
@@ -440,7 +442,7 @@ test('qualityEvaluator: records documentVersion, evaluatorVersion, and detects s
   const evalResult = await evaluateCreative({ doc, blueprint, brand: BRAND, client: mockAiClient });
 
   assert.equal(evalResult.documentVersion, doc.version);
-  assert.equal(evalResult.evaluatorVersion, '2.2.0');
+  assert.equal(evalResult.evaluatorVersion, '2.3.0');
   assert.ok(evalResult.evaluatedAt);
 
   // When doc version increments (e.g. after targeted regeneration or editing), old evaluation is stale
@@ -449,5 +451,67 @@ test('qualityEvaluator: records documentVersion, evaluatorVersion, and detects s
 
   const modifiedDoc = { ...doc, version: doc.version + 1 };
   assert.equal(isStale(evalResult, modifiedDoc), true, 'Version mismatch detected as stale');
+});
+
+test('qualityEvaluator: passes multimodal parts (rendered image + reference photos) to vision model', async () => {
+  const blueprint = createSampleBlueprint();
+  const doc = buildCreativeDocument({
+    blueprint,
+    backgroundUrl: 'https://images.example.com/clean-studio.jpg',
+    productImageUrl: 'https://images.example.com/packshot.png',
+    brandName: 'PRUSTLR',
+    brandColors: ['#0A0A0A', '#E4572E'],
+  });
+
+  let capturedContents: any = null;
+  const capturingAiClient = {
+    models: {
+      generateContent: async (args: any) => {
+        capturedContents = args.contents;
+        return {
+          text: JSON.stringify({
+            scores: { visualHierarchy: 19, productAccuracy: 19, brandConsistency: 14, typography: 14, visualQuality: 14, messageClarity: 9, technicalCompliance: 5 },
+            issues: [],
+          }),
+        };
+      },
+    },
+  };
+
+  const fakeFetcher = async (url: string) => {
+    return {
+      body: Buffer.from('FAKE_PRODUCT_JPEG_BYTES'),
+      contentType: 'image/jpeg',
+      finalUrl: url,
+      redirects: [],
+    };
+  };
+
+  const res = await evaluateCreative({
+    doc,
+    blueprint,
+    brand: BRAND,
+    client: capturingAiClient,
+    compositeUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    referenceImageUrls: ['https://cdn.example.com/ref1.jpg'],
+    fetcher: fakeFetcher as any,
+  });
+
+  assert.equal(res.passed, true);
+  assert.equal(res.status, 'passed');
+  assert.ok(capturedContents, 'Contents must be delivered to model');
+  assert.ok(Array.isArray(capturedContents.parts), 'Parts must be an array');
+
+  // Must contain rendered image part and reference photo part
+  const inlineParts = capturedContents.parts.filter((p: any) => p.inlineData);
+  assert.ok(inlineParts.length >= 2, `Expected at least 2 inline image parts (rendered creative + reference), got ${inlineParts.length}`);
+  assert.equal(inlineParts[0].inlineData.mimeType, 'image/png');
+  assert.equal(inlineParts[1].inlineData.mimeType, 'image/jpeg');
+
+  // Must contain prompt text context referencing multimodal inspection
+  const textPart = capturedContents.parts.find((p: any) => p.text);
+  assert.ok(textPart, 'Text part must be present');
+  assert.ok(textPart.text.includes('Multimodal Visual Inspection Task'));
+  assert.ok(textPart.text.includes('ground-truth reference'));
 });
 
