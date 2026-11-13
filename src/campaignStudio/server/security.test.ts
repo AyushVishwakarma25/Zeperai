@@ -405,7 +405,12 @@ test('security: isCreativeEligibleForExport enforces strict multi-gate criteria'
     image_url: 'https://cdn.example.com/creative.png',
     aspect_ratio: '1:1',
     storage_path: 'creatives/1.png',
+    prompt: 'A premium bottle of serum on sunlit marble',
+    model: 'gemini-2.5-flash-image',
+    credits_charged: 1,
+    error: null,
     created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
     overlay: {
       renderedCompositeUrl: 'https://cdn.example.com/composite.png',
       approvalStatus: 'approved',
